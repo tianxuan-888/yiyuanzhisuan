@@ -1,0 +1,35 @@
+import type { NextConfig } from 'next';
+import path from 'path';
+
+const nextConfig: NextConfig = {
+  // 禁用 Turbopack，强制使用 Webpack 构建
+  experimental: {
+    turbo: undefined,
+  },
+  // 显式指定 webpack 构建
+  webpack: (config, { isServer }) => {
+    return config;
+  },
+  allowedDevOrigins: ['*.dev.coze.site'],
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'lf-coze-web-cdn.coze.cn',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'coze-coding-project.tos.coze.site',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'code.coze.cn',
+        pathname: '/**',
+      },
+    ],
+  },
+};
+
+export default nextConfig;

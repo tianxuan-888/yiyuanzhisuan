@@ -1,0 +1,2700 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { 
+  Users, Zap, Package, Loader2, Send, Building2, 
+  RefreshCw, Plus, Bell, ChevronDown, ChevronUp,
+  Eye, DollarSign, ClipboardList, CheckCircle, XCircle, Database,
+  FileCheck, ClipboardCheck, User
+} from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+
+// 用户数据接口（兼容 useAuth 返回类型）
+interface UserData {
+  id: string;
+  username: string;
+  role: string;
+  phone: string | null;
+  real_name: string | null;
+  alipay_account: string | null;
+  provider_id: string | null;
+  inviter_id: string | null;
+  energy_value: number;
+  balance: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string | null;
+  branch_id?: string | null;
+  unique_id?: string;
+}
+
+interface Provider {
+  id: string;
+  username: string;
+  energy_value: number;
+  balance: number;
+  created_at: string;
+}
+
+interface Template {
+  id: string;
+  name: string;
+  code: string;
+  period: number;
+  total_rate: number;
+  market_rate: number;
+  profit_rate: number;
+  min_quota: number;
+  // 额度信息（来自分配记录）
+  quota_amount?: number;
+  used_amount?: number;
+  available_amount?: number;
+}
+
+interface QuotaAllocation {
+  id: string;
+  provider_id: string;
+  template_id: string;
+  quota_amount: number;
+  used_amount: number;
+  status: string;
+  created_at: string;
+  provider?: { id: string; username: string };
+  product_templates?: Template;
+}
+
+interface ProviderApplication {
+  id: string;
+  user_id: string;
+  applicant_name: string;
+  phone: string;
+  alipay_account: string;
+  apply_type: string;
+  quota_request: number;
+  status: string;
+  reject_reason?: string;
+  created_at: string;
+  users?: { id: string; username: string; real_name: string };
+}
+
+interface Stats {
+  provider_count: number;
+  member_count: number;
+  total_member_energy: number;
+  total_member_balance: number;
+  pending_sell_count: number;
+  pending_withdrawal_count: number;
+  total_quota?: number;
+  available_quota?: number;
+  used_quota?: number;
+}
+
+interface QuotaRequest {
+  id: string;
+  requested_amount: number;
+  approved_amount: number;
+  bonus_rate: number;
+  status: string;
+  created_at: string;
+}
+
+export default function BranchPage() {
+  const { user, loading: authLoading, logout } = useAuth('branch');
+  
+  // 统一的 API 请求方法（带认证）
+  const authFetch = async (url: string, options: RequestInit = {}) => {
+    const token = localStorage.getItem('token');
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(options.headers as Record<string, string>),
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(url, { ...options, headers });
+    return response;
+  };
+
+  const [stats, setStats] = useState<Stats>({
+    provider_count: 0,
+    member_count: 0,
+    total_member_energy: 0,
+    total_member_balance: 0,
+    pending_sell_count: 0,
+    pending_withdrawal_count: 0,
+  });
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [allocations, setAllocations] = useState<QuotaAllocation[]>([]);
+  const [applications, setApplications] = useState<ProviderApplication[]>([]);
+  const [quotaRequests, setQuotaRequests] = useState<QuotaRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  
+  // 服务商额度申请审批相关
+  const [providerQuotaRequests, setProviderQuotaRequests] = useState<any[]>([]);
+  const [quotaApiResult, setQuotaApiResult] = useState<any>(null);
+  const [energyTransactions, setEnergyTransactions] = useState<any[]>([]);
+  
+  // 能量值互转相关状态
+  const [showTransferDialog, setShowTransferDialog] = useState(false);
+  const [transferTargets, setTransferTargets] = useState<any[]>([]);
+  const [transferMembers, setTransferMembers] = useState<any[]>([]);
+  const [transferUserId, setTransferUserId] = useState("");
+  const [transferTarget, setTransferTarget] = useState("");
+  const [transferUserType, setTransferUserType] = useState<"provider" | "member" | "branch">("provider");
+  const [transferAmount, setTransferAmount] = useState("");
+  const [transferNote, setTransferNote] = useState("");
+  
+  // 分公司能量值余额
+  const [branchEnergyBalance, setBranchEnergyBalance] = useState(0);
+  
+  // 分公司申请能量值
+  const [branchApplyAmount, setBranchApplyAmount] = useState("");
+  
+  // 分公司列表（同级互转）
+  const [branchList, setBranchList] = useState<Array<{id: string; username: string; role: string}>>([]);
+  
+  // 分公司变现申请
+  const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [withdrawRequests, setWithdrawRequests] = useState<any[]>([]);
+
+  // 分公司能量值流转记录
+  const [energyRecords, setEnergyRecords] = useState<any[]>([]);
+  const [energyFilterType, setEnergyFilterType] = useState<string>('all');
+  const [energyStats, setEnergyStats] = useState({
+    totalIn: 0,
+    totalOut: 0,
+    rechargeCount: 0,
+    transferInCount: 0,
+    transferOutCount: 0,
+  });
+
+  // 加载能量值流转记录
+  const loadEnergyRecords = async (filterType: string = 'all') => {
+    const branchId = localStorage.getItem('userId');
+    if (!branchId) return;
+
+    try {
+      const response = await authFetch(`/api/branch/energy-records?branchId=${branchId}&type=${filterType}`);
+      const data = await response.json();
+      if (data.success) {
+        setEnergyRecords(data.data.records || []);
+        setEnergyStats(data.data.stats || energyStats);
+      }
+    } catch (error) {
+      console.error('加载能量值记录失败:', error);
+    }
+  };
+
+  // 能量值申请审批相关状态
+  const [energyRequests, setEnergyRequests] = useState<any[]>([]);
+  
+  // 能量值管理子Tab
+  const [energySubTab, setEnergySubTab] = useState<string>('records'); // records, review, transfer
+  
+  // 分公司向总公司申请能量值相关状态
+  const [myEnergyRequests, setMyEnergyRequests] = useState<any[]>([]);
+  const [myEnergyApplyPendingCount, setMyEnergyApplyPendingCount] = useState(0);
+  
+  // 服务商向本分公司申请能量值相关状态
+  const [providerEnergyRequests, setProviderEnergyRequests] = useState<any[]>([]);
+  
+  // 分配额度表单
+  const [showAllocateDialog, setShowAllocateDialog] = useState(false);
+  const [showQuotaApplyDialog, setShowQuotaApplyDialog] = useState(false);
+  const [showEnergyApplyDialog, setShowEnergyApplyDialog] = useState(false);
+  const [energyApplyAmount, setEnergyApplyAmount] = useState('');
+  const [energyApplyNote, setEnergyApplyNote] = useState('');
+  const [selectedProvider, setSelectedProvider] = useState<string>('');
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [quotaAmount, setQuotaAmount] = useState<string>('50000');
+  const [applyQuotaAmount, setApplyQuotaAmount] = useState<string>('');
+
+  // 打开分配额度对话框时刷新服务商列表
+  const openAllocateDialog = async () => {
+    const branchId = localStorage.getItem('userId');
+    if (!branchId) return;
+    
+    // 重新获取服务商列表
+    try {
+      const res = await authFetch(`/api/branch/providers?branchId=${branchId}`);
+      const data = await res.json();
+      if (data.success && data.data?.providers) {
+        setProviders(data.data.providers);
+      }
+    } catch (e) {
+      console.error('获取服务商列表失败:', e);
+    }
+    setShowAllocateDialog(true);
+  };
+
+  const loadData = useCallback(async () => {
+    const branchId = localStorage.getItem('userId');
+    const username = localStorage.getItem('username');
+    console.log('[loadData] START - branchId:', branchId, 'username:', username);
+    if (!branchId) {
+      console.log('loadData: branchId is null');
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    console.log('loadData token:', token ? 'exists' : 'null');
+    console.log('loadData branchId:', branchId);
+
+    // 辅助函数：解析 Promise.allSettled 的结果
+    const extractResult = async (result: PromiseSettledResult<Response>): Promise<any> => {
+      if (result.status === 'fulfilled') {
+        try {
+          return await result.value.json();
+        } catch {
+          return { success: false, error: 'JSON parse failed' };
+        }
+      } else {
+        console.error('API rejected:', result.reason);
+        return { success: false, error: 'Request failed' };
+      }
+    };
+
+    try {
+      console.log('[loadData] 开始发送API请求...');
+      const results = await Promise.allSettled([
+        fetch(`/api/branch/overview?branchId=${branchId}`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`/api/admin/branch-templates?branchId=${branchId}`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`/api/quota-allocations?branchId=${branchId}`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`/api/provider-applications?branchId=${branchId}&status=pending`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`/api/quota?userId=${branchId}`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`/api/quota-requests?requesterId=${branchId}&requesterType=branch`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`/api/branch/approve-quota?branchId=${branchId}&status=pending`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`/api/energy/branch-stats?branchId=${branchId}&username=${username || ''}`, { headers: { 'Authorization': `Bearer ${token}` } }),
+      ]);
+      console.log('[loadData] 所有API请求完成');
+      
+      // 调试：显示每个请求的状态
+      const requestNames = ['branch/overview', 'admin/branch-templates', 'quota-allocations', 'provider-applications', 'quota', 'quota-requests', 'branch/approve-quota', 'energy/branch-stats'];
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          console.error(`[loadData] 请求 ${requestNames[index]} 失败:`, result.reason);
+        } else if (!result.value.ok) {
+          console.error(`[loadData] 请求 ${requestNames[index]} HTTP错误:`, result.value.status);
+        } else {
+          console.log(`[loadData] 请求 ${requestNames[index]} HTTP状态:`, result.value.status);
+        }
+      });
+      
+      const [overviewData, branchTemplatesData, allocationsData, applicationsData, quotaData, myQuotaRequestsData, providerQuotaRequestsData, energyStatsData] = await Promise.all(results.map(extractResult));
+
+      console.log('[loadData] overviewData:', JSON.stringify(overviewData).substring(0, 500));
+
+      // 更新分公司能量值余额
+      if (energyStatsData.success && energyStatsData.data?.branch) {
+        console.log('[loadData] energyStatsData SUCCESS - branch balance:', energyStatsData.data.branch.balance);
+        setBranchEnergyBalance(energyStatsData.data.branch.balance || 0);
+      } else {
+        console.log('[loadData] energyStatsData result:', energyStatsData);
+      }
+
+      if (overviewData.success) {
+        setStats(prev => ({
+          ...prev,
+          ...overviewData.data.stats,
+        }));
+        setProviders(overviewData.data.providers || []);
+      }
+
+      // 从分配记录中提取模板信息
+      if (branchTemplatesData.success) {
+        const allocations = branchTemplatesData.data?.allocations || [];
+        // 将分配记录转换为模板格式
+        const templatesFromAllocations = allocations.map((alloc: any) => ({
+          id: alloc.template_id,
+          name: alloc.template_name,
+          code: alloc.template_code,
+          period: alloc.period,
+          total_rate: alloc.total_rate,
+          market_rate: alloc.market_rate,
+          profit_rate: alloc.profit_rate,
+          quota_amount: alloc.quota_amount,
+          used_amount: alloc.used_amount,
+          available_amount: alloc.quota_amount - alloc.used_amount,
+        }));
+        setTemplates(templatesFromAllocations);
+      }
+
+      if (allocationsData.success) {
+        // 兼容两种格式：数组或 { records: [], stats: {} }
+        const records = Array.isArray(allocationsData.data) 
+          ? allocationsData.data 
+          : (allocationsData.data?.records || []);
+        setAllocations(records);
+        // 如果有 stats 信息，也更新额度统计
+        if (allocationsData.data?.stats) {
+          setStats(prev => ({
+            ...prev,
+            total_quota: allocationsData.data.stats.totalQuota || 0,
+            available_quota: allocationsData.data.stats.availableQuota || 0,
+            used_quota: allocationsData.data.stats.usedQuota || 0,
+          }));
+        }
+      }
+
+      if (applicationsData.success) {
+        setApplications(applicationsData.data || []);
+      }
+
+      if (providerQuotaRequestsData.success) {
+        setProviderQuotaRequests(providerQuotaRequestsData.data || []);
+      }
+
+      console.log('[loadData] quotaData result:', JSON.stringify(quotaData));
+      setQuotaApiResult(quotaData); // 保存用于调试
+      if (quotaData.success && quotaData.data) {
+        console.log('[loadData] 更新额度: total_quota=', quotaData.data.total_quota, 'available_quota=', quotaData.data.available_quota);
+        setStats(prev => ({
+          ...prev,
+          total_quota: quotaData.data?.total_quota || 0,
+          available_quota: quotaData.data?.available_quota || 0,
+          used_quota: quotaData.data?.used_quota || 0,
+        }));
+      } else {
+        console.error('[loadData] quotaData FAILED:', quotaData);
+      }
+
+      if (myQuotaRequestsData.success) {
+        setQuotaRequests(myQuotaRequestsData.data || []);
+      }
+    } catch (error) {
+      console.error('加载数据失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    console.log('[useEffect] authLoading:', authLoading, 'user:', user ? user.name : null);
+    if (!authLoading && user) {
+      console.log('[useEffect] 触发 loadData');
+      loadData();
+    }
+  }, [authLoading, user, loadData]);
+
+  // 调试状态
+  const [showDebug, setShowDebug] = useState(false);
+  const [debugInfo, setDebugInfo] = useState({
+    localStorage: { userId: '', username: '', role: '' },
+    apiData: null as any,
+    error: ''
+  });
+
+  useEffect(() => {
+    setDebugInfo({
+      localStorage: {
+        userId: localStorage.getItem('userId') || '',
+        username: localStorage.getItem('userName') || '',
+        role: localStorage.getItem('userRole') || ''
+      },
+      apiData: { stats, providers, templates },
+      error: ''
+    });
+  }, [stats, providers, templates]);
+
+  const showMessage = (type: 'success' | 'error', text: string) => {
+    setMessage({ type, text });
+    setTimeout(() => setMessage(null), 3000);
+  };
+
+  // 分配额度给服务商
+  const handleAllocateQuota = async () => {
+    if (!selectedProvider || !selectedTemplate || !quotaAmount) {
+      showMessage('error', '请填写完整信息');
+      return;
+    }
+
+    const branchId = localStorage.getItem('userId');
+    if (!branchId) return;
+
+    setSubmitting(true);
+    try {
+      const response = await authFetch('/api/quota-allocations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          branchId,
+          providerId: selectedProvider,
+          templateId: selectedTemplate,
+          quotaAmount: parseFloat(quotaAmount),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        showMessage('success', data.message || '额度分配成功');
+        setShowAllocateDialog(false);
+        setSelectedProvider('');
+        setSelectedTemplate('');
+        setQuotaAmount('50000');
+        loadData();
+      } else {
+        showMessage('error', data.error || '分配失败');
+      }
+    } catch (error) {
+      showMessage('error', '网络错误');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // 审核服务商申请
+  const handleReviewApplication = async (applicationId: string, action: 'approve' | 'reject', quotaAllocated?: number) => {
+    const branchId = localStorage.getItem('userId');
+    if (!branchId) return;
+
+    setSubmitting(true);
+    try {
+      const response = await authFetch('/api/provider-applications/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          applicationId,
+          reviewerId: branchId,
+          action,
+          quotaAllocated: action === 'approve' ? (quotaAllocated || 50000) : undefined,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        showMessage('success', data.message || '审核完成');
+        loadData();
+      } else {
+        showMessage('error', data.error || '审核失败');
+      }
+    } catch (error) {
+      showMessage('error', '网络错误');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // 申请额度
+  const handleApplyQuota = async () => {
+    const branchId = localStorage.getItem('userId');
+    if (!branchId) return;
+
+    if (!applyQuotaAmount || parseFloat(applyQuotaAmount) < 10000) {
+      showMessage('error', '申请额度不能少于10,000元');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      // 总公司管理员ID
+      const ADMIN_ID = '00000000-0000-0000-0000-000000000001';
+
+      const response = await authFetch('/api/quota-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requesterId: branchId,
+          requesterType: 'branch',
+          parentId: ADMIN_ID,
+          requestedAmount: parseFloat(applyQuotaAmount),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        showMessage('success', data.message || '额度申请已提交，请等待总公司审核');
+        setShowQuotaApplyDialog(false);
+        setApplyQuotaAmount('');
+        loadData();
+      } else {
+        showMessage('error', data.error || '申请失败');
+      }
+    } catch (error) {
+      showMessage('error', '网络错误');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // 审批服务商额度申请
+  const handleApproveProviderQuota = async (requestId: string, action: 'approve' | 'reject', approvedAmount?: number) => {
+    const branchId = localStorage.getItem('userId');
+    if (!branchId) return;
+
+    setSubmitting(true);
+    try {
+      const response = await authFetch('/api/branch/approve-quota', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          request_id: requestId,
+          reviewer_id: branchId,
+          action,
+          approved_amount: action === 'approve' ? approvedAmount : undefined,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        showMessage('success', data.message || '审核完成');
+        loadProviderQuotaRequests();
+        loadData();
+      } else {
+        showMessage('error', data.error || '审核失败');
+      }
+    } catch (error) {
+      showMessage('error', '网络错误');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // 加载服务商额度申请记录
+  const [quotaFilterStatus, setQuotaFilterStatus] = useState<string>('pending');
+  const loadProviderQuotaRequests = async () => {
+    const branchId = localStorage.getItem('userId');
+    if (!branchId) return;
+
+    try {
+      const statusParam = quotaFilterStatus === 'all' ? '' : `&status=${quotaFilterStatus}`;
+      const response = await authFetch(`/api/branch/approve-quota?branchId=${branchId}${statusParam}&showAll=true`);
+      const data = await response.json();
+      if (data.success) {
+        setProviderQuotaRequests(data.data || []);
+      }
+    } catch (error) {
+      console.error('加载服务商额度申请失败:', error);
+    }
+  };
+
+  // 分公司向总公司申请能量值
+  const handleBranchApplyEnergy = async () => {
+    const amount = parseFloat(branchApplyAmount);
+    if (!amount || amount <= 0) {
+      showMessage('error', '请输入有效金额');
+      return;
+    }
+
+    if (amount < 50) {
+      showMessage('error', '申请金额最低为50能量值');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const branchId = localStorage.getItem('userId');
+      if (!branchId) return;
+
+      const response = await authFetch('/api/energy/branch-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          branchId: branchId,
+          amount: amount,
+          note: '分公司申请能量值'
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        showMessage('success', '申请已提交，等待总公司审核');
+        setBranchApplyAmount('');
+        loadEnergyRequests(); // 刷新申请记录
+      } else {
+        showMessage('error', data.error || '申请失败');
+      }
+    } catch (error) {
+      showMessage('error', '网络错误');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // 分公司申请变现能量值
+  const handleBranchWithdraw = async () => {
+    const amount = parseFloat(withdrawAmount);
+    if (!amount || amount <= 0) {
+      showMessage('error', '请输入有效金额');
+      return;
+    }
+
+    if (amount < 50) {
+      showMessage('error', '最低变现金额为50能量值');
+      return;
+    }
+
+    if (amount > branchEnergyBalance) {
+      showMessage('error', '能量值余额不足');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const branchId = localStorage.getItem('userId');
+      if (!branchId) return;
+
+      const response = await authFetch('/api/energy/withdraw-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: amount,
+          note: '分公司申请变现'
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        showMessage('success', data.message);
+        setWithdrawAmount('');
+        setShowWithdrawDialog(false);
+        loadWithdrawRequests();
+        // 刷新余额
+        loadEnergyBalance();
+      } else {
+        showMessage('error', data.error || '变现申请失败');
+      }
+    } catch (error) {
+      showMessage('error', '网络错误');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // 加载变现申请记录
+  const loadWithdrawRequests = async () => {
+    try {
+      const response = await authFetch('/api/energy/withdraw-request?role=branch');
+      const data = await response.json();
+      if (data.success) {
+        setWithdrawRequests(data.data || []);
+      }
+    } catch (error) {
+      console.error('加载变现申请记录失败:', error);
+    }
+  };
+
+  // 加载能量值余额
+  const loadEnergyBalance = async () => {
+    const branchId = localStorage.getItem('userId');
+    if (!branchId) return;
+
+    try {
+      const response = await authFetch(`/api/energy/account?userId=${branchId}`);
+      const data = await response.json();
+      if (data.success) {
+        setBranchEnergyBalance(data.data?.balance || 0);
+      }
+    } catch (error) {
+      console.error('加载能量值余额失败:', error);
+    }
+  };
+
+  // 加载转账对象列表
+  const loadTransferTargets = async () => {
+    const branchId = localStorage.getItem('userId');
+    if (!branchId) return;
+
+    try {
+      const response = await authFetch(`/api/energy/transfer-targets?userId=${branchId}`);
+      const data = await response.json();
+      if (data.success) {
+        // 确保数据是数组，避免渲染时报错
+        const providers = Array.isArray(data.data?.transfer_targets?.providers) 
+          ? data.data.transfer_targets.providers 
+          : [];
+        const members = Array.isArray(data.data?.transfer_targets?.members) 
+          ? data.data.transfer_targets.members 
+          : [];
+        setTransferTargets(providers);
+        setTransferMembers(members);
+      } else {
+        console.error('加载转账对象失败:', data.error);
+        setTransferTargets([]);
+        setTransferMembers([]);
+      }
+    } catch (error) {
+      console.error('加载转账对象列表失败:', error);
+      setTransferTargets([]);
+      setTransferMembers([]);
+    }
+  };
+
+  // 加载同级分公司列表
+  const loadBranchList = async () => {
+    try {
+      const response = await authFetch('/api/admin/branch-management');
+      const data = await response.json();
+      if (data.success) {
+        const branches = Array.isArray(data.data?.branches) 
+          ? data.data.branches.filter((b: any) => b.id !== localStorage.getItem('userId')) // 排除自己
+          : [];
+        setBranchList(branches);
+      } else {
+        setBranchList([]);
+      }
+    } catch (error) {
+      console.error('加载分公司列表失败:', error);
+      setBranchList([]);
+    }
+  };
+
+  // 处理能量值转账
+  const handleTransferEnergy = async () => {
+    const branchId = localStorage.getItem('userId');
+    if (!branchId || !transferUserId || !transferAmount) {
+      showMessage('error', '请填写完整信息');
+      return;
+    }
+
+    const amount = parseFloat(transferAmount);
+    if (amount < 50) {
+      showMessage('error', '转账金额不能少于50');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const response = await authFetch('/api/energy/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from_user_id: branchId,
+          to_user_id: transferUserId,
+          amount,
+          note: transferNote,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        showMessage('success', data.message);
+        setShowTransferDialog(false);
+        setTransferUserId('');
+        setTransferAmount('');
+        setTransferNote('');
+        loadData();
+      } else {
+        showMessage('error', data.error || '转账失败');
+      }
+    } catch (error) {
+      showMessage('error', '网络错误');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // 向总公司申请能量值
+  const handleApplyEnergy = async () => {
+    const branchId = localStorage.getItem('userId');
+    if (!branchId || !energyApplyAmount) {
+      showMessage('error', '请填写申请金额');
+      return;
+    }
+
+    const amount = parseFloat(energyApplyAmount);
+    if (amount <= 0) {
+      showMessage('error', '申请金额必须大于0');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const response = await authFetch('/api/energy/grant-to-branch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          branchId,
+          amount,
+          note: energyApplyNote,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        showMessage('success', data.message);
+        setShowEnergyApplyDialog(false);
+        setEnergyApplyAmount('');
+        setEnergyApplyNote('');
+        loadData();
+      } else {
+        showMessage('error', data.error || '申请失败');
+      }
+    } catch (error) {
+      showMessage('error', '网络错误');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // 加载能量值申请记录
+  const loadEnergyRequests = async () => {
+    const branchId = localStorage.getItem('userId');
+    if (!branchId) return;
+
+    try {
+      const response = await authFetch(`/api/branch/approve-energy-request?branchId=${branchId}&status=pending`);
+      const data = await response.json();
+      if (data.success) {
+        setEnergyRequests(data.data || []);
+      }
+    } catch (error) {
+      console.error('加载能量值申请失败:', error);
+    }
+  };
+
+  // 加载服务商向本分公司申请能量值的记录
+  const loadProviderEnergyRequests = async () => {
+    const branchId = localStorage.getItem('userId');
+    if (!branchId) return;
+
+    try {
+      const response = await authFetch(`/api/branch/provider-energy-requests?branchId=${branchId}`);
+      const data = await response.json();
+      if (data.success) {
+        setProviderEnergyRequests(data.data?.requests || []);
+      }
+    } catch (error) {
+      console.error('加载服务商能量值申请失败:', error);
+    }
+  };
+
+  // 加载分公司向总公司申请能量值的记录
+  const loadMyEnergyRequests = async () => {
+    const branchId = localStorage.getItem('userId');
+    if (!branchId) return;
+
+    try {
+      const response = await authFetch(`/api/energy/branch-request?branchId=${branchId}`);
+      const data = await response.json();
+      if (data.success && data.data) {
+        setMyEnergyRequests(data.data.records || []);
+        setMyEnergyApplyPendingCount(data.data.stats?.pending?.count || 0);
+      }
+    } catch (error) {
+      console.error('加载能量值申请记录失败:', error);
+    }
+  };
+
+  // 审核能量值申请
+  const handleApproveEnergyRequest = async (requestId: string, action: 'approve' | 'reject', note?: string) => {
+    const branchId = localStorage.getItem('userId');
+    if (!branchId) return;
+
+    setSubmitting(true);
+    try {
+      const response = await authFetch('/api/branch/approve-energy-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requestId,
+          branchId,
+          action,
+          note,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        showMessage('success', data.message);
+        loadEnergyRequests();
+        loadData();
+      } else {
+        showMessage('error', data.error || '操作失败');
+      }
+    } catch (error) {
+      showMessage('error', '网络错误');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // 审核服务商能量值申请
+  const handleApproveProviderEnergyRequestRequest = async (requestId: string, action: 'approve' | 'reject', note?: string) => {
+    const branchId = localStorage.getItem('userId');
+    if (!branchId) return;
+
+    // 查找该申请的金额
+    const request = providerEnergyRequests.find(r => r.id === requestId);
+    if (!request) {
+      showMessage('error', '申请不存在');
+      return;
+    }
+
+    const requestedAmount = parseFloat(String(request.amount || request.requestedAmount || 0));
+
+    // 通过申请时检查余额
+    if (action === 'approve' && requestedAmount > branchEnergyBalance) {
+      showMessage('error', `余额不足，当前余额 ${branchEnergyBalance.toLocaleString()}，申请金额 ${requestedAmount.toLocaleString()}`);
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const response = await authFetch('/api/branch/approve-provider-energy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requestId,
+          action,
+          note,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        showMessage('success', data.message);
+        loadProviderEnergyRequests();
+        loadData();
+        // 更新本地余额
+        if (action === 'approve') {
+          setBranchEnergyBalance(prev => prev - requestedAmount);
+        }
+      } else {
+        showMessage('error', data.error || '操作失败');
+      }
+    } catch (error) {
+      showMessage('error', '网络错误');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // 分公司能量值转账
+  const handleTransfer = async (targetUserId: string, amount: number) => {
+    if (!amount || amount <= 0) {
+      showMessage('error', '请输入有效金额');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const branchId = localStorage.getItem('userId');
+      if (!branchId) return;
+
+      const response = await fetch('/api/energy/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fromUserId: branchId,
+          toUserId: targetUserId,
+          amount: amount,
+          note: '分公司能量值转账'
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        showMessage('success', '转账成功');
+        setTransferAmount('');
+        setTransferTarget('');
+        fetchEnergyRecords();
+      } else {
+        showMessage('error', data.message || '转账失败');
+      }
+    } catch (error) {
+      showMessage('error', '网络错误');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // 获取能量值记录
+  const fetchEnergyRecords = async () => {
+    try {
+      const userId = localStorage.getItem('userId');
+      if (!userId) return;
+
+      const response = await fetch(`/api/energy/transactions?userId=${userId}`);
+      const data = await response.json();
+
+      if (data.success) {
+        setEnergyTransactions(data.data?.records || []);
+      }
+    } catch (error) {
+      console.error('获取能量值记录失败:', error);
+    }
+  };
+
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <Loader2 className="w-16 h-16 text-blue-500 animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-200">
+      {/* 消息提示 */}
+      {message && (
+        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-lg ${
+          message.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+        } text-white shadow-lg`}>
+          {message.text}
+        </div>
+      )}
+
+      {/* 分配额度对话框 */}
+      {showAllocateDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-[500px]">
+            <CardHeader>
+              <CardTitle>分配额度给服务商</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>选择服务商</Label>
+                <select
+                  value={selectedProvider}
+                  onChange={(e) => setSelectedProvider(e.target.value)}
+                  className="w-full border rounded px-3 py-2 mt-1"
+                >
+                  <option value="">请选择服务商</option>
+                  {providers.map(p => (
+                    <option key={p.id} value={p.id}>{p.username}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label>选择算力模板</Label>
+                <select
+                  value={selectedTemplate}
+                  onChange={(e) => setSelectedTemplate(e.target.value)}
+                  className="w-full border rounded px-3 py-2 mt-1"
+                >
+                  <option value="">请选择模板</option>
+                  {templates.map(t => (
+                    <option key={t.id} value={t.id}>{t.name} ({t.period}天, 收益{t.total_rate}%)</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label>分配额度 (元)</Label>
+                <Input
+                  type="number"
+                  value={quotaAmount}
+                  onChange={(e) => setQuotaAmount(e.target.value)}
+                  placeholder="输入额度金额"
+                  className="mt-1"
+                />
+                <p className="text-sm text-gray-500 mt-1">提示: 5万元可生成15个算力</p>
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => setShowAllocateDialog(false)}>取消</Button>
+                <Button 
+                  className="bg-blue-600" 
+                  onClick={handleAllocateQuota}
+                  disabled={submitting}
+                >
+                  {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                  确认分配
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* 顶部导航 - 深紫色主题 */}
+      <header className="bg-gradient-to-r from-violet-900 to-purple-900 shadow-lg sticky top-0 z-40">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-white/20 backdrop-blur flex items-center justify-center">
+                <Building2 className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-white">分公司管理后台</h1>
+                <p className="text-xs text-white/70">Branch Management System</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Badge className="bg-white/20 text-white backdrop-blur">
+                <Building2 className="w-3 h-3 mr-1" />分公司
+              </Badge>
+              <Button variant="ghost" onClick={logout} className="text-white hover:bg-white/20">退出</Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-6 py-8">
+        {/* 数据概览 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-purple-500" />
+                <span className="text-gray-500 text-sm">服务商数量</span>
+              </div>
+              <p className="text-2xl font-bold mt-2">{stats.provider_count}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-green-500" />
+                <span className="text-gray-500 text-sm">会员数量</span>
+              </div>
+              <p className="text-2xl font-bold mt-2">{stats.member_count}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-yellow-500" />
+                <span className="text-gray-500 text-sm">会员总能量值</span>
+              </div>
+              <p className="text-2xl font-bold mt-2">{(stats.total_member_energy || 0).toLocaleString()}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2">
+                <Package className="w-5 h-5 text-blue-500" />
+                <span className="text-gray-500 text-sm">待处理事项</span>
+              </div>
+              <p className="text-2xl font-bold mt-2">{stats.pending_sell_count + stats.pending_withdrawal_count}</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* 功能标签页 - 深紫色主题 */}
+        <div className="space-y-6">
+          <div className="flex justify-between items-center bg-gradient-to-r from-violet-900 to-purple-900 rounded-lg px-2 py-1">
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-2 px-2">
+              <button
+                onClick={() => setActiveTab('profile')}
+                className={`px-4 py-2 rounded-md transition-all flex items-center gap-1 ${
+                  activeTab === 'profile' ? 'bg-white text-purple-900 font-semibold shadow-md' : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <User className="w-4 h-4" />我的资料
+              </button>
+              <button
+                onClick={() => setActiveTab('overview')}
+                className={`px-4 py-2 rounded-md transition-all ${
+                  activeTab === 'overview' ? 'bg-white text-purple-900 font-semibold shadow-md' : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                数据总览
+              </button>
+              <button
+                onClick={() => setActiveTab('templates')}
+                className={`px-4 py-2 rounded-md transition-all flex items-center gap-1 ${
+                  activeTab === 'templates' ? 'bg-white text-purple-900 font-semibold shadow-md' : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Package className="w-4 h-4" />算力模板
+              </button>
+              <button
+                onClick={() => setActiveTab('allocations')}
+                className={`px-4 py-2 rounded-md transition-all flex items-center gap-1 ${
+                  activeTab === 'allocations' ? 'bg-white text-purple-900 font-semibold shadow-md' : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Database className="w-4 h-4" />额度分配
+              </button>
+              <button
+                onClick={() => setActiveTab('providers')}
+                className={`px-4 py-2 rounded-md transition-all flex items-center gap-1 ${
+                  activeTab === 'providers' ? 'bg-white text-purple-900 font-semibold shadow-md' : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Building2 className="w-4 h-4" />服务商管理
+              </button>
+              <button
+                onClick={() => setActiveTab('applications')}
+                className={`px-4 py-2 rounded-md transition-all flex items-center gap-1 ${
+                  activeTab === 'applications' ? 'bg-white text-purple-900 font-semibold shadow-md' : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <FileCheck className="w-4 h-4" />审核申请
+                {applications.length > 0 && (
+                  <Badge className="ml-2 bg-red-500 text-white text-xs">{applications.length}</Badge>
+                )}
+              </button>
+              <button
+                onClick={() => { setQuotaFilterStatus('pending'); loadProviderQuotaRequests(); setActiveTab('quota-approve'); }}
+                className={`px-4 py-2 rounded-md transition-all flex items-center gap-1 ${
+                  activeTab === 'quota-approve' ? 'bg-white text-purple-900 font-semibold shadow-md' : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <ClipboardCheck className="w-4 h-4" />额度审批
+                {providerQuotaRequests.length > 0 && (
+                  <Badge className="ml-1 bg-red-500 text-white text-xs">{providerQuotaRequests.length}</Badge>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab('quota')}
+                className={`px-4 py-2 rounded-md transition-all flex items-center gap-1 ${
+                  activeTab === 'quota' ? 'bg-white text-purple-900 font-semibold shadow-md' : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Database className="w-4 h-4" />算力额度管理
+              </button>
+              <button
+                onClick={() => { loadEnergyBalance(); loadEnergyRecords('all'); setActiveTab('energy'); setEnergySubTab('records'); }}
+                className={`px-4 py-2 rounded-md transition-all flex items-center gap-1 ${
+                  activeTab === 'energy' ? 'bg-white text-purple-900 font-semibold shadow-md' : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Zap className="w-4 h-4" />能量值管理
+                {(energyRequests.length + providerEnergyRequests.length) > 0 && (
+                  <Badge className="ml-1 bg-red-500 text-white text-xs">{energyRequests.length + providerEnergyRequests.length}</Badge>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* 我的资料 */}
+          {activeTab === 'profile' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>我的资料</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* 基本信息 */}
+                  <div className="space-y-4">
+                    <h3 className="font-medium text-lg border-b pb-2">基本信息</h3>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-gray-500">用户ID</span>
+                        <span className="font-mono text-sm">{user?.id || '-'}</span>
+                      </div>
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-gray-500">用户名</span>
+                        <span className="font-medium">{(user as any)?.name || '-'}</span>
+                      </div>
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-gray-500">角色</span>
+                        <Badge className="bg-purple-100 text-purple-700">分公司</Badge>
+                      </div>
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-gray-500">手机号</span>
+                        <span>{(user as any)?.phone || '-'}</span>
+                      </div>
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-gray-500">真实姓名</span>
+                        <span>{(user as any)?.name || '未填写'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 账户信息 */}
+                  <div className="space-y-4">
+                    <h3 className="font-medium text-lg border-b pb-2">账户信息</h3>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-gray-500">能量值余额</span>
+                        <span className="font-bold text-xl text-purple-600">{branchEnergyBalance.toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-gray-500">服务商数量</span>
+                        <span className="font-medium">{stats.provider_count}</span>
+                      </div>
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-gray-500">会员总数</span>
+                        <span className="font-medium">{stats.member_count}</span>
+                      </div>
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-gray-500">总分配额度</span>
+                        <span className="font-medium">¥{allocations.reduce((sum: number, a: any) => sum + (parseFloat(a.quota_amount) || 0), 0).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 编辑信息 */}
+                <div className="mt-6 pt-6 border-t">
+                  <h3 className="font-medium text-lg mb-4">编辑资料</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>真实姓名</Label>
+                      <Input 
+                        value={user?.real_name || ''} 
+                        onChange={(e) => {
+                          const newUser = { ...user, real_name: e.target.value };
+                          localStorage.setItem('userData', JSON.stringify(newUser));
+                        }}
+                        className="mt-1"
+                        placeholder="请输入真实姓名"
+                      />
+                    </div>
+                    <div>
+                      <Label>手机号</Label>
+                      <Input 
+                        value={user?.phone || ''} 
+                        disabled
+                        className="mt-1 bg-gray-100"
+                        placeholder="手机号不可修改"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Button className="bg-purple-600" onClick={() => showMessage('success', '资料已保存')}>
+                      保存修改
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 概览 */}
+          {activeTab === 'overview' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardContent className="pt-4">
+                  <h3 className="font-medium mb-4">快捷操作</h3>
+                  <div className="space-y-3">
+                    <Button 
+                      onClick={() => openAllocateDialog()} 
+                      className="w-full bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Send className="w-4 h-4 mr-2" />分配额度给服务商
+                    </Button>
+                    <Button 
+                      onClick={() => setActiveTab('providers')} 
+                      variant="outline" 
+                      className="w-full"
+                    >
+                      <Users className="w-4 h-4 mr-2" />查看服务商列表
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4">
+                  <h3 className="font-medium mb-4">系统状态</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">服务商数量</span>
+                      <span className="font-medium">{stats.provider_count}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">会员数量</span>
+                      <span className="font-medium">{stats.member_count}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">会员总余额</span>
+                      <span className="text-green-600">¥{(stats.total_member_balance || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">已分配额度</span>
+                      <span className="text-blue-600">
+                        ¥{(allocations.reduce((sum: number, a: any) => sum + (parseFloat(a.quota_amount) || 0), 0)).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* 算力模板 */}
+          {activeTab === 'templates' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>总公司下发的算力模板</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4">
+                  {templates.map(template => (
+                    <div key={template.id} className="p-4 border rounded-lg">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h4 className="font-medium">{template.name}</h4>
+                          <p className="text-sm text-gray-500">{template.code}</p>
+                        </div>
+                        <Badge className="bg-green-100 text-green-700">可用</Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span className="text-gray-500">周期:</span>
+                          <span className="ml-1">{template.period}天</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">总收益:</span>
+                          <span className="ml-1 text-green-600">{template.total_rate}%</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">市场费:</span>
+                          <span className="ml-1 text-orange-600">{template.market_rate}%</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">会员收益:</span>
+                          <span className="ml-1 text-blue-600">{template.profit_rate}%</span>
+                        </div>
+                      </div>
+                      {/* 额度信息 */}
+                      <div className="mt-3 p-2 bg-gray-50 rounded text-sm">
+                        <div className="flex justify-between">
+                          <span>分配额度:</span>
+                          <span className="font-medium">¥{template.quota_amount?.toLocaleString() || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>已使用:</span>
+                          <span className="text-orange-600">¥{template.used_amount?.toLocaleString() || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>剩余额度:</span>
+                          <span className="text-green-600">¥{((template.available_amount ?? ((template.quota_amount ?? 0) - (template.used_amount ?? 0))))?.toLocaleString() || 0}</span>
+                        </div>
+                      </div>
+                      <div className="mt-3 pt-3 border-t">
+                        <Button 
+                          size="sm" 
+                          className="w-full bg-blue-600"
+                          onClick={() => {
+                            setSelectedTemplate(template.id);
+                            openAllocateDialog();
+                          }}
+                        >
+                          使用此模板分配给服务商
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  {templates.length === 0 && (
+                    <div className="col-span-2 text-center py-8 text-gray-500">
+                      <Package className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                      <p>暂无算力模板，请等待总公司下发</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 额度分配 */}
+          {activeTab === 'allocations' && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>额度分配记录</CardTitle>
+                  <Button onClick={() => openAllocateDialog()} className="bg-blue-600">
+                    <Plus className="w-4 h-4 mr-2" />分配额度
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-gray-50">
+                        <th className="text-left py-3 px-4">服务商</th>
+                        <th className="text-left py-3 px-4">算力模板</th>
+                        <th className="text-left py-3 px-4">分配额度</th>
+                        <th className="text-left py-3 px-4">已用额度</th>
+                        <th className="text-left py-3 px-4">状态</th>
+                        <th className="text-left py-3 px-4">时间</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allocations.map(allocation => (
+                        <tr key={allocation.id} className="border-b hover:bg-gray-50">
+                          <td className="py-3 px-4">{(allocation as any).provider_name || '-'}</td>
+                          <td className="py-3 px-4">{(allocation as any).template_name || '-'}</td>
+                          <td className="py-3 px-4 text-green-600 font-medium">
+                            ¥{(parseFloat(String(allocation.quota_amount)) || 0).toLocaleString()}
+                          </td>
+                          <td className="py-3 px-4 text-orange-600">
+                            ¥{(parseFloat(String(allocation.used_amount)) || 0).toLocaleString()}
+                          </td>
+                          <td className="py-3 px-4">
+                            <Badge className={
+                              allocation.status === 'active' ? 'bg-green-100 text-green-700' :
+                              allocation.status === 'completed' ? 'bg-blue-100 text-blue-700' :
+                              'bg-gray-100 text-gray-700'
+                            }>
+                              {allocation.status === 'active' ? '使用中' : 
+                               allocation.status === 'completed' ? '已完成' : allocation.status}
+                            </Badge>
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-500">
+                            {allocation.created_at?.slice(0, 10)}
+                          </td>
+                        </tr>
+                      ))}
+                      {allocations.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="py-8 text-center text-gray-500">
+                            暂无分配记录
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 服务商管理 */}
+          {activeTab === 'providers' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>服务商列表</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-gray-50">
+                        <th className="text-left py-3 px-4">服务商</th>
+                        <th className="text-left py-3 px-4">能量值</th>
+                        <th className="text-left py-3 px-4">余额</th>
+                        <th className="text-left py-3 px-4">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {providers.map(provider => (
+                        <tr key={provider.id} className="border-b hover:bg-gray-50">
+                          <td className="py-3 px-4 font-medium">{provider.username}</td>
+                          <td className="py-3 px-4 text-orange-600">{(provider.energy_value || 0).toLocaleString()}</td>
+                          <td className="py-3 px-4 text-green-600">¥{(provider.balance || 0).toLocaleString()}</td>
+                          <td className="py-3 px-4">
+                            <Button 
+                              size="sm" 
+                              className="bg-blue-600"
+                              onClick={() => {
+                                setSelectedProvider(provider.id);
+                                openAllocateDialog();
+                              }}
+                            >
+                              <Send className="w-4 h-4 mr-1" />分配额度
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                      {providers.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="py-8 text-center text-gray-500">
+                            暂无服务商
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 审核申请 */}
+          {activeTab === 'applications' && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>服务商申请审核</CardTitle>
+                  <Badge className="bg-blue-100 text-blue-700">
+                    待审核: {applications.length}个
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {applications.length === 0 ? (
+                  <div className="py-12 text-center text-gray-500">
+                    <ClipboardList className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p>暂无待审核的申请</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {applications.map((app, idx) => (
+                      <div key={`app-${app.id}-${idx}`} className="p-4 border rounded-lg hover:bg-gray-50">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h4 className="font-medium">{app.applicant_name || app.users?.real_name || '申请人'}</h4>
+                              <Badge className={
+                                app.apply_type === 'first_gen' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                              }>
+                                {app.apply_type === 'first_gen' ? '第一代申请' : '第二代申请'}
+                              </Badge>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                              <div>
+                                <span className="text-gray-400">用户名：</span>
+                                {app.users?.username || '-'}
+                              </div>
+                              <div>
+                                <span className="text-gray-400">手机号：</span>
+                                {app.phone || '-'}
+                              </div>
+                              <div>
+                                <span className="text-gray-400">支付宝：</span>
+                                {app.alipay_account || '-'}
+                              </div>
+                              <div>
+                                <span className="text-gray-400">申请额度：</span>
+                                <span className="text-green-600 font-medium">¥{(parseFloat(String(app.quota_request)) || 50000).toLocaleString()}</span>
+                              </div>
+                            </div>
+                            <div className="mt-2 text-xs text-gray-400">
+                              申请时间: {app.created_at ? new Date(app.created_at).toLocaleString() : '-'}
+                            </div>
+                          </div>
+                          <div className="flex gap-2 ml-4">
+                            <Button
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700"
+                              onClick={() => handleReviewApplication(app.id, 'approve', app.quota_request)}
+                              disabled={submitting}
+                            >
+                              <CheckCircle className="w-4 h-4 mr-1" />通过
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => {
+                                const reason = prompt('请输入拒绝原因:');
+                                if (reason) {
+                                  handleReviewApplication(app.id, 'reject');
+                                }
+                              }}
+                              disabled={submitting}
+                            >
+                              <XCircle className="w-4 h-4 mr-1" />拒绝
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 算力额度管理 */}
+          {activeTab === 'quota' && (
+            <div className="space-y-6">
+              {/* 分公司额度概览 */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Database className="w-5 h-5 text-blue-600" />
+                      我的额度
+                    </CardTitle>
+                    <Button 
+                      onClick={() => setShowQuotaApplyDialog(true)}
+                      className="bg-blue-600"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />申请额度
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="p-4 bg-blue-50 rounded-lg">
+                      <p className="text-sm text-gray-500">算力总额度</p>
+                      <p className="text-2xl font-bold text-blue-600 mt-2">
+                        ¥{((stats as any).total_quota || 0).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-green-50 rounded-lg">
+                      <p className="text-sm text-gray-500">可用额度</p>
+                      <p className="text-2xl font-bold text-green-600 mt-2">
+                        ¥{((stats as any).available_quota || 0).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-orange-50 rounded-lg">
+                      <p className="text-sm text-gray-500">已用额度</p>
+                      <p className="text-2xl font-bold text-orange-600 mt-2">
+                        ¥{((stats as any).used_quota || 0).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-500 mb-2">💡 提示：申请一万算力额度，配比能量值 2000</p>
+                    <p className="text-sm text-gray-500">例如：申请10万元，总公司将配比2万元能量值</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 分公司向总公司的额度申请记录 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>我的额度申请记录</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {/* 只显示记录，不提供审批按钮（总公司审批） */}
+                  <div className="space-y-3">
+                    {quotaRequests.filter(r => r.status === 'pending').length > 0 ? quotaRequests.filter(r => r.status === 'pending').map((request, idx) => (
+                      <div key={`quota-req-${request.id}-${idx}`} className="p-4 border rounded-lg hover:bg-gray-50">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">申请额度</p>
+                              <Badge variant="secondary">待总公司审核</Badge>
+                            </div>
+                            <p className="text-sm text-gray-500 mt-1">
+                              申请: ¥{(parseFloat(String((request as any).requested_amount)) || 0).toLocaleString()}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              {request.created_at ? new Date(request.created_at).toLocaleString() : '-'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="py-4 text-center text-gray-500">
+                        暂无待审核的额度申请
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 申请历史 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>我的申请历史</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b bg-gray-50">
+                          <th className="text-left py-3 px-4">申请额度</th>
+                          <th className="text-left py-3 px-4">批准额度</th>
+                          <th className="text-left py-3 px-4">奖励比例</th>
+                          <th className="text-left py-3 px-4">状态</th>
+                          <th className="text-left py-3 px-4">申请时间</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {quotaRequests.map((request, idx) => (
+                          <tr key={`quota-table-${request.id}-${idx}`} className="border-b hover:bg-gray-50">
+                            <td className="py-3 px-4">¥{(parseFloat(String((request as any).requested_amount)) || 0).toLocaleString()}</td>
+                            <td className="py-3 px-4 text-green-600">¥{(parseFloat(String((request as any).approved_amount)) || 0).toLocaleString()}</td>
+                            <td className="py-3 px-4 text-orange-600">{request.bonus_rate}%</td>
+                            <td className="py-3 px-4">
+                              <Badge className={
+                                request.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                                request.status === 'approved' ? 'bg-green-100 text-green-700' :
+                                'bg-red-100 text-red-700'
+                              }>
+                                {request.status === 'pending' ? '待审核' :
+                                 request.status === 'approved' ? '已通过' : '已拒绝'}
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-500">
+                              {request.created_at ? new Date(request.created_at).toLocaleString() : '-'}
+                            </td>
+                          </tr>
+                        ))}
+                        {quotaRequests.length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="py-8 text-center text-gray-500">
+                              暂无申请记录
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* 服务商额度审批 */}
+          {activeTab === 'quota-approve' && (
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ClipboardList className="w-5 h-5 text-orange-600" />
+                      服务商额度申请审批
+                    </div>
+                    {/* 状态筛选 */}
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        variant={quotaFilterStatus === 'pending' ? 'default' : 'outline'}
+                        onClick={() => { setQuotaFilterStatus('pending'); }}
+                      >
+                        待审核
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant={quotaFilterStatus === 'approved' ? 'default' : 'outline'}
+                        onClick={() => { setQuotaFilterStatus('approved'); }}
+                      >
+                        已通过
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant={quotaFilterStatus === 'rejected' ? 'default' : 'outline'}
+                        onClick={() => { setQuotaFilterStatus('rejected'); }}
+                      >
+                        已拒绝
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant={quotaFilterStatus === 'all' ? 'default' : 'outline'}
+                        onClick={() => { setQuotaFilterStatus('all'); }}
+                      >
+                        全部
+                      </Button>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {providerQuotaRequests.length > 0 ? providerQuotaRequests.map((request, idx) => (
+                      <div key={`prov-quota-${request.id}-${idx}`} className="p-4 border rounded-lg hover:bg-gray-50">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">
+                                {request.provider?.name || request.provider?.username || request.requester_name || '服务商'} 
+                              </p>
+                              {/* 状态标签 */}
+                              <Badge variant={
+                                request.status === 'approved' ? 'default' : 
+                                request.status === 'rejected' ? 'destructive' : 
+                                'secondary'
+                              }>
+                                {request.status === 'pending' ? '待审核' : 
+                                 request.status === 'approved' ? '已通过' : 
+                                 request.status === 'rejected' ? '已拒绝' : request.status}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-gray-500 mt-1">
+                              申请额度: ¥{(parseFloat(String(request.requested_amount || request.amount)) || 0).toLocaleString()}
+                              {request.approved_amount && request.approved_amount > 0 && (
+                                <span className="ml-2 text-green-600">
+                                  → 批准: ¥{parseFloat(String(request.approved_amount)).toLocaleString()}
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-sm text-gray-500 mt-1">
+                              申请时间: {request.created_at ? new Date(request.created_at).toLocaleString() : '-'}
+                            </p>
+                            {request.reject_reason && (
+                              <p className="text-xs text-red-500 mt-1">拒绝原因: {request.reject_reason}</p>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            {request.status === 'pending' && (
+                              <>
+                                <Button 
+                                  size="sm" 
+                                  className="bg-green-600"
+                                  onClick={() => {
+                                    const approved = prompt('请输入批准金额:', request.requested_amount?.toString());
+                                    if (approved && parseFloat(approved) > 0) {
+                                      handleApproveProviderQuota(request.id, 'approve', parseFloat(approved));
+                                    }
+                                  }}
+                                  disabled={submitting}
+                                >
+                                  通过
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="destructive"
+                                  onClick={() => handleApproveProviderQuota(request.id, 'reject')}
+                                  disabled={submitting}
+                                >
+                                  拒绝
+                                </Button>
+                              </>
+                            )}
+                            {request.status !== 'pending' && (
+                              <span className="text-sm text-gray-400">
+                                {request.status === 'approved' ? '已发放额度' : '已拒绝'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="py-8 text-center text-gray-500">
+                        暂无{quotaFilterStatus === 'all' ? '' : quotaFilterStatus === 'pending' ? '待审核' : quotaFilterStatus === 'approved' ? '已通过' : '已拒绝'}的服务商额度申请
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* 能量值申请记录 */}
+          {activeTab === 'energy-apply' && (
+            <div className="space-y-6">
+              {/* 能量值申请统计 */}
+              <div className="grid grid-cols-4 gap-4">
+                <Card className="bg-gradient-to-br from-purple-500 to-indigo-500 text-white">
+                  <CardContent className="pt-4">
+                    <p className="text-sm opacity-80">总申请次数</p>
+                    <p className="text-2xl font-bold mt-1">{myEnergyRequests.length}</p>
+                    <p className="text-xs opacity-70 mt-1">次</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-yellow-500 to-orange-500 text-white">
+                  <CardContent className="pt-4">
+                    <p className="text-sm opacity-80">待审核</p>
+                    <p className="text-2xl font-bold mt-1">{myEnergyRequests.filter(r => r.status === 'pending').length}</p>
+                    <p className="text-xs opacity-70 mt-1">次</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-green-500 to-emerald-500 text-white">
+                  <CardContent className="pt-4">
+                    <p className="text-sm opacity-80">已通过</p>
+                    <p className="text-2xl font-bold mt-1">
+                      {myEnergyRequests.filter(r => r.status === 'approved').reduce((sum, r) => sum + (r.amount || 0), 0).toLocaleString()}
+                    </p>
+                    <p className="text-xs opacity-70 mt-1">能量值</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-gray-500 to-gray-600 text-white">
+                  <CardContent className="pt-4">
+                    <p className="text-sm opacity-80">已拒绝</p>
+                    <p className="text-2xl font-bold mt-1">{myEnergyRequests.filter(r => r.status === 'rejected').length}</p>
+                    <p className="text-xs opacity-70 mt-1">次</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* 能量值申请记录列表 */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Zap className="w-5 h-5 text-purple-600" />
+                      我的能量值申请记录
+                    </CardTitle>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => setShowEnergyApplyDialog(true)}
+                        className="bg-purple-600 hover:bg-purple-700"
+                      >
+                        <Zap className="w-4 h-4 mr-2" />
+                        申请能量值
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {myEnergyRequests.length > 0 ? (
+                    <div className="space-y-3">
+                      {myEnergyRequests.map((request, idx) => (
+                        <div key={`energy-apply-${request.id}-${idx}`} className="p-4 border rounded-lg hover:bg-gray-50">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="flex items-center gap-3">
+                                <p className="font-medium text-lg">
+                                  申请能量值: 
+                                  <span className="text-purple-600 ml-2">{request.amount?.toLocaleString()}</span>
+                                </p>
+                                <Badge className={
+                                  request.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                                  request.status === 'approved' ? 'bg-green-100 text-green-700' :
+                                  'bg-red-100 text-red-700'
+                                }>
+                                  {request.status === 'pending' ? '待审核' :
+                                   request.status === 'approved' ? '已通过' : '已拒绝'}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-gray-500 mt-1">
+                                申请时间: {request.createdAt ? new Date(request.createdAt).toLocaleString() : '-'}
+                              </p>
+                              {request.note && (
+                                <p className="text-xs text-gray-400 mt-1">备注: {request.note}</p>
+                              )}
+                              {request.reviewerNote && (
+                                <p className="text-xs text-gray-400 mt-1">审核备注: {request.reviewerNote}</p>
+                              )}
+                              {request.status === 'approved' && request.reviewedAt && (
+                                <p className="text-xs text-green-600 mt-1">
+                                  审核通过时间: {new Date(request.reviewedAt).toLocaleString()}
+                                </p>
+                              )}
+                            </div>
+                            {request.status === 'pending' && (
+                              <div className="text-sm text-gray-500">
+                                等待总公司审核中...
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-12 text-center">
+                      <Zap className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                      <p className="text-gray-500">暂无能量值申请记录</p>
+                      <p className="text-sm text-gray-400 mt-2">点击上方按钮向总公司申请能量值</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* 申请说明 */}
+              <Card className="bg-blue-50 border-blue-200">
+                <CardContent className="pt-6">
+                  <h4 className="font-semibold text-blue-800 mb-2">能量值申请说明</h4>
+                  <ul className="text-sm text-blue-700 space-y-1">
+                    <li>1. 分公司向总公司申请能量值，最低申请金额为 50 能量值</li>
+                    <li>2. 提交申请后，需要等待总公司审核</li>
+                    <li>3. 总公司审核通过后，能量值会自动发放到您的账户</li>
+                    <li>4. 能量值用于给服务商下发，服务商给会员充值后产生收益</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* 能量值管理 */}
+          {activeTab === 'energy' && (
+            <div className="space-y-6">
+              {/* 子Tab导航 */}
+              <div className="flex gap-2 bg-white p-1 rounded-lg shadow-sm">
+                <button
+                  onClick={() => { setEnergySubTab('apply'); }}
+                  className={`px-4 py-2 rounded-md transition-all ${
+                    energySubTab === 'apply' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-purple-50'
+                  }`}
+                >
+                  向总公司申请
+                </button>
+                <button
+                  onClick={() => { setEnergySubTab('records'); loadEnergyRecords(energyFilterType); }}
+                  className={`px-4 py-2 rounded-md transition-all ${
+                    energySubTab === 'records' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-purple-50'
+                  }`}
+                >
+                  流转记录
+                </button>
+                <button
+                  onClick={() => { setEnergySubTab('review'); loadProviderEnergyRequests(); }}
+                  className={`px-4 py-2 rounded-md transition-all flex items-center gap-2 ${
+                    energySubTab === 'review' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-purple-50'
+                  }`}
+                >
+                  审核服务商申请
+                  {providerEnergyRequests.length > 0 && (
+                    <Badge className="bg-red-500 text-white text-xs">{providerEnergyRequests.length}</Badge>
+                  )}
+                </button>
+                <button
+                  onClick={() => { setEnergySubTab('transfer'); loadTransferTargets(); }}
+                  className={`px-4 py-2 rounded-md transition-all ${
+                    energySubTab === 'transfer' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-purple-50'
+                  }`}
+                >
+                  能量值转账
+                </button>
+              </div>
+
+              {/* 向总公司申请 */}
+              {energySubTab === 'apply' && (
+                <>
+                  {/* 当前余额 */}
+                  <Card className="bg-gradient-to-br from-purple-500 to-indigo-500 text-white">
+                    <CardContent className="pt-4">
+                      <p className="text-sm opacity-80">当前余额</p>
+                      <p className="text-3xl font-bold mt-2">{branchEnergyBalance.toLocaleString()}</p>
+                      <p className="text-xs opacity-70 mt-2">能量值</p>
+                    </CardContent>
+                  </Card>
+
+                  {/* 申请表单 */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Zap className="w-5 h-5 text-purple-600" />
+                        向总公司申请能量值
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium mb-2">申请金额</label>
+                          <input
+                            type="number"
+                            value={branchApplyAmount}
+                            onChange={(e) => setBranchApplyAmount(e.target.value)}
+                            placeholder="输入申请金额"
+                            className="w-full p-2 border rounded-lg"
+                          />
+                          <p className="text-sm text-gray-500 mt-1">申请后需等待总公司审核</p>
+                        </div>
+                        <Button 
+                          className="bg-purple-600"
+                          onClick={handleBranchApplyEnergy}
+                          disabled={!branchApplyAmount || submitting}
+                        >
+                          提交申请
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* 分公司向总公司申请记录 */}
+                  {energyRequests.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Badge className="bg-purple-600">总公司</Badge>
+                          申请记录（等待总公司审核）
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {energyRequests.map((request) => (
+                            <div key={`er-${request.id}`} className="p-4 border rounded-lg">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="font-medium">申请能量值</p>
+                                  <p className="text-sm text-gray-500 mt-1">申请额度: {(parseFloat(String(request.amount || 0))).toLocaleString()} 能量值</p>
+                                  <p className="text-xs text-gray-400 mt-1">{request.created_at ? new Date(request.created_at).toLocaleString() : '-'}</p>
+                                </div>
+                                <Badge className={request.status === 'pending' ? 'bg-yellow-500' : request.status === 'approved' ? 'bg-green-500' : 'bg-red-500'}>
+                                  {request.status === 'pending' ? '等待总公司审核' : request.status === 'approved' ? '已通过' : '已拒绝'}
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </>
+              )}
+
+              {/* 流转记录 */}
+              {energySubTab === 'records' && (
+                <>
+                  {/* 能量值概览 */}
+                  <div className="grid grid-cols-3 gap-4">
+                <Card className="bg-gradient-to-br from-purple-500 to-indigo-500 text-white">
+                  <CardContent className="pt-4">
+                    <p className="text-sm opacity-80">当前余额</p>
+                    <p className="text-3xl font-bold mt-2">{branchEnergyBalance.toLocaleString()}</p>
+                    <p className="text-xs opacity-70 mt-2">能量值</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-green-500 to-emerald-500 text-white">
+                  <CardContent className="pt-4">
+                    <p className="text-sm opacity-80">累计收入</p>
+                    <p className="text-2xl font-bold mt-2">{energyStats.totalIn.toLocaleString()}</p>
+                    <p className="text-xs opacity-70 mt-2">充值 + 转入</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-orange-500 to-red-500 text-white">
+                  <CardContent className="pt-4">
+                    <p className="text-sm opacity-80">累计支出</p>
+                    <p className="text-2xl font-bold mt-2">{energyStats.totalOut.toLocaleString()}</p>
+                    <p className="text-xs opacity-70 mt-2">转出 + 提现</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* 能量值流转记录 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-5 h-5 text-purple-600" />
+                      能量值流转记录
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant={energyFilterType === 'all' ? 'default' : 'outline'} onClick={() => { setEnergyFilterType('all'); loadEnergyRecords('all'); }}>全部</Button>
+                      <Button size="sm" variant={energyFilterType === 'transfer_in' ? 'default' : 'outline'} onClick={() => { setEnergyFilterType('transfer_in'); loadEnergyRecords('transfer_in'); }}>转入</Button>
+                      <Button size="sm" variant={energyFilterType === 'transfer_out' ? 'default' : 'outline'} onClick={() => { setEnergyFilterType('transfer_out'); loadEnergyRecords('transfer_out'); }}>转出</Button>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {energyRecords.length > 0 ? (
+                    <div className="space-y-3">
+                      {energyRecords.map((record, idx) => (
+                        <div key={`er-${record.id || idx}`} className="p-4 border rounded-lg flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${record.isIncome ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
+                              <Zap className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <p className="font-medium">{record.isIncome ? '转入' : '转出'} {record.counterparty || ''}</p>
+                              <p className="text-xs text-gray-400">{record.created_at ? new Date(record.created_at).toLocaleString() : '-'}</p>
+                            </div>
+                          </div>
+                          <div className={`text-xl font-bold ${record.isIncome ? 'text-green-600' : 'text-orange-600'}`}>
+                            {record.isIncome ? '+' : '-'}{record.amount?.toLocaleString() || 0}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center text-gray-500">暂无流转记录</div>
+                  )}
+                </CardContent>
+              </Card>
+                </>
+              )}
+
+              {/* 审核服务商申请 */}
+              {energySubTab === 'review' && (
+                <>
+                  {/* 能量值概览 */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <Card className="bg-gradient-to-br from-purple-500 to-indigo-500 text-white">
+                      <CardContent className="pt-4">
+                        <p className="text-sm opacity-80">当前余额</p>
+                        <p className="text-3xl font-bold mt-2">{branchEnergyBalance.toLocaleString()}</p>
+                        <p className="text-xs opacity-70 mt-2">能量值</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="bg-gradient-to-br from-orange-500 to-red-500 text-white">
+                      <CardContent className="pt-4">
+                        <p className="text-sm opacity-80">待审核</p>
+                        <p className="text-3xl font-bold mt-2">{providerEnergyRequests.filter(r => r.status === 'pending').length}</p>
+                        <p className="text-xs opacity-70 mt-2">服务商申请</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* 服务商向分公司申请记录 */}
+                  {providerEnergyRequests.length > 0 ? (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Badge className="bg-blue-600">服务商</Badge>
+                          服务商向分公司申请能量值
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {providerEnergyRequests.map((request, idx) => (
+                            <div key={`per-${request.id}`} className="p-4 border rounded-lg">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="font-medium">{request.provider?.name || request.provider?.username || request.providerName || '服务商'}</p>
+                                  <p className="text-sm text-gray-500 mt-1">申请额度: {(parseFloat(String(request.amount || request.requestedAmount || 0))).toLocaleString()} 能量值</p>
+                                  <p className="text-xs text-gray-400 mt-1">{request.created_at ? new Date(request.created_at).toLocaleString() : '-'}</p>
+                                </div>
+                                <div className="flex gap-2 items-center">
+                                  {request.status === 'pending' ? (
+                                    <>
+                                      <Button size="sm" className="bg-green-600" onClick={() => handleApproveProviderEnergyRequestRequest(request.id, 'approve')} disabled={submitting}>通过</Button>
+                                      <Button size="sm" variant="destructive" onClick={() => handleApproveProviderEnergyRequestRequest(request.id, 'reject')} disabled={submitting}>拒绝</Button>
+                                    </>
+                                  ) : (
+                                    <Badge className={request.status === 'approved' ? 'bg-green-500' : 'bg-red-500'}>
+                                      {request.status === 'approved' ? '已通过' : '已拒绝'}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <Card>
+                      <CardContent className="py-8 text-center text-gray-500">
+                        暂无需要审核的服务商申请
+                      </CardContent>
+                    </Card>
+                  )}
+                </>
+              )}
+
+              {/* 能量值转账 */}
+              {energySubTab === 'transfer' && (
+                <>
+                  {/* 操作说明 */}
+                  <Card className="bg-purple-50 border-purple-200">
+                    <CardContent className="pt-4">
+                      <div className="text-sm text-purple-800 space-y-1">
+                        <p><strong>转账规则：</strong></p>
+                        <p>• 给服务商转账：直接转账，不扣手续费</p>
+                        <p>• 给会员转账：直接转账，不扣手续费</p>
+                        <p>• 同级分公司互转：不扣手续费</p>
+                        <p>• <strong>申请变现：</strong>向总公司申请变现，扣除5%手续费</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* 操作按钮 */}
+                  <div className="flex gap-4">
+                    <Button className="bg-purple-600" onClick={() => { loadTransferTargets(); loadBranchList(); }}>转账</Button>
+                    <Button className="bg-yellow-500" onClick={() => {
+                      loadWithdrawRequests();
+                      setShowWithdrawDialog(true);
+                    }}>申请变现</Button>
+                  </div>
+
+                  {/* 转账区域 */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Zap className="w-5 h-5 text-purple-600" />
+                        转账给下级
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="mb-4 flex gap-2 flex-wrap">
+                        <button
+                          onClick={() => setTransferUserType('provider')}
+                          className={`px-4 py-2 rounded-lg transition-colors ${
+                            transferUserType === 'provider'
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          服务商 ({transferTargets.length})
+                        </button>
+                        <button
+                          onClick={() => setTransferUserType('member')}
+                          className={`px-4 py-2 rounded-lg transition-colors ${
+                            transferUserType === 'member'
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          会员 ({transferMembers.length})
+                        </button>
+                        <button
+                          onClick={() => setTransferUserType('branch')}
+                          className={`px-4 py-2 rounded-lg transition-colors ${
+                            transferUserType === 'branch'
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          同级分公司 ({branchList.length})
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium mb-2">
+                            选择{transferUserType === 'provider' ? '服务商' : transferUserType === 'member' ? '会员' : '分公司'}
+                          </label>
+                          <select
+                            value={transferTarget}
+                            onChange={(e) => setTransferTarget(e.target.value)}
+                            className="w-full p-2 border rounded-lg"
+                          >
+                            <option value="">选择{transferUserType === 'provider' ? '服务商' : transferUserType === 'member' ? '会员' : '分公司'}</option>
+                            {(transferUserType === 'provider' ? transferTargets : transferUserType === 'member' ? transferMembers : branchList).map((target) => (
+                              <option key={target.id} value={target.id}>
+                                {target.username} ({target.role === 'provider' ? '服务商' : target.role === 'member' ? '会员' : target.role === 'branch' ? '分公司' : target.role})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-2">转账金额</label>
+                          <input
+                            type="number"
+                            value={transferAmount}
+                            onChange={(e) => setTransferAmount(e.target.value)}
+                            placeholder="输入转账金额"
+                            className="w-full p-2 border rounded-lg"
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium mb-2">备注</label>
+                        <input
+                          type="text"
+                          value={transferNote}
+                          onChange={(e) => setTransferNote(e.target.value)}
+                          placeholder="备注说明（可选）"
+                          className="w-full p-2 border rounded-lg"
+                        />
+                      </div>
+                      <div className="mt-4 flex items-center justify-between">
+                        <p className="text-sm text-gray-500">当前余额: {branchEnergyBalance.toLocaleString()} 能量值</p>
+                        <Button 
+                          className="bg-purple-600"
+                          onClick={() => handleTransfer(transferTarget, parseFloat(transferAmount))}
+                          disabled={!transferTarget || !transferAmount || submitting}
+                        >
+                          确认转账
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* 申请额度对话框 */}
+      {showQuotaApplyDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-[500px]">
+            <CardHeader>
+              <CardTitle>向总公司申请额度</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>申请额度（元）</Label>
+                <Input
+                  type="number"
+                  value={applyQuotaAmount}
+                  onChange={(e) => setApplyQuotaAmount(e.target.value)}
+                  placeholder="请输入申请额度"
+                  className="mt-1"
+                />
+              </div>
+              <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+                <p className="font-medium mb-1">💡 配比说明</p>
+                <p>分公司申请额度配比20%能量值</p>
+                <p className="text-xs mt-1">例如：申请100,000元额度，将配比20,000能量值</p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowQuotaApplyDialog(false)}>取消</Button>
+                <Button 
+                  className="bg-blue-600"
+                  onClick={handleApplyQuota}
+                  disabled={submitting}
+                >
+                  {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  提交申请
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* 能量值转账对话框 */}
+      {showTransferDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-[500px]">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-blue-600" />
+                能量值转账
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-700">
+                  <strong>说明：</strong>可向服务商和会员转账能量值，最低转账金额为50。
+                </p>
+              </div>
+              
+              {/* 转账类型切换 */}
+              <div className="flex gap-2">
+                <Button
+                  variant={transferUserType === 'provider' ? 'default' : 'outline'}
+                  onClick={() => { setTransferUserType('provider'); setTransferUserId(''); }}
+                  className={transferUserType === 'provider' ? 'bg-blue-600' : ''}
+                >
+                  转给服务商 ({transferTargets.length})
+                </Button>
+                <Button
+                  variant={transferUserType === 'member' ? 'default' : 'outline'}
+                  onClick={() => { setTransferUserType('member'); setTransferUserId(''); }}
+                  className={transferUserType === 'member' ? 'bg-purple-600' : ''}
+                >
+                  转给会员 ({transferMembers.length})
+                </Button>
+              </div>
+              
+              <div>
+                <Label>选择{transferUserType === 'provider' ? '服务商' : '会员'}</Label>
+                <select
+                  className="w-full mt-1 p-2 border rounded-md bg-white"
+                  value={transferUserId}
+                  onChange={(e) => setTransferUserId(e.target.value)}
+                >
+                  <option value="">请选择{transferUserType === 'provider' ? '服务商' : '会员'}</option>
+                  {(transferUserType === 'provider' ? transferTargets : transferMembers).map((p: any) => (
+                    <option key={p.id} value={p.id}>
+                      {p.username} {p.unique_id ? `[${p.unique_id}]` : ''} {p.phone ? `(${p.phone})` : ''}（能量值: {p.energy_value || 0}）
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label>转账金额</Label>
+                <Input
+                  type="number"
+                  placeholder="请输入转账能量值（最低50）"
+                  value={transferAmount}
+                  onChange={(e) => setTransferAmount(e.target.value)}
+                  min="50"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label>备注（可选）</Label>
+                <Input
+                  placeholder="如: 业务合作转账"
+                  value={transferNote}
+                  onChange={(e) => setTransferNote(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => setShowTransferDialog(false)}>取消</Button>
+                <Button 
+                  className="bg-blue-600"
+                  onClick={handleTransferEnergy}
+                  disabled={submitting || !transferUserId || !transferAmount}
+                >
+                  {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
+                  确认转账
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* 向总公司申请能量值对话框 */}
+      {showEnergyApplyDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md bg-white">
+            <CardHeader>
+              <CardTitle className="text-gray-900">向总公司申请能量值</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="energyAmount" className="text-gray-700">申请金额</Label>
+                <Input
+                  id="energyAmount"
+                  type="number"
+                  value={energyApplyAmount}
+                  onChange={(e) => setEnergyApplyAmount(e.target.value)}
+                  placeholder="请输入申请金额"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="energyNote" className="text-gray-700">备注（可选）</Label>
+                <Input
+                  id="energyNote"
+                  value={energyApplyNote}
+                  onChange={(e) => setEnergyApplyNote(e.target.value)}
+                  placeholder="请输入备注信息"
+                  className="mt-1"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => setShowEnergyApplyDialog(false)}>取消</Button>
+                <Button
+                  className="bg-purple-600 hover:bg-purple-700"
+                  onClick={handleApplyEnergy}
+                  disabled={submitting || !energyApplyAmount}
+                >
+                  {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
+                  确认申请
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* 分公司变现申请对话框 */}
+      {showWithdrawDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-yellow-500" />
+                申请变现能量值
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* 当前余额 */}
+              <div className="bg-yellow-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">当前能量值余额</p>
+                <p className="text-2xl font-bold text-yellow-600">{branchEnergyBalance.toLocaleString()}</p>
+              </div>
+
+              {/* 变现金额输入 */}
+              <div>
+                <label className="text-sm font-medium mb-1 block">变现金额</label>
+                <Input
+                  type="number"
+                  placeholder="请输入变现金额"
+                  value={withdrawAmount}
+                  onChange={(e) => setWithdrawAmount(e.target.value)}
+                />
+                {withdrawAmount && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    实际到账: <span className="text-green-600 font-medium">{(parseFloat(withdrawAmount) * 0.95).toLocaleString()}</span> 
+                    （扣除5%手续费 {(parseFloat(withdrawAmount) * 0.05).toLocaleString()}）
+                  </p>
+                )}
+              </div>
+
+              {/* 变现说明 */}
+              <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-600">
+                <p>• 最低变现金额: 50 能量值</p>
+                <p>• 变现将扣除5%手续费</p>
+                <p>• 申请需总公司审核通过</p>
+              </div>
+
+              {/* 变现申请记录 */}
+              {withdrawRequests.length > 0 && (
+                <div className="border-t pt-4 mt-4">
+                  <p className="text-sm font-medium mb-2">我的变现申请记录</p>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {withdrawRequests.slice(0, 5).map((req) => (
+                      <div key={req.id} className="flex justify-between items-center text-sm p-2 bg-gray-50 rounded">
+                        <span>{req.amount?.toLocaleString()} 能量值</span>
+                        <span className={`px-2 py-1 rounded text-xs ${
+                          req.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                          req.status === 'approved' ? 'bg-green-100 text-green-700' :
+                          'bg-red-100 text-red-700'
+                        }`}>
+                          {req.status === 'pending' ? '待审核' : req.status === 'approved' ? '已通过' : '已拒绝'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => setShowWithdrawDialog(false)}>取消</Button>
+                <Button
+                  className="bg-yellow-500 hover:bg-yellow-600"
+                  onClick={handleBranchWithdraw}
+                  disabled={submitting || !withdrawAmount || parseFloat(withdrawAmount) < 50}
+                >
+                  {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <DollarSign className="w-4 h-4 mr-2" />}
+                  确认申请变现
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
