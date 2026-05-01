@@ -1,18 +1,19 @@
 #!/bin/bash
 set -e
-# Coze Coding 平台的项目目录
-PROJECT_DIR="/tmp/workdir"
-if [ -d "$PROJECT_DIR" ]; then
-    cd "$PROJECT_DIR"
-else
-    # 回退：从 scripts 目录向上找
-    cd "$(dirname "$0")/.."
+
+# 从脚本所在目录向上定位到项目根目录
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_DIR"
+
+# 检查必需的环境变量
+if [ -z "$PGDATABASE_URL" ] && [ -z "$DATABASE_URL" ]; then
+  echo "⚠️  警告: PGDATABASE_URL 和 DATABASE_URL 均未设置，数据库连接将失败"
 fi
 
-# 设置环境变量（如果平台未提供）
-export COZE_SUPABASE_URL="${COZE_SUPABASE_URL:-https://yhpuqkngvdmjokkrfumu.supabase.co}"
-export COZE_SUPABASE_ANON_KEY="${COZE_SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlocHVxa2tuZ3ZkbWpva2tyZnVtdSIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNzQ2Mjc1MjAwLCJleHAiOjE5NjE4NTEyMDB9.cg3Iqsx718y6nPhA1wKtGwUDizmx2K}"
-export JWT_SECRET="${JWT_SECRET:-jiyuan_zhike_2024_secure_jwt_secret_key}"
+if [ -z "$JWT_SECRET" ]; then
+  echo "⚠️  警告: JWT_SECRET 未设置，将使用默认值（不安全）"
+fi
 
 # 确保依赖已安装
 pnpm install --no-frozen-lockfile 2>/dev/null || true

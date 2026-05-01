@@ -1,9 +1,7 @@
 #!/bin/bash
-# Coze Coding 平台的项目目录
-PROJECT_DIR="/tmp/workdir"
-if [ -d "$PROJECT_DIR" ]; then
-    cd "$PROJECT_DIR"
-else
-    cd "$(dirname "$0")/.."
-fi
+# 从脚本所在目录向上定位到项目根目录
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_DIR"
+
 PORT=5000 HOST=0.0.0.0 ./node_modules/.bin/next start -p 5000 -H 0.0.0.0

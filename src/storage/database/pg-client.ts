@@ -24,18 +24,30 @@ function getPoolConfig() {
     }
   }
   
-  // 默认配置（运行时必须设置环境变量）
-  return {
-    user: process.env.PGUSER || 'postgres',
-    password: process.env.PGPASSWORD || '',
-    host: process.env.PGHOST || 'localhost',
-    port: parseInt(process.env.PGPORT || '5432'),
-    database: process.env.PGDATABASE || 'postgres',
-    ssl: { rejectUnauthorized: false },
-    max: 20,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
-  };
+  // 回退：使用分离的环境变量
+  const user = process.env.PGUSER;
+  const password = process.env.PGPASSWORD;
+  const host = process.env.PGHOST;
+  const port = process.env.PGPORT;
+  const database = process.env.PGDATABASE;
+
+  if (user && password && host && database) {
+    return {
+      user,
+      password,
+      host,
+      port: parseInt(port || '5432'),
+      database,
+      ssl: { rejectUnauthorized: false },
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
+    };
+  }
+
+  // 没有配置任何数据库连接信息，给出明确报错
+  console.error('❌ 数据库未配置！请设置环境变量 PGDATABASE_URL 或 PGUSER/PGPASSWORD/PGHOST/PGDATABASE');
+  throw new Error('数据库连接信息未配置，请设置 PGDATABASE_URL 环境变量');
 }
 
 // 获取连接池（延迟初始化）
