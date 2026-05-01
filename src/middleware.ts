@@ -5,6 +5,8 @@ const PUBLIC_PATHS = [
   '/api/auth/login',
   '/api/auth/register',
   '/api/auth/send-verify-code',
+  '/api/auth/forgot-password/send-code',
+  '/api/auth/forgot-password/reset',
   '/api/invite-codes/available',
   '/api/reset-password-direct',
   '/api/energy/account',

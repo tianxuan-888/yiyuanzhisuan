@@ -44,6 +44,128 @@ const roleConfig = {
 export default function LoginPage() {
   const router = useRouter();
   
+  // 找回密码 - 发送验证码
+  const handleForgotSendVerifyCode = async () => {
+    if (!forgotPhone) {
+      setForgotError('请输入手机号');
+      return;
+    }
+    if (!/^1[3-9]\d{9}$/.test(forgotPhone)) {
+      setForgotError('请输入正确的手机号');
+      return;
+    }
+
+    setForgotVerifyCodeLoading(true);
+    setForgotError('');
+
+    try {
+      const response = await fetch('/api/auth/forgot-password/send-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: forgotPhone }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setForgotVerifyCodeSent(true);
+        setForgotVerifyCodeCountdown(60);
+        if (data.devCode) {
+          setForgotError(`测试验证码: ${data.devCode}`);
+        } else {
+          setForgotError('');
+        }
+        const timer = setInterval(() => {
+          setForgotVerifyCodeCountdown((prev) => {
+            if (prev <= 1) {
+              clearInterval(timer);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      } else {
+        setForgotError(data.error || '发送验证码失败');
+      }
+    } catch (err) {
+      setForgotError('网络错误，请稍后重试');
+    } finally {
+      setForgotVerifyCodeLoading(false);
+    }
+  };
+
+  // 找回密码 - 重置密码
+  const handleResetPassword = async () => {
+    if (!forgotPhone) {
+      setForgotError('请输入手机号');
+      return;
+    }
+    if (!/^1[3-9]\d{9}$/.test(forgotPhone)) {
+      setForgotError('请输入正确的手机号');
+      return;
+    }
+    if (!forgotVerifyCode) {
+      setForgotError('请输入验证码');
+      return;
+    }
+    if (!forgotNewPassword) {
+      setForgotError('请输入新密码');
+      return;
+    }
+    if (forgotNewPassword.length < 6) {
+      setForgotError('密码至少6个字符');
+      return;
+    }
+    if (!forgotConfirmPassword) {
+      setForgotError('请确认新密码');
+      return;
+    }
+    if (forgotNewPassword !== forgotConfirmPassword) {
+      setForgotError('两次密码不一致');
+      return;
+    }
+
+    setForgotLoading(true);
+    setForgotError('');
+    setForgotSuccess('');
+
+    try {
+      const response = await fetch('/api/auth/forgot-password/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: forgotPhone,
+          verifyCode: forgotVerifyCode,
+          newPassword: forgotNewPassword,
+          confirmPassword: forgotConfirmPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setForgotSuccess('密码重置成功！3秒后自动跳转到登录页面...');
+        // 清空表单
+        setForgotPhone('');
+        setForgotVerifyCode('');
+        setForgotNewPassword('');
+        setForgotConfirmPassword('');
+        // 3秒后跳转回登录
+        setTimeout(() => {
+          setMode('login');
+          setForgotSuccess('');
+          setForgotError('');
+        }, 3000);
+      } else {
+        setForgotError(data.error || '重置密码失败');
+      }
+    } catch (err) {
+      setForgotError('网络错误，请稍后重试');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
   // 启动画面状态
   const [showSplash, setShowSplash] = useState(true);
   
@@ -69,8 +191,22 @@ export default function LoginPage() {
   const [registerLoading, setRegisterLoading] = useState(false);
   const [registerError, setRegisterError] = useState('');
   
-  // 当前模式：login 或 register
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  // 当前模式：login、register 或 forgot-password
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot-password'>('login');
+
+  // 找回密码表单状态
+  const [forgotPhone, setForgotPhone] = useState('');
+  const [forgotVerifyCode, setForgotVerifyCode] = useState('');
+  const [forgotNewPassword, setForgotNewPassword] = useState('');
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState('');
+  const [showForgotNewPassword, setShowForgotNewPassword] = useState(false);
+  const [showForgotConfirmPassword, setShowForgotConfirmPassword] = useState(false);
+  const [forgotVerifyCodeSent, setForgotVerifyCodeSent] = useState(false);
+  const [forgotVerifyCodeLoading, setForgotVerifyCodeLoading] = useState(false);
+  const [forgotVerifyCodeCountdown, setForgotVerifyCodeCountdown] = useState(0);
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState('');
+  const [forgotSuccess, setForgotSuccess] = useState('');
 
   // 登录
   const handleLogin = async () => {
@@ -302,7 +438,7 @@ export default function LoginPage() {
           </div>
           <CardTitle className="text-2xl font-bold text-white">纪元智科</CardTitle>
           <CardDescription className="text-gray-300 mt-2">
-            {mode === 'login' ? '请输入账号密码登录系统' : '注册新账户'}
+            {mode === 'login' ? '请输入账号密码登录系统' : mode === 'register' ? '注册新账户' : '找回密码'}
           </CardDescription>
         </CardHeader>
         
@@ -404,6 +540,16 @@ export default function LoginPage() {
                   </>
                 )}
               </Button>
+
+              {/* 忘记密码链接 */}
+              <div className="text-center">
+                <button
+                  onClick={() => { setMode('forgot-password'); setError(''); setForgotError(''); setForgotSuccess(''); }}
+                  className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
+                >
+                  忘记密码？
+                </button>
+              </div>
             </>
           )}
 
@@ -589,6 +735,158 @@ export default function LoginPage() {
                   className="text-cyan-400 hover:text-cyan-300 ml-1"
                 >
                   立即登录
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* ===== 找回密码表单 ===== */}
+          {mode === 'forgot-password' && (
+            <>
+              {/* 手机号输入 */}
+              <div className="space-y-2">
+                <Label htmlFor="forgot-phone" className="text-gray-300">
+                  手机号
+                  <span className="text-red-400 text-xs ml-1">*</span>
+                </Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    id="forgot-phone"
+                    type="tel"
+                    placeholder="请输入注册时的手机号"
+                    value={forgotPhone}
+                    onChange={(e) => setForgotPhone(e.target.value.replace(/\D/g, ''))}
+                    maxLength={11}
+                    className="pl-10 bg-slate-700/50 border-slate-600 text-white placeholder-gray-400 focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* 验证码输入 */}
+              <div className="space-y-2">
+                <Label htmlFor="forgot-verify-code" className="text-gray-300">
+                  验证码
+                  <span className="text-red-400 text-xs ml-1">*</span>
+                </Label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <ShieldCheck className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      id="forgot-verify-code"
+                      type="text"
+                      placeholder="请输入验证码"
+                      value={forgotVerifyCode}
+                      onChange={(e) => setForgotVerifyCode(e.target.value.replace(/\D/g, ''))}
+                      maxLength={6}
+                      className="pl-10 bg-slate-700/50 border-slate-600 text-white placeholder-gray-400 focus:border-amber-500"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleForgotSendVerifyCode}
+                    disabled={forgotVerifyCodeLoading || forgotVerifyCodeCountdown > 0 || !forgotPhone}
+                    className="border-amber-500 text-amber-400 hover:bg-amber-500/20 whitespace-nowrap"
+                  >
+                    {forgotVerifyCodeLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : forgotVerifyCodeCountdown > 0 ? (
+                      `${forgotVerifyCodeCountdown}s`
+                    ) : (
+                      '获取验证码'
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* 新密码输入 */}
+              <div className="space-y-2">
+                <Label htmlFor="forgot-new-password" className="text-gray-300">新密码</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    id="forgot-new-password"
+                    type={showForgotNewPassword ? 'text' : 'password'}
+                    placeholder="请输入新密码（至少6个字符）"
+                    value={forgotNewPassword}
+                    onChange={(e) => setForgotNewPassword(e.target.value)}
+                    className="pl-10 pr-10 bg-slate-700/50 border-slate-600 text-white placeholder-gray-400 focus:border-amber-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotNewPassword(!showForgotNewPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300 focus:outline-none"
+                  >
+                    {showForgotNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* 确认新密码 */}
+              <div className="space-y-2">
+                <Label htmlFor="forgot-confirm-password" className="text-gray-300">确认新密码</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    id="forgot-confirm-password"
+                    type={showForgotConfirmPassword ? 'text' : 'password'}
+                    placeholder="请再次输入新密码"
+                    value={forgotConfirmPassword}
+                    onChange={(e) => setForgotConfirmPassword(e.target.value)}
+                    className="pl-10 pr-10 bg-slate-700/50 border-slate-600 text-white placeholder-gray-400 focus:border-amber-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotConfirmPassword(!showForgotConfirmPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300 focus:outline-none"
+                  >
+                    {showForgotConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* 成功提示 */}
+              {forgotSuccess && (
+                <div className="text-green-400 text-sm text-center bg-green-500/10 rounded-lg py-2 px-3">{forgotSuccess}</div>
+              )}
+
+              {/* 错误提示 */}
+              {forgotError && !forgotError.startsWith('测试验证码') && (
+                <div className="text-red-400 text-sm text-center">{forgotError}</div>
+              )}
+              {/* 测试验证码提示 */}
+              {forgotError && forgotError.startsWith('测试验证码') && (
+                <div className="text-amber-400 text-sm text-center bg-amber-500/10 rounded-lg py-2 px-3">{forgotError}</div>
+              )}
+
+              {/* 重置密码按钮 */}
+              <Button
+                onClick={handleResetPassword}
+                disabled={forgotLoading || !forgotPhone || !forgotVerifyCode || !forgotNewPassword || !forgotConfirmPassword}
+                className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
+              >
+                {forgotLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    重置中...
+                  </>
+                ) : (
+                  <>
+                    重置密码
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </>
+                )}
+              </Button>
+
+              {/* 返回登录 */}
+              <div className="text-center text-sm text-gray-400">
+                想起密码了？
+                <button
+                  onClick={() => { setMode('login'); setForgotError(''); setForgotSuccess(''); }}
+                  className="text-purple-400 hover:text-purple-300 ml-1"
+                >
+                  返回登录
                 </button>
               </div>
             </>
