@@ -160,7 +160,7 @@ function Sidebar({
           </div>
           <div>
             <h1 className="text-white font-bold">总公司后台</h1>
-            <p className="text-gray-500 text-xs">华能智算管理</p>
+            <p className="text-gray-500 text-xs">纪元智科管理</p>
           </div>
         </div>
       </div>

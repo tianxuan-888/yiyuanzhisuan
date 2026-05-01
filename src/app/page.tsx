@@ -21,7 +21,7 @@ const SplashScreen = ({ onComplete }: { onComplete: () => void }) => {
         <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
           <Shield className="w-10 h-10 text-white" />
         </div>
-        <h1 className="text-3xl font-bold text-white mb-2">华能智算</h1>
+        <h1 className="text-3xl font-bold text-white mb-2">纪元智科</h1>
         <p className="text-blue-400">GPU算力基建平台</p>
         <div className="mt-8 flex justify-center gap-2">
           <div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '0ms' }} />
@@ -300,7 +300,7 @@ export default function LoginPage() {
           <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/30">
             <Shield className="w-8 h-8 text-white" />
           </div>
-          <CardTitle className="text-2xl font-bold text-white">华能智算</CardTitle>
+          <CardTitle className="text-2xl font-bold text-white">纪元智科</CardTitle>
           <CardDescription className="text-gray-300 mt-2">
             {mode === 'login' ? '请输入账号密码登录系统' : '注册新账户'}
           </CardDescription>

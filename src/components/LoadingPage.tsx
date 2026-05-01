@@ -67,7 +67,7 @@ export function LoadingPage({
         
         {/* 标题 */}
         <h1 className="text-3xl font-bold text-white mb-2 tracking-wider">
-          华能智算
+          纪元智科
         </h1>
         <p className="text-blue-300 text-lg mb-8">GPU算力基建平台</p>
         
@@ -84,7 +84,7 @@ export function LoadingPage({
 
       {/* 底部装饰 */}
       <div className="absolute bottom-8 text-white/40 text-xs">
-        © 2024 华能智算科技有限公司
+        © 2024 纪元智科科技有限公司
       </div>
 
       <style jsx>{`

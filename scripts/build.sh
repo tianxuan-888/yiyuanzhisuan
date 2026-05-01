@@ -12,7 +12,7 @@ fi
 # 设置环境变量（如果平台未提供）
 export COZE_SUPABASE_URL="${COZE_SUPABASE_URL:-https://yhpuqkngvdmjokkrfumu.supabase.co}"
 export COZE_SUPABASE_ANON_KEY="${COZE_SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlocHVxa2tuZ3ZkbWpva2tyZnVtdSIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNzQ2Mjc1MjAwLCJleHAiOjE5NjE4NTEyMDB9.cg3Iqsx718y6nPhA1wKtGwUDizmx2K}"
-export JWT_SECRET="${JWT_SECRET:-huaneng_gpu_2024_secure_jwt_secret_key}"
+export JWT_SECRET="${JWT_SECRET:-jiyuan_zhike_2024_secure_jwt_secret_key}"
 
 # 确保依赖已安装
 pnpm install --no-frozen-lockfile 2>/dev/null || true

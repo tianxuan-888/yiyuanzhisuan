@@ -1022,11 +1022,11 @@ const [copySuccess, setCopySuccess] = useState(false);
 
     // 分享到微信
     const handleShareToWechat = () => {
-        const shareText = `我在华能智算投资GPU算力，收益稳定可靠！使用我的邀请码 ${inviteCode} 注册，一起赚取更多收益！`;
+        const shareText = `我在纪元智科投资GPU算力，收益稳定可靠！使用我的邀请码 ${inviteCode} 注册，一起赚取更多收益！`;
         
         if (navigator.share) {
             navigator.share({
-                title: '华能智算 - GPU算力投资平台',
+                title: '纪元智科 - GPU算力投资平台',
                 text: shareText,
                 url: `${window.location.origin}/?invite=${inviteCode}`,
             }).catch(() => {});
@@ -1558,7 +1558,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                 <Cpu className="w-6 h-6 text-white" />
                             </div>
                             <div>
-                                <h1 className="text-xl font-bold text-gray-900">华能智算</h1>
+                                <h1 className="text-xl font-bold text-gray-900">纪元智科</h1>
                                 <p className="text-xs text-gray-500">GPU算力收益平台</p>
                             </div>
                         </div>
