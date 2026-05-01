@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getSupabaseUrl, getSupabaseServiceRoleKey } from '@/lib/env';
 
-const supabaseUrl = process.env.COZE_SUPABASE_URL || '';
-const supabaseKey = process.env.COZE_SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseUrl = getSupabaseUrl() || '';
+const supabaseKey = getSupabaseServiceRoleKey() || '';
 const client = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
 // 获取分公司能量值账户信息

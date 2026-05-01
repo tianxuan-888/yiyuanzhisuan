@@ -1,9 +1,10 @@
 import { Pool } from 'pg';
+import { getDatabaseUrl } from './env';
 
 // PostgreSQL 连接配置 - 纯环境变量驱动，禁止硬编码
 function getPoolConfig() {
-  // 优先使用 PGDATABASE_URL 连接字符串
-  const DATABASE_URL = process.env.PGDATABASE_URL || process.env.DATABASE_URL;
+  // 优先使用统一的数据库URL获取函数（兼容多种环境变量名）
+  const DATABASE_URL = getDatabaseUrl();
 
   if (DATABASE_URL) {
     const match = DATABASE_URL.match(/postgresql:\/\/([^:@]+):([^@]+)@([^:]+):(\d+)\/(\w+)/);

@@ -1,11 +1,12 @@
 import { Pool, PoolClient } from 'pg';
+import { getDatabaseUrl } from '@/lib/env';
 
 // 延迟初始化连接池
 let pool: Pool | null = null;
 
 // 解析连接字符串
 function getPoolConfig() {
-  const DATABASE_URL = process.env.PGDATABASE_URL || process.env.DATABASE_URL;
+  const DATABASE_URL = getDatabaseUrl();
   
   if (DATABASE_URL) {
     const urlMatch = DATABASE_URL.match(/postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(\w+)/);

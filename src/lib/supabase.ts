@@ -1,11 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
+import { getSupabaseUrl, getSupabaseAnonKey } from './env';
 
-// Supabase 配置 - 必须从环境变量读取，禁止硬编码
-const supabaseUrl = process.env.COZE_SUPABASE_URL;
-const supabaseAnonKey = process.env.COZE_SUPABASE_ANON_KEY;
+// Supabase 配置 - 必须从环境变量读取，兼容多种命名格式
+const supabaseUrl = getSupabaseUrl();
+const supabaseAnonKey = getSupabaseAnonKey();
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('FATAL: COZE_SUPABASE_URL 或 COZE_SUPABASE_ANON_KEY 环境变量未设置');
+  console.error('FATAL: Supabase 环境变量未设置（支持 COZE_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_URL / SUPABASE_URL）');
 }
 
 // 创建 Supabase 客户端（延迟初始化，避免启动时崩溃）

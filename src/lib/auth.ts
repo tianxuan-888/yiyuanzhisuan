@@ -1,11 +1,12 @@
 import jwt from 'jsonwebtoken';
 import { NextRequest } from 'next/server';
+import { getJwtSecret } from './env';
 
-// JWT 密钥 - 从环境变量读取，如果没有则使用默认值（仅用于开发）
-const JWT_SECRET = process.env.JWT_SECRET || 'jiyuan-zhike-default-jwt-secret-key-2024';
+// JWT 密钥 - 从环境变量读取（兼容多种命名格式）
+const JWT_SECRET = getJwtSecret();
 
 if (!process.env.JWT_SECRET) {
-  console.warn('警告: JWT_SECRET 未设置，使用默认密钥（仅用于开发）');
+  console.warn('⚠️  警告: JWT_SECRET 未设置，将使用默认值（不安全）');
 }
 
 const TOKEN_EXPIRY = '24h';

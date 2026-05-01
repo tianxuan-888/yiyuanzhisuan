@@ -1,8 +1,9 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseUrl, getSupabaseAnonKey } from '@/lib/env';
 
-// Supabase 配置 - 必须从环境变量读取，禁止硬编码
-const supabaseUrl = process.env.COZE_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.COZE_SUPABASE_ANON_KEY || '';
+// Supabase 配置 - 必须从环境变量读取，兼容多种命名格式
+const supabaseUrl = getSupabaseUrl();
+const supabaseAnonKey = getSupabaseAnonKey();
 
 // 创建 Supabase 客户端（延迟初始化，避免构建时崩溃）
 let _supabase: SupabaseClient | null = null;

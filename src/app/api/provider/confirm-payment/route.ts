@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
+import { getSupabaseUrl, getSupabaseServiceRoleKey } from '@/lib/env';
 
 // 获取管理员 Supabase 客户端（绕过 RLS）
 function getAdminSupabase() {
-  const url = process.env.COZE_SUPABASE_URL;
-  const key = process.env.COZE_SUPABASE_SERVICE_ROLE_KEY;
+  const url = getSupabaseUrl();
+  const key = getSupabaseServiceRoleKey();
   if (!url || !key) {
     throw new Error('Missing Supabase configuration');
   }
