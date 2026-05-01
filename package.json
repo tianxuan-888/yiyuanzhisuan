@@ -3,9 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "bash ./scripts/build.sh",
+    "build": "NEXT_TURBOPACK=0 next build",
     "dev": "bash ./scripts/dev.sh",
-    "preinstall": "npx only-allow pnpm",
     "lint": "eslint",
     "start": "bash ./scripts/start.sh",
     "ts-check": "tsc -p tsconfig.json"

@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   allowedDevOrigins: ['*.dev.coze.site'],
+  // 禁用 Turbopack，使用 Webpack 构建（Vercel 兼容性更好）
+  turbopack: false,
   images: {
     remotePatterns: [
       {
