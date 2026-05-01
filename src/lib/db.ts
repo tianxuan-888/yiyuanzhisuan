@@ -7,21 +7,23 @@ function getPoolConfig() {
   const DATABASE_URL = getDatabaseUrl();
 
   if (DATABASE_URL) {
-    const match = DATABASE_URL.match(/postgresql:\/\/([^:@]+):([^@]+)@([^:]+):(\d+)\/(\w+)/);
-    if (match) {
-      console.log('[db] Using DATABASE_URL connection');
-      return {
-        user: match[1],
-        password: match[2],
-        host: match[3],
-        port: parseInt(match[4]),
-        database: match[5],
-        ssl: { rejectUnauthorized: false },
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 2000,
-      };
-    }
+    // 兼容多种 URL 格式（带查询参数等）
+    const url = new URL(DATABASE_URL.replace('postgresql://', 'http://'));
+    const isPooler = url.hostname.includes('pooler.supabase.com');
+
+    return {
+      user: url.username,
+      password: decodeURIComponent(url.password),
+      host: url.hostname,
+      port: parseInt(url.port || '5432'),
+      database: url.pathname.slice(1),
+      ssl: { rejectUnauthorized: false },
+      // Supabase Pooler (PgBouncer) 不支持预处理语句，必须禁用
+      ...(isPooler ? { prepare: false } : {}),
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    };
   }
 
   // 回退：使用分离的环境变量
