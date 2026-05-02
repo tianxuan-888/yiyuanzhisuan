@@ -37,64 +37,42 @@ export function getSupabaseServiceRoleKey(): string {
 }
 
 // PostgreSQL 连接字符串
-// 优先使用直连地址，自动从 Supabase URL 构造直连 DATABASE_URL
+// 策略：Supabase 免费计划不暴露直连 DNS (db.xxx.supabase.co)，
+// 必须使用 Pooler 地址 (aws-0-xxx.pooler.supabase.com)，配合 prepare: false
 export function getDatabaseUrl(): string {
-  // 1. 优先使用 SUPABASE_DB_PASSWORD 构造直连地址（最可靠）
-  const dbPassword = process.env.SUPABASE_DB_PASSWORD;
-  const supabaseUrl = getSupabaseUrl();
-  if (dbPassword && supabaseUrl) {
-    const ref = supabaseUrl.replace('https://', '').replace('http://', '').split('.')[0];
-    if (ref) {
-      return `postgresql://postgres:${dbPassword}@db.${ref}.supabase.co:5432/postgres`;
-    }
-  }
-
-  // 2. 使用环境变量中的连接字符串
+  // 1. 使用环境变量中的连接字符串（优先使用非 Pooler 的直连地址）
   const envUrl =
     process.env.DATABASE_URL ||
     process.env.PGDATABASE_URL ||
-    process.env.POSTGRES_URL_NON_POOLING ||  // 优先使用 non-pooling URL
+    process.env.POSTGRES_URL_NON_POOLING ||  // Vercel Supabase 集成的非池化地址
     process.env.POSTGRES_URL ||
     process.env.POSTGRES_PRISMA_URL ||
     '';
 
-  // 3. 如果是 Pooler 地址，自动转换为直连地址
-  if (envUrl && envUrl.includes('pooler.supabase.com')) {
-    const ref = envUrl.match(/postgres\.([a-z0-9]+):/)?.[1];
-    const password = envUrl.match(/:([^@]+)@/)?.[1];
-    if (ref && password) {
-      return `postgresql://postgres:${password}@db.${ref}.supabase.co:5432/postgres`;
-    }
-  }
-
-  // 4. 如果有 Supabase URL 但没有连接字符串，尝试构造直连地址
-  if (!envUrl && supabaseUrl) {
-    const ref = supabaseUrl.replace('https://', '').replace('http://', '').split('.')[0];
-    // 检查 Vercel 是否自动注入了 PGPASSWORD（Vercel Supabase 集成会设置）
-    const pgPassword = process.env.PGPASSWORD;
-    if (ref && pgPassword) {
-      return `postgresql://postgres:${pgPassword}@db.${ref}.supabase.co:5432/postgres`;
-    }
-  }
-
-  // 5. 过滤掉明显无效的连接字符串（如主机名为 "postgres" 的 Vercel 内部地址）
+  // 2. 过滤掉 Vercel 内部无效地址（PGHOST=postgres）
   if (envUrl) {
     try {
       const url = new URL(envUrl.replace('postgresql://', 'http://'));
       if (url.hostname === 'postgres' || url.hostname === 'localhost') {
-        // 这是 Vercel 内部地址或本地地址，不能用于直连 Supabase
-        console.warn(`[env] 跳过无效的数据库 URL (hostname=${url.hostname})，尝试从 Supabase URL 构造直连地址`);
-        if (supabaseUrl) {
-          const ref = supabaseUrl.replace('https://', '').replace('http://', '').split('.')[0];
-          const pgPassword = process.env.PGPASSWORD;
-          if (ref && pgPassword) {
-            return `postgresql://postgres:${pgPassword}@db.${ref}.supabase.co:5432/postgres`;
-          }
-        }
-        return ''; // 无法构造有效地址
+        console.warn(`[env] 跳过无效的数据库 URL (hostname=${url.hostname})`);
+        // 继续尝试下面的方式
+      } else {
+        // 有效地址，直接返回（Pooler 或直连都行，pg-client 会自动适配）
+        return envUrl;
       }
     } catch {
-      // URL 解析失败
+      // URL 解析失败，继续尝试
+    }
+  }
+
+  // 3. 如果没有有效 URL，从 Supabase URL + 密码构造 Pooler 地址
+  const supabaseUrl = getSupabaseUrl();
+  if (supabaseUrl) {
+    const ref = supabaseUrl.replace('https://', '').replace('http://', '').split('.')[0];
+    const dbPassword = process.env.SUPABASE_DB_PASSWORD || process.env.PGPASSWORD;
+    if (ref && dbPassword) {
+      // 使用 Pooler 地址（直连 DNS 在免费计划上不可用）
+      return `postgresql://postgres.${ref}:${dbPassword}@aws-0-us-east-1.pooler.supabase.com:6543/postgres`;
     }
   }
 
