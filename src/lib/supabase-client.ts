@@ -64,10 +64,31 @@ async function executeSql(supabase: SupabaseClient, sql: string, params?: unknow
       const value = params[i];
       if (value === null || value === undefined) {
         finalSql = finalSql.replace(placeholder, 'NULL');
+      } else if (Array.isArray(value)) {
+        // PostgreSQL 数组格式: '{val1,val2,val3}'::type[]
+        // 检测上下文是 ANY($N) 还是 IN ($N) 来决定格式
+        const arrayValues = value.map(v => {
+          if (v === null || v === undefined) return 'NULL';
+          if (typeof v === 'number') return String(v);
+          if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
+          const escaped = String(v).replace(/'/g, "''");
+          return '"' + escaped + '"';
+        });
+        // 使用 ARRAY[] 构造器，更安全且类型兼容
+        const arrayLiteral = 'ARRAY[' + value.map(v => {
+          if (v === null || v === undefined) return 'NULL';
+          if (typeof v === 'number') return String(v);
+          if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
+          const escaped = String(v).replace(/'/g, "''");
+          return "'" + escaped + "'";
+        }).join(', ') + ']';
+        finalSql = finalSql.replace(placeholder, arrayLiteral);
       } else if (typeof value === 'number') {
         finalSql = finalSql.replace(placeholder, String(value));
       } else if (typeof value === 'boolean') {
         finalSql = finalSql.replace(placeholder, value ? 'TRUE' : 'FALSE');
+      } else if (value instanceof Date) {
+        finalSql = finalSql.replace(placeholder, "'" + value.toISOString() + "'");
       } else {
         // 字符串转义单引号
         const escaped = String(value).replace(/'/g, "''");
