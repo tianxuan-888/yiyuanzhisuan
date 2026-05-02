@@ -53,9 +53,9 @@ export function getDatabaseUrl(): string {
   const envUrl =
     process.env.DATABASE_URL ||
     process.env.PGDATABASE_URL ||
+    process.env.POSTGRES_URL_NON_POOLING ||  // 优先使用 non-pooling URL
     process.env.POSTGRES_URL ||
     process.env.POSTGRES_PRISMA_URL ||
-    process.env.POSTGRES_URL_NON_POOLING ||
     '';
 
   // 3. 如果是 Pooler 地址，自动转换为直连地址
@@ -64,6 +64,37 @@ export function getDatabaseUrl(): string {
     const password = envUrl.match(/:([^@]+)@/)?.[1];
     if (ref && password) {
       return `postgresql://postgres:${password}@db.${ref}.supabase.co:5432/postgres`;
+    }
+  }
+
+  // 4. 如果有 Supabase URL 但没有连接字符串，尝试构造直连地址
+  if (!envUrl && supabaseUrl) {
+    const ref = supabaseUrl.replace('https://', '').replace('http://', '').split('.')[0];
+    // 检查 Vercel 是否自动注入了 PGPASSWORD（Vercel Supabase 集成会设置）
+    const pgPassword = process.env.PGPASSWORD;
+    if (ref && pgPassword) {
+      return `postgresql://postgres:${pgPassword}@db.${ref}.supabase.co:5432/postgres`;
+    }
+  }
+
+  // 5. 过滤掉明显无效的连接字符串（如主机名为 "postgres" 的 Vercel 内部地址）
+  if (envUrl) {
+    try {
+      const url = new URL(envUrl.replace('postgresql://', 'http://'));
+      if (url.hostname === 'postgres' || url.hostname === 'localhost') {
+        // 这是 Vercel 内部地址或本地地址，不能用于直连 Supabase
+        console.warn(`[env] 跳过无效的数据库 URL (hostname=${url.hostname})，尝试从 Supabase URL 构造直连地址`);
+        if (supabaseUrl) {
+          const ref = supabaseUrl.replace('https://', '').replace('http://', '').split('.')[0];
+          const pgPassword = process.env.PGPASSWORD;
+          if (ref && pgPassword) {
+            return `postgresql://postgres:${pgPassword}@db.${ref}.supabase.co:5432/postgres`;
+          }
+        }
+        return ''; // 无法构造有效地址
+      }
+    } catch {
+      // URL 解析失败
     }
   }
 

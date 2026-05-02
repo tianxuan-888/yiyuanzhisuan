@@ -26,14 +26,17 @@ function getPoolConfig() {
     };
   }
 
-  // 回退：使用分离的环境变量
+  // 回退：使用分离的环境变量（排除 Vercel 自动注入的无效 PGHOST）
   const user = process.env.PGUSER;
   const password = process.env.PGPASSWORD;
   const host = process.env.PGHOST;
   const port = process.env.PGPORT;
   const database = process.env.PGDATABASE;
 
-  if (user && password && host && database) {
+  // Vercel 会自动注入 PGHOST=postgres（内部地址），这不能用于连接外部 Supabase
+  const isValidHost = host && host !== 'postgres' && host !== 'localhost';
+
+  if (user && password && isValidHost && database) {
     console.log('[db] Using PGUSER/PGHOST environment variables');
     return {
       user,
