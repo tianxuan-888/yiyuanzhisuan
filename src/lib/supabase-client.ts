@@ -29,9 +29,11 @@ export function getSupabase(): SupabaseClient {
 
 /**
  * 查询接口返回类型
+ * 使用 any 类型兼容原始 pg 库的返回行为
  */
 export interface QueryResult {
-  rows: Record<string, unknown>[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rows: any[];
   rowCount: number;
   command: string;
 }
@@ -128,6 +130,7 @@ async function executeSql(supabase: SupabaseClient, sql: string, params?: unknow
  * 解析简单 SQL 并用 Supabase JS Client 直接操作
  * 支持：SELECT, INSERT, UPDATE, DELETE 基本模式
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function parseAndExecute(supabase: SupabaseClient, sql: string): Promise<QueryResult> {
   const upperSql = sql.toUpperCase().trim();
 
@@ -135,7 +138,8 @@ async function parseAndExecute(supabase: SupabaseClient, sql: string): Promise<Q
   const selectMatch = sql.match(/SELECT\s+([\s\S]+?)\s+FROM\s+(\w+)(?:\s+WHERE\s+([\s\S]+?))?(?:\s+ORDER\s+BY\s+([\s\S]+?))?(?:\s+LIMIT\s+(\d+))?(?:\s+OFFSET\s+(\d+))?\s*$/i);
   if (selectMatch) {
     const [, columns, table, whereClause, orderBy, limit, offset] = selectMatch;
-    let query = supabase.from(table).select(columns.trim());
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query: any = supabase.from(table).select(columns.trim());
 
     // 解析 WHERE 子句（简单等值条件）
     if (whereClause) {
@@ -156,7 +160,7 @@ async function parseAndExecute(supabase: SupabaseClient, sql: string): Promise<Q
 
     const { data, error } = await query;
     if (error) throw new Error('Supabase query error: ' + error.message);
-    return { rows: data || [], rowCount: data?.length || 0, command: 'SELECT' };
+    return { rows: (data as Record<string, unknown>[]) || [], rowCount: (data as Record<string, unknown>[])?.length || 0, command: 'SELECT' };
   }
 
   // INSERT INTO table (cols) VALUES (vals)
@@ -168,13 +172,14 @@ async function parseAndExecute(supabase: SupabaseClient, sql: string): Promise<Q
     const record: Record<string, unknown> = {};
     colNames.forEach((col, i) => { record[col] = valParts[i]; });
 
-    let query = supabase.from(table).insert(record);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query: any = supabase.from(table).insert(record);
     if (returning) query = query.select(returning.trim());
     else query = query.select('*');
 
     const { data, error } = await query;
     if (error) throw new Error('Supabase insert error: ' + error.message);
-    return { rows: data || [], rowCount: data?.length || 0, command: 'INSERT' };
+    return { rows: (data as Record<string, unknown>[]) || [], rowCount: (data as Record<string, unknown>[])?.length || 0, command: 'INSERT' };
   }
 
   // UPDATE table SET col=val WHERE condition RETURNING *
@@ -182,28 +187,30 @@ async function parseAndExecute(supabase: SupabaseClient, sql: string): Promise<Q
   if (updateMatch) {
     const [, table, setClause, whereClause, returning] = updateMatch;
     const setParts = parseSetClause(setClause);
-    let query = supabase.from(table).update(setParts);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query: any = supabase.from(table).update(setParts);
     query = applyWhereClause(query, whereClause);
     if (returning) query = query.select(returning.trim());
     else query = query.select('*');
 
     const { data, error } = await query;
     if (error) throw new Error('Supabase update error: ' + error.message);
-    return { rows: data || [], rowCount: data?.length || 0, command: 'UPDATE' };
+    return { rows: (data as Record<string, unknown>[]) || [], rowCount: (data as Record<string, unknown>[])?.length || 0, command: 'UPDATE' };
   }
 
   // DELETE FROM table WHERE condition RETURNING *
   const deleteMatch = sql.match(/DELETE\s+FROM\s+(\w+)\s+WHERE\s+([\s\S]+?)(?:\s+RETURNING\s+(.+))?$/i);
   if (deleteMatch) {
     const [, table, whereClause, returning] = deleteMatch;
-    let query = supabase.from(table).delete();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query: any = supabase.from(table).delete();
     query = applyWhereClause(query, whereClause);
     if (returning) query = query.select(returning.trim());
     else query = query.select('*');
 
     const { data, error } = await query;
     if (error) throw new Error('Supabase delete error: ' + error.message);
-    return { rows: data || [], rowCount: data?.length || 0, command: 'DELETE' };
+    return { rows: (data as Record<string, unknown>[]) || [], rowCount: (data as Record<string, unknown>[])?.length || 0, command: 'DELETE' };
   }
 
   // 无法解析的 SQL，尝试用 rpc
@@ -337,13 +344,15 @@ function applyWhereClause(query: any, whereClause: string): any {
  */
 
 // query - 执行 SQL 查询，返回行数组（兼容原 query<T>() 返回 T[] 的用法）
-export async function query<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<T[]> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function query<T = any>(sql: string, params?: unknown[]): Promise<T[]> {
   const result = await executeSql(getSupabase(), sql, params);
   return result.rows as T[];
 }
 
 // queryOne - 查询单条记录
-export async function queryOne<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<T | null> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function queryOne<T = any>(sql: string, params?: unknown[]): Promise<T | null> {
   const result = await executeSql(getSupabase(), sql, params);
   return (result.rows[0] as T) || null;
 }
