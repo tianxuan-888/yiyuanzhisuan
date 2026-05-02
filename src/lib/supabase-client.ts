@@ -310,34 +310,42 @@ function applyWhereClause(query: any, whereClause: string): any {
 
 /**
  * 导出兼容接口
+ * 
+ * 重要：原代码中 query<T>() 返回 T[]（行数组），
+ * 而 withTransaction 回调中 client.query() 返回 { rows, rowCount }（pg Client 风格）
  */
 
-// query - 执行 SQL 查询
-export async function query(sql: string, params?: unknown[]): Promise<QueryResult> {
-  return executeSql(getSupabase(), sql, params);
+// query - 执行 SQL 查询，返回行数组（兼容原 query<T>() 返回 T[] 的用法）
+export async function query<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<T[]> {
+  const result = await executeSql(getSupabase(), sql, params);
+  return result.rows as T[];
 }
 
 // queryOne - 查询单条记录
-export async function queryOne(sql: string, params?: unknown[]): Promise<Record<string, unknown> | null> {
+export async function queryOne<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<T | null> {
   const result = await executeSql(getSupabase(), sql, params);
-  return result.rows[0] || null;
+  return (result.rows[0] as T) || null;
 }
 
-// execute - 执行写操作
+// execute - 执行写操作，返回 { rows, rowCount }
 export async function execute(sql: string, params?: unknown[]): Promise<QueryResult> {
   return executeSql(getSupabase(), sql, params);
 }
 
 // withTransaction - 模拟事务（Supabase REST API 不支持真正事务）
+// 回调中 client.query() 返回 { rows, rowCount } 格式（兼容 pg Client）
 export async function withTransaction<T>(
-  callback: (client: { query: (sql: string, params?: unknown[]) => Promise<QueryResult> }) => Promise<T>
+  callback: (client: { query: (sql: string, params?: unknown[]) => Promise<QueryResult>; execute: (sql: string, params?: unknown[]) => Promise<QueryResult> }) => Promise<T>
 ): Promise<T> {
   // REST API 不支持事务，直接执行
   const client = new CompatClient();
-  return callback(client);
+  return callback({
+    query: client.query.bind(client),
+    execute: client.query.bind(client),
+  });
 }
 
-// pool - 兼容原有 pool.query() 调用
+// pool - 兼容原有 pool.query() 调用，返回 { rows, rowCount }
 export const pool = {
   query: async (sql: string, params?: unknown[]): Promise<QueryResult> => {
     return executeSql(getSupabase(), sql, params);
@@ -349,11 +357,6 @@ export function getPool() {
   return pool;
 }
 
-// 兼容 db.ts 的 queryDb
-export async function queryDb(sql: string, params?: unknown[]): Promise<QueryResult> {
-  return executeSql(getSupabase(), sql, params);
-}
-
 export default {
   query,
   queryOne,
@@ -361,6 +364,5 @@ export default {
   withTransaction,
   pool,
   getPool,
-  queryDb,
   getSupabase,
 };

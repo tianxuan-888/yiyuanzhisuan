@@ -3,6 +3,12 @@
  * 
  * 导出与原 pg Pool 完全相同的接口
  * 所有 API 路由通过 import { query, queryOne, execute, withTransaction } from '@/lib/pg-client' 使用
+ * 
+ * 接口说明：
+ * - query<T>(sql, params) → T[]  （行数组，兼容原代码用法）
+ * - queryOne<T>(sql, params) → T | null
+ * - execute(sql, params) → { rows, rowCount }
+ * - withTransaction(cb) → cb 中 client.query() 返回 { rows, rowCount }（pg Client 风格）
  */
 
 // Re-export from supabase-client (REST API 兼容层)
