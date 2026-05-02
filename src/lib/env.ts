@@ -37,15 +37,37 @@ export function getSupabaseServiceRoleKey(): string {
 }
 
 // PostgreSQL 连接字符串
+// 优先使用直连地址，自动从 Supabase URL 构造直连 DATABASE_URL
 export function getDatabaseUrl(): string {
-  return (
-    process.env.PGDATABASE_URL ||
+  // 1. 优先使用 SUPABASE_DB_PASSWORD 构造直连地址（最可靠）
+  const dbPassword = process.env.SUPABASE_DB_PASSWORD;
+  const supabaseUrl = getSupabaseUrl();
+  if (dbPassword && supabaseUrl) {
+    const ref = supabaseUrl.replace('https://', '').replace('http://', '').split('.')[0];
+    if (ref) {
+      return `postgresql://postgres:${dbPassword}@db.${ref}.supabase.co:5432/postgres`;
+    }
+  }
+
+  // 2. 使用环境变量中的连接字符串
+  const envUrl =
     process.env.DATABASE_URL ||
+    process.env.PGDATABASE_URL ||
     process.env.POSTGRES_URL ||
     process.env.POSTGRES_PRISMA_URL ||
     process.env.POSTGRES_URL_NON_POOLING ||
-    ''
-  );
+    '';
+
+  // 3. 如果是 Pooler 地址，自动转换为直连地址
+  if (envUrl && envUrl.includes('pooler.supabase.com')) {
+    const ref = envUrl.match(/postgres\.([a-z0-9]+):/)?.[1];
+    const password = envUrl.match(/:([^@]+)@/)?.[1];
+    if (ref && password) {
+      return `postgresql://postgres:${password}@db.${ref}.supabase.co:5432/postgres`;
+    }
+  }
+
+  return envUrl;
 }
 
 // JWT 密钥
