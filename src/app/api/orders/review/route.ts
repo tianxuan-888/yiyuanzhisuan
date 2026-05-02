@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, queryOne } from '@/lib/pg-client';
+import { query, queryOne, execute } from '@/lib/pg-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 import { randomUUID } from 'crypto';
 
@@ -365,7 +365,33 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 8.6 记录服务商收益分配
+      // 8.6 记录现金收益：分公司市场费分润 + 总公司运营费
+      if (branchId) {
+        // 分公司5%市场费分润 → 现金收益记录
+        await execute(
+          `INSERT INTO branch_revenue_records (branch_id, type, amount, related_user_id, related_order_id, note, status, created_at)
+           VALUES ($1, 'market_fee_share', $2, $3, $4, $5, 'received', NOW())`,
+          [branchId, branchBaseShare, order.user_id, orderId, `市场费5%分润 (订单: ${orderId})`]
+        );
+        // 如果没有上级服务商，10%也归分公司 → 额外现金收益记录
+        if (!parentProviderId) {
+          await execute(
+            `INSERT INTO branch_revenue_records (branch_id, type, amount, related_user_id, related_order_id, note, status, created_at)
+             VALUES ($1, 'provider_upstream', $2, $3, $4, $5, 'received', NOW())`,
+            [branchId, parentProviderShare, order.user_id, orderId, `一级服务商上级收益10% (订单: ${orderId})`]
+          );
+        }
+      }
+      // 总公司运营5% → 手续费沉淀记录
+      if (companyShare > 0) {
+        await execute(
+          `INSERT INTO company_fee_records (type, amount, source_user_id, source_role, source_order_id, note, created_at)
+           VALUES ('market_fee_ops', $1, $2, 'member', $3, $4, NOW())`,
+          [companyShare, order.user_id, orderId, `公司运营收益5% (订单: ${orderId})`]
+        );
+      }
+
+      // 8.7 记录服务商收益分配
       await recordProviderRevenueDistribution(
         orderId,
         product?.provider_id,
@@ -382,7 +408,7 @@ export async function POST(request: NextRequest) {
         companyShare
       );
 
-      // 8.7 计算并发放下级分成
+      // 8.8 计算并发放下级分成
       // 查询当前服务商有多少下级服务商，用于计算上级服务商的分层收益
       const subordinateSplit = await calculateSubordinateSplit(
         product?.provider_id,

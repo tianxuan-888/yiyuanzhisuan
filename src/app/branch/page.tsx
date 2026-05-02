@@ -10,7 +10,7 @@ import {
   Users, Zap, Package, Loader2, Send, Building2, 
   RefreshCw, Plus, Bell, ChevronDown, ChevronUp,
   Eye, DollarSign, ClipboardList, CheckCircle, XCircle, Database,
-  FileCheck, ClipboardCheck, User
+  FileCheck, ClipboardCheck, User, History, Banknote, Gift, TrendingUp
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -166,6 +166,16 @@ export default function BranchPage() {
   const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawRequests, setWithdrawRequests] = useState<any[]>([]);
+
+  // 提现审核
+  const [pendingWithdrawals, setPendingWithdrawals] = useState<any[]>([]);
+  const [branchWithdrawRecords, setBranchWithdrawRecords] = useState<any[]>([]);
+  const [branchRevenueRecords, setBranchRevenueRecords] = useState<any[]>([]);
+  const [branchRevenueStats, setBranchRevenueStats] = useState<any>({});
+  const [branchWithdrawAmount, setBranchWithdrawAmount] = useState("");
+  const [branchWithdrawAlipay, setBranchWithdrawAlipay] = useState("");
+  const [branchWithdrawRealName, setBranchWithdrawRealName] = useState("");
+  const [showBranchWithdrawDialog, setShowBranchWithdrawDialog] = useState(false);
 
   // 分公司能量值流转记录
   const [energyRecords, setEnergyRecords] = useState<any[]>([]);
@@ -684,6 +694,127 @@ export default function BranchPage() {
       }
     } catch (error) {
       console.error('加载变现申请记录失败:', error);
+    }
+  };
+
+  // 加载待审核提现列表
+  const loadPendingWithdrawals = async () => {
+    const branchId = localStorage.getItem('userId');
+    if (!branchId) return;
+    try {
+      const response = await authFetch(`/api/branch/withdraw-review?branchId=${branchId}`);
+      const data = await response.json();
+      if (data.success) {
+        setPendingWithdrawals(data.data || []);
+      }
+    } catch (error) {
+      console.error('加载待审核提现失败:', error);
+    }
+  };
+
+  // 审核提现操作
+  const handleReviewWithdrawal = async (withdrawalId: string, action: string, rejectReason?: string) => {
+    try {
+      setSubmitting(true);
+      const response = await authFetch('/api/branch/withdraw-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ withdrawalId, action, rejectReason }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        showMessage('success', data.message || '操作成功');
+        loadPendingWithdrawals();
+        loadBranchRevenueRecords();
+      } else {
+        showMessage('error', data.error || '操作失败');
+      }
+    } catch (error) {
+      showMessage('error', '网络错误');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // 加载分公司收益记录
+  const loadBranchRevenueRecords = async () => {
+    const branchId = localStorage.getItem('userId');
+    if (!branchId) return;
+    try {
+      const response = await authFetch(`/api/branch/revenue-records?branchId=${branchId}`);
+      const data = await response.json();
+      if (data.success) {
+        setBranchRevenueRecords(data.data?.records || []);
+        const s = data.data?.stats || {};
+        setBranchRevenueStats({
+          totalRevenue: s.total_revenue || 0,
+          memberWithdraw: s.total_member_withdraw || 0,
+          providerWithdraw: s.total_provider_withdraw || 0,
+          marketFeeShare: s.total_market_fee_share || 0,
+          providerUpstream: s.total_provider_upstream || 0,
+        });
+      }
+    } catch (error) {
+      console.error('加载收益记录失败:', error);
+    }
+  };
+
+  // 分公司提现到总公司
+  const handleBranchWithdrawToCompany = async () => {
+    const amount = parseFloat(branchWithdrawAmount);
+    if (!amount || amount < 100) {
+      showMessage('error', '最低提现金额为100元');
+      return;
+    }
+    if (!branchWithdrawAlipay.trim()) {
+      showMessage('error', '请输入支付宝账号');
+      return;
+    }
+    if (!branchWithdrawRealName.trim()) {
+      showMessage('error', '请输入支付宝姓名');
+      return;
+    }
+    try {
+      setSubmitting(true);
+      const response = await authFetch('/api/branch/withdraw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: branchWithdrawAmount,
+          alipayAccount: branchWithdrawAlipay.trim(),
+          realName: branchWithdrawRealName.trim(),
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        showMessage('success', `提现申请已提交！手续费${data.data?.fee || 0}元，实际到账${data.data?.actualAmount || 0}元，等待总公司审核`);
+        setShowBranchWithdrawDialog(false);
+        setBranchWithdrawAmount('');
+        setBranchWithdrawAlipay('');
+        setBranchWithdrawRealName('');
+        loadBranchRevenueRecords();
+      } else {
+        showMessage('error', data.error || '提现失败');
+      }
+    } catch (error) {
+      showMessage('error', '网络错误');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // 加载分公司提现记录
+  const loadBranchWithdrawRecords = async () => {
+    const branchId = localStorage.getItem('userId');
+    if (!branchId) return;
+    try {
+      const response = await authFetch(`/api/branch/withdraw?userId=${branchId}`);
+      const data = await response.json();
+      if (data.success) {
+        setBranchWithdrawRecords(data.data || []);
+      }
+    } catch (error) {
+      console.error('加载提现记录失败:', error);
     }
   };
 
@@ -1257,6 +1388,22 @@ export default function BranchPage() {
                 {(energyRequests.length + providerEnergyRequests.length) > 0 && (
                   <Badge className="ml-1 bg-red-500 text-white text-xs">{energyRequests.length + providerEnergyRequests.length}</Badge>
                 )}
+              </button>
+              <button
+                onClick={() => { loadPendingWithdrawals(); setActiveTab('withdraw-review'); }}
+                className={`px-4 py-2 rounded-md transition-all flex items-center gap-1 ${
+                  activeTab === 'withdraw-review' ? 'bg-white text-purple-900 font-semibold shadow-md' : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <ClipboardCheck className="w-4 h-4" />提现审核
+              </button>
+              <button
+                onClick={() => { loadBranchRevenueRecords(); setActiveTab('revenue'); }}
+                className={`px-4 py-2 rounded-md transition-all flex items-center gap-1 ${
+                  activeTab === 'revenue' ? 'bg-white text-purple-900 font-semibold shadow-md' : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Banknote className="w-4 h-4" />收益管理
               </button>
             </div>
           </div>
@@ -2445,6 +2592,175 @@ export default function BranchPage() {
               )}
             </div>
           )}
+
+          {/* 提现审核 Tab */}
+          {activeTab === 'withdraw-review' && (
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ClipboardCheck className="w-5 h-5" />
+                    提现审核
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {pendingWithdrawals.length > 0 ? (
+                    <div className="space-y-4">
+                      {pendingWithdrawals.map((w: any) => (
+                        <div key={w.id} className="border rounded-lg p-4 bg-orange-50">
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <p className="font-medium">{w.user?.username || w.real_name || '用户'}</p>
+                              <p className="text-sm text-gray-500">角色: {w.user_role === 'member' ? '会员' : w.user_role === 'provider' ? '服务商' : w.user_role}</p>
+                              <p className="text-sm text-gray-500">手机: {w.user?.phone || '-'}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xl font-bold text-orange-600">¥{Number(w.amount).toLocaleString()}</p>
+                              <p className="text-xs text-gray-500">手续费: ¥{Number(w.fee).toLocaleString()}</p>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                            <div className="text-gray-600"><span className="font-medium">支付宝:</span> {w.alipay_account || '-'}</div>
+                            <div className="text-gray-600"><span className="font-medium">姓名:</span> {w.real_name || '-'}</div>
+                          </div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge className={w.status === 'pending' ? 'bg-yellow-500' : w.status === 'approved' ? 'bg-blue-500' : w.status === 'transferred' ? 'bg-green-500' : 'bg-gray-500'}>
+                              {w.status === 'pending' ? '待审核' : w.status === 'approved' ? '已审核' : w.status === 'transferred' ? '已打款' : w.status}
+                            </Badge>
+                          </div>
+                          <div className="flex gap-2">
+                            {w.status === 'pending' && (
+                              <>
+                                <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleReviewWithdrawal(w.id, 'approve')} disabled={submitting}>
+                                  <CheckCircle className="w-4 h-4 mr-1" /> 审核通过
+                                </Button>
+                                <Button size="sm" variant="destructive" onClick={() => handleReviewWithdrawal(w.id, 'reject')} disabled={submitting}>
+                                  <XCircle className="w-4 h-4 mr-1" /> 拒绝
+                                </Button>
+                              </>
+                            )}
+                            {w.status === 'approved' && (
+                              <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => handleReviewWithdrawal(w.id, 'confirm_transfer')} disabled={submitting}>
+                                <CheckCircle className="w-4 h-4 mr-1" /> 确认已转账
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-center py-8">暂无待审核的提现申请</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* 收益管理 Tab */}
+          {activeTab === 'revenue' && (
+            <div className="space-y-6">
+              {/* 收益统计卡片 */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp className="w-5 h-5" />
+                      <span className="text-sm opacity-80">累计收益</span>
+                    </div>
+                    <p className="text-2xl font-bold">¥{Number(branchRevenueStats.totalRevenue || 0).toLocaleString()}</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Users className="w-5 h-5" />
+                      <span className="text-sm opacity-80">会员提现收益</span>
+                    </div>
+                    <p className="text-2xl font-bold">¥{Number(branchRevenueStats.memberWithdraw || 0).toLocaleString()}</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Building2 className="w-5 h-5" />
+                      <span className="text-sm opacity-80">服务商提现收益</span>
+                    </div>
+                    <p className="text-2xl font-bold">¥{Number(branchRevenueStats.providerWithdraw || 0).toLocaleString()}</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <DollarSign className="w-5 h-5" />
+                      <span className="text-sm opacity-80">市场费分润</span>
+                    </div>
+                    <p className="text-2xl font-bold">¥{Number(branchRevenueStats.marketFeeShare || 0).toLocaleString()}</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* 操作区 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Banknote className="w-5 h-5" />
+                    收益操作
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-500">可提现余额</p>
+                      <p className="text-2xl font-bold text-green-600">¥{Number(branchRevenueStats.totalRevenue || 0).toLocaleString()}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        className="bg-green-600 hover:bg-green-700"
+                        onClick={() => setShowBranchWithdrawDialog(true)}
+                      >
+                        <Banknote className="w-4 h-4 mr-1" /> 提现到总公司
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 收益记录列表 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <History className="w-5 h-5" />
+                    收益记录
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {branchRevenueRecords.length > 0 ? (
+                    <div className="space-y-2">
+                      {branchRevenueRecords.map((r: any) => (
+                        <div key={r.id} className="flex items-center justify-between border rounded-lg p-3 hover:bg-gray-50">
+                          <div>
+                            <p className="font-medium text-green-600">+¥{Number(r.amount).toLocaleString()}</p>
+                            <p className="text-xs text-gray-500">
+                              {r.type === 'member_withdraw' ? '会员提现' : 
+                               r.type === 'provider_withdraw' ? '服务商提现' :
+                               r.type === 'market_fee_share' ? '市场费分润(5%)' :
+                               r.type === 'provider_upstream' ? '上级服务商分润(10%)' : r.type}
+                            </p>
+                            <p className="text-xs text-gray-400">{r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</p>
+                          </div>
+                          <Badge className={r.status === 'received' ? 'bg-blue-100 text-blue-700' : r.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}>
+                            {r.status === 'received' ? '已入账' : r.status === 'paid' ? '已支出' : r.status === 'completed' ? '已完成' : r.status}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-center py-8">暂无收益记录</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       </main>
 
@@ -2611,6 +2927,72 @@ export default function BranchPage() {
                 >
                   {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
                   确认申请
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* 分公司提现到总公司对话框 */}
+      {showBranchWithdrawDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Banknote className="w-5 h-5 text-green-500" />
+                收益提现到总公司
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-green-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">当前收益余额</p>
+                <p className="text-2xl font-bold text-green-600">¥{Number(branchRevenueStats.totalRevenue || 0).toLocaleString()}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">提现金额</label>
+                <Input
+                  type="number"
+                  placeholder="请输入提现金额（最低100）"
+                  value={branchWithdrawAmount}
+                  onChange={(e) => setBranchWithdrawAmount(e.target.value)}
+                />
+                {branchWithdrawAmount && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    手续费5%: {(parseFloat(branchWithdrawAmount) * 0.05).toFixed(2)}元 | 实际到账: {(parseFloat(branchWithdrawAmount) * 0.95).toFixed(2)}元
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">支付宝账号</label>
+                <Input
+                  placeholder="请输入支付宝账号"
+                  value={branchWithdrawAlipay}
+                  onChange={(e) => setBranchWithdrawAlipay(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">支付宝姓名</label>
+                <Input
+                  placeholder="请输入支付宝实名姓名"
+                  value={branchWithdrawRealName}
+                  onChange={(e) => setBranchWithdrawRealName(e.target.value)}
+                />
+              </div>
+              <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-600">
+                <p>• 最低提现金额: ¥100</p>
+                <p>• 提现手续费: 5%（沉淀到总公司）</p>
+                <p>• 提交后等待总公司审核打款</p>
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => setShowBranchWithdrawDialog(false)}>取消</Button>
+                <Button
+                  className="bg-green-600 hover:bg-green-700"
+                  onClick={handleBranchWithdrawToCompany}
+                  disabled={submitting || !branchWithdrawAmount || parseFloat(branchWithdrawAmount) < 100}
+                >
+                  {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Banknote className="w-4 h-4 mr-2" />}
+                  确认提现
                 </Button>
               </div>
             </CardContent>

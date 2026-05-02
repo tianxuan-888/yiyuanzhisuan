@@ -19,6 +19,7 @@ interface UserData {
   energy_value: number;
   energyValue?: number; // 登录接口返回的字段名
   balance: number;
+  points: number;
   is_active: boolean;
   created_at: string;
   updated_at: string | null;
@@ -34,6 +35,7 @@ interface UserInfo {
   memberLevel: MemberLevel;
   energyValue: number;
   balance: number;
+  points: number;
   providerId: string | null;
   inviterId: string | null;
   branch_id?: string | null; // 服务商所属分公司ID
@@ -97,6 +99,7 @@ export function useAuth(requiredRole?: string) {
           // 支持两种字段名：energyValue (登录接口返回) 和 energy_value (原字段)
           energyValue: Number(userData.energyValue || userData.energy_value) || 0,
           balance: Number(userData.balance || 0),
+          points: Number(userData.points ?? 0),
           providerId: userData.provider_id,
           inviterId: userData.inviter_id,
           unique_id: userData.unique_id || (userData.phone ? `HM${userData.phone.slice(-6)}` : undefined),
@@ -122,6 +125,7 @@ export function useAuth(requiredRole?: string) {
             inviterId: null,
             unique_id: undefined,
             branch_id: null,
+            points: 0,
           });
         }
       }
@@ -139,6 +143,7 @@ export function useAuth(requiredRole?: string) {
         inviterId: null,
         unique_id: undefined,
         branch_id: null,
+        points: 0,
       });
     }
 
@@ -182,6 +187,7 @@ export function useAuth(requiredRole?: string) {
           providerId: data.data.provider_id,
           inviterId: data.data.inviter_id,
           unique_id: data.data.unique_id || (data.data.phone ? `HM${data.data.phone.slice(-6)}` : undefined),
+          points: Number(data.data.points) || 0,
         });
       }
     } catch (err) {

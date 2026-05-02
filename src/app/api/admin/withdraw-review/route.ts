@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, withTransaction } from '@/lib/pg-client';
 import { authenticateRequest } from '@/lib/auth';
 
-// 分公司审核提现（审核会员/服务商的提现申请）
+// 总公司审核分公司提现
 export async function POST(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);
@@ -10,8 +10,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '未登录' }, { status: 401 });
     }
 
-    if (authUser.role !== 'branch') {
-      return NextResponse.json({ error: '仅分公司可审核提现' }, { status: 403 });
+    if (authUser.role !== 'admin') {
+      return NextResponse.json({ error: '仅总公司可审核' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -28,7 +28,6 @@ export async function POST(request: NextRequest) {
     const reviewerId = authUser.userId;
 
     const result = await withTransaction(async (client) => {
-      // 查询提现单
       const withdrawalRes = await client.query(
         'SELECT * FROM withdrawals WHERE id = $1',
         [withdrawalId]
@@ -40,7 +39,10 @@ export async function POST(request: NextRequest) {
 
       const withdrawal = withdrawalRes.rows[0];
 
-      // 验证状态流转
+      if (withdrawal.user_role !== 'branch') {
+        throw Object.assign(new Error('仅可审核分公司提现单'), { statusCode: 400 });
+      }
+
       if (action === 'approve' && withdrawal.status !== 'pending') {
         throw Object.assign(new Error('只能审核待审核的提现单'), { statusCode: 400 });
       }
@@ -55,58 +57,32 @@ export async function POST(request: NextRequest) {
       }
 
       if (action === 'approve') {
-        // 审核通过
         await client.query(
           `UPDATE withdrawals SET status = 'approved', reviewer_id = $1, reviewed_at = NOW(), updated_at = NOW() WHERE id = $2`,
           [reviewerId, withdrawalId]
         );
-
-        // 更新分公司收益记录状态
-        await client.query(
-          `UPDATE branch_revenue_records SET status = 'approved', updated_at = NOW() WHERE related_withdrawal_id = $1`,
-          [withdrawalId]
-        );
-
         return { newStatus: 'approved', message: '审核通过，请线下转账后确认打款' };
       }
 
       if (action === 'confirm_transfer') {
-        // 确认已线下转账
         await client.query(
           `UPDATE withdrawals SET status = 'transferred', transferred_at = NOW(), updated_at = NOW() WHERE id = $1`,
           [withdrawalId]
         );
-
-        // 更新分公司收益记录
-        await client.query(
-          `UPDATE branch_revenue_records SET status = 'paid', updated_at = NOW() WHERE related_withdrawal_id = $1`,
-          [withdrawalId]
-        );
-
-        return { newStatus: 'transferred', message: '已确认转账，等待会员确认收款' };
+        return { newStatus: 'transferred', message: '已确认转账' };
       }
 
       if (action === 'complete') {
-        // 完成提现
         await client.query(
           `UPDATE withdrawals SET status = 'completed', completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
           [withdrawalId]
         );
-
-        // 更新分公司收益记录
-        await client.query(
-          `UPDATE branch_revenue_records SET status = 'completed', updated_at = NOW() WHERE related_withdrawal_id = $1`,
-          [withdrawalId]
-        );
-
         return { newStatus: 'completed', message: '提现已完成' };
       }
 
       if (action === 'reject') {
-        // 审核拒绝 - 退还余额
         const userId = withdrawal.user_id;
         const amount = parseFloat(withdrawal.amount);
-        const fee = parseFloat(withdrawal.fee);
 
         const userRes = await client.query(
           'SELECT balance FROM users WHERE id = $1',
@@ -123,19 +99,12 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        // 更新提现单状态
         await client.query(
           `UPDATE withdrawals SET status = 'rejected', reviewer_id = $1, reject_reason = $2, reviewed_at = NOW(), updated_at = NOW() WHERE id = $3`,
           [reviewerId, rejectReason || '审核拒绝', withdrawalId]
         );
 
-        // 删除分公司收益记录（退还）
-        await client.query(
-          `DELETE FROM branch_revenue_records WHERE related_withdrawal_id = $1`,
-          [withdrawalId]
-        );
-
-        // 删除总公司手续费记录（退还）
+        // 删除手续费记录
         await client.query(
           `DELETE FROM company_fee_records WHERE source_withdrawal_id = $1`,
           [withdrawalId]
@@ -152,7 +121,7 @@ export async function POST(request: NextRequest) {
       data: result,
     });
   } catch (error: any) {
-    console.error('审核提现失败:', error);
+    console.error('总公司审核提现失败:', error);
     const statusCode = error.statusCode || 500;
     return NextResponse.json(
       { error: error.message || '审核失败' },
@@ -161,7 +130,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 获取分公司待审核/所有提现列表
+// 获取总公司待审核的分公司提现列表
 export async function GET(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);
@@ -169,55 +138,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '未登录' }, { status: 401 });
     }
 
-    if (authUser.role !== 'branch') {
-      return NextResponse.json({ error: '仅分公司可查看' }, { status: 403 });
+    if (authUser.role !== 'admin') {
+      return NextResponse.json({ error: '仅总公司可查看' }, { status: 403 });
     }
 
-    const branchUserId = authUser.userId;
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
-    const userRole = searchParams.get('userRole');
 
-    // 获取分公司下所有会员和服务商的提现单
-    // 先找分公司下的服务商
-    const providers = await query(
-      'SELECT user_id FROM providers WHERE branch_id = $1',
-      [branchUserId]
-    );
-    const providerUserIds = providers.map((p: any) => p.user_id);
-
-    // 找服务商下的会员
-    let memberUserIds: string[] = [];
-    if (providerUserIds.length > 0) {
-      const members = await query(
-        `SELECT id FROM users WHERE provider_id = ANY($1)`,
-        [providerUserIds]
-      );
-      memberUserIds = members.map((m: any) => m.id);
-    }
-
-    // 合并所有下属用户ID
-    const allUserIds = [...providerUserIds, ...memberUserIds];
-    if (allUserIds.length === 0) {
-      return NextResponse.json({ success: true, data: [] });
-    }
-
-    let sql = `SELECT w.*, u.username, u.phone, u.role as user_role_info 
+    let sql = `SELECT w.*, u.username, u.phone, u.branch_id as branch_info 
                FROM withdrawals w 
                LEFT JOIN users u ON w.user_id = u.id 
-               WHERE w.user_id = ANY($1) AND w.user_role IN ('member', 'provider')`;
-    const params: any[] = [allUserIds];
-    let paramIdx = 2;
+               WHERE w.user_role = 'branch'`;
+    const params: any[] = [];
+    let paramIdx = 1;
 
     if (status) {
       sql += ` AND w.status = $${paramIdx}`;
       params.push(status);
       paramIdx++;
-    }
-
-    if (userRole) {
-      sql += ` AND w.user_role = $${paramIdx}`;
-      params.push(userRole);
     }
 
     sql += ' ORDER BY w.created_at DESC';

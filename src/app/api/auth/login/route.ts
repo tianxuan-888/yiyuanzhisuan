@@ -116,6 +116,7 @@ export async function POST(request: NextRequest) {
           id: String(user.id),
           branch_name,
           energyValue,
+          points: parseNumeric(user.points || 0),
           token,
         },
       });

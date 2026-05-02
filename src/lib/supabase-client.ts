@@ -100,18 +100,45 @@ async function executeSql(supabase: SupabaseClient, sql: string, params?: unknow
   }
 
   const trimmedSql = finalSql.trim();
+  const command = trimmedSql.split(/\s+/)[0].toUpperCase();
 
-  // 尝试通过 rpc_query 执行（如果 schema cache 已刷新）
-  try {
-    const { data, error } = await supabase.rpc('rpc_query', { sql_query: trimmedSql });
-    if (!error) {
-      const rows = Array.isArray(data) ? data : (data ? [data] : []);
-      const command = trimmedSql.split(/\s+/)[0].toUpperCase();
-      return { rows, rowCount: rows.length, command };
+  // SELECT 语句：通过 rpc_query 执行
+  if (command === 'SELECT' || command === 'WITH') {
+    try {
+      const { data, error } = await supabase.rpc('rpc_query', { sql_query: trimmedSql });
+      if (!error) {
+        const rows = Array.isArray(data) ? data : (data ? [data] : []);
+        return { rows, rowCount: rows.length, command };
+      }
+      if (!error.message.includes('Could not find the function')) {
+        console.error('[supabase-client] rpc_query error:', error.message);
+        throw new Error('Supabase RPC error: ' + error.message);
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!msg.includes('Could not find the function')) {
+        throw e;
+      }
     }
-    // 如果 rpc_query 不存在，fallthrough 到解析方式
+    // rpc_query 不可用，fallthrough 到解析方式
+    return parseAndExecute(supabase, trimmedSql);
+  }
+
+  // 写操作 (INSERT/UPDATE/DELETE)：优先通过 rpc_execute 执行
+  try {
+    const { data, error } = await supabase.rpc('rpc_execute', { sql_query: trimmedSql });
+    if (!error) {
+      // rpc_execute 返回两种格式：RETURNING 时返回数组，否则返回 {rowCount: N}
+      if (data && Array.isArray(data)) {
+        return { rows: data, rowCount: data.length, command };
+      }
+      if (data && typeof data === 'object' && 'rowCount' in data) {
+        return { rows: [], rowCount: data.rowCount || 0, command };
+      }
+      return { rows: data ? [data] : [], rowCount: data ? 1 : 0, command };
+    }
     if (!error.message.includes('Could not find the function')) {
-      console.error('[supabase-client] RPC error:', error.message);
+      console.error('[supabase-client] rpc_execute error:', error.message);
       throw new Error('Supabase RPC error: ' + error.message);
     }
   } catch (e: unknown) {
@@ -119,7 +146,7 @@ async function executeSql(supabase: SupabaseClient, sql: string, params?: unknow
     if (!msg.includes('Could not find the function')) {
       throw e;
     }
-    // rpc_query 不可用，fallthrough
+    // rpc_execute 不可用，fallthrough 到解析方式
   }
 
   // Fallback: 解析简单 SQL 用 Supabase JS Client 直接操作

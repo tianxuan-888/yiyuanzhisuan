@@ -43,6 +43,7 @@ import {
     Lock,
     Eye,
     EyeOff,
+    Banknote,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -258,6 +259,12 @@ const [copySuccess, setCopySuccess] = useState(false);
     const [showProfitConvertDialog, setShowProfitConvertDialog] = useState(false);
     const [convertAmount, setConvertAmount] = useState("");
     const [profitConvertAmount, setProfitConvertAmount] = useState("");
+    const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
+    const [withdrawAmount, setWithdrawAmount] = useState("");
+    const [withdrawAlipay, setWithdrawAlipay] = useState("");
+    const [withdrawRealName, setWithdrawRealName] = useState("");
+    const [withdrawRecords, setWithdrawRecords] = useState<any[]>([]);
+    const [pointsRecords, setPointsRecords] = useState<any[]>([]);
     const [rechargeRequests, setRechargeRequests] = useState<any[]>([]);
     const [pendingRechargeCount, setPendingRechargeCount] = useState(0);
     
@@ -300,6 +307,8 @@ const [copySuccess, setCopySuccess] = useState(false);
                 authFetch(`/api/member/purchase-limits?userId=${userId}`),
                 authFetch(`/api/user/chain?userId=${userId}`),
                 authFetch(`/api/member/pending-orders?userId=${userId}`),
+                authFetch(`/api/member/withdraw?userId=${userId}`),
+                authFetch(`/api/member/points-records?userId=${userId}`),
             ]);
 
             // 安全解析 JSON
@@ -315,13 +324,23 @@ const [copySuccess, setCopySuccess] = useState(false);
                 }
             };
 
-            const [productsData, assetsData, notificationsData, referralData, energyRecordsData, rechargeData, purchaseLimitsData, chainDataResult, pendingOrdersData] = await Promise.all(
+            const [productsData, assetsData, notificationsData, referralData, energyRecordsData, rechargeData, purchaseLimitsData, chainDataResult, pendingOrdersData, withdrawData, pointsData] = await Promise.all(
                 results.map(safeJson)
             );
 
             // 处理待审核订单数据
             if (pendingOrdersData.success && pendingOrdersData.data) {
                 setPendingOrders(pendingOrdersData.data);
+            }
+
+            // 处理提现记录数据
+            if (withdrawData.success && withdrawData.data) {
+                setWithdrawRecords(withdrawData.data);
+            }
+
+            // 处理积分记录数据
+            if (pointsData.success && pointsData.data) {
+                setPointsRecords(pointsData.data);
             }
 
             // 处理关系链数据，提取服务商ID
@@ -928,7 +947,7 @@ const [copySuccess, setCopySuccess] = useState(false);
         setSubmitting(true);
 
         try {
-            const response = await authFetch("/api/energy/profit-to-energy", {
+            const response = await authFetch("/api/member/convert-to-energy", {
                 method: "POST",
                 body: JSON.stringify({
                     userId,
@@ -939,7 +958,8 @@ const [copySuccess, setCopySuccess] = useState(false);
             const data = await response.json();
 
             if (data.success) {
-                showMessage("success", data.message || "转换成功");
+                const result = data.data || {};
+                showMessage("success", `转换成功！${result.energyAmount || 0}→能量值，${result.pointsAmount || 0}→积分`);
                 setShowProfitToEnergyDialog(false);
                 setProfitToEnergyAmount("100");
                 loadData();
@@ -967,7 +987,7 @@ const [copySuccess, setCopySuccess] = useState(false);
         setSubmitting(true);
 
         try {
-            const response = await authFetch("/api/member/revenue/convert", {
+            const response = await authFetch("/api/member/convert-to-energy", {
                 method: "POST",
                 body: JSON.stringify({
                     userId,
@@ -978,7 +998,8 @@ const [copySuccess, setCopySuccess] = useState(false);
             const data = await response.json();
 
             if (data.success) {
-                showMessage("success", `转换成功，获得 ${amount} 能量值`);
+                const result = data.data || {};
+                showMessage("success", `转换成功！${result.energyAmount || 0}→能量值，${result.pointsAmount || 0}→积分`);
                 setShowProfitConvertDialog(false);
                 setProfitConvertAmount("");
                 loadData();
@@ -989,6 +1010,110 @@ const [copySuccess, setCopySuccess] = useState(false);
             showMessage("error", "网络错误");
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    // 会员提现
+    const handleWithdraw = async () => {
+        const userId = localStorage.getItem("userId");
+        if (!userId) return;
+
+        const amount = parseFloat(withdrawAmount);
+        if (!amount || amount < 50) {
+            showMessage("error", "提现金额不能少于50");
+            return;
+        }
+        if (!withdrawAlipay.trim()) {
+            showMessage("error", "请填写支付宝账号");
+            return;
+        }
+        if (!withdrawRealName.trim()) {
+            showMessage("error", "请填写真实姓名");
+            return;
+        }
+
+        setSubmitting(true);
+        try {
+            const response = await authFetch("/api/member/withdraw", {
+                method: "POST",
+                body: JSON.stringify({
+                    userId,
+                    amount,
+                    alipayAccount: withdrawAlipay.trim(),
+                    realName: withdrawRealName.trim(),
+                }),
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                const w = data.data || {};
+                showMessage("success", `提现申请已提交！手续费${w.fee || 0}元，实际到账${w.actualAmount || 0}元，等待分公司审核`);
+                setShowWithdrawDialog(false);
+                setWithdrawAmount("");
+                setWithdrawAlipay("");
+                setWithdrawRealName("");
+                loadData();
+            } else {
+                showMessage("error", data.error || "提现失败");
+            }
+        } catch (error) {
+            showMessage("error", "网络错误");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    // 会员确认收款
+    const handleConfirmReceipt = async (withdrawalId: string) => {
+        const userId = localStorage.getItem("userId");
+        if (!userId) return;
+        setSubmitting(true);
+        try {
+            const response = await authFetch("/api/member/withdraw", {
+                method: "POST",
+                body: JSON.stringify({ userId, withdrawalId, action: "confirm_receipt" }),
+            });
+            const data = await response.json();
+            if (data.success) {
+                showMessage("success", "已确认收款，提现完成");
+                loadData();
+            } else {
+                showMessage("error", data.error || "操作失败");
+            }
+        } catch (error) {
+            showMessage("error", "网络错误");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    // 加载提现记录
+    const loadWithdrawRecords = async () => {
+        const userId = localStorage.getItem("userId");
+        if (!userId) return;
+        try {
+            const response = await authFetch(`/api/member/withdraw?userId=${userId}`);
+            const data = await response.json();
+            if (data.success) {
+                setWithdrawRecords(data.data || []);
+            }
+        } catch (error) {
+            console.error("加载提现记录失败", error);
+        }
+    };
+
+    // 加载积分记录
+    const loadPointsRecords = async () => {
+        const userId = localStorage.getItem("userId");
+        if (!userId) return;
+        try {
+            const response = await authFetch(`/api/member/points-records?userId=${userId}`);
+            const data = await response.json();
+            if (data.success) {
+                setPointsRecords(data.data || []);
+            }
+        } catch (error) {
+            console.error("加载积分记录失败", error);
         }
     };
 
@@ -1492,9 +1617,9 @@ const [copySuccess, setCopySuccess] = useState(false);
                                 </span>
                             </p>
                             <ul className="list-disc list-inside text-xs text-gray-600 mt-2 space-y-1">
-                                <li>转换后可用于支付算力市场费</li>
-                                <li>转换比例 1:1（1元收益 = 1能量值）</li>
-                                <li>最低转换额度：50能量值</li>
+                                <li>转换时5%转为积分，95%转为能量值</li>
+                                <li>积分可用于兑换产品</li>
+                                <li>最低转换额度：50元</li>
                             </ul>
                         </div>
                         <div className="space-y-2">
@@ -1530,9 +1655,12 @@ const [copySuccess, setCopySuccess] = useState(false);
                             </Button>
                         </div>
                         {profitConvertAmount && Number(profitConvertAmount) > 0 && (
-                            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 space-y-1">
                                 <p className="text-sm text-blue-800">
-                                    将获得 <strong className="text-blue-600">{profitConvertAmount}</strong> 能量值
+                                    能量值：<strong className="text-blue-600">{(Number(profitConvertAmount) * 0.95).toFixed(2)}</strong>
+                                </p>
+                                <p className="text-sm text-orange-800">
+                                    积分：<strong className="text-orange-600">{(Number(profitConvertAmount) * 0.05).toFixed(2)}</strong>
                                 </p>
                             </div>
                         )}
@@ -1696,6 +1824,22 @@ const [copySuccess, setCopySuccess] = useState(false);
                             }}
                             className={`px-4 py-2 border-b-2 transition-colors flex-shrink-0 ${activeTab === "profit" ? "border-green-500 text-green-600" : "border-transparent text-gray-500"}`}>
                             <TrendingUp className="w-4 h-4 inline mr-2" />我的收益
+                        </button>
+                        <button
+                            onClick={() => {
+                                setActiveTab("withdraw");
+                                loadWithdrawRecords();
+                            }}
+                            className={`px-4 py-2 border-b-2 transition-colors flex-shrink-0 ${activeTab === "withdraw" ? "border-green-500 text-green-600" : "border-transparent text-gray-500"}`}>
+                            <Banknote className="w-4 h-4 inline mr-2" />收益提现
+                        </button>
+                        <button
+                            onClick={() => {
+                                setActiveTab("points");
+                                loadPointsRecords();
+                            }}
+                            className={`px-4 py-2 border-b-2 transition-colors flex-shrink-0 ${activeTab === "points" ? "border-green-500 text-green-600" : "border-transparent text-gray-500"}`}>
+                            <Gift className="w-4 h-4 inline mr-2" />我的积分
                         </button>
                         <button
                             onClick={() => setShowApplyDialog(true)}
@@ -3289,6 +3433,198 @@ const [copySuccess, setCopySuccess] = useState(false);
                             </Card>
                         </div>
                     )}
+
+                    {/* 提现 Tab */}
+                    {activeTab === "withdraw" && <div className="space-y-6">
+                        <Card className="bg-gradient-to-br from-rose-500 to-rose-600 text-white">
+                            <CardContent className="pt-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Banknote className="w-5 h-5" />
+                                    <span className="text-sm opacity-80">收益提现</span>
+                                </div>
+                                <p className="text-3xl font-bold">¥{Number(user?.balance || 0).toLocaleString()}</p>
+                                <p className="text-xs opacity-70 mt-1">提现至支付宝，扣除5%手续费后由分公司线下转账</p>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader className="pb-3">
+                                <div className="flex items-center justify-between">
+                                    <CardTitle className="text-base">申请提现</CardTitle>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-sm text-muted-foreground mb-1 block">提现金额</label>
+                                        <Input
+                                            type="number"
+                                            placeholder="请输入提现金额（最低50元）"
+                                            value={withdrawAmount}
+                                            onChange={e => setWithdrawAmount(e.target.value)}
+                                            min="50"
+                                            max={user?.balance || 0}
+                                        />
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            可提现余额: ¥{Number(user?.balance || 0).toLocaleString()}
+                                            {Number(withdrawAmount) > 0 && (
+                                                <span className="ml-3">
+                                                    手续费(5%): ¥{(Number(withdrawAmount) * 0.05).toFixed(2)}
+                                                    ，实际到账: ¥{(Number(withdrawAmount) * 0.95).toFixed(2)}
+                                                </span>
+                                            )}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label className="text-sm text-muted-foreground mb-1 block">支付宝账号</label>
+                                        <Input
+                                            placeholder="请输入支付宝账号"
+                                            value={withdrawAlipay}
+                                            onChange={e => setWithdrawAlipay(e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-sm text-muted-foreground mb-1 block">真实姓名</label>
+                                        <Input
+                                            placeholder="请输入真实姓名（需与支付宝一致）"
+                                            value={withdrawRealName}
+                                            onChange={e => setWithdrawRealName(e.target.value)}
+                                        />
+                                    </div>
+                                    <Button
+                                        className="w-full bg-rose-500 hover:bg-rose-600"
+                                        disabled={!withdrawAmount || Number(withdrawAmount) < 50 || !withdrawAlipay || !withdrawRealName}
+                                        onClick={handleWithdraw}
+                                    >
+                                        提交提现申请
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base">提现记录</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {withdrawRecords.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {withdrawRecords.map((record: any) => (
+                                            <div key={record.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Banknote className="w-4 h-4 text-rose-500" />
+                                                        <span className="font-medium">¥{Number(record.amount).toLocaleString()}</span>
+                                                        <Badge variant={
+                                                            record.status === 'completed' ? 'default' :
+                                                            record.status === 'rejected' ? 'destructive' :
+                                                            record.status === 'approved' ? 'secondary' :
+                                                            record.status === 'transferred' ? 'outline' :
+                                                            'outline'
+                                                        }>
+                                                            {record.status === 'pending' ? '待审核' :
+                                                             record.status === 'approved' ? '已审核' :
+                                                             record.status === 'transferred' ? '已打款待确认' :
+                                                             record.status === 'completed' ? '已完成' :
+                                                             record.status === 'rejected' ? '已拒绝' : record.status}
+                                                        </Badge>
+                                                        {record.status === 'transferred' && (
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="text-xs h-6"
+                                                                onClick={async () => {
+                                                                    const res = await fetch('/api/member/withdraw', {
+                                                                        method: 'POST',
+                                                                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                                                                        body: JSON.stringify({ withdrawalId: record.id, action: 'confirm_receipt' })
+                                                                    });
+                                                                    const data = await res.json();
+                                                                    if (data.success) {
+                                                                        alert('已确认收款');
+                                                                        loadData();
+                                                                    } else {
+                                                                        alert(data.error || '操作失败');
+                                                                    }
+                                                                }}
+                                                            >
+                                                                确认收款
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                        实际到账: ¥{Number(record.actual_amount).toLocaleString()} | 手续费: ¥{Number(record.fee).toLocaleString()}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        支付宝: {record.alipay_account} | {record.real_name}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {new Date(record.created_at).toLocaleString('zh-CN')}
+                                                    </p>
+                                                    {record.reject_reason && (
+                                                        <p className="text-xs text-red-500 mt-1">拒绝原因: {record.reject_reason}</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-8 text-gray-500">
+                                        <Banknote className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                                        <p>暂无提现记录</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>}
+
+                    {/* 积分 Tab */}
+                    {activeTab === "points" && <div className="space-y-6">
+                        <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white">
+                            <CardContent className="pt-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Gift className="w-5 h-5" />
+                                    <span className="text-sm opacity-80">我的积分</span>
+                                </div>
+                                <p className="text-3xl font-bold">{Number(user?.points || 0).toLocaleString()}</p>
+                                <span className="text-xs opacity-70 mt-1">收益转能量值时，5%自动转为积分，积分可兑换产品</span>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base">积分记录</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {pointsRecords.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {pointsRecords.map((record: any) => (
+                                            <div key={record.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                                                <div className="flex items-center gap-3">
+                                                    <Gift className="w-4 h-4 text-amber-500" />
+                                                    <div>
+                                                        <span className="font-medium text-amber-600">
+                                                            +{Number(record.amount).toLocaleString()}
+                                                        </span>
+                                                        <p className="text-xs text-muted-foreground">{record.note || '收益转能量值产生'}</p>
+                                                    </div>
+                                                </div>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {new Date(record.created_at).toLocaleString('zh-CN')}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-8 text-gray-500">
+                                        <Gift className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                                        <p>暂无积分记录</p>
+                                        <p className="text-sm mt-1">收益转能量值时自动产生积分</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>}
 
                     {/* 充值申请 Tab */}
                     {activeTab === "recharge" && <div className="space-y-6">

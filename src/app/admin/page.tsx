@@ -53,6 +53,7 @@ import {
   AlertTriangle,
   User,
   Key,
+  FileCheck,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -3131,150 +3132,247 @@ export default function AdminPage() {
   );
 
   // 渲染财务管理（不使用内部状态，通过父组件financeTab管理）
-  const renderFinanceManagement = () => (
-    <div className="space-y-6">
-      {/* 子Tab导航 */}
-      <div className="flex items-stretch bg-gradient-to-r from-purple-900 to-purple-800 rounded-lg overflow-hidden">
-        <div className="flex items-center gap-3 px-6 py-4 bg-purple-950/50">
-          <Wallet className="w-5 h-5 text-white" />
-          <span className="text-white font-semibold text-lg">财务管理</span>
-        </div>
-        <div className="flex items-center gap-1 px-4">
-          <button
-            onClick={() => setActiveMenu && setActiveMenu('finance-overview')}
-            className={`px-4 py-2 rounded-md transition-colors cursor-pointer ${
-              false ? 'bg-purple-500 text-white' : 'bg-purple-800/50 text-white/80 hover:bg-purple-700'
-            }`}
-          >
-            财务总览
-          </button>
-          <button
-            onClick={() => setActiveMenu && setActiveMenu('finance-detail')}
-            className={`px-4 py-2 rounded-md transition-colors cursor-pointer bg-purple-500 text-white`}
-          >
-            财务明细
-          </button>
-          <button
-            onClick={() => setActiveMenu && setActiveMenu('finance-withdraw')}
-            className={`px-4 py-2 rounded-md transition-colors cursor-pointer ${
-              false ? 'bg-purple-500 text-white' : 'bg-purple-800/50 text-white/80 hover:bg-purple-700'
-            }`}
-          >
-            提现记录
-          </button>
-        </div>
-      </div>
+  const renderFinanceManagement = () => {
+    // 加载分公司提现和手续费记录
+    const [branchWithdrawals, setBranchWithdrawals] = useState<any[]>([]);
+    const [feeRecords, setFeeRecords] = useState<any[]>([]);
+    const [feeStats, setFeeStats] = useState<any>({});
+    const [financeLoading, setFinanceLoading] = useState(false);
+    const [financeSubTab, setFinanceSubTab] = useState<'overview' | 'withdraw-review' | 'fee-records'>('overview');
 
-      {/* 统计卡片 */}
-      <div className="grid grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-purple-500 to-purple-700 text-white">
-          <CardContent className="p-4">
-            <div className="text-sm opacity-80">总收入</div>
-            <div className="text-3xl font-bold mt-1">¥0</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-green-500 to-green-700 text-white">
-          <CardContent className="p-4">
-            <div className="text-sm opacity-80">今日收入</div>
-            <div className="text-3xl font-bold mt-1">¥0</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-orange-500 to-orange-700 text-white">
-          <CardContent className="p-4">
-            <div className="text-sm opacity-80">待发放</div>
-            <div className="text-3xl font-bold mt-1">¥0</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-blue-500 to-blue-700 text-white">
-          <CardContent className="p-4">
-            <div className="text-sm opacity-80">已发放</div>
-            <div className="text-3xl font-bold mt-1">¥0</div>
-          </CardContent>
-        </Card>
-      </div>
+    const loadFinanceData = async () => {
+      setFinanceLoading(true);
+      try {
+        const [withdrawalRes, feeRes] = await Promise.all([
+          authFetch('/api/admin/withdraw-review'),
+          authFetch('/api/admin/fee-records'),
+        ]);
+        const withdrawalData = await withdrawalRes.json();
+        const feeData = await feeRes.json();
+        if (withdrawalData.success) setBranchWithdrawals(withdrawalData.data || []);
+        if (feeData.success) {
+          setFeeRecords(feeData.data?.records || []);
+          setFeeStats(feeData.data?.stats || {});
+        }
+      } catch (err) {
+        console.error('加载财务数据失败', err);
+      } finally {
+        setFinanceLoading(false);
+      }
+    };
 
-      {/* 收益趋势图表 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>收益趋势</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={[]}>
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="income" stroke="#8b5cf6" strokeWidth={2} name="收入" />
-                <Line type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={2} name="支出" />
-              </LineChart>
-            </ResponsiveContainer>
+    const handleReviewBranchWithdrawal = async (withdrawalId: string, action: string) => {
+      try {
+        const res = await authFetch('/api/admin/withdraw-review', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ withdrawalId, action }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert(data.data?.message || '操作成功');
+          loadFinanceData();
+        } else {
+          alert(data.error || '操作失败');
+        }
+      } catch (err) {
+        alert('网络错误');
+      }
+    };
+
+    useEffect(() => { loadFinanceData(); }, []);
+
+    const totalFee = Number(feeStats.total_fee || 0);
+    const withdrawFee = Number(feeStats.total_withdrawal_fee || 0);
+    const marketFeeOps = Number(feeStats.total_market_fee_ops || 0);
+    const pendingWithdrawals = branchWithdrawals.filter((w: any) => w.status === 'pending');
+
+    return (
+      <div className="space-y-6">
+        {/* 子Tab导航 */}
+        <div className="flex items-stretch bg-gradient-to-r from-purple-900 to-purple-800 rounded-lg overflow-hidden">
+          <div className="flex items-center gap-3 px-6 py-4 bg-purple-950/50">
+            <Wallet className="w-5 h-5 text-white" />
+            <span className="text-white font-semibold text-lg">财务管理</span>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* 财务明细表格 */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>财务明细</CardTitle>
-            <Button className="bg-purple-600">
-              <Download className="w-4 h-4 mr-2" />导出
-            </Button>
+          <div className="flex items-center gap-1 px-4">
+            <button onClick={() => setFinanceSubTab('overview')} className={`px-4 py-2 rounded-md transition-colors ${financeSubTab === 'overview' ? 'bg-purple-500 text-white' : 'bg-purple-800/50 text-white/80 hover:bg-purple-700'}`}>财务总览</button>
+            <button onClick={() => setFinanceSubTab('withdraw-review')} className={`px-4 py-2 rounded-md transition-colors flex items-center gap-1 ${financeSubTab === 'withdraw-review' ? 'bg-purple-500 text-white' : 'bg-purple-800/50 text-white/80 hover:bg-purple-700'}`}>分公司提现审核{pendingWithdrawals.length > 0 && <Badge className="bg-red-500 text-white text-xs ml-1">{pendingWithdrawals.length}</Badge>}</button>
+            <button onClick={() => setFinanceSubTab('fee-records')} className={`px-4 py-2 rounded-md transition-colors ${financeSubTab === 'fee-records' ? 'bg-purple-500 text-white' : 'bg-purple-800/50 text-white/80 hover:bg-purple-700'}`}>手续费记录</button>
           </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>日期</TableHead>
-                <TableHead>类型</TableHead>
-                <TableHead>金额</TableHead>
-                <TableHead>来源</TableHead>
-                <TableHead>状态</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-gray-500 py-8">
-                  暂无财务记录
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* 提现记录表格 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>提现记录</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>申请时间</TableHead>
-                <TableHead>服务商</TableHead>
-                <TableHead>提现金额</TableHead>
-                <TableHead>手续费</TableHead>
-                <TableHead>实发金额</TableHead>
-                <TableHead>状态</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow>
-                <TableCell colSpan={6} className="text-center text-gray-500 py-8">
-                  暂无提现记录
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    </div>
-  );
+        {financeSubTab === 'overview' && (
+          <>
+            {/* 统计卡片 */}
+            <div className="grid grid-cols-4 gap-4">
+              <Card className="bg-gradient-to-br from-purple-500 to-purple-700 text-white">
+                <CardContent className="p-4">
+                  <div className="text-sm opacity-80">累计手续费沉淀</div>
+                  <div className="text-3xl font-bold mt-1">¥{totalFee.toLocaleString()}</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-gradient-to-br from-green-500 to-green-700 text-white">
+                <CardContent className="p-4">
+                  <div className="text-sm opacity-80">提现手续费</div>
+                  <div className="text-3xl font-bold mt-1">¥{withdrawFee.toLocaleString()}</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-gradient-to-br from-orange-500 to-orange-700 text-white">
+                <CardContent className="p-4">
+                  <div className="text-sm opacity-80">市场费运营沉淀</div>
+                  <div className="text-3xl font-bold mt-1">¥{marketFeeOps.toLocaleString()}</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-gradient-to-br from-blue-500 to-blue-700 text-white">
+                <CardContent className="p-4">
+                  <div className="text-sm opacity-80">待审核分公司提现</div>
+                  <div className="text-3xl font-bold mt-1">{pendingWithdrawals.length}</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* 最近手续费记录 */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>最近手续费记录</CardTitle>
+                  <Button variant="outline" size="sm" onClick={() => setFinanceSubTab('fee-records')}>查看全部</Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {feeRecords.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>时间</TableHead>
+                        <TableHead>类型</TableHead>
+                        <TableHead>金额</TableHead>
+                        <TableHead>来源角色</TableHead>
+                        <TableHead>说明</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {feeRecords.slice(0, 10).map((r: any) => (
+                        <TableRow key={r.id}>
+                          <TableCell className="text-sm">{r.created_at ? new Date(r.created_at).toLocaleDateString() : '-'}</TableCell>
+                          <TableCell>{r.type === 'withdrawal_fee' ? '提现手续费' : r.type === 'market_fee_ops' ? '市场费运营' : r.type}</TableCell>
+                          <TableCell className="text-green-600 font-medium">+¥{Number(r.amount).toLocaleString()}</TableCell>
+                          <TableCell>{r.source_role === 'member' ? '会员' : r.source_role === 'provider' ? '服务商' : r.source_role === 'branch' ? '分公司' : r.source_role}</TableCell>
+                          <TableCell className="text-sm text-gray-500 max-w-xs truncate">{r.note || '-'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <p className="text-gray-500 text-center py-8">暂无手续费记录</p>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {financeSubTab === 'withdraw-review' && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <FileCheck className="w-5 h-5" />
+                  分公司提现审核
+                </CardTitle>
+                <Button variant="outline" size="sm" onClick={loadFinanceData} disabled={financeLoading}>
+                  <RefreshCw className={`w-4 h-4 mr-1 ${financeLoading ? 'animate-spin' : ''}`} />刷新
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {branchWithdrawals.length > 0 ? (
+                <div className="space-y-4">
+                  {branchWithdrawals.map((w: any) => (
+                    <div key={w.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <p className="font-medium">{w.username || '分公司'}</p>
+                          <p className="text-sm text-gray-500">申请时间: {w.created_at ? new Date(w.created_at).toLocaleString() : '-'}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xl font-bold text-orange-600">¥{Number(w.amount).toLocaleString()}</p>
+                          <p className="text-xs text-gray-500">手续费: ¥{Number(w.fee).toLocaleString()} | 实际: ¥{Number(w.actual_amount).toLocaleString()}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                        <div className="text-gray-600"><span className="font-medium">支付宝:</span> {w.alipay_account || '-'}</div>
+                        <div className="text-gray-600"><span className="font-medium">姓名:</span> {w.real_name || '-'}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className={w.status === 'pending' ? 'bg-yellow-500' : w.status === 'approved' ? 'bg-blue-500' : w.status === 'transferred' ? 'bg-green-500' : w.status === 'completed' ? 'bg-gray-500' : 'bg-red-500'}>
+                          {w.status === 'pending' ? '待审核' : w.status === 'approved' ? '已审核' : w.status === 'transferred' ? '已打款' : w.status === 'completed' ? '已完成' : '已拒绝'}
+                        </Badge>
+                        {w.status === 'pending' && (
+                          <div className="flex gap-2 ml-2">
+                            <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleReviewBranchWithdrawal(w.id, 'approve')}>审核通过</Button>
+                            <Button size="sm" variant="destructive" onClick={() => handleReviewBranchWithdrawal(w.id, 'reject')}>拒绝</Button>
+                          </div>
+                        )}
+                        {w.status === 'approved' && (
+                          <Button size="sm" className="bg-blue-600 hover:bg-blue-700 ml-2" onClick={() => handleReviewBranchWithdrawal(w.id, 'confirm_transfer')}>确认已转账</Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-center py-8">暂无分公司提现申请</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {financeSubTab === 'fee-records' && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>手续费沉淀记录</CardTitle>
+                <div className="flex gap-2">
+                  <div className="bg-green-50 px-3 py-1 rounded text-sm text-green-700">总沉淀: ¥{totalFee.toLocaleString()}</div>
+                  <div className="bg-blue-50 px-3 py-1 rounded text-sm text-blue-700">提现手续费: ¥{withdrawFee.toLocaleString()}</div>
+                  <div className="bg-orange-50 px-3 py-1 rounded text-sm text-orange-700">市场费运营: ¥{marketFeeOps.toLocaleString()}</div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {feeRecords.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>时间</TableHead>
+                      <TableHead>类型</TableHead>
+                      <TableHead>金额</TableHead>
+                      <TableHead>来源角色</TableHead>
+                      <TableHead>说明</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {feeRecords.map((r: any) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="text-sm">{r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</TableCell>
+                        <TableCell>{r.type === 'withdrawal_fee' ? '提现手续费' : r.type === 'market_fee_ops' ? '市场费运营' : r.type}</TableCell>
+                        <TableCell className="text-green-600 font-medium">+¥{Number(r.amount).toLocaleString()}</TableCell>
+                        <TableCell>{r.source_role === 'member' ? '会员' : r.source_role === 'provider' ? '服务商' : r.source_role === 'branch' ? '分公司' : r.source_role}</TableCell>
+                        <TableCell className="text-sm text-gray-500 max-w-xs truncate">{r.note || '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <p className="text-gray-500 text-center py-8">暂无手续费记录</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  };
 
   // 渲染用户统计
   const renderUserStats = () => (
