@@ -35,6 +35,13 @@ export async function POST(request: NextRequest) {
           "UPDATE withdrawals SET status = 'completed', completed_at = NOW(), updated_at = NOW() WHERE id = $1",
           [withdrawalId]
         );
+
+        // 更新分公司收益记录状态为已完成
+        await client.query(
+          "UPDATE branch_revenue_records SET status = 'completed', updated_at = NOW() WHERE related_withdrawal_id = $1",
+          [withdrawalId]
+        );
+
         return { withdrawalId, amount: wd.amount };
       });
       return NextResponse.json({

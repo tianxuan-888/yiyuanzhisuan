@@ -22,6 +22,12 @@ export function getSupabase(): SupabaseClient {
   if (!_supabase) {
     _supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
+      global: {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Prefer': 'return=representation',
+        },
+      },
     });
   }
   return _supabase;
@@ -61,41 +67,40 @@ async function executeSql(supabase: SupabaseClient, sql: string, params?: unknow
   // 替换参数占位符 $1, $2, ... 为实际值
   let finalSql = sql;
   if (params && params.length > 0) {
+    // 使用临时占位符避免参数值中的 $ 被二次替换
+    const placeholders: string[] = [];
     for (let i = 0; i < params.length; i++) {
-      const placeholder = new RegExp('\\$' + (i + 1), 'g');
       const value = params[i];
+      let replacement: string;
       if (value === null || value === undefined) {
-        finalSql = finalSql.replace(placeholder, 'NULL');
+        replacement = 'NULL';
       } else if (Array.isArray(value)) {
-        // PostgreSQL 数组格式: '{val1,val2,val3}'::type[]
-        // 检测上下文是 ANY($N) 还是 IN ($N) 来决定格式
-        const arrayValues = value.map(v => {
-          if (v === null || v === undefined) return 'NULL';
-          if (typeof v === 'number') return String(v);
-          if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
-          const escaped = String(v).replace(/'/g, "''");
-          return '"' + escaped + '"';
-        });
         // 使用 ARRAY[] 构造器，更安全且类型兼容
-        const arrayLiteral = 'ARRAY[' + value.map(v => {
+        replacement = 'ARRAY[' + value.map(v => {
           if (v === null || v === undefined) return 'NULL';
           if (typeof v === 'number') return String(v);
           if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
           const escaped = String(v).replace(/'/g, "''");
           return "'" + escaped + "'";
         }).join(', ') + ']';
-        finalSql = finalSql.replace(placeholder, arrayLiteral);
       } else if (typeof value === 'number') {
-        finalSql = finalSql.replace(placeholder, String(value));
+        replacement = String(value);
       } else if (typeof value === 'boolean') {
-        finalSql = finalSql.replace(placeholder, value ? 'TRUE' : 'FALSE');
+        replacement = value ? 'TRUE' : 'FALSE';
       } else if (value instanceof Date) {
-        finalSql = finalSql.replace(placeholder, "'" + value.toISOString() + "'");
+        replacement = "'" + value.toISOString() + "'";
       } else {
         // 字符串转义单引号
         const escaped = String(value).replace(/'/g, "''");
-        finalSql = finalSql.replace(placeholder, "'" + escaped + "'");
+        replacement = "'" + escaped + "'";
       }
+      const token = `__PARAM_${i}__`;
+      placeholders.push(replacement);
+      finalSql = finalSql.replace(new RegExp('\\$' + (i + 1), 'g'), token);
+    }
+    // 第二步：将所有临时占位符替换为实际值
+    for (let i = 0; i < placeholders.length; i++) {
+      finalSql = finalSql.replace(new RegExp(`__PARAM_${i}__`, 'g'), placeholders[i]);
     }
   }
 
@@ -423,3 +428,4 @@ export default {
   getPool,
   getSupabase,
 };
+

@@ -67,6 +67,23 @@ export async function POST(request: NextRequest) {
           [withdrawalId]
         );
 
+        // 增加分公司余额（95%到账金额）
+        const actualAmount = parseFloat(withdrawal.actual_amount) || 0;
+        if (actualAmount > 0) {
+          const branchRes = await client.query(
+            'SELECT balance FROM users WHERE id = $1',
+            [reviewerId]
+          );
+          if (branchRes.rows && branchRes.rows.length > 0) {
+            const currentBalance = parseFloat(branchRes.rows[0].balance) || 0;
+            const newBalance = currentBalance + actualAmount;
+            await client.query(
+              'UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2',
+              [newBalance.toFixed(2), reviewerId]
+            );
+          }
+        }
+
         return { newStatus: 'approved', message: '审核通过，请线下转账后确认打款' };
       }
 
@@ -107,6 +124,7 @@ export async function POST(request: NextRequest) {
         const userId = withdrawal.user_id;
         const amount = parseFloat(withdrawal.amount);
         const fee = parseFloat(withdrawal.fee);
+        const actualAmount = parseFloat(withdrawal.actual_amount) || 0;
 
         const userRes = await client.query(
           'SELECT balance FROM users WHERE id = $1',
@@ -121,6 +139,22 @@ export async function POST(request: NextRequest) {
             'UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2',
             [newBalance.toFixed(2), userId]
           );
+        }
+
+        // 扣除分公司已增加的余额（如果审批时已加）
+        if (actualAmount > 0) {
+          const branchRes = await client.query(
+            'SELECT balance FROM users WHERE id = $1',
+            [reviewerId]
+          );
+          if (branchRes.rows && branchRes.rows.length > 0) {
+            const currentBalance = parseFloat(branchRes.rows[0].balance) || 0;
+            const newBalance = Math.max(0, currentBalance - actualAmount);
+            await client.query(
+              'UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2',
+              [newBalance.toFixed(2), reviewerId]
+            );
+          }
         }
 
         // 更新提现单状态

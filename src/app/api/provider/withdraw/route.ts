@@ -40,6 +40,12 @@ export async function POST(request: NextRequest) {
           [withdrawalId]
         );
 
+        // 更新分公司收益记录状态为已完成
+        await client.query(
+          "UPDATE branch_revenue_records SET status = 'completed', updated_at = NOW() WHERE related_withdrawal_id = $1",
+          [withdrawalId]
+        );
+
         return { withdrawalId };
       });
 

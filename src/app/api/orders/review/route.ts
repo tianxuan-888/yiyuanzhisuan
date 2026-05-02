@@ -367,12 +367,14 @@ export async function POST(request: NextRequest) {
 
       // 8.6 记录现金收益：分公司市场费分润 + 总公司运营费
       if (branchId) {
+        let branchRevenueTotal = 0;
         // 分公司5%市场费分润 → 现金收益记录
         await execute(
           `INSERT INTO branch_revenue_records (branch_id, type, amount, related_user_id, related_order_id, note, status, created_at)
            VALUES ($1, 'market_fee_share', $2, $3, $4, $5, 'received', NOW())`,
           [branchId, branchBaseShare, order.user_id, orderId, `市场费5%分润 (订单: ${orderId})`]
         );
+        branchRevenueTotal += branchBaseShare;
         // 如果没有上级服务商，10%也归分公司 → 额外现金收益记录
         if (!parentProviderId) {
           await execute(
@@ -380,6 +382,22 @@ export async function POST(request: NextRequest) {
              VALUES ($1, 'provider_upstream', $2, $3, $4, $5, 'received', NOW())`,
             [branchId, parentProviderShare, order.user_id, orderId, `一级服务商上级收益10% (订单: ${orderId})`]
           );
+          branchRevenueTotal += parentProviderShare;
+        }
+        // 增加分公司余额
+        if (branchRevenueTotal > 0) {
+          const branchBalRes = await query(
+            'SELECT balance FROM users WHERE id = $1',
+            [branchId]
+          );
+          if (branchBalRes && branchBalRes.length > 0) {
+            const curBal = parseFloat(branchBalRes[0].balance) || 0;
+            const newBal = curBal + branchRevenueTotal;
+            await execute(
+              'UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2',
+              [newBal.toFixed(2), branchId]
+            );
+          }
         }
       }
       // 总公司运营5% → 手续费沉淀记录
