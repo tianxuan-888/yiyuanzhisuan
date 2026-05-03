@@ -179,6 +179,7 @@ export default function MemberPage() {
     const [transferAmount, setTransferAmount] = useState("100");
     const [paymentMethod, setPaymentMethod] = useState<'alipay' | 'wechat'>('alipay');
     const [paymentAccount, setPaymentAccount] = useState("");
+    const [transferRealName, setTransferRealName] = useState("");
     const [profitToEnergyAmount, setProfitToEnergyAmount] = useState("100");
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [submittingProductIds, setSubmittingProductIds] = useState<Set<string>>(new Set());
@@ -904,6 +905,11 @@ const [copySuccess, setCopySuccess] = useState(false);
             return;
         }
 
+        if (!transferRealName.trim()) {
+            showMessage("error", "请输入真实姓名");
+            return;
+        }
+
         setSubmitting(true);
 
         try {
@@ -914,15 +920,19 @@ const [copySuccess, setCopySuccess] = useState(false);
                         to_user_id: providerId,
                         amount: amount,
                         note: "会员转账给服务商",
+                        payment_method: paymentMethod,
+                        real_name: transferRealName.trim(),
+                        alipay_account: paymentAccount,
                     }),
                 });
             const data = await response.json();
 
             if (data.success) {
-                showMessage("success", data.message || "转账申请已提交");
+                showMessage("success", data.message || "转账申请已提交，等待服务商审核");
                 setShowTransferDialog(false);
                 setTransferAmount("100");
                 setPaymentAccount("");
+                setTransferRealName("");
                 loadData();
             } else {
                 showMessage("error", data.error || "转账失败");
@@ -1263,9 +1273,10 @@ const [copySuccess, setCopySuccess] = useState(false);
                                 <strong>转账说明：</strong>
                             </p>
                             <ul className="list-disc list-inside text-xs text-blue-700 mt-2 space-y-1">
-                                <li>能量值可以转账给服务商变现</li>
+                                <li>能量值转账给服务商，服务商线下打款给您</li>
                                 <li>最低转账金额：50能量值</li>
-                                <li>服务商确认付款后完成转账</li>
+                                <li>提交后等待服务商审核确认</li>
+                                <li>请确保收款信息准确，方便服务商打款</li>
                             </ul>
                         </div>
                         <div className="space-y-2">
@@ -1307,13 +1318,22 @@ const [copySuccess, setCopySuccess] = useState(false);
                                 placeholder={`请输入您的${paymentMethod === 'alipay' ? '支付宝账号' : '微信号'}`}
                             />
                         </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="transferRealName">真实姓名</Label>
+                            <Input
+                                id="transferRealName"
+                                value={transferRealName}
+                                onChange={e => setTransferRealName(e.target.value)}
+                                placeholder={`请输入真实姓名（需与${paymentMethod === 'alipay' ? '支付宝' : '微信'}一致）`}
+                            />
+                        </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setShowTransferDialog(false)}>取消</Button>
                         <Button
                             className="bg-orange-500 hover:bg-orange-600"
                             onClick={handleEnergyTransfer}
-                            disabled={submitting}>
+                            disabled={submitting || !paymentAccount || !transferRealName.trim()}>
                             {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ArrowRight className="w-4 h-4 mr-2" />}提交转账
                         </Button>
                     </DialogFooter>

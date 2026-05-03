@@ -41,6 +41,7 @@ import {
     LogOut,
     Network,
     ArrowRight,
+    ArrowRightLeft,
     Server,
     Award,
     Lock,
@@ -325,6 +326,11 @@ export default function ProviderPage() {
 
     // 提现管理相关状态
     const [pendingWithdrawals, setPendingWithdrawals] = useState<any[]>([]);
+
+    // 转账审核相关状态
+    const [pendingTransferRequests, setPendingTransferRequests] = useState<any[]>([]);
+    const [showTransferReviewDialog, setShowTransferReviewDialog] = useState(false);
+    const [selectedTransferRequest, setSelectedTransferRequest] = useState<any>(null);
 
     // 提现相关状态
     const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
@@ -1238,6 +1244,17 @@ export default function ProviderPage() {
         } catch (error) {
             console.error("加载提现数据失败:", error);
         }
+
+        // 同时加载待审核转账
+        try {
+            const res = await authFetch(`/api/energy/review-transfer?providerId=${providerId}&status=pending`);
+            const data = await res.json();
+            if (data.success) {
+                setPendingTransferRequests(data.data || []);
+            }
+        } catch (error) {
+            console.error("加载转账审核数据失败:", error);
+        }
     }, []);
 
     // 加载积分记录
@@ -1370,6 +1387,39 @@ export default function ProviderPage() {
             if (data.success) {
                 showMessage("success", data.message);
                 loadWithdrawalData();
+            } else {
+                showMessage("error", data.error || "操作失败");
+            }
+        } catch (error) {
+            showMessage("error", "网络错误");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    // 审核能量值转账申请
+    const handleEnergyTransferReview = async (requestId: string, action: 'approve' | 'reject') => {
+        const providerId = localStorage.getItem("userId");
+        if (!providerId) return;
+
+        setSubmitting(true);
+        try {
+            const response = await authFetch("/api/energy/review-transfer", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    requestId,
+                    providerId,
+                    action,
+                }),
+            });
+            const data = await response.json();
+            if (data.success) {
+                showMessage("success", data.message);
+                setShowTransferReviewDialog(false);
+                setSelectedTransferRequest(null);
+                loadWithdrawalData();
+                loadData();
             } else {
                 showMessage("error", data.error || "操作失败");
             }
@@ -3303,6 +3353,81 @@ export default function ProviderPage() {
                                     </div>
                                 </CardContent>
                             </Card>
+
+                            {/* 待审核转账申请 */}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <ArrowRightLeft className="w-5 h-5 text-blue-500" />
+                                        待审核转账申请（{pendingTransferRequests.length}）
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-4">
+                                        {pendingTransferRequests.length > 0 ? (
+                                            <div className="space-y-3">
+                                                {pendingTransferRequests.map((req: any) => (
+                                                    <div key={req.id} className="border rounded-lg p-4 bg-blue-50">
+                                                        <div className="flex justify-between items-start mb-3">
+                                                            <div>
+                                                                <p className="font-medium">{req.username || '用户'}</p>
+                                                                <p className="text-sm text-gray-500">
+                                                                    手机: {req.phone || '未填写'}
+                                                                    {req.unique_id && <span className="ml-2 text-blue-600">[{req.unique_id}]</span>}
+                                                                </p>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <p className="text-xl font-bold text-blue-600">{req.amount} 能量值</p>
+                                                                <p className="text-xs text-gray-400">{new Date(req.created_at).toLocaleString()}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                                                            <div className="text-gray-600">
+                                                                <span className="font-medium">收款方式:</span> {req.payment_method === 'alipay' ? '支付宝' : req.payment_method === 'wechat' ? '微信' : '未选择'}
+                                                            </div>
+                                                            <div className="text-gray-600">
+                                                                <span className="font-medium">收款账号:</span> {req.alipay_account || '未填写'}
+                                                            </div>
+                                                            <div className="text-gray-600">
+                                                                <span className="font-medium">真实姓名:</span> {req.real_name || '未填写'}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            <Button 
+                                                                size="sm" 
+                                                                className="bg-blue-600 hover:bg-blue-700"
+                                                                onClick={() => {
+                                                                    setSelectedTransferRequest(req);
+                                                                    setShowTransferReviewDialog(true);
+                                                                }}
+                                                            >
+                                                                <Eye className="w-4 h-4 mr-1" /> 查看详情并审核
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-gray-500 text-center py-4">暂无待审核转账</p>
+                                        )}
+
+                                        {/* 转账审核说明 */}
+                                        <Card className="bg-green-50 border-green-200 mt-4">
+                                            <CardHeader>
+                                                <CardTitle className="text-green-800 text-sm">转账审核说明</CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="text-sm text-green-700">
+                                                <ul className="list-disc list-inside space-y-1">
+                                                    <li>会员将能量值转账给您，您需线下打款给会员</li>
+                                                    <li>请根据会员提供的收款方式和账号进行线下转账</li>
+                                                    <li>确认已线下打款后，点击"审核通过"完成转账</li>
+                                                    <li>拒绝后能量值将退还给会员</li>
+                                                </ul>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                </CardContent>
+                            </Card>
                         </div>
                     )}
 
@@ -4469,6 +4594,102 @@ export default function ProviderPage() {
                                 >
                                     {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
                                     确认转换
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* 转账审核弹窗 */}
+                    <Dialog open={showTransferReviewDialog} onOpenChange={(open) => {
+                        setShowTransferReviewDialog(open);
+                        if (!open) setSelectedTransferRequest(null);
+                    }}>
+                        <DialogContent className="max-w-lg">
+                            <DialogHeader>
+                                <DialogTitle className="flex items-center gap-2">
+                                    <ArrowRightLeft className="w-5 h-5 text-blue-500" />转账审核详情
+                                </DialogTitle>
+                            </DialogHeader>
+                            {selectedTransferRequest && (
+                                <div className="space-y-4 py-4">
+                                    {/* 会员信息 */}
+                                    <div className="p-4 bg-gray-50 rounded-lg border">
+                                        <h4 className="font-medium text-sm text-gray-500 mb-2">会员信息</h4>
+                                        <div className="space-y-1.5">
+                                            <p className="text-sm"><span className="font-medium">用户名：</span>{selectedTransferRequest.username || '未知'}</p>
+                                            <p className="text-sm"><span className="font-medium">手机号：</span>{selectedTransferRequest.phone || '未填写'}</p>
+                                            {selectedTransferRequest.unique_id && (
+                                                <p className="text-sm"><span className="font-medium">专属ID：</span>{selectedTransferRequest.unique_id}</p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* 转账信息 */}
+                                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                        <h4 className="font-medium text-sm text-blue-700 mb-2">转账信息</h4>
+                                        <div className="space-y-1.5">
+                                            <p className="text-lg font-bold text-blue-800">转账金额：{selectedTransferRequest.amount} 能量值</p>
+                                            <p className="text-xs text-gray-400">申请时间：{new Date(selectedTransferRequest.created_at).toLocaleString()}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* 收款信息 - 核心展示 */}
+                                    <div className="p-4 bg-amber-50 rounded-lg border border-amber-300">
+                                        <h4 className="font-medium text-sm text-amber-700 mb-3">收款信息（请线下打款至此账户）</h4>
+                                        <div className="space-y-3">
+                                            <div className="flex items-center gap-3 p-3 bg-white rounded-lg border">
+                                                <span className="text-sm text-gray-500 w-20 shrink-0">收款方式</span>
+                                                <span className="font-bold text-lg">
+                                                    {selectedTransferRequest.payment_method === 'alipay' ? '支付宝' : 
+                                                     selectedTransferRequest.payment_method === 'wechat' ? '微信' : '未选择'}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-3 p-3 bg-white rounded-lg border">
+                                                <span className="text-sm text-gray-500 w-20 shrink-0">收款账号</span>
+                                                <span className="font-medium text-base break-all">{selectedTransferRequest.alipay_account || '未填写'}</span>
+                                            </div>
+                                            <div className="flex items-center gap-3 p-3 bg-white rounded-lg border">
+                                                <span className="text-sm text-gray-500 w-20 shrink-0">真实姓名</span>
+                                                <span className="font-medium text-base">{selectedTransferRequest.real_name || '未填写'}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 操作提示 */}
+                                    <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                                        <p className="text-sm text-red-700">
+                                            <strong>重要提示：</strong>请先通过以上收款信息线下打款给会员，确认打款完成后再点击"审核通过"。
+                                            审核通过后，能量值将转入您的账户。
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                            <DialogFooter className="gap-2">
+                                <Button variant="outline" onClick={() => {
+                                    setShowTransferReviewDialog(false);
+                                    setSelectedTransferRequest(null);
+                                }}>取消</Button>
+                                <Button
+                                    variant="destructive"
+                                    disabled={submitting}
+                                    onClick={() => {
+                                        if (selectedTransferRequest) {
+                                            handleEnergyTransferReview(selectedTransferRequest.id, 'reject');
+                                        }
+                                    }}>
+                                    {submitting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <XCircle className="w-4 h-4 mr-1" />}
+                                    拒绝
+                                </Button>
+                                <Button
+                                    className="bg-blue-600 hover:bg-blue-700"
+                                    disabled={submitting}
+                                    onClick={() => {
+                                        if (selectedTransferRequest) {
+                                            handleEnergyTransferReview(selectedTransferRequest.id, 'approve');
+                                        }
+                                    }}>
+                                    {submitting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-1" />}
+                                    审核通过（已线下打款）
                                 </Button>
                             </DialogFooter>
                         </DialogContent>

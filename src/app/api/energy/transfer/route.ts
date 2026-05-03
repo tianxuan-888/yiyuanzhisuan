@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
-import { authenticateRequest, authorizeRole } from '@/lib/auth';
+import { query, withTransaction } from '@/lib/pg-client';
+import { authenticateRequest } from '@/lib/auth';
 
 // 能量值互转接口（支持多角色）
+// 会员→服务商：创建审核记录（服务商线下打款后审核通过）
+// 其他角色：即时转账
 export async function POST(request: NextRequest) {
   try {
-    // 鉴权：所有登录用户可操作
     const user = authenticateRequest(request);
     if (!user) {
       return NextResponse.json({ error: '未登录' }, { status: 401 });
     }
 
     const body = await request.json();
-    const { from_user_id, to_user_id, amount, note } = body;
+    const { from_user_id, to_user_id, amount, note, payment_method, real_name, alipay_account } = body;
 
     // 参数验证
     if (!from_user_id || !to_user_id || !amount) {
@@ -69,6 +70,94 @@ export async function POST(request: NextRequest) {
 
     const toUser = toUsers[0];
 
+    // ===== 会员 → 服务商：创建审核记录（服务商线下打款后审核） =====
+    if (fromUser.role === 'member' && toUser.role === 'provider') {
+      // 验证服务关系
+      if (fromUser.provider_id !== to_user_id) {
+        return NextResponse.json({ error: '只能向所属服务商转账' }, { status: 403 });
+      }
+
+      // 验证支付信息
+      if (!payment_method) {
+        return NextResponse.json({ error: '请选择收款方式' }, { status: 400 });
+      }
+      if (!alipay_account) {
+        return NextResponse.json({ error: '请输入收款账号' }, { status: 400 });
+      }
+      if (!real_name) {
+        return NextResponse.json({ error: '请输入真实姓名' }, { status: 400 });
+      }
+
+      // 冻结会员能量值
+      const newFromEnergy = fromEnergyValue - transferAmount;
+
+      const result = await withTransaction(async (client) => {
+        // 扣减会员能量值（冻结）
+        await client.query(
+          'UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2',
+          [newFromEnergy, from_user_id]
+        );
+
+        // 同步 energy_accounts
+        const fromAccRes = await client.query(
+          'SELECT id FROM energy_accounts WHERE user_id = $1',
+          [from_user_id]
+        );
+        if (fromAccRes.rows && fromAccRes.rows.length > 0) {
+          await client.query(
+            'UPDATE energy_accounts SET balance = $1, total_out = total_out + $2, updated_at = NOW() WHERE user_id = $3',
+            [newFromEnergy, transferAmount, from_user_id]
+          );
+        } else {
+          await client.query(
+            'INSERT INTO energy_accounts (id, user_id, balance, total_in, total_out, created_at, updated_at) VALUES ($1, $2, $3, 0, $4, NOW(), NOW())',
+            [crypto.randomUUID(), from_user_id, newFromEnergy, transferAmount]
+          );
+        }
+
+        // 创建审核记录
+        const wdRes = await client.query(
+          `INSERT INTO energy_withdraw_requests 
+           (id, user_id, amount, actual_amount, fee_amount, status, payment_method, real_name, alipay_account, withdraw_type, to_user_id, note, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7, $8, 'transfer', $9, $10, NOW(), NOW())
+           RETURNING id`,
+          [
+            crypto.randomUUID(),
+            from_user_id,
+            transferAmount,
+            transferAmount, // 转账无手续费
+            0,
+            payment_method,
+            real_name,
+            alipay_account,
+            to_user_id,
+            note || '会员能量值转账给服务商'
+          ]
+        );
+
+        // 记录流水 - 转出方（冻结状态）
+        await client.query(
+          `INSERT INTO energy_transactions (id, user_id, type, amount, from_user_id, to_user_id, note, status, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())`,
+          [crypto.randomUUID(), from_user_id, 'transfer_out', transferAmount, from_user_id, to_user_id, '能量值转账（待服务商审核）', 'pending']
+        );
+
+        return { requestId: wdRes.rows[0].id };
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: '转账申请已提交，等待服务商线下打款并审核',
+        data: {
+          requestId: result.requestId,
+          amount: transferAmount,
+          toUser: toUser.username
+        }
+      });
+    }
+
+    // ===== 其他角色间转账：即时完成 =====
+
     // 角色关系验证
     if (fromUser.role === 'provider' && toUser.role === 'branch') {
       const providerResult = await query(
@@ -90,13 +179,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 会员 → 服务商：验证服务关系
-    if (fromUser.role === 'member' && toUser.role === 'provider') {
-      if (fromUser.provider_id !== to_user_id) {
-        return NextResponse.json({ error: '只能向所属服务商转账' }, { status: 403 });
-      }
-    }
-
     // 服务商 → 会员：验证服务关系
     if (fromUser.role === 'provider' && toUser.role === 'member') {
       const memberResult = await query(
@@ -108,7 +190,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 执行转账
+    // 执行即时转账
     const newFromEnergy = fromEnergyValue - transferAmount;
     const toEnergyValue = parseFloat(toUser.energy_value || '0');
     const newToEnergy = toEnergyValue + transferAmount;
@@ -125,7 +207,7 @@ export async function POST(request: NextRequest) {
       [newToEnergy, to_user_id]
     );
 
-    // 同步更新 energy_accounts 表（保证统计API数据一致）
+    // 同步更新 energy_accounts 表
     // 转出方
     const fromAccExists = await query(
       'SELECT id FROM energy_accounts WHERE user_id = $1',
