@@ -8,7 +8,6 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     let providerId = searchParams.get('providerId');
 
-    // 如果没有providerId参数，尝试从Authorization header获取
     if (!providerId) {
       const authUser = authenticateRequest(request);
       if (authUser) {
@@ -20,141 +19,211 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '缺少 providerId 参数' }, { status: 400 });
     }
 
-    const providerRecord: any = await query(
-      'SELECT * FROM providers WHERE user_id::text = $1',
+    // 查询服务商的用户信息
+    const providerUser: any = await query(
+      'SELECT id, username, balance, energy_value FROM users WHERE id::text = $1',
       [providerId]
     );
 
-    if (!providerRecord || providerRecord.length === 0) {
+    if (!providerUser || providerUser.length === 0) {
       return NextResponse.json({
         success: true,
-        data: {
-          records: [],
-          stats: {
-            totalRevenue: 0,
-            selfRevenue: 0,
-            directRevenue: 0,
-            parentRevenue: 0,
-            subordinateSplitRevenue: 0,
-            orderCount: 0,
-          }
-        }
+        data: { records: [], stats: { totalRevenue: 0, energyRevenue: 0, withdrawRevenue: 0, rechargeRevenue: 0, subordinateRevenue: 0, balance: 0, energyValue: 0 } }
       });
     }
 
-    const providerUserId = providerRecord[0].user_id;
+    const userId = providerUser[0].id;
+    const currentBalance = Number(providerUser[0].balance) || 0;
+    const currentEnergy = Number(providerUser[0].energy_value) || 0;
 
-    // 查询收益记录列表
-    const recordsSql = `
+    // 1. 能量值收益（来自会员购买产品时的市场费分成 - energy_transactions type=transfer_in）
+    const energyRevenueSql = `
+      SELECT COALESCE(SUM(amount::float), 0) as total
+      FROM energy_transactions
+      WHERE to_user_id::text = $1 AND type = 'transfer_in'
+    `;
+    const energyRevenueResult: any = await query(energyRevenueSql, [userId]);
+    const energyRevenue = parseFloat(String(energyRevenueResult?.[0]?.total || '0'));
+
+    // 2. 提现到账金额（从 withdrawals 表获取已完成的提现）
+    const withdrawRevenueSql = `
+      SELECT COALESCE(SUM(actual_amount::float), 0) as total
+      FROM withdrawals
+      WHERE user_id::text = $1 AND status = 'completed'
+    `;
+    const withdrawRevenueResult: any = await query(withdrawRevenueSql, [userId]);
+    const withdrawRevenue = parseFloat(String(withdrawRevenueResult?.[0]?.total || '0'));
+
+    // 3. 能量值充值收益（给会员充值的记录 - 从 energy_transactions 中 type=recharge 且 from_user_id 为服务商）
+    const rechargeRevenueSql = `
+      SELECT COALESCE(SUM(amount::float), 0) as total
+      FROM energy_transactions
+      WHERE from_user_id::text = $1 AND type = 'recharge'
+    `;
+    const rechargeRevenueResult: any = await query(rechargeRevenueSql, [userId]);
+    const rechargeRevenue = parseFloat(String(rechargeRevenueResult?.[0]?.total || '0'));
+
+    // 4. 下级服务商分成（provider_subordinate_split）
+    let subordinateRevenue = 0;
+    try {
+      const subordinateSql = `
+        SELECT COALESCE(SUM(split_amount::float), 0) as total
+        FROM provider_subordinate_split
+        WHERE upper_provider_id::text = $1
+      `;
+      const subordinateResult: any = await query(subordinateSql, [userId]);
+      subordinateRevenue = parseFloat(String(subordinateResult?.[0]?.total || '0'));
+    } catch {
+      subordinateRevenue = 0;
+    }
+
+    // 5. provider_revenue_distribution（如果有的话）
+    let distSelfRevenue = 0;
+    let distDirectReward = 0;
+    let distParentShare = 0;
+    try {
+      const distSql = `
+        SELECT 
+          COALESCE(SUM(provider_share::float), 0) as self,
+          COALESCE(SUM(CASE WHEN direct_reward_to::text = $1 THEN direct_reward::float ELSE 0 END), 0) as direct,
+          COALESCE(SUM(CASE WHEN parent_provider_id::text = $1 THEN parent_provider_share::float ELSE 0 END), 0) as parent
+        FROM provider_revenue_distribution
+        WHERE provider_id::text = $1 OR direct_reward_to::text = $1 OR parent_provider_id::text = $1
+      `;
+      const distResult: any = await query(distSql, [userId]);
+      distSelfRevenue = parseFloat(String(distResult?.[0]?.self || '0'));
+      distDirectReward = parseFloat(String(distResult?.[0]?.direct || '0'));
+      distParentShare = parseFloat(String(distResult?.[0]?.parent || '0'));
+    } catch {
+      // 表可能不存在
+    }
+
+    // 总收益 = 能量值收益 + 提现到账 + 充值收益 + 下级分成 + 分配表收益
+    const totalRevenue = energyRevenue + withdrawRevenue + rechargeRevenue + subordinateRevenue + distSelfRevenue + distDirectReward + distParentShare;
+
+    // 6. 综合收益记录列表（从多个来源合并）
+    // 来源A: 能量值转入记录
+    const energyRecordsSql = `
       SELECT 
-        prd.id::text,
-        prd.order_id::text,
-        prd.product_id::text,
-        prd.provider_id,
-        prd.member_id::text,
-        prd.market_fee::float,
-        prd.provider_share::float,
-        prd.direct_reward::float,
-        prd.parent_provider_share::float,
-        prd.branch_share::float,
-        prd.company_share::float,
-        prd.status,
-        prd.created_at,
-        p.name as product_name,
-        p.code as product_code,
-        p.period,
-        p.price::float,
-        m.username as member_name,
-        m.phone as member_phone
-      FROM provider_revenue_distribution prd
-      LEFT JOIN products p ON p.id::text = prd.product_id::text
-      LEFT JOIN users m ON m.id::text = prd.member_id::text
-      WHERE prd.provider_id::text = $1
-      ORDER BY prd.created_at DESC
+        et.id::text,
+        'energy_income' as source,
+        et.type,
+        et.amount::float,
+        et.note,
+        et.created_at,
+        u.username as from_username
+      FROM energy_transactions et
+      LEFT JOIN users u ON u.id::text = et.from_user_id::text
+      WHERE et.to_user_id::text = $1 AND et.type IN ('transfer_in', 'quota_match', 'purchase')
+      ORDER BY et.created_at DESC
       LIMIT 50
     `;
-    const records = await query(recordsSql, [providerUserId]);
+    const energyRecords = await query(energyRecordsSql, [userId]);
 
-    // 统计总数
-    const totalCountSql = `SELECT COUNT(*) as total FROM provider_revenue_distribution WHERE provider_id::text = $1`;
-    const totalCountResult: any = await query(totalCountSql, [providerUserId]);
-    const totalCount = parseInt(totalCountResult?.[0]?.total || '0');
-
-    // 统计各类收益
-    // 1. 自己的收益分成 (70%)
-    const selfRevenueSql = `
-      SELECT COALESCE(SUM(provider_share::float), 0) as total
-      FROM provider_revenue_distribution
-      WHERE provider_id::text = $1
-    `;
-    const selfRevenueResult: any = await query(selfRevenueSql, [providerUserId]);
-    const selfRevenue = parseFloat(String(selfRevenueResult?.[0]?.total || '0'));
-
-    // 2. 直推奖励 (10%)
-    const directRewardSql = `
-      SELECT COALESCE(SUM(direct_reward::float), 0) as total
-      FROM provider_revenue_distribution
-      WHERE direct_reward_to::text = $1
-    `;
-    const directRewardResult: any = await query(directRewardSql, [providerUserId]);
-    const directRevenue = parseFloat(String(directRewardResult?.[0]?.total || '0'));
-
-    // 3. 下级服务商分成 (10%)
-    const parentRevenueSql = `
-      SELECT COALESCE(SUM(parent_provider_share::float), 0) as total
-      FROM provider_revenue_distribution
-      WHERE parent_provider_id::text = $1
-    `;
-    const parentRevenueResult: any = await query(parentRevenueSql, [providerUserId]);
-    const parentRevenue = parseFloat(String(parentRevenueResult?.[0]?.total || '0'));
-
-    // 4. 下级分成（0.3%/0.5% 基于交易额）
-    const subordinateSplitSql = `
-      SELECT COALESCE(SUM(split_amount::float), 0) as total
-      FROM provider_subordinate_split
-      WHERE upper_provider_id::text = $1
-    `;
-    const subordinateSplitResult: any = await query(subordinateSplitSql, [providerUserId]);
-    const subordinateSplitRevenue = parseFloat(String(subordinateSplitResult?.[0]?.total || '0'));
-
-    // 5. 下级分成记录
-    const subordinateRecordsSql = `
+    // 来源B: 提现记录
+    const withdrawRecordsSql = `
       SELECT 
-        pss.id::text,
-        pss.order_id::text,
-        pss.provider_id::text,
-        pss.upper_provider_id,
-        pss.product_name,
-        pss.order_amount::float,
-        pss.split_ratio::float,
-        pss.split_amount::float,
-        pss.subordinate_count,
-        pss.created_at,
-        u.username as provider_name
-      FROM provider_subordinate_split pss
-      LEFT JOIN users u ON u.id = pss.provider_id
-      WHERE pss.upper_provider_id::text = $1
-      ORDER BY pss.created_at DESC
-      LIMIT 10
+        w.id::text,
+        'withdraw' as source,
+        'withdraw' as type,
+        w.actual_amount::float as amount,
+        w.note,
+        w.created_at,
+        NULL as from_username
+      FROM withdrawals w
+      WHERE w.user_id::text = $1
+      ORDER BY w.created_at DESC
+      LIMIT 50
     `;
-    const subordinateRecords = await query(subordinateRecordsSql, [providerUserId]);
+    const withdrawRecords = await query(withdrawRecordsSql, [userId]);
 
-    // 总收益
-    const totalRevenue = selfRevenue + directRevenue + parentRevenue + subordinateSplitRevenue;
+    // 来源C: 给会员充值的记录
+    const rechargeRecordsSql = `
+      SELECT 
+        et.id::text,
+        'recharge' as source,
+        'recharge' as type,
+        et.amount::float,
+        et.note,
+        et.created_at,
+        u.username as from_username
+      FROM energy_transactions et
+      LEFT JOIN users u ON u.id::text = et.to_user_id::text
+      WHERE et.from_user_id::text = $1 AND et.type = 'recharge'
+      ORDER BY et.created_at DESC
+      LIMIT 50
+    `;
+    const rechargeRecords = await query(rechargeRecordsSql, [userId]);
+
+    // 来源D: provider_revenue_distribution（如有）
+    let distRecords: any[] = [];
+    try {
+      const distRecordsSql = `
+        SELECT 
+          prd.id::text,
+          'distribution' as source,
+          'distribution' as type,
+          prd.provider_share::float as amount,
+          prd.market_fee::float,
+          prd.direct_reward::float,
+          prd.parent_provider_share::float,
+          p.name as product_name,
+          m.username as member_name,
+          m.phone as member_phone,
+          prd.created_at
+        FROM provider_revenue_distribution prd
+        LEFT JOIN products p ON p.id::text = prd.product_id::text
+        LEFT JOIN users m ON m.id::text = prd.member_id::text
+        WHERE prd.provider_id::text = $1
+        ORDER BY prd.created_at DESC
+        LIMIT 50
+      `;
+      distRecords = await query(distRecordsSql, [userId]);
+    } catch {
+      // 表可能不存在
+    }
+
+    // 合并所有记录并按时间排序
+    const allRecords = [
+      ...(energyRecords || []).map((r: any) => ({
+        ...r,
+        source_label: '能量值收益',
+        amount: Number(r.amount) || 0,
+      })),
+      ...(withdrawRecords || []).map((r: any) => ({
+        ...r,
+        source_label: '提现到账',
+        amount: Number(r.amount) || 0,
+      })),
+      ...(rechargeRecords || []).map((r: any) => ({
+        ...r,
+        source_label: '会员充值',
+        amount: Number(r.amount) || 0,
+      })),
+      ...(distRecords || []).map((r: any) => ({
+        ...r,
+        source_label: '产品分成',
+        amount: Number(r.amount) || 0,
+      })),
+    ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     return NextResponse.json({
       success: true,
       data: {
-        records,
+        records: allRecords,
         stats: {
           totalRevenue,
-          selfRevenue,
-          directRevenue,
-          parentRevenue,
-          subordinateSplitRevenue,
-          orderCount: totalCount,
+          energyRevenue,
+          withdrawRevenue,
+          rechargeRevenue,
+          subordinateRevenue,
+          distSelfRevenue,
+          distDirectReward,
+          distParentShare,
+          balance: currentBalance,
+          energyValue: currentEnergy,
+          orderCount: allRecords.length,
         },
-        subordinateRecords,
       }
     });
   } catch (error) {
@@ -164,14 +233,9 @@ export async function GET(request: NextRequest) {
       data: {
         records: [],
         stats: {
-          totalRevenue: 0,
-          selfRevenue: 0,
-          directRevenue: 0,
-          parentRevenue: 0,
-          subordinateSplitRevenue: 0,
-          orderCount: 0,
+          totalRevenue: 0, energyRevenue: 0, withdrawRevenue: 0,
+          rechargeRevenue: 0, subordinateRevenue: 0, balance: 0, energyValue: 0, orderCount: 0,
         },
-        subordinateRecords: [],
       }
     });
   }
