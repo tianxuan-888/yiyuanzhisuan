@@ -100,10 +100,10 @@ async function executeSql(supabase: SupabaseClient, sql: string, params?: unknow
       }
       const token = `__PARAM_${i}__`;
       placeholders.push(replacement);
-      // 替换 $N，但如果 $N 后面已经有 ::类型 则保留（先替换手动类型转换的情况）
-      finalSql = finalSql.replace(new RegExp('\\$' + (i + 1) + '(?=::)', 'g'), token);
-      // 再替换不带 :: 的 $N
-      finalSql = finalSql.replace(new RegExp('\\$' + (i + 1) + '(?!::)', 'g'), token);
+      // 替换 $N，使用负向前瞻确保不匹配 $10, $11 等更大的编号
+      // \$N(?!\d) 确保 $1 不匹配 $10, $11 等
+      // \$N(?=::) 匹配带类型转换的，如 $1::uuid
+      finalSql = finalSql.replace(new RegExp('\\$' + (i + 1) + '(?!\\d)', 'g'), token);
     }
     // 第二步：将所有临时占位符替换为实际值
     for (let i = 0; i < placeholders.length; i++) {
