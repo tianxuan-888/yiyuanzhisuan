@@ -119,7 +119,8 @@ export async function GET(request: NextRequest) {
       console.error('查询能量值记录失败:', e);
     }
 
-    // 获取能量值账户余额（使用 ::float 确保返回数字）
+    // 获取能量值账户余额
+    // 优先读 energy_accounts，如果不存在则回退读 users.energy_value
     let balance = 0;
     try {
       const accountResult = await queryOne<{balance: number}>(
@@ -128,6 +129,23 @@ export async function GET(request: NextRequest) {
       );
       if (accountResult) {
         balance = accountResult.balance;
+      }
+      // 兜底：如果 energy_accounts 无记录或 balance 为 0，从 users 表获取
+      if (balance === 0) {
+        const userResult = await queryOne<{energy_value: number}>(
+          `SELECT energy_value::float as energy_value FROM users WHERE id = $1`,
+          [userId]
+        );
+        if (userResult && userResult.energy_value > 0) {
+          balance = userResult.energy_value;
+          // 同步回写 energy_accounts
+          await query(
+            `INSERT INTO energy_accounts (id, user_id, balance, total_in, total_out, created_at, updated_at)
+             VALUES ($1, $2, $3, $3, 0, NOW(), NOW())
+             ON CONFLICT (user_id) DO UPDATE SET balance = $3, updated_at = NOW()`,
+            [crypto.randomUUID(), userId, balance]
+          );
+        }
       }
     } catch (e) {
       console.error('查询能量值余额失败:', e);

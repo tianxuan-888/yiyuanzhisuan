@@ -28,7 +28,15 @@ export async function GET(request: NextRequest) {
       'SELECT * FROM energy_accounts WHERE user_id = $1',
       [userId]
     );
-    const userBalance = userAccount.length > 0 ? Number(userAccount[0].balance || 0) : 0;
+    let userBalance = userAccount.length > 0 ? Number(userAccount[0].balance || 0) : 0;
+    // 兜底：如果 energy_accounts 无记录或 balance 为 0，从 users 表获取
+    if (userBalance === 0) {
+      const userInfo = await query('SELECT energy_value FROM users WHERE id = $1', [userId]);
+      const ev = userInfo.length > 0 ? Number(userInfo[0].energy_value || 0) : 0;
+      if (ev > 0) {
+        userBalance = ev;
+      }
+    }
     const userTotalIn = userAccount.length > 0 ? Number(userAccount[0].total_in || 0) : 0;
     const userTotalOut = userAccount.length > 0 ? Number(userAccount[0].total_out || 0) : 0;
 
