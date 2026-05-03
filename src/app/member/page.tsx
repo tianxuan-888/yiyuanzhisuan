@@ -217,8 +217,9 @@ interface EnergyRecord {
     to_user_id?: string;
     note?: string;
     description?: string;
-    created_at: string;
-    recordType?: 'recharge' | 'transfer_in' | 'transfer_out' | 'consume' | 'market_transfer' | 'purchase';
+    created_at?: string;
+    createdAt?: string;
+    recordType?: 'recharge' | 'transfer_in' | 'transfer_out' | 'consume' | 'market_transfer' | 'purchase' | 'convert_from_balance' | 'withdraw';
 }
 
 interface EnergyStats {
@@ -3144,46 +3145,49 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                     <div key={record.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
                                                         <div className="flex items-center gap-3">
                                                             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                                                                record.recordType === 'recharge' ? 'bg-green-100 text-green-600' :
-                                                                record.recordType === 'transfer_in' ? 'bg-blue-100 text-blue-600' :
-                                                                record.recordType === 'consume' ? 'bg-red-100 text-red-600' :
+                                                                ['recharge', 'transfer_in', 'convert_from_balance'].includes(record.recordType || '') ? 'bg-green-100 text-green-600' :
+                                                                ['transfer_out', 'consume', 'market_transfer', 'purchase', 'withdraw'].includes(record.recordType || '') ? 'bg-red-100 text-red-600' :
                                                                 'bg-orange-100 text-orange-600'
                                                             }`}>
-                                                                {record.recordType === 'recharge' ? (
+                                                                {['recharge', 'transfer_in', 'convert_from_balance'].includes(record.recordType || '') ? (
                                                                     <ArrowDownCircle className="w-5 h-5" />
-                                                                ) : record.recordType === 'transfer_in' ? (
-                                                                    <ArrowDownCircle className="w-5 h-5" />
-                                                                ) : record.recordType === 'consume' ? (
-                                                                    <TrendingDown className="w-5 h-5" />
-                                                                ) : (
+                                                                ) : ['transfer_out', 'consume', 'market_transfer', 'purchase', 'withdraw'].includes(record.recordType || '') ? (
                                                                     <ArrowUpCircle className="w-5 h-5" />
+                                                                ) : (
+                                                                    <TrendingDown className="w-5 h-5" />
                                                                 )}
                                                             </div>
                                                             <div>
                                                                 <p className="font-medium">
                                                                     {record.recordType === 'recharge' ? '能量值充值' :
                                                                      record.recordType === 'transfer_in' ? '能量值转入' :
+                                                                     record.recordType === 'convert_from_balance' ? '收益转能量值' :
                                                                      record.recordType === 'consume' ? '能量值消耗' :
+                                                                     record.recordType === 'market_transfer' ? '市场费支付' :
+                                                                     record.recordType === 'purchase' ? '购买产品支付' :
+                                                                     record.recordType === 'withdraw' ? '能量值变现' :
                                                                      '能量值转出'}
                                                                 </p>
                                                                 <p className="text-sm text-gray-500">
-                                                                    {record.description || (record.recordType === 'recharge' ? '服务商充值' : 
+                                                                    {record.description || (record.recordType === 'recharge' ? '服务商充值能量值' : 
                                                                         record.recordType === 'transfer_in' ? '从服务商转入' : 
+                                                                        record.recordType === 'convert_from_balance' ? '收益余额转入能量值' :
                                                                         record.recordType === 'consume' ? '购买产品支付市场费' :
+                                                                        record.recordType === 'market_transfer' ? '产品市场费' :
+                                                                        record.recordType === 'purchase' ? '购买算力产品' :
+                                                                        record.recordType === 'withdraw' ? '申请变现提现' :
                                                                         '转给服务商')}
                                                                 </p>
                                                                 <p className="text-xs text-gray-400 mt-1">
-                                                                    {new Date(record.created_at).toLocaleString('zh-CN')}
+                                                                    {new Date(record.createdAt || record.created_at || '').toLocaleString('zh-CN')}
                                                                 </p>
                                                             </div>
                                                         </div>
                                                         <div className="text-right">
                                                             <p className={`text-lg font-bold ${
-                                                                record.recordType === 'transfer_out' ? 'text-orange-600' : 
-                                                                (record.recordType === 'consume' || record.recordType === 'market_transfer' || record.recordType === 'purchase') ? 'text-red-600' : 
-                                                                'text-green-600'
+                                                                ['transfer_out', 'consume', 'market_transfer', 'purchase', 'withdraw'].includes(record.recordType || '') ? 'text-red-600' : 'text-green-600'
                                                             }`}>
-                                                                {(record.recordType === 'consume' || record.recordType === 'market_transfer' || record.recordType === 'purchase') ? '-' : '+'}{record.amount?.toLocaleString() || 0}
+                                                                {['transfer_out', 'consume', 'market_transfer', 'purchase', 'withdraw'].includes(record.recordType || '') ? '-' : '+'}{record.amount?.toLocaleString() || 0}
                                                             </p>
                                                             <Badge className={
                                                                 record.status === 'completed' ? 'bg-green-100 text-green-700' :
@@ -3322,7 +3326,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                 总计: ¥{Number(record.total_amount || 0).toLocaleString()}
                                                             </p>
                                                             <p className="text-xs text-gray-400 mt-1">
-                                                                {new Date(record.created_at).toLocaleString('zh-CN')}
+                                                                {new Date(record.createdAt || record.created_at).toLocaleString('zh-CN')}
                                                             </p>
                                                         </div>
                                                         <Badge variant={record.status === 'pending' ? 'secondary' : 'default'}>
@@ -3426,7 +3430,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                     余额: {Number(detail.balance_after || 0).toLocaleString()}
                                                                 </p>
                                                                 <p className="text-xs text-gray-400 mt-1">
-                                                                    {new Date(detail.created_at).toLocaleString('zh-CN')}
+                                                                    {new Date(detail.createdAt || detail.created_at).toLocaleString('zh-CN')}
                                                                 </p>
                                                             </div>
                                                             <div className="text-right">
@@ -3579,7 +3583,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                         支付宝: {record.alipay_account} | {record.real_name}
                                                     </p>
                                                     <p className="text-xs text-muted-foreground">
-                                                        {new Date(record.created_at).toLocaleString('zh-CN')}
+                                                        {new Date(record.createdAt || record.created_at).toLocaleString('zh-CN')}
                                                     </p>
                                                     {record.reject_reason && (
                                                         <p className="text-xs text-red-500 mt-1">拒绝原因: {record.reject_reason}</p>
@@ -3630,7 +3634,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                     </div>
                                                 </div>
                                                 <p className="text-xs text-muted-foreground">
-                                                    {new Date(record.created_at).toLocaleString('zh-CN')}
+                                                    {new Date(record.createdAt || record.created_at).toLocaleString('zh-CN')}
                                                 </p>
                                             </div>
                                         ))}
@@ -3701,7 +3705,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                 {request.provider?.username || '服务商'} · {request.provider?.phone || ''}
                                                             </p>
                                                             <p className="text-xs text-gray-400 mt-1">
-                                                                {request.created_at ? new Date(request.created_at).toLocaleString('zh-CN') : ''}
+                                                                {request.createdAt || request.created_at ? new Date(request.createdAt || request.created_at).toLocaleString('zh-CN') : ''}
                                                             </p>
                                                         </div>
                                                     </div>
