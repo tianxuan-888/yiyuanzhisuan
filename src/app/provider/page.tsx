@@ -326,9 +326,9 @@ export default function ProviderPage() {
     // 提现管理相关状态
     const [pendingWithdrawals, setPendingWithdrawals] = useState<any[]>([]);
 
-    // 能量值提现相关状态
+    // 提现相关状态
     const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
-    const [withdrawMode, setWithdrawMode] = useState<"energy" | "revenue">("energy"); // energy: 能量值提现, revenue: 收益转能量值
+    const [showConvertDialog, setShowConvertDialog] = useState(false);
     const [withdrawAmount, setWithdrawAmount] = useState("");
     const [withdrawAlipay, setWithdrawAlipay] = useState("");
     const [withdrawAlipayName, setWithdrawAlipayName] = useState("");
@@ -1064,68 +1064,6 @@ export default function ProviderPage() {
         }
     };
 
-    // 处理能量值变现申请
-    const handleWithdrawEnergy = async () => {
-        const providerId = localStorage.getItem("userId");
-        if (!providerId || !withdrawAmount) {
-            showMessage("error", "请填写变现金额");
-            return;
-        }
-
-        const amount = parseFloat(withdrawAmount);
-        if (amount <= 0) {
-            showMessage("error", "变现金额必须大于0");
-            return;
-        }
-
-        if (amount < 50) {
-            showMessage("error", "最低变现金额为50能量值");
-            return;
-        }
-
-        if (amount > (user?.energyValue || 0)) {
-            showMessage("error", "能量值余额不足");
-            return;
-        }
-
-        setSubmitting(true);
-        try {
-            // 使用服务商变现申请API
-            const response = await authFetch("/api/provider/withdraw-request", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    providerId: providerId,
-                    amount: amount,
-                    alipayAccount: withdrawAlipay || undefined,
-                    realName: withdrawAlipayName || undefined,
-                    note: `服务商申请变现 ${amount} 能量值`
-                }),
-            });
-            const data = await response.json();
-            if (data.success) {
-                showMessage("success", data.message);
-                setShowWithdrawDialog(false);
-                setWithdrawAmount("");
-                setWithdrawAlipay("");
-                setWithdrawAlipayName("");
-                loadData();
-                // 刷新用户信息
-                const userRes = await authFetch(`/api/auth/login?userId=${providerId}`);
-                const userData = await userRes.json();
-                if (userData.success) {
-                    localStorage.setItem('userData', JSON.stringify(userData.data));
-                }
-            } else {
-                showMessage("error", data.error || "变现申请失败");
-            }
-        } catch (error) {
-            showMessage("error", "网络错误");
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
     // 处理能量值充值
     const handleRechargeEnergy = async () => {
         const providerId = localStorage.getItem("userId");
@@ -1170,13 +1108,13 @@ export default function ProviderPage() {
         }
     };
 
-    // 加载提现记录
+    // 加载提现记录（收益提现）
     const loadWithdrawRecords = async () => {
         const providerId = localStorage.getItem("userId");
         if (!providerId) return;
 
         try {
-            const response = await authFetch(`/api/provider/withdraw-request?providerId=${providerId}`);
+            const response = await authFetch(`/api/provider/withdraw?userId=${providerId}`);
             const data = await response.json();
             if (data.success) {
                 setWithdrawRecords(data.data || []);
@@ -2843,7 +2781,6 @@ export default function ProviderPage() {
                                         <br/>• 申请能量值：向分公司申请，审核通过后获得能量值
                                         <br/>• 能量值互转：同级服务商之间互转，不扣手续费
                                         <br/>• 给会员充值：线下收款后给会员充值
-                                        <br/>• 申请变现：能量值变现，需扣除5%手续费
                                     </p>
                                 </div>
                                 
@@ -2859,9 +2796,7 @@ export default function ProviderPage() {
                                         <Button onClick={() => { loadEnergyMembers(); setShowRechargeDialog(true); }} variant="outline" className="border-green-300 text-green-600">
                                             <Zap className="w-4 h-4 mr-2" />给会员充值
                                         </Button>
-                                        <Button onClick={() => { setShowWithdrawDialog(true); loadWithdrawRecords(); }} className="bg-yellow-500 hover:bg-yellow-600 text-white">
-                                            <DollarSign className="w-4 h-4 mr-2" />申请变现
-                                        </Button>
+
                                     </div>
                                 </div>
 
@@ -3002,9 +2937,9 @@ export default function ProviderPage() {
                                         {withdrawRecords.slice(0, 5).map((record: any) => (
                                             <div key={record.id} className="flex justify-between items-center p-3 border rounded-lg bg-gray-50">
                                                 <div>
-                                                    <p className="font-medium">提现 {record.amount} 能量值</p>
+                                                    <p className="font-medium">收益提现 ¥{Number(record.amount || 0).toLocaleString()}</p>
                                                     <p className="text-xs text-gray-500">
-                                                        实际到账: {record.actual_amount} | 手续费: {record.fee}
+                                                        实际到账: ¥{Number(record.actual_amount || 0).toLocaleString()} | 手续费: ¥{Number(record.fee || 0).toLocaleString()}
                                                     </p>
                                                 </div>
                                                 <Badge className={record.status === 'pending' ? 'bg-yellow-500' : record.status === 'approved' ? 'bg-blue-500' : record.status === 'transferred' ? 'bg-indigo-500' : record.status === 'completed' ? 'bg-green-500' : 'bg-red-500'}>
@@ -3276,15 +3211,15 @@ export default function ProviderPage() {
                                             <div className="flex gap-2">
                                                 <Button
                                                     className="bg-green-600 hover:bg-green-700"
-                                                    onClick={() => { setWithdrawMode("revenue"); setShowWithdrawDialog(true); }}
+                                                    onClick={() => setShowConvertDialog(true)}
                                                 >
-                                                    <Zap className="w-4 h-4 mr-1" /> 转能量值
+                                                    <Zap className="w-4 h-4 mr-1" /> 收益转能量值
                                                 </Button>
                                                 <Button
-                                                    className="bg-yellow-500 hover:bg-yellow-600"
-                                                    onClick={() => { setWithdrawMode("energy"); setShowWithdrawDialog(true); }}
+                                                    className="bg-yellow-500 hover:bg-yellow-600 text-white"
+                                                    onClick={() => setShowWithdrawDialog(true)}
                                                 >
-                                                    <DollarSign className="w-4 h-4 mr-1" /> 提现
+                                                    <DollarSign className="w-4 h-4 mr-1" /> 收益提现
                                                 </Button>
                                             </div>
                                         </div>
@@ -3477,17 +3412,8 @@ export default function ProviderPage() {
                                             <div>
                                                 <p className="text-sm text-muted-foreground">当前能量值余额</p>
                                                 <p className="text-3xl font-bold text-blue-600">{Number(revenueStats.energyValue || 0).toLocaleString()}</p>
+                                                <p className="text-xs text-muted-foreground mt-1">用于给会员充值、购买产品付市场费等</p>
                                             </div>
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => {
-                                                    setWithdrawAmount("");
-                                                    setShowWithdrawDialog(true);
-                                                }}
-                                            >
-                                                能量值变现
-                                            </Button>
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -3913,190 +3839,178 @@ export default function ProviderPage() {
                         </DialogContent>
                     </Dialog>
 
-                    {/* 能量值提现对话框 */}
+                    {/* 收益转能量值对话框 */}
+                    <Dialog open={showConvertDialog} onOpenChange={setShowConvertDialog}>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle className="flex items-center gap-2">
+                                    <Zap className="w-5 h-5 text-green-600" />
+                                    收益转能量值
+                                </DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                                    <p className="text-sm text-green-700">
+                                        <strong>说明：</strong>收益转为能量值时，5%转为积分，95%转为能量值。能量值可用于给会员充值。
+                                    </p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-slate-100 rounded-lg p-3">
+                                        <p className="text-xs text-gray-500">收益余额</p>
+                                        <p className="text-xl font-bold text-green-600">¥{revenueStats.totalRevenue?.toLocaleString() || 0}</p>
+                                    </div>
+                                    <div className="bg-slate-100 rounded-lg p-3">
+                                        <p className="text-xs text-gray-500">当前能量值</p>
+                                        <p className="text-xl font-bold text-purple-600">{user?.energyValue?.toLocaleString() || 0}</p>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium mb-2 block">转换金额</label>
+                                    <Input
+                                        type="number"
+                                        placeholder="请输入要转换的收益金额"
+                                        value={withdrawAmount}
+                                        onChange={(e) => setWithdrawAmount(e.target.value)}
+                                        min="1"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        积分: {withdrawAmount ? (parseFloat(withdrawAmount) * 0.05).toFixed(2) : "0.00"} | 能量值: {withdrawAmount ? (parseFloat(withdrawAmount) * 0.95).toFixed(2) : "0.00"}
+                                    </p>
+                                </div>
+                                <Button 
+                                    className="w-full bg-green-600 hover:bg-green-700" 
+                                    onClick={async () => {
+                                        if (!withdrawAmount || parseFloat(withdrawAmount) <= 0) return;
+                                        
+                                        setSubmitting(true);
+                                        try {
+                                            const res = await authFetch("/api/provider/convert-to-energy", {
+                                                method: "POST",
+                                                headers: { "Content-Type": "application/json" },
+                                                body: JSON.stringify({ amount: withdrawAmount }),
+                                            });
+                                            const data = await res.json();
+                                            if (data.success) {
+                                                showMessage("success", `转换成功！${data.data?.pointsAmount || 0}→积分，${data.data?.energyAmount || 0}→能量值`);
+                                                setShowConvertDialog(false);
+                                                setWithdrawAmount("");
+                                                loadRevenueRecords();
+                                                loadData();
+                                            } else {
+                                                showMessage("error", data.error || "转换失败");
+                                            }
+                                        } catch (err) {
+                                            showMessage("error", "转换失败");
+                                        } finally {
+                                            setSubmitting(false);
+                                        }
+                                    }}
+                                    disabled={submitting || !withdrawAmount || parseFloat(withdrawAmount) <= 0}
+                                >
+                                    {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
+                                    确认转换
+                                </Button>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* 收益提现对话框 */}
                     <Dialog open={showWithdrawDialog} onOpenChange={setShowWithdrawDialog}>
                         <DialogContent>
                             <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">
                                     <DollarSign className="w-5 h-5 text-yellow-600" />
-                                    {withdrawMode === "energy" ? "收益提现" : "收益转能量值"}
+                                    收益提现
                                 </DialogTitle>
                             </DialogHeader>
                             <div className="space-y-4 py-4">
-                                {/* 模式切换 */}
-                                <div className="flex gap-2 bg-slate-100 p-1 rounded-lg">
-                                    <button
-                                        onClick={() => setWithdrawMode("revenue")}
-                                        className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${withdrawMode === "revenue" ? "bg-green-600 text-white shadow" : "text-gray-600 hover:bg-white"}`}
-                                    >
-                                        收益转能量值
-                                    </button>
-                                    <button
-                                        onClick={() => setWithdrawMode("energy")}
-                                        className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${withdrawMode === "energy" ? "bg-yellow-500 text-white shadow" : "text-gray-600 hover:bg-white"}`}
-                                    >
-                                        收益提现
-                                    </button>
+                                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                                    <p className="text-sm text-yellow-700">
+                                        <strong>说明：</strong>收益提现到分公司，手续费5%，最低提现金额50元。提现后等待分公司审核打款。
+                                    </p>
                                 </div>
-
-                                {withdrawMode === "revenue" ? (
-                                    /* 收益转能量值模式：5%积分 + 95%能量值 */
-                                    <>
-                                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                                            <p className="text-sm text-green-700">
-                                                <strong>说明：</strong>收益转为能量值时，5%转为积分，95%转为能量值。能量值可用于给会员充值。
-                                            </p>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="bg-slate-100 rounded-lg p-3">
-                                                <p className="text-xs text-gray-500">累计收益</p>
-                                                <p className="text-xl font-bold text-green-600">{revenueStats.totalRevenue?.toLocaleString() || 0}</p>
-                                            </div>
-                                            <div className="bg-slate-100 rounded-lg p-3">
-                                                <p className="text-xs text-gray-500">当前能量值</p>
-                                                <p className="text-xl font-bold text-purple-600">{user?.energyValue?.toLocaleString() || 0}</p>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="text-sm font-medium mb-2 block">转换金额</label>
-                                            <Input
-                                                type="number"
-                                                placeholder="请输入要转换的收益金额"
-                                                value={withdrawAmount}
-                                                onChange={(e) => setWithdrawAmount(e.target.value)}
-                                                min="1"
-                                            />
-                                            <p className="text-xs text-gray-500 mt-1">
-                                                积分: {withdrawAmount ? (parseFloat(withdrawAmount) * 0.05).toFixed(2) : "0.00"} | 能量值: {withdrawAmount ? (parseFloat(withdrawAmount) * 0.95).toFixed(2) : "0.00"}
-                                            </p>
-                                        </div>
-                                        <Button 
-                                            className="w-full bg-green-600 hover:bg-green-700" 
-                                            onClick={async () => {
-                                                if (!withdrawAmount || parseFloat(withdrawAmount) <= 0) return;
-                                                
-                                                setSubmitting(true);
-                                                try {
-                                                    const res = await authFetch("/api/provider/convert-to-energy", {
-                                                        method: "POST",
-                                                        headers: { "Content-Type": "application/json" },
-                                                        body: JSON.stringify({ amount: withdrawAmount }),
-                                                    });
-                                                    const data = await res.json();
-                                                    if (data.success) {
-                                                        showMessage("success", `转换成功！${data.data?.pointsAmount || 0}→积分，${data.data?.energyAmount || 0}→能量值`);
-                                                        setShowWithdrawDialog(false);
-                                                        setWithdrawAmount("");
-                                                        // 刷新数据
-                                                        loadRevenueRecords();
-                                                        loadData();
-                                                    } else {
-                                                        showMessage("error", data.error || "转换失败");
-                                                    }
-                                                } catch (err) {
-                                                    showMessage("error", "转换失败");
-                                                } finally {
-                                                    setSubmitting(false);
-                                                }
-                                            }}
-                                            disabled={submitting || !withdrawAmount || parseFloat(withdrawAmount) <= 0}
-                                        >
-                                            {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
-                                            确认转换
-                                        </Button>
-                                    </>
-                                ) : (
-                                    /* 收益提现模式：提现收益到分公司 */
-                                    <>
-                                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                                            <p className="text-sm text-yellow-700">
-                                                <strong>说明：</strong>收益提现到分公司，手续费5%，最低提现金额50元。提现后等待分公司审核打款。
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <label className="text-sm font-medium mb-2 block">我的收益余额</label>
-                                            <p className="text-2xl font-bold text-green-600">¥{revenueStats.totalRevenue?.toLocaleString() || 0}</p>
-                                        </div>
-                                        <div>
-                                            <label className="text-sm font-medium mb-2 block">提现金额</label>
-                                            <Input
-                                                type="number"
-                                                placeholder="请输入提现金额（最低50）"
-                                                value={withdrawAmount}
-                                                onChange={(e) => setWithdrawAmount(e.target.value)}
-                                                min="50"
-                                            />
-                                            <p className="text-xs text-gray-500 mt-1">
-                                                手续费5%: {withdrawAmount ? (parseFloat(withdrawAmount) * 0.05).toFixed(2) : "0.00"} 元 | 实际到账: {withdrawAmount ? (parseFloat(withdrawAmount) * 0.95).toFixed(2) : "0.00"} 元
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <label className="text-sm font-medium mb-2 block">支付宝账号</label>
-                                            <Input
-                                                placeholder="请输入支付宝账号"
-                                                value={withdrawAlipay}
-                                                onChange={(e) => setWithdrawAlipay(e.target.value)}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-sm font-medium mb-2 block">支付宝姓名</label>
-                                            <Input
-                                                placeholder="请输入支付宝实名姓名"
-                                                value={withdrawAlipayName}
-                                                onChange={(e) => setWithdrawAlipayName(e.target.value)}
-                                            />
-                                        </div>
-                                        <Button 
-                                            className="w-full bg-yellow-500 hover:bg-yellow-600" 
-                                            onClick={async () => {
-                                                const amount = parseFloat(withdrawAmount);
-                                                if (!amount || amount < 50) {
-                                                    showMessage("error", "最低提现金额为50元");
-                                                    return;
-                                                }
-                                                if (!withdrawAlipay.trim()) {
-                                                    showMessage("error", "请输入支付宝账号");
-                                                    return;
-                                                }
-                                                if (!withdrawAlipayName.trim()) {
-                                                    showMessage("error", "请输入支付宝姓名");
-                                                    return;
-                                                }
-                                                setSubmitting(true);
-                                                try {
-                                                    const res = await authFetch("/api/provider/withdraw", {
-                                                        method: "POST",
-                                                        headers: { "Content-Type": "application/json" },
-                                                        body: JSON.stringify({
-                                                            amount: withdrawAmount,
-                                                            alipayAccount: withdrawAlipay.trim(),
-                                                            realName: withdrawAlipayName.trim(),
-                                                        }),
-                                                    });
-                                                    const data = await res.json();
-                                                    if (data.success) {
-                                                        showMessage("success", `提现申请已提交！手续费${data.data?.fee || 0}元，实际到账${data.data?.actualAmount || 0}元，等待分公司审核`);
-                                                        setShowWithdrawDialog(false);
-                                                        setWithdrawAmount("");
-                                                        setWithdrawAlipay("");
-                                                        setWithdrawAlipayName("");
-                                                        loadData();
-                                                    } else {
-                                                        showMessage("error", data.error || "提现失败");
-                                                    }
-                                                } catch (err) {
-                                                    showMessage("error", "提现失败");
-                                                } finally {
-                                                    setSubmitting(false);
-                                                }
-                                            }}
-                                            disabled={submitting || !withdrawAmount || parseFloat(withdrawAmount) < 50}
-                                        >
-                                            {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <DollarSign className="w-4 h-4 mr-2" />}
-                                            确认提现
-                                        </Button>
-                                    </>
-                                )}
+                                <div>
+                                    <label className="text-sm font-medium mb-2 block">我的收益余额</label>
+                                    <p className="text-2xl font-bold text-green-600">¥{revenueStats.totalRevenue?.toLocaleString() || 0}</p>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium mb-2 block">提现金额</label>
+                                    <Input
+                                        type="number"
+                                        placeholder="请输入提现金额（最低50）"
+                                        value={withdrawAmount}
+                                        onChange={(e) => setWithdrawAmount(e.target.value)}
+                                        min="50"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        手续费5%: {withdrawAmount ? (parseFloat(withdrawAmount) * 0.05).toFixed(2) : "0.00"} 元 | 实际到账: {withdrawAmount ? (parseFloat(withdrawAmount) * 0.95).toFixed(2) : "0.00"} 元
+                                    </p>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium mb-2 block">支付宝账号</label>
+                                    <Input
+                                        placeholder="请输入支付宝账号"
+                                        value={withdrawAlipay}
+                                        onChange={(e) => setWithdrawAlipay(e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium mb-2 block">支付宝姓名</label>
+                                    <Input
+                                        placeholder="请输入支付宝实名姓名"
+                                        value={withdrawAlipayName}
+                                        onChange={(e) => setWithdrawAlipayName(e.target.value)}
+                                    />
+                                </div>
+                                <Button 
+                                    className="w-full bg-yellow-500 hover:bg-yellow-600" 
+                                    onClick={async () => {
+                                        const amount = parseFloat(withdrawAmount);
+                                        if (!amount || amount < 50) {
+                                            showMessage("error", "最低提现金额为50元");
+                                            return;
+                                        }
+                                        if (!withdrawAlipay.trim()) {
+                                            showMessage("error", "请输入支付宝账号");
+                                            return;
+                                        }
+                                        if (!withdrawAlipayName.trim()) {
+                                            showMessage("error", "请输入支付宝姓名");
+                                            return;
+                                        }
+                                        setSubmitting(true);
+                                        try {
+                                            const res = await authFetch("/api/provider/withdraw", {
+                                                method: "POST",
+                                                headers: { "Content-Type": "application/json" },
+                                                body: JSON.stringify({
+                                                    amount: withdrawAmount,
+                                                    alipayAccount: withdrawAlipay.trim(),
+                                                    realName: withdrawAlipayName.trim(),
+                                                }),
+                                            });
+                                            const data = await res.json();
+                                            if (data.success) {
+                                                showMessage("success", `提现申请已提交！手续费${data.data?.fee || 0}元，实际到账${data.data?.actualAmount || 0}元，等待分公司审核`);
+                                                setShowWithdrawDialog(false);
+                                                setWithdrawAmount("");
+                                                setWithdrawAlipay("");
+                                                setWithdrawAlipayName("");
+                                                loadData();
+                                            } else {
+                                                showMessage("error", data.error || "提现失败");
+                                            }
+                                        } catch (err) {
+                                            showMessage("error", "提现失败");
+                                        } finally {
+                                            setSubmitting(false);
+                                        }
+                                    }}
+                                    disabled={submitting || !withdrawAmount || parseFloat(withdrawAmount) < 50}
+                                >
+                                    {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <DollarSign className="w-4 h-4 mr-2" />}
+                                    确认提现
+                                </Button>
                             </div>
                         </DialogContent>
                     </Dialog>

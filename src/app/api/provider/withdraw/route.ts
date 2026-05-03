@@ -42,13 +42,7 @@ export async function POST(request: NextRequest) {
           [withdrawalId]
         );
 
-        // 增加服务商收益余额（变现金额）
-        if (actualAmount > 0) {
-          await client.query(
-            'UPDATE users SET balance = balance + $1, updated_at = NOW() WHERE id = $2',
-            [actualAmount.toFixed(2), userId]
-          );
-        }
+        // 注意：收益提现时balance已在提交时扣除，确认收款是线下到账，不需要再增加balance
 
         // 更新分公司收益记录状态为已完成
         await client.query(
