@@ -1609,14 +1609,6 @@ export default function ProviderPage() {
                                 >
                                     充值
                                 </Button>
-                                <Button 
-                                    size="sm" 
-                                    variant="outline" 
-                                    className="text-xs h-7 border-yellow-300 text-yellow-600"
-                                    onClick={() => { setShowWithdrawDialog(true); loadWithdrawRecords(); }}
-                                >
-                                    提现
-                                </Button>
                             </div>
                         </CardContent>
                     </Card>
