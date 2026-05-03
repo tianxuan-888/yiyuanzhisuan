@@ -86,17 +86,45 @@ export async function POST(request: NextRequest) {
         [newProviderEnergy.toFixed(2), providerId]
       );
 
+      // 同步会员 energy_accounts
+      const memberAccRes = await client.query('SELECT id FROM energy_accounts WHERE user_id = $1', [userId]);
+      if (memberAccRes.rows && memberAccRes.rows.length > 0) {
+        await client.query(
+          'UPDATE energy_accounts SET balance = $1, total_out = total_out + $2, updated_at = NOW() WHERE user_id = $3',
+          [newEnergy.toFixed(2), energyAmount.toFixed(2), userId]
+        );
+      } else {
+        await client.query(
+          'INSERT INTO energy_accounts (id, user_id, balance, total_in, total_out, created_at, updated_at) VALUES ($1, $2, $3, 0, $4, NOW(), NOW())',
+          [crypto.randomUUID(), userId, newEnergy.toFixed(2), energyAmount.toFixed(2)]
+        );
+      }
+
+      // 同步服务商 energy_accounts
+      const providerAccRes = await client.query('SELECT id FROM energy_accounts WHERE user_id = $1', [providerId]);
+      if (providerAccRes.rows && providerAccRes.rows.length > 0) {
+        await client.query(
+          'UPDATE energy_accounts SET balance = $1, total_in = total_in + $2, updated_at = NOW() WHERE user_id = $3',
+          [newProviderEnergy.toFixed(2), energyAmount.toFixed(2), providerId]
+        );
+      } else {
+        await client.query(
+          'INSERT INTO energy_accounts (id, user_id, balance, total_in, total_out, created_at, updated_at) VALUES ($1, $2, $3, $4, 0, NOW(), NOW())',
+          [crypto.randomUUID(), providerId, newProviderEnergy.toFixed(2), energyAmount.toFixed(2)]
+        );
+      }
+
       // 记录用户转出到 energy_transactions 表
       await client.query(
-        `INSERT INTO energy_transactions (id, user_id, type, amount, to_user_id, status, description, created_at)
-         VALUES ($1, $2, 'transfer_out', $3, $4, 'completed', $5, NOW())`,
+        `INSERT INTO energy_transactions (id, user_id, type, amount, from_user_id, to_user_id, note, status, created_at)
+         VALUES ($1, $2, 'transfer_out', $3, $2, $4, $5, 'completed', NOW())`,
         [crypto.randomUUID(), userId, energyAmount.toFixed(2), providerId, `能量值转给服务商: ${provider.username}`]
       );
 
       // 记录服务商转入到 energy_transactions 表
       await client.query(
-        `INSERT INTO energy_transactions (id, user_id, type, amount, from_user_id, status, description, created_at)
-         VALUES ($1, $2, 'transfer_in', $3, $4, 'completed', $5, NOW())`,
+        `INSERT INTO energy_transactions (id, user_id, type, amount, from_user_id, to_user_id, note, status, created_at)
+         VALUES ($1, $2, 'transfer_in', $3, $4, $2, $5, 'completed', NOW())`,
         [crypto.randomUUID(), providerId, energyAmount.toFixed(2), userId, `收到会员 ${user.username} 能量值转账`]
       );
 

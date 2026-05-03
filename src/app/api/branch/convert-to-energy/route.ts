@@ -62,6 +62,20 @@ export async function POST(request: NextRequest) {
         [newBalance.toFixed(2), newEnergy.toFixed(2), newPoints.toFixed(2), userId]
       );
 
+      // 同步 energy_accounts
+      const accRes = await client.query('SELECT id FROM energy_accounts WHERE user_id = $1', [userId]);
+      if (accRes.rows && accRes.rows.length > 0) {
+        await client.query(
+          'UPDATE energy_accounts SET balance = $1, total_in = total_in + $2, updated_at = NOW() WHERE user_id = $3',
+          [newEnergy.toFixed(2), energyAmount.toFixed(2), userId]
+        );
+      } else {
+        await client.query(
+          'INSERT INTO energy_accounts (id, user_id, balance, total_in, total_out, created_at, updated_at) VALUES ($1, $2, $3, $4, 0, NOW(), NOW())',
+          [crypto.randomUUID(), userId, newEnergy.toFixed(2), energyAmount.toFixed(2)]
+        );
+      }
+
       await client.query(
         `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, created_at)
          VALUES ($1, 'convert_from_balance', $2, $1, $1, $3, NOW())`,

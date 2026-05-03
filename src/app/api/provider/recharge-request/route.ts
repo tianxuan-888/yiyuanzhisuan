@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
         [amount, providerId, memberId, JSON.stringify({ note: `来自${data?.member_name || '服务商'}充值`, requestId })]
       );
 
-      // 3. 扣减服务商能量值
+      // 3. 扣减服务商能量值（energy_accounts）
       await execute(
         `UPDATE energy_accounts 
          SET balance = balance - $1, total_out = total_out + $1, updated_at = NOW()
@@ -144,12 +144,24 @@ export async function POST(request: NextRequest) {
         [amount, providerId]
       );
 
-      // 4. 增加会员能量值
+      // 3.1 同步更新服务商 users.energy_value
+      await execute(
+        `UPDATE users SET energy_value = (SELECT balance FROM energy_accounts WHERE user_id = $1), updated_at = NOW() WHERE id = $1`,
+        [providerId]
+      );
+
+      // 4. 增加会员能量值（energy_accounts）
       await execute(
         `UPDATE energy_accounts 
          SET balance = balance + $1, total_in = total_in + $1, updated_at = NOW()
          WHERE user_id = $2`,
         [amount, memberId]
+      );
+
+      // 4.1 同步更新会员 users.energy_value
+      await execute(
+        `UPDATE users SET energy_value = (SELECT balance FROM energy_accounts WHERE user_id = $1), updated_at = NOW() WHERE id = $1`,
+        [memberId]
       );
 
       // 5. 更新充值记录状态

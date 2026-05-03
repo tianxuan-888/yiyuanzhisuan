@@ -62,14 +62,21 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       const currentBalance = parseFloat(accountData?.balance || '0');
+      const returnedBalance = currentBalance + amount;
 
       await client
         .from('energy_accounts')
         .update({
-          balance: currentBalance + amount,
+          balance: returnedBalance,
           total_out: parseFloat(accountData?.total_out || '0') - amount
         })
         .eq('user_id', applicantId);
+
+      // 同步更新 users.energy_value
+      await client
+        .from('users')
+        .update({ energy_value: returnedBalance })
+        .eq('id', applicantId);
 
       await client
         .from('energy_withdraw_requests')
@@ -106,13 +113,21 @@ export async function POST(request: NextRequest) {
       .eq('user_id', applicantId)
       .maybeSingle();
 
+    const newApplicantBalance = parseFloat(applicantAccount?.balance || '0') + actualAmount;
+
     await client
       .from('energy_accounts')
       .update({
-        balance: parseFloat(applicantAccount?.balance || '0') + actualAmount,
+        balance: newApplicantBalance,
         total_in: parseFloat(applicantAccount?.total_in || '0') + actualAmount
       })
       .eq('user_id', applicantId);
+
+    // 同步更新申请人 users.energy_value
+    await client
+      .from('users')
+      .update({ energy_value: newApplicantBalance })
+      .eq('id', applicantId);
 
     // 3. 获取总公司账户
     const { data: adminData } = await client
@@ -130,13 +145,21 @@ export async function POST(request: NextRequest) {
         .eq('user_id', adminData.id)
         .maybeSingle();
 
+      const newAdminBalance = parseFloat(adminAccount?.balance || '0') + feeAmount;
+
       await client
         .from('energy_accounts')
         .update({
-          balance: parseFloat(adminAccount?.balance || '0') + feeAmount,
+          balance: newAdminBalance,
           total_in: parseFloat(adminAccount?.total_in || '0') + feeAmount
         })
         .eq('user_id', adminData.id);
+
+      // 同步更新 admin users.energy_value
+      await client
+        .from('users')
+        .update({ energy_value: newAdminBalance })
+        .eq('id', adminData.id);
 
       // 记录回收流水
       await client.from('energy_transactions').insert({

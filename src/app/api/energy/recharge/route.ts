@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 
 // 能量值充值（服务商给会员充值）
-// 统一使用 PostgreSQL 直连
+// 统一使用 PostgreSQL 直连，同步更新 users.energy_value + energy_accounts + energy_transactions
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -75,37 +75,55 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 开始事务：扣除服务商能量值，增加会员能量值
+    // 计算新余额
     const newProviderEnergy = providerEnergy - amount;
     const memberEnergy = parseFloat(member.energy_value || '0');
     const newMemberEnergy = memberEnergy + amount;
 
-    // 扣除服务商能量值
+    // 1. 更新 users 表能量值（服务商扣除、会员增加）
     await query(
-      'UPDATE users SET energy_value = $1 WHERE id = $2',
+      'UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2',
       [newProviderEnergy, providerId]
     );
-
-    // 增加会员能量值
     await query(
-      'UPDATE users SET energy_value = $1 WHERE id = $2',
+      'UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2',
       [newMemberEnergy, memberId]
     );
 
-    // 记录能量值交易（服务商扣除）
+    // 2. 同步更新 energy_accounts（服务商扣除）
     await query(
-      `INSERT INTO energy_transactions 
-       (user_id, type, amount, balance, related_user_id, description) 
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [providerId, 'recharge_out', -amount, newProviderEnergy, memberId, `给会员 ${member.username} 充值能量值`]
+      `INSERT INTO energy_accounts (id, user_id, balance, total_in, total_out, created_at, updated_at)
+       VALUES ($1, $2, $3, 0, $4, NOW(), NOW())
+       ON CONFLICT (user_id) DO UPDATE SET 
+         balance = $3,
+         total_out = energy_accounts.total_out + $4,
+         updated_at = NOW()`,
+      [crypto.randomUUID(), providerId, newProviderEnergy, amount]
     );
 
-    // 记录能量值交易（会员增加）
+    // 3. 同步更新 energy_accounts（会员增加）
     await query(
-      `INSERT INTO energy_transactions 
-       (user_id, type, amount, balance, related_user_id, description) 
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [memberId, 'recharge_in', amount, newMemberEnergy, providerId, `服务商 ${provider.username} 充值`]
+      `INSERT INTO energy_accounts (id, user_id, balance, total_in, total_out, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, 0, NOW(), NOW())
+       ON CONFLICT (user_id) DO UPDATE SET 
+         balance = $3,
+         total_in = energy_accounts.total_in + $4,
+         updated_at = NOW()`,
+      [crypto.randomUUID(), memberId, newMemberEnergy, amount]
+    );
+
+    // 4. 记录能量值流水（服务商扣除）
+    await query(
+      `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, status, created_at)
+       VALUES ($1, 'transfer_out', $2, $1, $3, $4, 'completed', NOW())`,
+      [providerId, -amount, memberId, `给会员 ${member.username} 充值能量值`]
+    );
+
+    // 5. 记录能量值流水（会员增加）
+    await query(
+      `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, status, created_at)
+       VALUES ($1, 'recharge', $2, $3, $1, $4, 'completed', NOW())`,
+      [memberId, amount, providerId, `服务商 ${provider.username} 充值`]
     );
 
     return NextResponse.json({

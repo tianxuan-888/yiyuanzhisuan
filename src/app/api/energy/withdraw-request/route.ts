@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
       throw new Error(`创建申请失败: ${insertError.message}`);
     }
 
-    // 冻结能量值（扣除）
+    // 冻结能量值（扣除 energy_accounts）
     await client
       .from('energy_accounts')
       .update({
@@ -91,6 +91,12 @@ export async function POST(request: NextRequest) {
         total_out: (account?.total_out || 0) + amount
       })
       .eq('user_id', user.userId);
+
+    // 同步更新 users.energy_value
+    await client
+      .from('users')
+      .update({ energy_value: currentBalance - amount })
+      .eq('id', user.userId);
 
     return NextResponse.json({
       success: true,

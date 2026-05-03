@@ -61,14 +61,27 @@ export async function POST(request: NextRequest) {
         [newBalance.toFixed(2), newEnergy.toFixed(2), newPoints.toFixed(2), userId]
       );
 
-      // 2. 记录能量值流水
+      // 2. 同步更新 energy_accounts
+      const isIncrease = energyAmount > 0;
+      await client.query(
+        `INSERT INTO energy_accounts (id, user_id, balance, total_in, total_out, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+         ON CONFLICT (user_id) DO UPDATE SET 
+           balance = $3,
+           total_in = energy_accounts.total_in + $4,
+           total_out = energy_accounts.total_out + $5,
+           updated_at = NOW()`,
+        [crypto.randomUUID(), userId, newEnergy.toFixed(2), isIncrease ? energyAmount.toFixed(2) : '0', isIncrease ? '0' : Math.abs(energyAmount).toFixed(2)]
+      );
+
+      // 3. 记录能量值流水
       await client.query(
         `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, created_at)
          VALUES ($1, 'convert_from_balance', $2, $1, $1, $3, NOW())`,
         [userId, energyAmount.toFixed(2), `收益转能量值: ${energyAmount.toFixed(2)}元`]
       );
 
-      // 3. 记录积分流水
+      // 4. 记录积分流水
       await client.query(
         `INSERT INTO points_records (user_id, type, amount, balance_after, note, created_at)
          VALUES ($1, 'convert', $2, $3, $4, NOW())`,

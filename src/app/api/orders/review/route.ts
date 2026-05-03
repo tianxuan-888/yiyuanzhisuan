@@ -30,19 +30,27 @@ async function getEnergyBalance(userId: string): Promise<number> {
   return account ? Number(account.balance) || 0 : 0;
 }
 
-// 更新用户能量值账户
-async function updateEnergyBalance(userId: string, newBalance: number) {
+// 更新用户能量值账户（同时同步 users.energy_value）
+async function updateEnergyBalance(userId: string, newBalance: number, amount: number) {
+  const isIncrease = amount > 0;
   await query(
     `INSERT INTO energy_accounts (id, user_id, balance, total_in, total_out, created_at, updated_at)
      VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
      ON CONFLICT (user_id) DO UPDATE SET 
        balance = $3,
+       total_in = energy_accounts.total_in + $4,
+       total_out = energy_accounts.total_out + $5,
        updated_at = NOW()`,
-    [randomUUID(), userId, newBalance, newBalance > 0 ? newBalance : 0, 0]
+    [randomUUID(), userId, newBalance, isIncrease ? Math.abs(amount) : 0, isIncrease ? 0 : Math.abs(amount)]
+  );
+  // 同步更新 users.energy_value
+  await query(
+    'UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2',
+    [newBalance, userId]
   );
 }
 
-// 记录能量值交易
+// 记录能量值交易（同时写入 energy_transactions + 更新 energy_accounts + 同步 users.energy_value）
 async function recordEnergyTransaction(
   userId: string,
   orderId: string,
@@ -53,13 +61,15 @@ async function recordEnergyTransaction(
   const balanceBefore = await getEnergyBalance(userId);
   const balanceAfter = balanceBefore + amount;
   
+  // 写入 energy_transactions 能量值流水表
   await query(
-    `INSERT INTO transactions (id, user_id, order_id, type, amount, balance_before, balance_after, description, status, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'completed', NOW())`,
-    [randomUUID(), userId, orderId, type, amount, balanceBefore, balanceAfter, description]
+    `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, status, created_at)
+     VALUES ($1, $2, $3, $1, $1, $4, 'completed', NOW())`,
+    [userId, type, amount, description]
   );
   
-  await updateEnergyBalance(userId, balanceAfter);
+  // 更新 energy_accounts 并同步 users.energy_value
+  await updateEnergyBalance(userId, balanceAfter, amount);
 }
 
 // 记录服务商收益分配

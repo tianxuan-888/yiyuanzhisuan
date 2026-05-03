@@ -67,6 +67,12 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // 同步更新分公司 users.energy_value
+      await client.query(
+        `UPDATE users SET energy_value = (SELECT balance FROM energy_accounts WHERE user_id = $1), updated_at = NOW() WHERE id = $1`,
+        [fromUserId]
+      );
+
       // 增加总公司能量值
       if (toAccount.length > 0) {
         await client.query(
@@ -85,12 +91,18 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // 同步更新总公司 users.energy_value
+      await client.query(
+        `UPDATE users SET energy_value = (SELECT balance FROM energy_accounts WHERE user_id = $1), updated_at = NOW() WHERE id = $1`,
+        [toUserId]
+      );
+
       // 记录流水
       const txId = generateUUID();
       await client.query(
         `INSERT INTO energy_transactions 
-         (id, type, amount, from_user_id, to_user_id, note, status)
-         VALUES ($1, 'withdraw', $2, $3, $4, $5, 'completed')`,
+         (id, user_id, type, amount, from_user_id, to_user_id, note, status)
+         VALUES ($1, $3, 'withdraw', $2, $3, $4, $5, 'completed')`,
         [txId, amount, fromUserId, toUserId, note || '分公司提现能量值']
       );
     });
