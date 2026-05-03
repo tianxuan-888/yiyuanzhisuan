@@ -114,7 +114,7 @@ async function executeSql(supabase: SupabaseClient, sql: string, params?: unknow
   // SELECT 语句：通过 rpc_query 执行
   if (command === 'SELECT' || command === 'WITH') {
     try {
-      console.log('[supabase-client] rpc_query SQL:', trimmedSql.substring(0, 200));
+      console.log('[supabase-client] rpc_query SQL:', trimmedSql.substring(0, 300));
       const { data, error } = await supabase.rpc('rpc_query', { sql_query: trimmedSql });
       console.log('[supabase-client] rpc_query result:', JSON.stringify(data)?.substring(0, 200), 'error:', error?.message);
       if (!error) {
