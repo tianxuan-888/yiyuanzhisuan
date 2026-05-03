@@ -246,7 +246,6 @@ export default function AdminPage() {
 
   const [transferAmount, setTransferAmount] = useState('');
   const [transferNote, setTransferNote] = useState('');
-  const [selectedRecipientType, setSelectedRecipientType] = useState<'branch' | 'provider'>('branch');
   
   // 搜索和筛选
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -1710,27 +1709,31 @@ export default function AdminPage() {
         showMessage('error', '请选择分配对象并输入金额');
         return;
       }
+      if (Number(transferAmount) < 10000) {
+        showMessage('error', '最小分配额度为10000');
+        return;
+      }
       setSubmitting(true);
       try {
-        const res = await authFetch('/api/quota-records', {
+        // 总公司→分公司：调用 allocate-branch API（赠送20%能量值）
+        // 总公司→服务商：暂不直接分配（通过分公司分配）
+        const res = await authFetch('/api/admin/allocate-branch', {
           method: 'POST',
           body: JSON.stringify({
-            // 总公司管理员ID
-            fromUserId: '00000000-0000-0000-0000-000000000001',
-            toUserId: transferTo,
+            adminId: user?.id,
+            branchId: transferTo,
             amount: Number(transferAmount),
-            type: 'transfer',
             note: transferNote,
           }),
         });
         const data = await res.json();
         if (data.success) {
-          showMessage('success', '额度分配成功');
+          showMessage('success', data.message || '额度分配成功');
           setShowTransferDialog(false);
           setTransferTo('');
           setTransferAmount('');
           setTransferNote('');
-          setTimeout(() => loadData(), 100);
+          setTimeout(() => loadData(), 500);
         } else {
           showMessage('error', data.error || '分配失败');
         }
@@ -1846,7 +1849,7 @@ export default function AdminPage() {
                       ¥{formatWan(totalIssued)}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      分配给 {branchAccounts.length + providerAccounts.length} 个下级
+                      分配给 {branchAccounts.length} 个分公司
                     </p>
                   </div>
                   <div className="p-6 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg">
@@ -1862,72 +1865,51 @@ export default function AdminPage() {
               </CardContent>
             </Card>
 
-            {/* 下级账户列表 */}
+            {/* 下属分公司 */}
             <Card>
               <CardHeader>
-                <CardTitle>下级账户</CardTitle>
+                <CardTitle>下属分公司</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {branchAccounts.length === 0 && providerAccounts.length === 0 && (
+                  {branchAccounts.length === 0 && (
                     <div className="text-center py-8 text-gray-500">
-                      暂无下级账户
+                      暂无分公司
                     </div>
                   )}
-                  
-                  {/* 分公司账户 */}
-                  {branchAccounts.length > 0 && (
-                    <div>
-                      <h4 className="font-medium text-gray-700 mb-3">分公司</h4>
-                      <div className="grid grid-cols-2 gap-4">
-                        {branchAccounts.map(account => (
-                          <div key={account.id} className="p-4 border rounded-lg">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <p className="font-medium">{account.username}</p>
-                                <p className="text-sm text-gray-500">{account.phone || '-'}</p>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-lg font-bold text-blue-600">
-                                  ¥{formatWan(account.balance)}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  累计: ¥{formatWan(account.total_in)}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                  {branchAccounts.map(account => (
+                    <div key={account.id} className="p-4 border rounded-lg">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-medium">{account.username}</p>
+                          <p className="text-sm text-gray-500">{account.phone || '-'}</p>
+                          {account.unique_id && <p className="text-xs text-gray-400">专属ID: {account.unique_id}</p>}
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-blue-600">
+                            ¥{formatWan(account.balance)}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            累计获得: ¥{formatWan(account.total_in)}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  
-                  {/* 服务商账户 */}
-                  {providerAccounts.length > 0 && (
-                    <div className="mt-4">
-                      <h4 className="font-medium text-gray-700 mb-3">服务商</h4>
-                      <div className="grid grid-cols-2 gap-4">
-                        {providerAccounts.map(account => (
-                          <div key={account.id} className="p-4 border rounded-lg">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <p className="font-medium">{account.username}</p>
-                                <p className="text-sm text-gray-500">{account.phone || '-'}</p>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-lg font-bold text-blue-600">
-                                  ¥{formatWan(account.balance)}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  累计: ¥{formatWan(account.total_in)}
-                                </p>
-                              </div>
-                            </div>
+                      {account.total_in > 0 && (
+                        <div className="mt-3">
+                          <div className="flex justify-between text-xs text-gray-500 mb-1">
+                            <span>额度使用</span>
+                            <span>{account.total_in > 0 ? Math.round(((account.total_in - account.balance) / account.total_in) * 100) : 0}%</span>
                           </div>
-                        ))}
-                      </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                              className="bg-blue-500 rounded-full h-2 transition-all"
+                              style={{ width: `${account.total_in > 0 ? Math.round(((account.total_in - account.balance) / account.total_in) * 100) : 0}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -2035,8 +2017,12 @@ export default function AdminPage() {
                         <tr key={record.id} className="border-b hover:bg-gray-50">
                           <td className="py-3 px-4 text-sm">{new Date(record.created_at).toLocaleString()}</td>
                           <td className="py-3 px-4">
-                            <Badge className={record.type === 'create' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}>
-                              {record.type === 'create' ? '创建' : '分配'}
+                            <Badge className={
+                              record.type === 'create' ? 'bg-blue-100 text-blue-700' :
+                              record.type === 'allocate' ? 'bg-purple-100 text-purple-700' :
+                              'bg-green-100 text-green-700'
+                            }>
+                              {record.type === 'create' ? '创建' : record.type === 'allocate' ? '分配' : record.type === 'transfer' ? '调拨' : record.type}
                             </Badge>
                           </td>
                           <td className="py-3 px-4">{record.from_username || '-'}</td>
@@ -2098,46 +2084,28 @@ export default function AdminPage() {
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <Card className="w-full max-w-md">
               <CardHeader>
-                <CardTitle>分配算力额度</CardTitle>
+                <CardTitle>分配算力额度给分公司</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <Label>接收方类型</Label>
-                  <div className="flex gap-4 mt-2">
-                    <Button
-                      variant={selectedRecipientType === 'branch' ? 'default' : 'outline'}
-                      onClick={() => setSelectedRecipientType('branch')}
-                    >
-                      分公司
-                    </Button>
-                    <Button
-                      variant={selectedRecipientType === 'provider' ? 'default' : 'outline'}
-                      onClick={() => setSelectedRecipientType('provider')}
-                    >
-                      服务商
-                    </Button>
-                  </div>
+                <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+                  分配额度给分公司时，系统自动赠送20%能量值给分公司。例如分配10000元额度，分公司额外获得2000能量值。
                 </div>
                 <div>
-                  <Label>选择{selectedRecipientType === 'branch' ? '分公司' : '服务商'}</Label>
+                  <Label>选择分公司</Label>
                   <select
                     className="w-full mt-1 p-2 border rounded-md"
                     value={transferTo}
                     onChange={(e) => setTransferTo(e.target.value)}
                   >
-                    <option value="">请选择</option>
-                    {selectedRecipientType === 'branch'
-                      ? branchAccounts.map(a => (
-                          <option key={a.user_id} value={a.user_id}>{a.username}</option>
-                        ))
-                      : providerAccounts.map(a => (
-                          <option key={a.user_id} value={a.user_id}>{a.username}</option>
-                        ))
+                    <option value="">请选择分公司</option>
+                    {branchAccounts.map(a => (
+                        <option key={a.user_id} value={a.user_id}>{a.username} {a.phone ? `(${a.phone})` : ''}</option>
+                      ))
                     }
                   </select>
                 </div>
                 <div>
-                  <Label>分配金额</Label>
+                  <Label>分配金额（最低10000）</Label>
                   <Input
                     type="number"
                     value={transferAmount}

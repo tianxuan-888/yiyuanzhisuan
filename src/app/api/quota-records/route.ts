@@ -37,9 +37,9 @@ export async function GET(request: NextRequest) {
     let totalUsed = 0;   // 已使用额度
     let totalIdle = 0;   // 闲置额度（下级账户余额，未被购买产品的部分）
 
-    // 获取所有下发记录的总金额
+    // 获取所有下发记录的总金额（包含 transfer 和 allocate 类型）
     const issuedResult = await query(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM quota_records WHERE type = 'transfer'`
+      `SELECT COALESCE(SUM(amount), 0) as total FROM quota_records WHERE type IN ('transfer', 'allocate')`
     );
     totalIssued = Number(issuedResult[0]?.total || 0);
 
