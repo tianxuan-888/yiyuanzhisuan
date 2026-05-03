@@ -1,3 +1,1 @@
-import { relations } from "drizzle-orm/relations";
-import {  } from "./schema";
-
+// Database relations - placeholder for future use

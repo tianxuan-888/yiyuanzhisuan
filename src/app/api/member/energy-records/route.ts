@@ -1,37 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, queryOne } from '@/storage/database/pg-client';
-
-// 辅助函数：将字节数组格式的UUID转换为字符串
-function uuidToString(val: any): string {
-  if (!val) return '';
-  if (typeof val === 'string') return val;
-  if (Array.isArray(val)) {
-    // PostgreSQL bytea 格式: [243 242 25 52 ...]
-    return val.map((b: number) => b.toString(16).padStart(2, '0')).join('').replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5');
-  }
-  return String(val);
-}
-
-// 辅助函数：将PostgreSQL numeric格式转换为数字
-// numeric格式: {1000000 -2 false finite true} = 1000000 * 10^(-2) = 10000
-function numericToNumber(val: any): number {
-  if (!val) return 0;
-  if (typeof val === 'number') return val;
-  if (typeof val === 'string') {
-    // 格式如: {1000000 -2 false finite true}
-    const match = val.match(/\{(\d+)\s+(-?\d+)/);
-    if (match) {
-      const num = parseFloat(match[1]);
-      const exp = parseInt(match[2]);
-      return num * Math.pow(10, exp);
-    }
-    return parseFloat(val) || 0;
-  }
-  if (Array.isArray(val)) {
-    return parseFloat(val[0]) || 0;
-  }
-  return 0;
-}
+import { getSupabase } from '@/lib/supabase-client';
 
 // 获取用户能量值记录
 export async function GET(request: NextRequest) {
@@ -40,15 +8,42 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId');
 
     if (!userId) {
-      return NextResponse.json(
-        { error: '用户ID不能为空' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: '用户ID不能为空' }, { status: 400 });
     }
 
-    // 查询能量值交易记录
-    let records: any[] = [];
-    let stats = {
+    const supabase = getSupabase();
+
+    // 1. 查询能量值交易记录
+    const { data: txData, error: txErr } = await supabase
+      .from('energy_transactions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (txErr) {
+      console.error('查询能量值记录失败:', txErr.message);
+    }
+
+    const records = (txData || []).map((r: any) => {
+      const amount = Math.abs(Number(r.amount));
+      return {
+        id: r.id,
+        type: r.type,
+        recordType: r.type,
+        amount,
+        fromUserId: r.from_user_id || '',
+        toUserId: r.to_user_id || '',
+        status: r.status,
+        description: r.note || r.description || '',
+        note: r.note || '',
+        createdAt: r.created_at,
+        created_at: r.created_at,
+      };
+    });
+
+    // 2. 计算统计
+    const stats = {
       totalRecharge: 0,
       totalTransferIn: 0,
       totalTransferOut: 0,
@@ -59,96 +54,62 @@ export async function GET(request: NextRequest) {
       consumeCount: 0,
     };
 
-    // 查询能量值交易记录
-    try {
-      const result = await query(
-        `SELECT 
-          et.id,
-          et.type,
-          et.amount,
-          et.from_user_id,
-          et.to_user_id,
-          et.status,
-          et.description,
-          et.created_at
-         FROM energy_transactions et
-         WHERE et.user_id = $1
-         ORDER BY et.created_at DESC 
-         LIMIT 100`,
-        [userId]
-      );
-      
-      records = (result || []).map((r: any) => {
-        const type = r.type;
-        const amount = numericToNumber(r.amount);
-        
-        return {
-          id: uuidToString(r.id),
-          type: type,
-          recordType: type, // 兼容页面
-          amount: Math.abs(amount), // 确保为正数
-          fromUserId: uuidToString(r.from_user_id),
-          toUserId: uuidToString(r.to_user_id),
-          status: r.status,
-          description: r.description,
-          createdAt: r.created_at,
-        };
-      });
-      
-      // 计算统计
-      for (const r of records) {
-        if (r.type === 'recharge') {
-          stats.totalRecharge += r.amount;
-          stats.rechargeCount++;
-        } else if (r.type === 'transfer_in') {
-          stats.totalTransferIn += r.amount;
-          stats.transferInCount++;
-        } else if (r.type === 'transfer_out') {
-          stats.totalTransferOut += r.amount;
-          stats.transferOutCount++;
-        } else if (r.type === 'consume' || r.type === 'market_transfer' || r.type === 'purchase') {
-          stats.totalConsume += r.amount;
-          stats.consumeCount++;
-        }
+    for (const r of records) {
+      if (r.type === 'recharge') {
+        stats.totalRecharge += r.amount;
+        stats.rechargeCount++;
+      } else if (r.type === 'transfer_in' || r.type === 'convert_from_balance' || r.type === 'provider_share' || r.type === 'direct_reward' || r.type === 'branch_share' || r.type === 'company_share' || r.type === 'parent_provider_share' || r.type === 'subordinate_split') {
+        stats.totalTransferIn += r.amount;
+        stats.transferInCount++;
+      } else if (r.type === 'transfer_out') {
+        stats.totalTransferOut += r.amount;
+        stats.transferOutCount++;
+      } else if (r.type === 'market_fee' || r.type === 'consume' || r.type === 'withdraw_freeze' || r.type === 'withdraw' || r.type === 'burn' || r.type === 'purchase') {
+        stats.totalConsume += r.amount;
+        stats.consumeCount++;
       }
-      
-      // 总充值 = recharge + transfer_in
-      stats.totalRecharge = stats.totalRecharge + stats.totalTransferIn;
-      
-    } catch (e) {
-      console.error('查询能量值记录失败:', e);
     }
 
-    // 获取能量值账户余额
-    // 优先读 energy_accounts，如果不存在则回退读 users.energy_value
+    // 保持各分类独立，前端分别展示
+    // totalRecharge: 仅充值(recharge)
+    // totalTransferIn: 转入类(convert_from_balance, transfer_in, 各种分成)
+    // 总计转入 = totalRecharge + totalTransferIn
+
+    // 3. 获取能量值余额
     let balance = 0;
-    try {
-      const accountResult = await queryOne<{balance: number}>(
-        `SELECT balance::float as balance FROM energy_accounts WHERE user_id = $1`,
-        [userId]
-      );
-      if (accountResult) {
-        balance = accountResult.balance;
+
+    // 优先读 energy_accounts
+    const { data: accountData } = await supabase
+      .from('energy_accounts')
+      .select('balance')
+      .eq('user_id', userId)
+      .single();
+
+    if (accountData) {
+      balance = Number(accountData.balance) || 0;
+    }
+
+    // 兜底：如果 energy_accounts 无记录或 balance 为 0，从 users 表获取
+    if (balance === 0) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('energy_value')
+        .eq('id', userId)
+        .single();
+
+      if (userData && Number(userData.energy_value) > 0) {
+        balance = Number(userData.energy_value);
+        // 同步回写 energy_accounts
+        await supabase
+          .from('energy_accounts')
+          .upsert({
+            user_id: userId,
+            balance,
+            total_in: balance,
+            total_out: 0,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id' });
       }
-      // 兜底：如果 energy_accounts 无记录或 balance 为 0，从 users 表获取
-      if (balance === 0) {
-        const userResult = await queryOne<{energy_value: number}>(
-          `SELECT energy_value::float as energy_value FROM users WHERE id = $1`,
-          [userId]
-        );
-        if (userResult && userResult.energy_value > 0) {
-          balance = userResult.energy_value;
-          // 同步回写 energy_accounts
-          await query(
-            `INSERT INTO energy_accounts (id, user_id, balance, total_in, total_out, created_at, updated_at)
-             VALUES ($1, $2, $3, $3, 0, NOW(), NOW())
-             ON CONFLICT (user_id) DO UPDATE SET balance = $3, updated_at = NOW()`,
-            [crypto.randomUUID(), userId, balance]
-          );
-        }
-      }
-    } catch (e) {
-      console.error('查询能量值余额失败:', e);
     }
 
     return NextResponse.json({

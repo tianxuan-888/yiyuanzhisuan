@@ -62,6 +62,19 @@ const PUBLIC_PATHS = [
   '/api/admin/platform-stats',
   '/api/admin/energy-stats',
   '/api/admin/energy-branch-stats',
+  '/api/admin/reconcile-energy',
+  '/api/energy/review-transfer',
+  '/api/energy/member-stats',
+  '/api/energy/approve-withdraw',
+  '/api/energy/recharge',
+  '/api/member/convert-to-energy',
+  '/api/member/energy-to-provider',
+  '/api/member/points-to-energy',
+  '/api/provider/convert-to-energy',
+  '/api/provider/transfer-energy',
+  '/api/branch/convert-to-energy',
+  '/api/branch/transfer-energy',
+  '/api/admin/overview',
 ];
 
 // 静态资源和页面路径不走 API 认证

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, withTransaction } from '@/lib/pg-client';
+import { getSupabase } from '@/lib/supabase-client';
 import { authenticateRequest } from '@/lib/auth';
+import { addEnergy } from '@/lib/energy-util';
 
 // 分公司收益转能量值（5%变积分，95%变能量值）
 export async function POST(request: NextRequest) {
@@ -34,72 +35,71 @@ export async function POST(request: NextRequest) {
     const pointsAmount = Math.round(convertAmount * 0.05 * 100) / 100;
     const energyAmount = convertAmount - pointsAmount;
 
-    const result = await withTransaction(async (client) => {
-      const userRes = await client.query(
-        'SELECT id, username, balance, energy_value, points FROM users WHERE id = $1',
-        [userId]
-      );
+    const supabase = getSupabase();
 
-      if (!userRes.rows || userRes.rows.length === 0) {
-        throw Object.assign(new Error('用户不存在'), { statusCode: 404 });
-      }
+    // 读取当前用户信息
+    const { data: user, error: userErr } = await supabase
+      .from('users')
+      .select('id, username, balance, energy_value, points')
+      .eq('id', userId)
+      .single();
 
-      const user = userRes.rows[0];
-      const currentBalance = parseFloat(user.balance) || 0;
-      const currentEnergy = parseFloat(user.energy_value) || 0;
-      const currentPoints = parseFloat(user.points) || 0;
+    if (userErr || !user) {
+      return NextResponse.json({ error: '用户不存在' }, { status: 404 });
+    }
 
-      if (currentBalance < convertAmount) {
-        throw Object.assign(new Error('收益余额不足'), { statusCode: 400 });
-      }
+    const currentBalance = parseFloat(String(user.balance)) || 0;
+    if (currentBalance < convertAmount) {
+      return NextResponse.json({ error: '收益余额不足' }, { status: 400 });
+    }
 
-      const newBalance = currentBalance - convertAmount;
-      const newEnergy = currentEnergy + energyAmount;
-      const newPoints = currentPoints + pointsAmount;
+    const newBalance = currentBalance - convertAmount;
+    const currentPoints = parseFloat(String(user.points)) || 0;
+    const newPoints = currentPoints + pointsAmount;
 
-      await client.query(
-        'UPDATE users SET balance = $1, energy_value = $2, points = $3, updated_at = NOW() WHERE id = $4',
-        [newBalance.toFixed(2), newEnergy.toFixed(2), newPoints.toFixed(2), userId]
-      );
+    // 1. 更新 users 表：扣减余额、增加积分
+    const { error: updErr } = await supabase
+      .from('users')
+      .update({
+        balance: newBalance.toFixed(2),
+        points: newPoints.toFixed(2),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
 
-      // 同步 energy_accounts
-      const accRes = await client.query('SELECT id FROM energy_accounts WHERE user_id = $1', [userId]);
-      if (accRes.rows && accRes.rows.length > 0) {
-        await client.query(
-          'UPDATE energy_accounts SET balance = $1, total_in = total_in + $2, updated_at = NOW() WHERE user_id = $3',
-          [newEnergy.toFixed(2), energyAmount.toFixed(2), userId]
-        );
-      } else {
-        await client.query(
-          'INSERT INTO energy_accounts (id, user_id, balance, total_in, total_out, created_at, updated_at) VALUES ($1, $2, $3, $4, 0, NOW(), NOW())',
-          [crypto.randomUUID(), userId, newEnergy.toFixed(2), energyAmount.toFixed(2)]
-        );
-      }
+    if (updErr) {
+      return NextResponse.json({ error: '更新用户信息失败: ' + updErr.message }, { status: 500 });
+    }
 
-      await client.query(
-        `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, created_at)
-         VALUES ($1, 'convert_from_balance', $2, $1, $1, $3, NOW())`,
-        [userId, energyAmount.toFixed(2), `收益转能量值: ${energyAmount.toFixed(2)}元`]
-      );
+    // 2. 增加能量值（双表同步 + 流水）
+    const addResult = await addEnergy(userId, energyAmount, 'convert_from_balance', {
+      note: `收益转能量值: ${energyAmount.toFixed(2)}元`,
+    });
 
-      await client.query(
-        `INSERT INTO points_records (user_id, type, amount, balance_after, note, created_at)
-         VALUES ($1, 'convert', $2, $3, $4, NOW())`,
-        [userId, pointsAmount.toFixed(2), newPoints.toFixed(2), `收益转能量值产生积分5%: ${pointsAmount}元`]
-      );
+    if (!addResult.success) {
+      return NextResponse.json({ error: addResult.error }, { status: 500 });
+    }
 
-      return { newBalance, newEnergy, newPoints, energyAmount, pointsAmount };
+    // 3. 记录积分流水
+    await supabase.from('points_records').insert({
+      id: crypto.randomUUID(),
+      user_id: userId,
+      type: 'convert',
+      amount: pointsAmount.toFixed(2),
+      balance_after: newPoints.toFixed(2),
+      note: `收益转能量值产生积分5%: ${pointsAmount}元`,
+      created_at: new Date().toISOString(),
     });
 
     return NextResponse.json({
       success: true,
       data: {
         convertedAmount: convertAmount.toFixed(2),
-        energyAdded: result.energyAmount.toFixed(2),
-        pointsAdded: result.pointsAmount.toFixed(2),
-        balance: result.newBalance.toFixed(2),
-        energyValue: result.newEnergy.toFixed(2),
-        points: result.newPoints.toFixed(2),
+        energyAdded: energyAmount.toFixed(2),
+        pointsAdded: pointsAmount.toFixed(2),
+        balance: newBalance.toFixed(2),
+        energyValue: addResult.newBalance.toFixed(2),
+        points: newPoints.toFixed(2),
       },
       message: `转换成功：${energyAmount.toFixed(2)}元→能量值，${pointsAmount.toFixed(2)}元→积分`,
     });

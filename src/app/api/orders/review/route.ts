@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne, execute } from '@/lib/pg-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
+import { getSupabase } from '@/lib/supabase-client';
+import { addEnergy, deductEnergy, transferEnergy } from '@/lib/energy-util';
 import { randomUUID } from 'crypto';
 
 // 允许更新的字段白名单
@@ -20,57 +22,6 @@ const SUBORDINATE_SPLIT_RATIOS = {
   oneProvider: 0.003,  // 培养1个服务商：下级交易额 0.3%
   threePlusProviders: 0.005, // 培养≥3个服务商：所有下级交易额 0.5%
 };
-
-// 获取用户能量值账户余额
-async function getEnergyBalance(userId: string): Promise<number> {
-  const account = await queryOne(
-    'SELECT balance FROM energy_accounts WHERE user_id = $1',
-    [userId]
-  );
-  return account ? Number(account.balance) || 0 : 0;
-}
-
-// 更新用户能量值账户（同时同步 users.energy_value）
-async function updateEnergyBalance(userId: string, newBalance: number, amount: number) {
-  const isIncrease = amount > 0;
-  await query(
-    `INSERT INTO energy_accounts (id, user_id, balance, total_in, total_out, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-     ON CONFLICT (user_id) DO UPDATE SET 
-       balance = $3,
-       total_in = energy_accounts.total_in + $4,
-       total_out = energy_accounts.total_out + $5,
-       updated_at = NOW()`,
-    [randomUUID(), userId, newBalance, isIncrease ? Math.abs(amount) : 0, isIncrease ? 0 : Math.abs(amount)]
-  );
-  // 同步更新 users.energy_value
-  await query(
-    'UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2',
-    [newBalance, userId]
-  );
-}
-
-// 记录能量值交易（同时写入 energy_transactions + 更新 energy_accounts + 同步 users.energy_value）
-async function recordEnergyTransaction(
-  userId: string,
-  orderId: string,
-  type: string,
-  amount: number,
-  description: string
-) {
-  const balanceBefore = await getEnergyBalance(userId);
-  const balanceAfter = balanceBefore + amount;
-  
-  // 写入 energy_transactions 能量值流水表
-  await query(
-    `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, status, created_at)
-     VALUES ($1, $2, $3, $1, $1, $4, 'completed', NOW())`,
-    [userId, type, amount, description]
-  );
-  
-  // 更新 energy_accounts 并同步 users.energy_value
-  await updateEnergyBalance(userId, balanceAfter, amount);
-}
 
 // 记录服务商收益分配
 async function recordProviderRevenueDistribution(
@@ -107,7 +58,6 @@ async function calculateSubordinateSplit(
   productPrice: number,
   productName: string
 ): Promise<{ splitAmount: number; splitRatio: number; subordinateCount: number }> {
-  // 查询该服务商有多少个下级服务商
   const subProviders: any[] = await query(
     'SELECT COUNT(*) as count FROM providers WHERE parent_provider_id = $1',
     [providerId]
@@ -118,11 +68,9 @@ async function calculateSubordinateSplit(
   let splitAmount = 0;
   
   if (subordinateCount >= 3) {
-    // 培养≥3个服务商：所有下级交易额 0.5%
     splitRatio = SUBORDINATE_SPLIT_RATIOS.threePlusProviders;
     splitAmount = Math.floor(productPrice * splitRatio);
   } else if (subordinateCount >= 1) {
-    // 培养1个服务商：下级交易额 0.3%
     splitRatio = SUBORDINATE_SPLIT_RATIOS.oneProvider;
     splitAmount = Math.floor(productPrice * splitRatio);
   }
@@ -143,14 +91,17 @@ async function recordSubordinateSplit(
 ) {
   if (splitAmount <= 0) return;
   
-  // 发放能量值给上级服务商
-  await recordEnergyTransaction(
+  // 使用 addEnergy 发放能量值给上级服务商
+  const result = await addEnergy(
     upperProviderUserId,
-    orderId,
-    'subordinate_split',
     splitAmount,
-    `下级服务商(${subordinateCount}个)会员购买 ${productName} 交易额分成 (${(splitRatio * 100).toFixed(1)}%)`
+    'subordinate_split',
+    { note: `下级服务商(${subordinateCount}个)会员购买 ${productName} 交易额分成 (${(splitRatio * 100).toFixed(1)}%)` }
   );
+  
+  if (!result.success) {
+    console.error('下级分成能量值发放失败:', result.error);
+  }
   
   // 记录到服务商收益分配表
   await query(
@@ -248,19 +199,16 @@ export async function POST(request: NextRequest) {
       );
 
       // 4. 查找直推奖励接收者（会员的邀请人）
-      // 重要：如果邀请人就是当前服务商自己，直推奖励直接加到服务商收益（不重复分配）
       let directRewardTo: string | null = null;
       let directRewardAmount = 0;
       if (member?.inviter_id) {
-        // 如果邀请人不是当前服务商，才需要单独分配直推奖励
         if (member.inviter_id !== providerRecord?.user_id) {
           directRewardTo = member.inviter_id;
           directRewardAmount = Math.floor(marketFee * REVENUE_SHARE_RATIOS.directReward);
         }
-        // 如果邀请人就是服务商，直推奖励会合并到服务商收益中
       }
 
-      // 5. 查找上级服务商（服务商的父级服务商）
+      // 5. 查找上级服务商
       let parentProviderId: string | null = null;
       if (providerRecord?.parent_provider_id) {
         parentProviderId = providerRecord.parent_provider_id;
@@ -269,78 +217,68 @@ export async function POST(request: NextRequest) {
       // 6. 获取分公司ID
       const branchId = providerRecord?.branch_id || member?.branch_id;
 
-      // 7. 扣除会员能量值（市场费）
-      const memberBalanceBefore = await getEnergyBalance(order.user_id);
-      const memberBalanceAfter = memberBalanceBefore - marketFee;
+      // 7. 使用 deductEnergy 扣除会员能量值（市场费）
+      const memberEnergyResult = await deductEnergy(
+        order.user_id,
+        marketFee,
+        'market_fee',
+        { note: `购买产品 ${product?.name || '产品'} 支付市场费` }
+      );
 
-      if (memberBalanceAfter < 0) {
+      if (!memberEnergyResult.success) {
         return NextResponse.json({
           success: false,
-          error: `会员能量值不足，需要 ${marketFee} 能量值，当前余额 ${memberBalanceBefore}`
+          error: `会员能量值不足，需要 ${marketFee} 能量值，当前余额 ${memberEnergyResult.newBalance}`
         }, { status: 400 });
       }
 
-      // 记录会员能量值扣除
-      await recordEnergyTransaction(
-        order.user_id,
-        orderId,
-        'market_fee',
-        -marketFee,
-        `购买产品 ${product?.name || '产品'} 支付市场费`
-      );
-
       // 8. 按比例分配能量值给各方
-      // 基础分配
       const baseProviderShare = Math.floor(marketFee * REVENUE_SHARE_RATIOS.provider);
-      const providerShare = baseProviderShare + directRewardAmount; // 服务商收益 + 直推奖励（如果邀请人就是服务商）
+      const providerShare = baseProviderShare + directRewardAmount;
       const parentProviderShare = Math.floor(marketFee * REVENUE_SHARE_RATIOS.parentProvider);
       const branchBaseShare = Math.floor(marketFee * REVENUE_SHARE_RATIOS.branch);
-      // 如果没有上级服务商，上级那份10%给分公司
       const branchShare = parentProviderId ? branchBaseShare : branchBaseShare + parentProviderShare;
       const companyShare = Math.floor(marketFee * REVENUE_SHARE_RATIOS.company);
 
-      // 8.1 给服务商增加能量值 (70% + 直推奖励如果邀请人就是服务商)
+      // 8.1 给服务商增加能量值
       if (providerRecord?.user_id) {
-        await recordEnergyTransaction(
+        await addEnergy(
           providerRecord.user_id,
-          orderId,
-          'provider_share',
           providerShare,
-          directRewardAmount > 0 
+          'provider_share',
+          { note: directRewardAmount > 0 
             ? `会员购买产品收益分成 (70%) + 直推奖励 (10%)`
-            : `会员购买产品收益分成 (70%)`
+            : `会员购买产品收益分成 (70%)` }
         );
       }
 
-      // 8.2 给直推奖励 (10%) - 仅当邀请人不是当前服务商时才单独分配
+      // 8.2 给直推奖励
       if (directRewardTo && directRewardAmount > 0) {
-        await recordEnergyTransaction(
+        await addEnergy(
           directRewardTo,
-          orderId,
-          'direct_reward',
           directRewardAmount,
-          `直推会员购买产品奖励 (10%)`
+          'direct_reward',
+          { note: `直推会员购买产品奖励 (10%)` }
         );
       }
 
-      // 8.3 给上级服务商 (10%) - 仅当有上级服务商时才分配
+      // 8.3 给上级服务商
       if (parentProviderId) {
         const parentProvider: any = await queryOne(
           'SELECT user_id FROM providers WHERE id = $1',
           [parentProviderId]
         );
         if (parentProvider?.user_id) {
-          await recordEnergyTransaction(
+          await addEnergy(
             parentProvider.user_id,
-            orderId,
-            'parent_provider_share',
             parentProviderShare,
-            `下级服务商会员购买产品分成 (10%)`
+            'parent_provider_share',
+            { note: `下级服务商会员购买产品分成 (10%)` }
           );
         }
       }
 
-      // 8.4 给分公司 (5% + 上级服务商10%如果没有上级)
+      // 8.4 给分公司
       if (branchId) {
         const branchUser: any = await queryOne(
           'SELECT id FROM users WHERE id = $1 AND role = $2',
@@ -350,42 +288,38 @@ export async function POST(request: NextRequest) {
           const branchDescription = parentProviderId 
             ? `服务商会员购买产品分成 (5%)` 
             : `服务商会员购买产品分成 (5%) + 上级服务商分成 (10%)`;
-          await recordEnergyTransaction(
+          await addEnergy(
             branchUser.id,
-            orderId,
-            'branch_share',
             branchShare,
-            branchDescription
+            'branch_share',
+            { note: branchDescription }
           );
         }
       }
 
-      // 8.5 给公司运营 (5%) - 找admin账户
+      // 8.5 给公司运营
       const adminUser: any = await queryOne(
         "SELECT id FROM users WHERE role = 'admin' LIMIT 1",
         []
       );
       if (adminUser) {
-        await recordEnergyTransaction(
+        await addEnergy(
           adminUser.id,
-          orderId,
-          'company_share',
           companyShare,
-          `公司运营收益 (5%)`
+          'company_share',
+          { note: `公司运营收益 (5%)` }
         );
       }
 
       // 8.6 记录现金收益：分公司市场费分润 + 总公司运营费
       if (branchId) {
         let branchRevenueTotal = 0;
-        // 分公司5%市场费分润 → 现金收益记录
         await execute(
           `INSERT INTO branch_revenue_records (branch_id, type, amount, related_user_id, related_order_id, note, status, created_at)
            VALUES ($1, 'market_fee_share', $2, $3, $4, $5, 'received', NOW())`,
           [branchId, branchBaseShare, order.user_id, orderId, `市场费5%分润 (订单: ${orderId})`]
         );
         branchRevenueTotal += branchBaseShare;
-        // 如果没有上级服务商，10%也归分公司 → 额外现金收益记录
         if (!parentProviderId) {
           await execute(
             `INSERT INTO branch_revenue_records (branch_id, type, amount, related_user_id, related_order_id, note, status, created_at)
@@ -394,7 +328,6 @@ export async function POST(request: NextRequest) {
           );
           branchRevenueTotal += parentProviderShare;
         }
-        // 增加分公司余额
         if (branchRevenueTotal > 0) {
           const branchBalRes = await query(
             'SELECT balance FROM users WHERE id = $1',
@@ -410,7 +343,7 @@ export async function POST(request: NextRequest) {
           }
         }
       }
-      // 总公司运营5% → 手续费沉淀记录
+      // 总公司运营5%
       if (companyShare > 0) {
         await execute(
           `INSERT INTO company_fee_records (type, amount, source_user_id, source_role, source_order_id, note, created_at)
@@ -437,14 +370,12 @@ export async function POST(request: NextRequest) {
       );
 
       // 8.8 计算并发放下级分成
-      // 查询当前服务商有多少下级服务商，用于计算上级服务商的分层收益
       const subordinateSplit = await calculateSubordinateSplit(
         product?.provider_id,
         Number(product?.price),
         product?.name || '产品'
       );
       
-      // 如果有上级服务商且有下级分成
       if (parentProviderId && subordinateSplit.splitAmount > 0) {
         const parentProvider: any = await queryOne(
           'SELECT user_id FROM providers WHERE id = $1',

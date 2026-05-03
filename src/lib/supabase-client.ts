@@ -173,9 +173,7 @@ async function executeSql(supabase: SupabaseClient, sql: string, params?: unknow
  * 解析简单 SQL 并用 Supabase JS Client 直接操作
  * 支持：SELECT, INSERT, UPDATE, DELETE 基本模式
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function parseAndExecute(supabase: SupabaseClient, sql: string): Promise<QueryResult> {
-  const upperSql = sql.toUpperCase().trim();
 
   // SELECT ... FROM table WHERE ... ORDER BY ... LIMIT ...
   const selectMatch = sql.match(/SELECT\s+([\s\S]+?)\s+FROM\s+(\w+)(?:\s+WHERE\s+([\s\S]+?))?(?:\s+ORDER\s+BY\s+([\s\S]+?))?(?:\s+LIMIT\s+(\d+))?(?:\s+OFFSET\s+(\d+))?\s*$/i);
@@ -430,7 +428,7 @@ export function getPool() {
   return pool;
 }
 
-export default {
+const supabaseClient = {
   query,
   queryOne,
   execute,
@@ -439,4 +437,6 @@ export default {
   getPool,
   getSupabase,
 };
+
+export default supabaseClient;
 

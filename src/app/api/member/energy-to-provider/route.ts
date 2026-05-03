@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, withTransaction } from '@/lib/pg-client';
+import { getSupabase } from '@/lib/supabase-client';
 import { authenticateRequest } from '@/lib/auth';
+import { getEnergyBalance, transferEnergy } from '@/lib/energy-util';
 
-// 能量值转给服务商
+// 能量值转给服务商（直接到账，非审核流程）
 export async function POST(request: NextRequest) {
   try {
-    // 鉴权
     const authUser = authenticateRequest(request);
     if (!authUser) {
       return NextResponse.json({ error: '未登录' }, { status: 401 });
@@ -18,123 +18,45 @@ export async function POST(request: NextRequest) {
     const userId = authUser.userId;
 
     if (!providerId || !amount) {
-      return NextResponse.json(
-        { error: '缺少必要参数' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
     }
 
     const energyAmount = parseFloat(amount);
     if (isNaN(energyAmount) || energyAmount <= 0) {
-      return NextResponse.json(
-        { error: '能量值数量无效' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: '能量值数量无效' }, { status: 400 });
     }
 
     if (energyAmount < 50) {
-      return NextResponse.json(
-        { error: '最小转账金额为 50 能量值' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: '最小转账金额为 50 能量值' }, { status: 400 });
     }
 
-    // 使用数据库事务 + 行锁保证原子性
-    const result = await withTransaction(async (client) => {
-      // 锁定用户行
-      const userRes = await client.query(
-        'SELECT id, username, energy_value, provider_id FROM users WHERE id = $1 FOR UPDATE',
-        [userId]
-      );
+    const supabase = getSupabase();
 
-      if (userRes.rows.length === 0) {
-        throw Object.assign(new Error('用户不存在'), { statusCode: 404 });
-      }
+    // 验证服务商存在
+    const { data: provider } = await supabase.from('users').select('id, username, role').eq('id', providerId).eq('role', 'provider').single();
+    if (!provider) {
+      return NextResponse.json({ error: '服务商不存在' }, { status: 404 });
+    }
 
-      const user = userRes.rows[0];
-      const currentEnergy = parseFloat(user.energy_value) || 0;
+    // 验证会员余额
+    const currentEnergy = await getEnergyBalance(userId);
+    if (currentEnergy < energyAmount) {
+      return NextResponse.json({ error: `能量值不足，当前只有 ${currentEnergy}` }, { status: 400 });
+    }
 
-      if (currentEnergy < energyAmount) {
-        throw Object.assign(new Error('能量值不足'), { statusCode: 400 });
-      }
-
-      // 锁定服务商行并验证角色
-      const providerRes = await client.query(
-        "SELECT id, username, energy_value FROM users WHERE id = $1 AND role = 'provider' FOR UPDATE",
-        [providerId]
-      );
-
-      if (providerRes.rows.length === 0) {
-        throw Object.assign(new Error('服务商不存在'), { statusCode: 404 });
-      }
-
-      const provider = providerRes.rows[0];
-      const providerEnergy = parseFloat(provider.energy_value) || 0;
-
-      const newEnergy = currentEnergy - energyAmount;
-      const newProviderEnergy = providerEnergy + energyAmount;
-
-      // 扣减用户能量值
-      await client.query(
-        'UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2',
-        [newEnergy.toFixed(2), userId]
-      );
-
-      // 增加服务商能量值
-      await client.query(
-        'UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2',
-        [newProviderEnergy.toFixed(2), providerId]
-      );
-
-      // 同步会员 energy_accounts
-      const memberAccRes = await client.query('SELECT id FROM energy_accounts WHERE user_id = $1', [userId]);
-      if (memberAccRes.rows && memberAccRes.rows.length > 0) {
-        await client.query(
-          'UPDATE energy_accounts SET balance = $1, total_out = total_out + $2, updated_at = NOW() WHERE user_id = $3',
-          [newEnergy.toFixed(2), energyAmount.toFixed(2), userId]
-        );
-      } else {
-        await client.query(
-          'INSERT INTO energy_accounts (id, user_id, balance, total_in, total_out, created_at, updated_at) VALUES ($1, $2, $3, 0, $4, NOW(), NOW())',
-          [crypto.randomUUID(), userId, newEnergy.toFixed(2), energyAmount.toFixed(2)]
-        );
-      }
-
-      // 同步服务商 energy_accounts
-      const providerAccRes = await client.query('SELECT id FROM energy_accounts WHERE user_id = $1', [providerId]);
-      if (providerAccRes.rows && providerAccRes.rows.length > 0) {
-        await client.query(
-          'UPDATE energy_accounts SET balance = $1, total_in = total_in + $2, updated_at = NOW() WHERE user_id = $3',
-          [newProviderEnergy.toFixed(2), energyAmount.toFixed(2), providerId]
-        );
-      } else {
-        await client.query(
-          'INSERT INTO energy_accounts (id, user_id, balance, total_in, total_out, created_at, updated_at) VALUES ($1, $2, $3, $4, 0, NOW(), NOW())',
-          [crypto.randomUUID(), providerId, newProviderEnergy.toFixed(2), energyAmount.toFixed(2)]
-        );
-      }
-
-      // 记录用户转出到 energy_transactions 表
-      await client.query(
-        `INSERT INTO energy_transactions (id, user_id, type, amount, from_user_id, to_user_id, note, status, created_at)
-         VALUES ($1, $2, 'transfer_out', $3, $2, $4, $5, 'completed', NOW())`,
-        [crypto.randomUUID(), userId, energyAmount.toFixed(2), providerId, `能量值转给服务商: ${provider.username}`]
-      );
-
-      // 记录服务商转入到 energy_transactions 表
-      await client.query(
-        `INSERT INTO energy_transactions (id, user_id, type, amount, from_user_id, to_user_id, note, status, created_at)
-         VALUES ($1, $2, 'transfer_in', $3, $4, $2, $5, 'completed', NOW())`,
-        [crypto.randomUUID(), providerId, energyAmount.toFixed(2), userId, `收到会员 ${user.username} 能量值转账`]
-      );
-
-      return { newEnergy, user, provider };
+    // 使用 transferEnergy 执行原子转账
+    const result = await transferEnergy(userId, providerId, energyAmount, {
+      note: `能量值转给服务商: ${provider.username}`,
     });
+
+    if (!result.success) {
+      return NextResponse.json({ error: result.error }, { status: 500 });
+    }
 
     return NextResponse.json({
       success: true,
       data: {
-        energy_value: result.newEnergy.toFixed(2),
+        energy_value: result.fromNewBalance.toFixed(2),
       },
       message: `成功转出 ${energyAmount} 能量值给服务商`,
     });

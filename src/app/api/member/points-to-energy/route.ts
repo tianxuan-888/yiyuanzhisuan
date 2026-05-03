@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, withTransaction } from '@/lib/pg-client';
+import { getSupabase } from '@/lib/supabase-client';
 import { authenticateRequest } from '@/lib/auth';
+import { addEnergy } from '@/lib/energy-util';
 
 // 积分转能量值（同步更新 users + energy_accounts + energy_transactions）
 export async function POST(request: NextRequest) {
   try {
-    // 鉴权：需要登录
     const user = authenticateRequest(request);
     if (!user) {
       return NextResponse.json({ error: '未登录' }, { status: 401 });
@@ -24,68 +24,66 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '积分数量无效' }, { status: 400 });
     }
 
-    const result = await withTransaction(async (client) => {
-      // 查询用户信息
-      const userRes = await client.query(
-        'SELECT id, points, energy_value FROM users WHERE id = $1',
-        [userId]
-      );
+    const supabase = getSupabase();
 
-      if (!userRes.rows || userRes.rows.length === 0) {
-        throw Object.assign(new Error('用户不存在'), { statusCode: 404 });
-      }
+    // 查询用户信息
+    const { data: userData, error: userErr } = await supabase
+      .from('users')
+      .select('id, points, energy_value')
+      .eq('id', userId)
+      .single();
 
-      const userData = userRes.rows[0];
-      const currentPoints = parseFloat(userData.points) || 0;
-      if (currentPoints < pointsAmount) {
-        throw Object.assign(new Error('积分不足'), { statusCode: 400 });
-      }
+    if (userErr || !userData) {
+      return NextResponse.json({ error: '用户不存在' }, { status: 404 });
+    }
 
-      const newPoints = currentPoints - pointsAmount;
-      const currentEnergy = parseFloat(userData.energy_value) || 0;
-      const newEnergy = currentEnergy + pointsAmount;
+    const currentPoints = parseFloat(String(userData.points)) || 0;
+    if (currentPoints < pointsAmount) {
+      return NextResponse.json({ error: '积分不足' }, { status: 400 });
+    }
 
-      // 1. 更新 users 表积分和能量值
-      await client.query(
-        'UPDATE users SET points = $1, energy_value = $2, updated_at = NOW() WHERE id = $3',
-        [newPoints.toFixed(2), newEnergy.toFixed(2), userId]
-      );
+    const newPoints = currentPoints - pointsAmount;
 
-      // 2. 同步更新 energy_accounts
-      await client.query(
-        `INSERT INTO energy_accounts (id, user_id, balance, total_in, total_out, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, 0, NOW(), NOW())
-         ON CONFLICT (user_id) DO UPDATE SET 
-           balance = $3,
-           total_in = energy_accounts.total_in + $4,
-           updated_at = NOW()`,
-        [crypto.randomUUID(), userId, newEnergy.toFixed(2), pointsAmount.toFixed(2)]
-      );
+    // 1. 更新 users 表积分
+    const { error: updErr } = await supabase
+      .from('users')
+      .update({
+        points: newPoints.toFixed(2),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
 
-      // 3. 记录能量值流水
-      await client.query(
-        `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, status, created_at)
-         VALUES ($1, 'points_to_energy', $2, $1, $1, $3, 'completed', NOW())`,
-        [userId, pointsAmount.toFixed(2), `积分转能量值: ${pointsAmount}`]
-      );
+    if (updErr) {
+      return NextResponse.json({ error: '更新积分失败: ' + updErr.message }, { status: 500 });
+    }
 
-      // 4. 记录积分流水
-      await client.query(
-        `INSERT INTO points_records (user_id, type, amount, balance_after, note, created_at)
-         VALUES ($1, 'exchange', $2, $3, $4, NOW())`,
-        [userId, pointsAmount.toFixed(2), newPoints.toFixed(2), `积分转能量值: -${pointsAmount}`]
-      );
+    // 2. 增加能量值（双表同步 + 流水）
+    const addResult = await addEnergy(userId, pointsAmount, 'convert_from_balance', {
+      note: `积分转能量值: ${pointsAmount}`,
+    });
 
-      return { newPoints, newEnergy, pointsAmount };
+    if (!addResult.success) {
+      return NextResponse.json({ error: addResult.error }, { status: 500 });
+    }
+
+    // 3. 记录积分流水
+    await supabase.from('points_records').insert({
+      id: crypto.randomUUID(),
+      user_id: userId,
+      type: 'exchange',
+      amount: pointsAmount.toFixed(2),
+      balance_after: newPoints.toFixed(2),
+      note: `积分转能量值: -${pointsAmount}`,
+      created_at: new Date().toISOString(),
     });
 
     return NextResponse.json({
       success: true,
       message: '转换成功',
-      data: { 
-        newPoints: result.newPoints, 
-        newEnergy: result.newEnergy, 
-        points: result.pointsAmount 
+      data: {
+        newPoints: newPoints.toFixed(2),
+        newEnergy: addResult.newBalance.toFixed(2),
+        points: pointsAmount,
       }
     });
   } catch (error: any) {

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, varchar, timestamp, boolean, integer, numeric, text, index, uuid, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, varchar, timestamp, boolean, integer, numeric, text, index, pgEnum } from "drizzle-orm/pg-core";
 
 // ==================== 枚举定义 ====================
 
@@ -36,7 +36,7 @@ export const healthCheck = pgTable("health_check", {
 
 // ==================== 用户表 ====================
 
-// @ts-ignore: TypeScript cannot infer self-referencing table type in strict mode
+// @ts-expect-error: TypeScript cannot infer self-referencing table type in strict mode
 export const users = pgTable(
   "users",
   {
@@ -50,11 +50,11 @@ export const users = pgTable(
     invite_code: varchar("invite_code", { length: 20 }).unique(),
     
     // 关联关系
-    provider_id: varchar("provider_id", { length: 36 }).references(// @ts-ignore: Self-referencing table
+    provider_id: varchar("provider_id", { length: 36 }).references(// @ts-expect-error: Self-referencing table
       () => users.id),
-    inviter_id: varchar("inviter_id", { length: 36 }).references(// @ts-ignore: Self-referencing table
+    inviter_id: varchar("inviter_id", { length: 36 }).references(
       () => users.id),
-    branch_id: varchar("branch_id", { length: 36 }).references(// @ts-ignore: Self-referencing table
+    branch_id: varchar("branch_id", { length: 36 }).references(
       () => users.id),
     
     // 资产

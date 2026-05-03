@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { getSupabase } from '@/lib/supabase-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 import { generateUUID } from '@/lib/utils';
+import { deductEnergy } from '@/lib/energy-util';
 
 // 申请变现能量值（服务商/分公司）
 export async function POST(request: NextRequest) {
@@ -18,31 +19,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '最低变现金额为50能量值' }, { status: 400 });
     }
 
+    const withdrawAmount = parseFloat(amount);
+    if (isNaN(withdrawAmount) || withdrawAmount <= 0) {
+      return NextResponse.json({ error: '金额无效' }, { status: 400 });
+    }
+
+    const supabase = getSupabase();
+
     // 服务商申请 → 上级分公司审核
     // 分公司申请 → 总公司(admin)审核
     const approverRole = user.role === 'provider' ? 'branch' : 'admin';
 
-    // 查找上级审核人
-    const client = getSupabaseClient();
-    
     let approverId = targetUserId;
     if (user.role === 'provider') {
-      // 服务商找上级分公司
-      const { data: providerData } = await client
+      const { data: providerData } = await supabase
         .from('users')
         .select('branch_id')
         .eq('id', user.userId)
         .maybeSingle();
-      
       approverId = providerData?.branch_id;
     } else {
-      // 分公司找总公司
-      const { data: adminData } = await client
+      const { data: adminData } = await supabase
         .from('users')
         .select('id')
         .eq('role', 'admin')
         .maybeSingle();
-      
       approverId = adminData?.id;
     }
 
@@ -50,62 +51,46 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '找不到上级审核人' }, { status: 400 });
     }
 
-    // 检查能量值余额
-    const { data: accountData } = await client
-      .from('energy_accounts')
-      .select('balance, total_out')
-      .eq('user_id', user.userId)
-      .maybeSingle();
-
-    const account = accountData as { balance: number; total_out: number } | null;
-    const currentBalance = account?.balance || 0;
-    if (currentBalance < amount) {
-      return NextResponse.json({ error: '能量值余额不足' }, { status: 400 });
-    }
-
     // 创建变现申请记录
     const requestId = generateUUID();
-    const { error: insertError } = await client
+    const { error: insertError } = await supabase
       .from('energy_withdraw_requests')
       .insert({
         id: requestId,
         user_id: user.userId,
-        amount: amount,
-        actual_amount: amount * 0.95, // 到账金额（已扣5%）
-        fee_amount: amount * 0.05,    // 手续费
+        amount: withdrawAmount,
+        actual_amount: withdrawAmount * 0.95,
+        fee_amount: withdrawAmount * 0.05,
         approver_id: approverId,
         approver_role: approverRole,
         status: 'pending',
-        note: note || `用户申请变现 ${amount} 能量值`
+        note: note || `用户申请变现 ${withdrawAmount} 能量值`,
+        created_at: new Date().toISOString(),
       });
 
     if (insertError) {
       throw new Error(`创建申请失败: ${insertError.message}`);
     }
 
-    // 冻结能量值（扣除 energy_accounts）
-    await client
-      .from('energy_accounts')
-      .update({
-        balance: currentBalance - amount,
-        total_out: (account?.total_out || 0) + amount
-      })
-      .eq('user_id', user.userId);
+    // 冻结能量值：使用 deductEnergy 扣减（双表同步 + 流水）
+    const subResult = await deductEnergy(user.userId, withdrawAmount, 'withdraw_freeze', {
+      note: `申请变现冻结 ${withdrawAmount} 能量值`,
+    });
 
-    // 同步更新 users.energy_value
-    await client
-      .from('users')
-      .update({ energy_value: currentBalance - amount })
-      .eq('id', user.userId);
+    if (!subResult.success) {
+      // 如果扣减失败，删除刚创建的申请记录
+      await supabase.from('energy_withdraw_requests').delete().eq('id', requestId);
+      return NextResponse.json({ error: subResult.error || '能量值余额不足' }, { status: 400 });
+    }
 
     return NextResponse.json({
       success: true,
       message: '变现申请已提交，等待审核',
       data: {
         requestId,
-        amount,
-        actualAmount: amount * 0.95,
-        feeAmount: amount * 0.05
+        amount: withdrawAmount,
+        actualAmount: withdrawAmount * 0.95,
+        feeAmount: withdrawAmount * 0.05,
       }
     });
   } catch (error: any) {
@@ -124,56 +109,52 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || 'all';
-    const role = searchParams.get('role'); // 查看服务商/分公司申请
+    const role = searchParams.get('role');
     const isAdmin = searchParams.get('isAdmin') === 'true';
 
-    const client = getSupabaseClient();
-    
-    let query = client
+    const supabase = getSupabase();
+
+    let queryBuilder = supabase
       .from('energy_withdraw_requests')
       .select('*, users:user_id(username, phone, role)')
       .order('created_at', { ascending: false });
 
-    // 按角色过滤
     if (role) {
-      query = query.eq('users.role', role);
+      queryBuilder = queryBuilder.eq('users.role', role);
     }
 
-    // 分公司只能看服务商的申请
     if (user.role === 'branch') {
-      query = query.eq('approver_id', user.userId);
+      queryBuilder = queryBuilder.eq('approver_id', user.userId);
     }
 
-    // 总公司只能看分公司的申请
     if (user.role === 'admin' || isAdmin) {
-      query = query.eq('approver_role', 'admin');
+      queryBuilder = queryBuilder.eq('approver_role', 'admin');
     }
 
     if (status !== 'all') {
-      query = query.eq('status', status);
+      queryBuilder = queryBuilder.eq('status', status);
     }
 
-    const { data: requests, error } = await query;
+    const { data: requests, error } = await queryBuilder;
 
     if (error) {
       throw new Error(`查询失败: ${error.message}`);
     }
 
-    // 统计数据
     const stats = {
       total: requests?.length || 0,
-      pending: requests?.filter(r => r.status === 'pending').length || 0,
-      approved: requests?.filter(r => r.status === 'approved').length || 0,
-      rejected: requests?.filter(r => r.status === 'rejected').length || 0,
-      totalAmount: requests?.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0) || 0,
-      totalFee: requests?.reduce((sum, r) => sum + parseFloat(r.fee_amount || 0), 0) || 0,
+      pending: requests?.filter((r: any) => r.status === 'pending').length || 0,
+      approved: requests?.filter((r: any) => r.status === 'approved').length || 0,
+      rejected: requests?.filter((r: any) => r.status === 'rejected').length || 0,
+      totalAmount: requests?.reduce((sum: number, r: any) => sum + parseFloat(r.amount || 0), 0) || 0,
+      totalFee: requests?.reduce((sum: number, r: any) => sum + parseFloat(r.fee_amount || 0), 0) || 0,
     };
 
-    return NextResponse.json({ 
-      success: true, 
-      data: { 
+    return NextResponse.json({
+      success: true,
+      data: {
         requests: requests || [],
-        stats 
+        stats
       }
     });
   } catch (error: any) {
