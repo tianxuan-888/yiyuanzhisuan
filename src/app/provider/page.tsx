@@ -49,6 +49,7 @@ import {
     Gift,
     History,
     Wallet,
+    ArrowUpDown,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -266,6 +267,12 @@ export default function ProviderPage() {
     const [transferUserType, setTransferUserType] = useState<"branch" | "provider" | "member">("provider");
     const [transferAmount, setTransferAmount] = useState("");
     const [transferNote, setTransferNote] = useState("");
+
+    // 积分相关状态
+    const [pointsRecords, setPointsRecords] = useState<any[]>([]);
+    const [pointsStats, setPointsStats] = useState({ total_convert: 0, total_exchange: 0, available_points: 0 });
+    const [showPointsToEnergyDialog, setShowPointsToEnergyDialog] = useState(false);
+    const [pointsConvertAmount, setPointsConvertAmount] = useState("");
 
     // 收益记录相关状态
     const [revenueRecords, setRevenueRecords] = useState<any[]>([]);
@@ -1295,6 +1302,57 @@ export default function ProviderPage() {
         }
     }, []);
 
+    // 加载积分记录
+    const loadPointsRecords = useCallback(async () => {
+        try {
+            const response = await authFetch(`/api/provider/points-records`);
+            const data = await response.json();
+            if (data.success && data.data) {
+                setPointsRecords(data.data.records || []);
+                setPointsStats(data.data.stats || { total_convert: 0, total_exchange: 0, available_points: 0 });
+            }
+        } catch (error) {
+            console.error("加载积分记录失败:", error);
+        }
+    }, []);
+
+    // 积分转能量值
+    const handlePointsToEnergy = async () => {
+        const amount = parseFloat(pointsConvertAmount);
+        if (isNaN(amount) || amount <= 0) {
+            showMessage("error", "请输入有效的积分数量");
+            return;
+        }
+        if (amount > (Number(user?.points) || 0)) {
+            showMessage("error", "积分不足");
+            return;
+        }
+
+        setSubmitting(true);
+        try {
+            const userId = localStorage.getItem("userId");
+            const response = await authFetch("/api/member/points-to-energy", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId, points: amount }),
+            });
+            const data = await response.json();
+            if (data.success) {
+                showMessage("success", `转换成功！${amount}积分 → ${amount}能量值`);
+                setShowPointsToEnergyDialog(false);
+                setPointsConvertAmount("");
+                loadPointsRecords();
+                loadData();
+            } else {
+                showMessage("error", data.error || "转换失败");
+            }
+        } catch (error) {
+            showMessage("error", "转换失败");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     // 流转审核处理
     const handleTransferReview = async (transferId: string, action: 'approve' | 'reject') => {
         const providerId = localStorage.getItem("userId");
@@ -1729,6 +1787,14 @@ export default function ProviderPage() {
                                 }}
                                 className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "withdrawals" ? "bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-200" : "text-gray-600 hover:bg-purple-50"}`}>
                                 <DollarSign className="w-4 h-4" />提现管理
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setActiveTab("points");
+                                    loadPointsRecords();
+                                }}
+                                className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "points" ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-200" : "text-gray-600 hover:bg-amber-50"}`}>
+                                <Gift className="w-4 h-4" />我的积分
                             </button>
                         </div>
                     </div>
@@ -3505,6 +3571,105 @@ export default function ProviderPage() {
                         </div>
                     )}
 
+                    {/* 积分 Tab */}
+                    {activeTab === "points" && (
+                        <div className="space-y-6">
+                            <Card className="bg-gradient-to-br from-amber-500 to-orange-500 text-white">
+                                <CardContent className="pt-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Gift className="w-5 h-5" />
+                                        <span className="text-sm opacity-80">我的积分</span>
+                                    </div>
+                                    <p className="text-3xl font-bold">{Number(user?.points || 0).toLocaleString()}</p>
+                                    <span className="text-xs opacity-70 mt-1">收益转能量值时，5%自动转为积分，积分可兑换产品或转能量值</span>
+                                    <div className="mt-3 flex gap-2">
+                                        <Button
+                                            size="sm"
+                                            variant="secondary"
+                                            onClick={() => {
+                                                setPointsConvertAmount("");
+                                                setShowPointsToEnergyDialog(true);
+                                            }}
+                                        >
+                                            <Zap className="w-4 h-4 mr-1" />
+                                            积分转能量值
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* 积分统计 */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <Card>
+                                    <CardContent className="pt-4 text-center">
+                                        <Gift className="w-6 h-6 mx-auto mb-2 text-amber-500" />
+                                        <p className="text-sm text-muted-foreground">累计获得积分</p>
+                                        <p className="text-xl font-bold text-amber-600">{Number(pointsStats.total_convert || 0).toLocaleString()}</p>
+                                    </CardContent>
+                                </Card>
+                                <Card>
+                                    <CardContent className="pt-4 text-center">
+                                        <ArrowUpDown className="w-6 h-6 mx-auto mb-2 text-blue-500" />
+                                        <p className="text-sm text-muted-foreground">已兑换/转出</p>
+                                        <p className="text-xl font-bold text-blue-600">{Number(pointsStats.total_exchange || 0).toLocaleString()}</p>
+                                    </CardContent>
+                                </Card>
+                                <Card>
+                                    <CardContent className="pt-4 text-center">
+                                        <Wallet className="w-6 h-6 mx-auto mb-2 text-green-500" />
+                                        <p className="text-sm text-muted-foreground">可用积分</p>
+                                        <p className="text-xl font-bold text-green-600">{Number(pointsStats.available_points || user?.points || 0).toLocaleString()}</p>
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                            {/* 积分记录 */}
+                            <Card>
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-base flex items-center gap-2">
+                                        <History className="w-5 h-5" />
+                                        积分记录
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    {pointsRecords.length > 0 ? (
+                                        <div className="space-y-3">
+                                            {pointsRecords.map((record: any) => (
+                                                <div key={record.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`p-2 rounded-full ${record.type === 'convert' ? 'bg-amber-100' : 'bg-blue-100'}`}>
+                                                            <Gift className={`w-4 h-4 ${record.type === 'convert' ? 'text-amber-500' : 'text-blue-500'}`} />
+                                                        </div>
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={`font-medium ${record.type === 'convert' ? 'text-amber-600' : 'text-blue-600'}`}>
+                                                                    {record.type === 'convert' ? '+' : '-'}{Number(record.amount).toLocaleString()}
+                                                                </span>
+                                                                <Badge variant={record.type === 'convert' ? 'default' : 'secondary'} className="text-xs">
+                                                                    {record.type === 'convert' ? '收益转化' : record.type === 'exchange' ? '兑换使用' : record.type}
+                                                                </Badge>
+                                                            </div>
+                                                            <p className="text-xs text-muted-foreground">{record.note || '收益转能量值产生'}</p>
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {new Date(record.created_at).toLocaleString('zh-CN')}
+                                                    </p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-8 text-gray-500">
+                                            <Gift className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                                            <p>暂无积分记录</p>
+                                            <p className="text-sm mt-1">收益转能量值时自动产生积分（5%）</p>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
+
                     {/* 能量值充值对话框 */}
                     <Dialog open={showRechargeDialog} onOpenChange={setShowRechargeDialog}>
                         <DialogContent>
@@ -4345,6 +4510,60 @@ export default function ProviderPage() {
                                         确认拒绝
                                     </Button>
                                 )}
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* 积分转能量值对话框 */}
+                    <Dialog open={showPointsToEnergyDialog} onOpenChange={setShowPointsToEnergyDialog}>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle className="flex items-center gap-2">
+                                    <Zap className="w-5 h-5 text-amber-500" />
+                                    积分转能量值
+                                </DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm text-amber-700">当前积分</span>
+                                        <span className="text-lg font-bold text-amber-600">{Number(user?.points || 0).toLocaleString()}</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium mb-2 block">转换积分数量</label>
+                                    <Input
+                                        type="number"
+                                        placeholder="请输入要转换的积分数量"
+                                        value={pointsConvertAmount}
+                                        onChange={(e) => setPointsConvertAmount(e.target.value)}
+                                        min="1"
+                                        max={String(user?.points || 0)}
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        1积分 = 1能量值，转换后积分扣除，能量值等额增加
+                                    </p>
+                                </div>
+                                {pointsConvertAmount && parseFloat(pointsConvertAmount) > 0 && (
+                                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                                        <p className="text-sm text-green-700">
+                                            转换后：积分 <strong>-{pointsConvertAmount}</strong>，能量值 <strong>+{pointsConvertAmount}</strong>
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                            <DialogFooter>
+                                <Button variant="outline" onClick={() => setShowPointsToEnergyDialog(false)}>
+                                    取消
+                                </Button>
+                                <Button
+                                    className="bg-amber-500 hover:bg-amber-600"
+                                    onClick={handlePointsToEnergy}
+                                    disabled={submitting || !pointsConvertAmount || parseFloat(pointsConvertAmount) <= 0 || parseFloat(pointsConvertAmount) > (user?.points || 0)}
+                                >
+                                    {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
+                                    确认转换
+                                </Button>
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
