@@ -35,10 +35,20 @@ export async function POST(request: NextRequest) {
           throw Object.assign(new Error('当前状态无法确认收款，需等待分公司确认打款'), { statusCode: 400 });
         }
 
+        const actualAmount = parseFloat(w.actual_amount) || 0;
+
         await client.query(
           "UPDATE withdrawals SET status = 'completed', completed_at = NOW(), updated_at = NOW() WHERE id = $1",
           [withdrawalId]
         );
+
+        // 增加服务商收益余额（变现金额）
+        if (actualAmount > 0) {
+          await client.query(
+            'UPDATE users SET balance = balance + $1, updated_at = NOW() WHERE id = $2',
+            [actualAmount.toFixed(2), userId]
+          );
+        }
 
         // 更新分公司收益记录状态为已完成
         await client.query(

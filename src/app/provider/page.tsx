@@ -1085,6 +1085,8 @@ export default function ProviderPage() {
                 body: JSON.stringify({
                     providerId: providerId,
                     amount: amount,
+                    alipayAccount: withdrawAlipay || undefined,
+                    realName: withdrawAlipayName || undefined,
                     note: `服务商申请变现 ${amount} 能量值`
                 }),
             });
@@ -1162,7 +1164,7 @@ export default function ProviderPage() {
         if (!providerId) return;
 
         try {
-            const response = await authFetch(`/api/energy/withdraw?userId=${providerId}`);
+            const response = await authFetch(`/api/provider/withdraw-request?providerId=${providerId}`);
             const data = await response.json();
             if (data.success) {
                 setWithdrawRecords(data.data || []);
@@ -2934,8 +2936,8 @@ export default function ProviderPage() {
                                                         实际到账: {record.actual_amount} | 手续费: {record.fee}
                                                     </p>
                                                 </div>
-                                                <Badge className={record.status === 'pending' ? 'bg-yellow-500' : record.status === 'completed' ? 'bg-green-500' : 'bg-red-500'}>
-                                                    {record.status === 'pending' ? '待处理' : record.status === 'completed' ? '已完成' : '已拒绝'}
+                                                <Badge className={record.status === 'pending' ? 'bg-yellow-500' : record.status === 'approved' ? 'bg-blue-500' : record.status === 'transferred' ? 'bg-indigo-500' : record.status === 'completed' ? 'bg-green-500' : 'bg-red-500'}>
+                                                    {record.status === 'pending' ? '待审核' : record.status === 'approved' ? '审核通过' : record.status === 'transferred' ? '已打款' : record.status === 'completed' ? '已完成' : '已拒绝'}
                                                 </Badge>
                                             </div>
                                         ))}

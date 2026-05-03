@@ -120,25 +120,52 @@ export async function POST(request: NextRequest) {
       }
 
       if (action === 'reject') {
-        // 审核拒绝 - 退还余额
+        // 审核拒绝 - 退还金额
         const userId = withdrawal.user_id;
+        const userRole = withdrawal.user_role; // 'member' 或 'provider'
         const amount = parseFloat(withdrawal.amount);
         const fee = parseFloat(withdrawal.fee);
         const actualAmount = parseFloat(withdrawal.actual_amount) || 0;
 
-        const userRes = await client.query(
-          'SELECT balance FROM users WHERE id = $1',
-          [userId]
-        );
-
-        if (userRes.rows && userRes.rows.length > 0) {
-          const currentBalance = parseFloat(userRes.rows[0].balance) || 0;
-          const newBalance = currentBalance + amount;
-
-          await client.query(
-            'UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2',
-            [newBalance.toFixed(2), userId]
+        if (userRole === 'provider') {
+          // 服务商提现：退还能量值
+          const userRes = await client.query(
+            'SELECT energy_value FROM users WHERE id = $1',
+            [userId]
           );
+          if (userRes.rows && userRes.rows.length > 0) {
+            const currentEnergy = parseFloat(userRes.rows[0].energy_value) || 0;
+            const newEnergy = currentEnergy + amount;
+            await client.query(
+              'UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2',
+              [newEnergy.toFixed(2), userId]
+            );
+          }
+          // 恢复 energy_accounts
+          await client.query(
+            `UPDATE energy_accounts SET balance = balance + $1, total_out = GREATEST(total_out - $1, 0), updated_at = NOW()
+             WHERE user_id = $2`,
+            [amount.toFixed(2), userId]
+          );
+          // 删除能量值冻结流水
+          await client.query(
+            `DELETE FROM energy_transactions WHERE from_user_id = $1 AND type = 'withdraw_freeze' AND note LIKE '%提现冻结%' AND created_at >= (SELECT created_at FROM withdrawals WHERE id = $2)`,
+            [userId, withdrawalId]
+          );
+        } else {
+          // 会员提现：退还收益余额
+          const userRes = await client.query(
+            'SELECT balance FROM users WHERE id = $1',
+            [userId]
+          );
+          if (userRes.rows && userRes.rows.length > 0) {
+            const currentBalance = parseFloat(userRes.rows[0].balance) || 0;
+            const newBalance = currentBalance + amount;
+            await client.query(
+              'UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2',
+              [newBalance.toFixed(2), userId]
+            );
+          }
         }
 
         // 扣除分公司已增加的余额（如果审批时已加）
