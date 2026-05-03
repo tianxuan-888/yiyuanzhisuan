@@ -2385,7 +2385,7 @@ export default function BranchPage() {
                               <Zap className="w-5 h-5" />
                             </div>
                             <div>
-                              <p className="font-medium">{record.isIncome ? '转入' : '转出'} {record.counterparty || ''}</p>
+                              <p className="font-medium">{record.isIncome ? '转入' : '转出'} {record.description || record.note || ''}</p>
                               <p className="text-xs text-gray-400">{record.created_at ? new Date(record.created_at).toLocaleString() : '-'}</p>
                             </div>
                           </div>
