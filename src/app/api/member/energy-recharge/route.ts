@@ -45,17 +45,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '服务商不存在' }, { status: 404 });
     }
 
-    // 创建充值申请记录
+    // 创建充值申请记录 - 写入 energy_recharge_records 表
     const requestId = generateUUID();
     await execute(
-      `INSERT INTO transactions (id, user_id, type, amount, description, status, created_at)
-       VALUES ($1, $2, 'recharge', $3, $4, 'pending', NOW())`,
-      [requestId, user.provider_id, rechargeAmount, JSON.stringify({
-        member_id: userId,
-        member_name: user.username,
-        member_phone: user.phone,
-        note: note || null,
-      })]
+      `INSERT INTO energy_recharge_records (id, provider_id, member_id, amount, status, note, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, 'pending', $5, NOW(), NOW())`,
+      [requestId, user.provider_id, userId, rechargeAmount, note || null]
     );
 
     return NextResponse.json({
@@ -68,9 +63,10 @@ export async function POST(request: NextRequest) {
         amount: rechargeAmount,
       },
     });
-  } catch (error: any) {
-    console.error('充值申请失败:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('充值申请失败:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
@@ -84,18 +80,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '用户ID不能为空' }, { status: 400 });
     }
 
-    // 查询该用户的充值申请（通过 member_id 关联）
+    // 查询该用户的充值申请记录
     const records = await query(
-      `SELECT * FROM transactions 
-       WHERE type = 'recharge' 
-       AND description LIKE $1
-       ORDER BY created_at DESC`,
-      [`%${userId}%`]
+      `SELECT r.id, r.amount, r.status, r.note, r.created_at, r.updated_at,
+              u.username as provider_name, u.phone as provider_phone
+       FROM energy_recharge_records r
+       LEFT JOIN users u ON r.provider_id = u.id
+       WHERE r.member_id = $1
+       ORDER BY r.created_at DESC`,
+      [userId]
     );
 
     return NextResponse.json({ success: true, data: records || [] });
-  } catch (error: any) {
-    console.error('获取充值记录失败:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('获取充值记录失败:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

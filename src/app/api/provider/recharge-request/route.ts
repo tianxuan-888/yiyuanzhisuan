@@ -25,49 +25,42 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '服务商ID不能为空' }, { status: 400 });
     }
 
-    // 查询服务商收到的充值申请（通过 transactions 表）
-    // 返回所有记录，不只是pending状态
+    // 从 energy_recharge_records 表查询充值申请
     let sql = `
-      SELECT t.*, u.username as member_name, u.phone as member_phone
-      FROM transactions t
-      LEFT JOIN users u ON t.description::jsonb->>'member_id' = u.id
-      WHERE t.user_id = $1 AND t.type = 'recharge'
+      SELECT r.id, r.provider_id, r.member_id, r.amount, r.status, r.note,
+             r.reviewed_by, r.reviewed_at, r.created_at, r.updated_at,
+             u.username as member_name, u.phone as member_phone
+      FROM energy_recharge_records r
+      LEFT JOIN users u ON r.member_id = u.id
+      WHERE r.provider_id = $1
     `;
-    const params: any[] = [providerId];
+    const params: unknown[] = [providerId];
 
-    // 默认返回所有状态的记录
-    sql += ' ORDER BY t.created_at DESC';
+    if (status) {
+      sql += ' AND r.status = $2';
+      params.push(status);
+    }
+
+    sql += ' ORDER BY r.created_at DESC';
 
     const records = await query(sql, params);
 
-    // 解析 description 获取详情
-    const requests = (records || []).map((t: any) => {
-      try {
-        const data = typeof t.description === 'string' ? JSON.parse(t.description) : t.description;
-        return {
-          id: t.id,
-          memberId: data?.member_id || null,
-          memberName: data?.member_name || t.member_name || '未知',
-          memberPhone: data?.member_phone || t.member_phone || '未知',
-          amount: parseFloat(t.amount),
-          note: data?.note || null,
-          status: t.status || 'pending',
-          createdAt: t.created_at,
-        };
-      } catch {
-        return {
-          id: t.id,
-          amount: parseFloat(t.amount),
-          status: t.status || 'pending',
-          createdAt: t.created_at,
-        };
-      }
-    });
+    const requests = (records || []).map((r: Record<string, unknown>) => ({
+      id: r.id,
+      memberId: r.member_id,
+      memberName: r.member_name || '未知',
+      memberPhone: r.member_phone || '未知',
+      amount: parseFloat(String(r.amount)),
+      note: r.note || null,
+      status: r.status || 'pending',
+      createdAt: r.created_at,
+    }));
 
     return NextResponse.json({ success: true, data: requests });
-  } catch (error: any) {
-    console.error('获取充值申请失败:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('获取充值申请失败:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
@@ -93,9 +86,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
     }
 
-    // 查询充值记录
-    const record = await queryOne<{ id: string; user_id: string; amount: string; description: string; status: string }>(
-      'SELECT * FROM transactions WHERE id = $1',
+    // 从 energy_recharge_records 查询充值记录
+    const record = await queryOne<{ id: string; provider_id: string; member_id: string; amount: string; status: string; note: string }>(
+      'SELECT * FROM energy_recharge_records WHERE id = $1',
       [requestId]
     );
 
@@ -103,7 +96,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '充值申请不存在' }, { status: 404 });
     }
 
-    if (record.user_id !== providerId) {
+    if (record.provider_id !== providerId) {
       return NextResponse.json({ error: '无权操作此申请' }, { status: 403 });
     }
 
@@ -112,62 +105,67 @@ export async function POST(request: NextRequest) {
     }
 
     const amount = parseFloat(record.amount);
+    const memberId = record.member_id;
 
     if (action === 'approve') {
-      // 批准：给会员充值能量值
-      const data = typeof record.description === 'string' ? JSON.parse(record.description) : record.description;
-      const memberId = data?.member_id;
+      // 获取会员信息（用于流水描述）
+      const member = await queryOne<{ username: string }>(
+        'SELECT username FROM users WHERE id = $1',
+        [memberId]
+      );
 
-      if (!memberId) {
-        return NextResponse.json({ error: '无法获取会员信息' }, { status: 400 });
+      // 1. 检查服务商能量值是否充足
+      const providerAccount = await queryOne<{ balance: string }>(
+        'SELECT balance FROM energy_accounts WHERE user_id = $1',
+        [providerId]
+      );
+
+      if (!providerAccount || parseFloat(providerAccount.balance) < amount) {
+        return NextResponse.json({ error: '服务商能量值不足，无法充值' }, { status: 400 });
       }
 
-      // 1. 记录服务商支出流水（先记录，避免数据不一致）
+      // 2. 记录服务商支出流水
       await execute(
         `INSERT INTO energy_transactions (id, user_id, type, amount, from_user_id, to_user_id, description, status, created_at)
-         VALUES (gen_random_uuid(), $2, 'transfer_out', $1, $2, $3, $4, 'completed', NOW())`,
-        [amount, providerId, memberId, JSON.stringify({ note: `给${data?.member_name || '会员'}充值`, requestId })]
+         VALUES (gen_random_uuid(), $1, 'transfer_out', $2, $1, $3, $4, 'completed', NOW())`,
+        [providerId, amount, memberId, `给会员${member?.username || ''}充值能量值`]
       );
 
-      // 2. 记录会员充值流水（类型为recharge）
+      // 3. 记录会员充值流水
       await execute(
         `INSERT INTO energy_transactions (id, user_id, type, amount, from_user_id, to_user_id, description, status, created_at)
-         VALUES (gen_random_uuid(), $3, 'recharge', $1, $2, $3, $4, 'completed', NOW())`,
-        [amount, providerId, memberId, JSON.stringify({ note: `来自${data?.member_name || '服务商'}充值`, requestId })]
+         VALUES (gen_random_uuid(), $1, 'recharge', $2, $3, $1, $4, 'completed', NOW())`,
+        [memberId, amount, providerId, `服务商充值能量值`]
       );
 
-      // 3. 扣减服务商能量值（energy_accounts）
+      // 4. 扣减服务商能量值（energy_accounts + users.energy_value 同步）
       await execute(
         `UPDATE energy_accounts 
          SET balance = balance - $1, total_out = total_out + $1, updated_at = NOW()
-         WHERE user_id = $2 AND balance >= $1`,
+         WHERE user_id = $2`,
         [amount, providerId]
       );
-
-      // 3.1 同步更新服务商 users.energy_value
       await execute(
         `UPDATE users SET energy_value = (SELECT balance FROM energy_accounts WHERE user_id = $1), updated_at = NOW() WHERE id = $1`,
         [providerId]
       );
 
-      // 4. 增加会员能量值（energy_accounts）
+      // 5. 增加会员能量值（energy_accounts + users.energy_value 同步）
       await execute(
         `UPDATE energy_accounts 
          SET balance = balance + $1, total_in = total_in + $1, updated_at = NOW()
          WHERE user_id = $2`,
         [amount, memberId]
       );
-
-      // 4.1 同步更新会员 users.energy_value
       await execute(
         `UPDATE users SET energy_value = (SELECT balance FROM energy_accounts WHERE user_id = $1), updated_at = NOW() WHERE id = $1`,
         [memberId]
       );
 
-      // 5. 更新充值记录状态
+      // 6. 更新充值记录状态
       await execute(
-        `UPDATE transactions SET status = 'approved' WHERE id = $1`,
-        [requestId]
+        `UPDATE energy_recharge_records SET status = 'approved', reviewed_by = $1, reviewed_at = NOW(), updated_at = NOW() WHERE id = $2`,
+        [providerId, requestId]
       );
 
       // 获取更新后的能量值
@@ -183,7 +181,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: `已成功充值 ${amount} 能量值给 ${data?.member_name || '会员'}`,
+        message: `已成功充值 ${amount} 能量值给 ${member?.username || '会员'}`,
         data: {
           amount,
           memberEnergy: parseFloat(memberEnergy?.balance || '0'),
@@ -194,8 +192,8 @@ export async function POST(request: NextRequest) {
       // 拒绝：更新记录状态
       const rejectNote = note || '';
       await execute(
-        `UPDATE transactions SET status = 'rejected' WHERE id = $1`,
-        [requestId]
+        `UPDATE energy_recharge_records SET status = 'rejected', reviewed_by = $1, reviewed_at = NOW(), note = COALESCE(note, '') || $2, updated_at = NOW() WHERE id = $3`,
+        [providerId, rejectNote ? ` | 拒绝原因: ${rejectNote}` : '', requestId]
       );
 
       return NextResponse.json({
@@ -205,8 +203,9 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ error: '无效的操作' }, { status: 400 });
-  } catch (error: any) {
-    console.error('审批充值申请失败:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('审批充值申请失败:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
