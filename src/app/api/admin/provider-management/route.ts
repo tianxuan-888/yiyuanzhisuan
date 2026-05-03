@@ -42,9 +42,9 @@ export async function GET(request: NextRequest) {
               pr.branch_id,
               b.username as branch_name
        FROM users u
-       LEFT JOIN energy_accounts ea ON u.id::uuid = ea.user_id::uuid
-       LEFT JOIN providers pr ON u.id::uuid = pr.user_id::uuid
-       LEFT JOIN users b ON pr.branch_id::uuid = b.id::uuid
+       LEFT JOIN energy_accounts ea ON u.id = ea.user_id
+       LEFT JOIN providers pr ON u.id = pr.user_id
+       LEFT JOIN users b ON pr.branch_id = b.id
        ${userFilter}
        ORDER BY u.created_at DESC`,
       params

@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       `SELECT wr.*, 
               u.username
        FROM energy_withdraw_requests wr
-       JOIN users u ON u.id::uuid = wr.user_id
+       JOIN users u ON u.id = wr.user_id
        WHERE wr.user_id = $1
        ORDER BY wr.created_at DESC
        LIMIT 100`,

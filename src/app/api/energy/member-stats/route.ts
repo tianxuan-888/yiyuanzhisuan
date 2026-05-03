@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
     const recentRecharge = await query(
       `SELECT et.*, fu.username as from_username
        FROM energy_transactions et
-       LEFT JOIN users fu ON fu.id::uuid = et.from_user_id
+       LEFT JOIN users fu ON fu.id = et.from_user_id
        WHERE et.type IN ('purchase', 'manual')
          AND et.to_user_id = $1
        ORDER BY et.created_at DESC
@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
     const recentTransferIn = await query(
       `SELECT et.*, fu.username as from_username, fu.role as from_role
        FROM energy_transactions et
-       LEFT JOIN users fu ON fu.id::uuid = et.from_user_id
+       LEFT JOIN users fu ON fu.id = et.from_user_id
        WHERE et.type = 'market_transfer'
          AND et.to_user_id = $1
        ORDER BY et.created_at DESC
@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
     const recentTransferOut = await query(
       `SELECT et.*, tu.username as to_username, tu.role as to_role
        FROM energy_transactions et
-       LEFT JOIN users tu ON tu.id::uuid = et.to_user_id
+       LEFT JOIN users tu ON tu.id = et.to_user_id
        WHERE et.type = 'market_transfer'
          AND et.from_user_id = $1
        ORDER BY et.created_at DESC

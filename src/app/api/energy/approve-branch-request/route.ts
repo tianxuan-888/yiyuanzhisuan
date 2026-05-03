@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     const requests = await query(
       `SELECT r.*, u.username as branch_name
        FROM energy_branch_requests r
-       JOIN users u ON u.id::uuid = r.branch_id
+       JOIN users u ON u.id = r.branch_id
        WHERE r.id::text = $1`,
       [requestId]
     );
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       const adminAccount = await query(
         `SELECT ea.balance::text as balance 
          FROM energy_accounts ea 
-         WHERE ea.user_id = (SELECT id::uuid FROM users WHERE role = 'admin' LIMIT 1)`
+         WHERE ea.user_id = (SELECT id FROM users WHERE role = 'admin' LIMIT 1)`
       );
       const adminBalance = adminAccount.length > 0 ? parseFloat(adminAccount[0].balance || '0') : 0;
 
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
          SET balance = balance - $1,
              total_out = total_out + $1,
              updated_at = NOW()
-         WHERE user_id = (SELECT id::uuid FROM users WHERE role = 'admin' LIMIT 1)`,
+         WHERE user_id = (SELECT id FROM users WHERE role = 'admin' LIMIT 1)`,
         [requestAmount]
       );
 
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
       await query(
         `INSERT INTO energy_transactions
          (id, user_id, type, amount, energy_before, energy_after, note, status, created_at)
-         VALUES ($1, (SELECT id::uuid FROM users WHERE role = 'admin' LIMIT 1), 'transfer_out', $2, $3::numeric, $4::numeric, $5, 'completed', NOW())`,
+         VALUES ($1, (SELECT id FROM users WHERE role = 'admin' LIMIT 1), 'transfer_out', $2, $3::numeric, $4::numeric, $5, 'completed', NOW())`,
         [
           crypto.randomUUID(),
           requestAmount,

@@ -13,8 +13,8 @@ export async function GET(request: NextRequest) {
               fu.username as from_username,
               tu.username as to_username
        FROM energy_transactions et
-       LEFT JOIN users fu ON fu.id::uuid = et.from_user_id
-       LEFT JOIN users tu ON tu.id::uuid = et.to_user_id
+       LEFT JOIN users fu ON fu.id = et.from_user_id
+       LEFT JOIN users tu ON tu.id = et.to_user_id
        WHERE et.type = 'quota_match'
        ORDER BY et.created_at DESC
        LIMIT 100`
@@ -27,8 +27,8 @@ export async function GET(request: NextRequest) {
               fu.username as from_username,
               tu.username as to_username
        FROM energy_transactions et
-       LEFT JOIN users fu ON fu.id::uuid = et.from_user_id
-       LEFT JOIN users tu ON tu.id::uuid = et.to_user_id
+       LEFT JOIN users fu ON fu.id = et.from_user_id
+       LEFT JOIN users tu ON tu.id = et.to_user_id
        WHERE et.type = 'purchase'
        ORDER BY et.created_at DESC
        LIMIT 100`
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     const marketAccounts = await query(
       `SELECT ea.*, u.username, u.role
        FROM energy_accounts ea
-       JOIN users u ON u.id::uuid = ea.user_id
+       JOIN users u ON u.id = ea.user_id
        WHERE u.role IN ('provider', 'member')
        ORDER BY ea.balance DESC
        LIMIT 100`
@@ -52,8 +52,8 @@ export async function GET(request: NextRequest) {
               fu.username as from_username, fu.role as from_role,
               tu.username as to_username, tu.role as to_role
        FROM energy_transactions et
-       LEFT JOIN users fu ON fu.id::uuid = et.from_user_id
-       LEFT JOIN users tu ON tu.id::uuid = et.to_user_id
+       LEFT JOIN users fu ON fu.id = et.from_user_id
+       LEFT JOIN users tu ON tu.id = et.to_user_id
        WHERE et.type = 'market_transfer'
        ORDER BY et.created_at DESC
        LIMIT 100`
@@ -66,8 +66,8 @@ export async function GET(request: NextRequest) {
               fu.username as from_username,
               tu.username as to_username
        FROM energy_transactions et
-       LEFT JOIN users fu ON fu.id::uuid = et.from_user_id
-       LEFT JOIN users tu ON tu.id::uuid = et.to_user_id
+       LEFT JOIN users fu ON fu.id = et.from_user_id
+       LEFT JOIN users tu ON tu.id = et.to_user_id
        WHERE et.type IN ('withdraw', 'burn')
        ORDER BY et.created_at DESC
        LIMIT 100`
@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
     // 总公司能量值账户 - 从 energy_accounts 表获取
     const adminAccount = await query(
       `SELECT ea.balance FROM energy_accounts ea 
-       JOIN users u ON u.id::uuid = ea.user_id 
+       JOIN users u ON u.id = ea.user_id 
        WHERE u.role = 'admin' LIMIT 1`
     );
 

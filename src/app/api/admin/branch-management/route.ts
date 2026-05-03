@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       `SELECT u.id, u.username, u.phone, u.energy_value, u.balance, u.created_at,
               COALESCE(ea.balance, 0)::text as energy_balance
        FROM users u
-       LEFT JOIN energy_accounts ea ON u.id::uuid = ea.user_id::uuid
+       LEFT JOIN energy_accounts ea ON u.id = ea.user_id
        ${branchFilter}
        ORDER BY u.created_at DESC`,
       params
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
         COALESCE(qa.balance, 0)::text as balance,
         COALESCE(qa.total_in, 0)::text as total_in
        FROM quota_accounts qa
-       JOIN users u ON qa.user_id::uuid = u.id::uuid
+       JOIN users u ON qa.user_id = u.id
        WHERE u.role = 'branch'`
     );
     console.log('[BranchManagement] quotaAccountBalances:', quotaAccountBalances);
@@ -164,7 +164,7 @@ export async function GET(request: NextRequest) {
               COALESCE(SUM(o.amount), 0)::text as total_sales,
               COUNT(o.id)::text as order_count
        FROM orders o
-       JOIN users u ON u.id::uuid = o.user_id::uuid
+       JOIN users u ON u.id = o.user_id
        JOIN providers p ON u.provider_id = p.user_id
        WHERE o.order_type = 'buy' AND o.status = 'completed'
        GROUP BY p.branch_id`
@@ -225,7 +225,7 @@ export async function GET(request: NextRequest) {
         COALESCE(SUM(o.amount), 0)::text as total_purchase,
         COUNT(o.id)::text as order_count
        FROM users u
-       LEFT JOIN orders o ON u.id::uuid = o.user_id::uuid AND o.order_type = 'buy' AND o.status = 'completed'
+       LEFT JOIN orders o ON u.id = o.user_id AND o.order_type = 'buy' AND o.status = 'completed'
        WHERE u.role = 'member' AND u.provider_id IS NOT NULL
        GROUP BY u.id, u.provider_id, u.username`
     );

@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     const result = await query(
       `SELECT ea.*, u.username, u.role
        FROM energy_accounts ea
-       JOIN users u ON u.id::uuid = ea.user_id
+       JOIN users u ON u.id = ea.user_id
        WHERE ea.user_id = $1`,
       [userId]
     );

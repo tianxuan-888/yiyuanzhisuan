@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const accountsQuery = `
       SELECT ea.*, u.username, u.role, u.phone
       FROM energy_accounts ea
-      JOIN users u ON u.id::uuid = ea.user_id
+      JOIN users u ON u.id = ea.user_id
       ${whereClause}
       ORDER BY ea.balance DESC
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     const countQuery = `
       SELECT COUNT(*) as total
       FROM energy_accounts ea
-      JOIN users u ON u.id::uuid = ea.user_id
+      JOIN users u ON u.id = ea.user_id
       ${whereClause}
     `;
     const countResult = await query(countQuery, countParams);
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
              COALESCE(SUM(ea.total_in), 0) as total_in,
              COALESCE(SUM(ea.total_out), 0) as total_out
       FROM users u
-      LEFT JOIN energy_accounts ea ON u.id::uuid = ea.user_id
+      LEFT JOIN energy_accounts ea ON u.id = ea.user_id
       WHERE u.role IN ('branch', 'provider', 'member')
       GROUP BY u.role
     `;

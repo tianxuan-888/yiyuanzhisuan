@@ -35,8 +35,8 @@ export async function GET(request: NextRequest) {
              fu.username as from_username, fu.role as from_role,
              tu.username as to_username, tu.role as to_role
       FROM energy_transactions et
-      LEFT JOIN users fu ON fu.id::uuid = et.from_user_id
-      LEFT JOIN users tu ON tu.id::uuid = et.to_user_id
+      LEFT JOIN users fu ON fu.id = et.from_user_id
+      LEFT JOIN users tu ON tu.id = et.to_user_id
       ${whereClause}
       ORDER BY et.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -50,8 +50,8 @@ export async function GET(request: NextRequest) {
     const countQuery = `
       SELECT COUNT(*) as total
       FROM energy_transactions et
-      LEFT JOIN users fu ON fu.id::uuid = et.from_user_id
-      LEFT JOIN users tu ON tu.id::uuid = et.to_user_id
+      LEFT JOIN users fu ON fu.id = et.from_user_id
+      LEFT JOIN users tu ON tu.id = et.to_user_id
       ${whereClause}
     `;
     const countResult = await query(countQuery, countParams);

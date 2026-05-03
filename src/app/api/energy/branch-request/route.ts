@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
     let sql = `
       SELECT r.*, u.username as branch_name, u.phone as branch_phone
       FROM energy_branch_requests r
-      JOIN users u ON u.id::uuid = r.branch_id
+      JOIN users u ON u.id = r.branch_id
     `;
     const params: any[] = [];
     const conditions: string[] = [];

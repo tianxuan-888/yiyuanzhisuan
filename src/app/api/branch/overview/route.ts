@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       `SELECT u.id, u.username, u.energy_value, u.balance, u.phone,
               COALESCE(ea.balance, 0) as energy_balance
        FROM users u
-       LEFT JOIN energy_accounts ea ON u.id::uuid = ea.user_id
+       LEFT JOIN energy_accounts ea ON u.id = ea.user_id
        WHERE u.id = $1 AND u.role = 'branch'`,
       [branchId]
     );

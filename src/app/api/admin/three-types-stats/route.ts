@@ -203,7 +203,7 @@ export async function GET(request: NextRequest) {
       const energyHoldings = await query<{ role: string; balance: string }>(
         `SELECT u.role, COALESCE(ea.balance, 0)::text as balance
          FROM users u
-         LEFT JOIN energy_accounts ea ON u.id::uuid = ea.user_id
+         LEFT JOIN energy_accounts ea ON u.id = ea.user_id
          WHERE u.role IS NOT NULL`
       );
       

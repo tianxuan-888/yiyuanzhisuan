@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN user_products up ON o.user_product_id = up.id
       LEFT JOIN products p ON o.product_id = p.id OR up.product_id = p.id
       WHERE o.order_type = 'buy'
-        AND p.provider_id = $1::uuid
+        AND p.provider_id = $1
     `;
     
     const params: any[] = [providerId];

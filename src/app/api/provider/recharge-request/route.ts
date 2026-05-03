@@ -31,8 +31,8 @@ export async function GET(request: NextRequest) {
              r.reviewed_by, r.reviewed_at, r.created_at, r.updated_at,
              u.username as member_name, u.phone as member_phone
       FROM energy_recharge_records r
-      LEFT JOIN users u ON r.member_id::varchar = u.id
-      WHERE r.provider_id = $1::uuid
+      LEFT JOIN users u ON r.member_id = u.id
+      WHERE r.provider_id = $1
     `;
     const params: unknown[] = [providerId];
 

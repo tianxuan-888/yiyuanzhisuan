@@ -100,7 +100,10 @@ async function executeSql(supabase: SupabaseClient, sql: string, params?: unknow
       }
       const token = `__PARAM_${i}__`;
       placeholders.push(replacement);
-      finalSql = finalSql.replace(new RegExp('\\$' + (i + 1), 'g'), token);
+      // 替换 $N，但如果 $N 后面已经有 ::类型 则保留（先替换手动类型转换的情况）
+      finalSql = finalSql.replace(new RegExp('\\$' + (i + 1) + '(?=::)', 'g'), token);
+      // 再替换不带 :: 的 $N
+      finalSql = finalSql.replace(new RegExp('\\$' + (i + 1) + '(?!::)', 'g'), token);
     }
     // 第二步：将所有临时占位符替换为实际值
     for (let i = 0; i < placeholders.length; i++) {
