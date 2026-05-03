@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, queryOne } from '@/storage/database/pg-client';
+import { query, queryOne, execute } from '@/storage/database/pg-client';
 
 // 获取额度分配列表
 export async function GET(request: NextRequest) {
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 扣除分公司余额
-    await query(
+    await execute(
       `UPDATE quota_accounts SET 
          balance = balance - $2,
          total_out = total_out + $2,
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
     );
 
     // 给服务商增加额度（插入或更新 quota_accounts）
-    await query(
+    await execute(
       `INSERT INTO quota_accounts (user_id, balance, total_in, total_out, created_at, updated_at)
        VALUES ($1, $2, $2, 0, NOW(), NOW())
        ON CONFLICT (user_id) DO UPDATE SET
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
     );
 
     // 记录额度分配流水
-    await query(
+    await execute(
       `INSERT INTO quota_records (from_user_id, to_user_id, amount, type, note, created_at)
        VALUES ($1, $2, $3, 'allocation', $4, NOW())`,
       [branchId, providerId, quota, `分配给服务商 ${provider.username} 的额度`]

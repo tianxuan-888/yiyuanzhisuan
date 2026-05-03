@@ -40,21 +40,21 @@ export async function POST(request: NextRequest) {
     switch (clearType) {
       case 'energy':
         // 只清除能量值相关数据
-        await query('DELETE FROM energy_transactions');
-        await query('DELETE FROM energy_withdraw_requests');
-        await query('DELETE FROM energy_accounts');
-        await query(`UPDATE users SET energy_value = 0, updated_at = NOW()`);
+        await execute('DELETE FROM energy_transactions');
+        await execute('DELETE FROM energy_withdraw_requests');
+        await execute('DELETE FROM energy_accounts');
+        await execute(`UPDATE users SET energy_value = 0, updated_at = NOW()`);
         results.energy = { success: true, note: '能量值数据已清除' };
         break;
         
       case 'quota':
         // 只清除算力额度相关数据
-        await query('DELETE FROM quota_requests');
-        await query('DELETE FROM quota_allocations');
-        await query('DELETE FROM quota_accounts');
-        await query(`UPDATE users SET balance = 0, updated_at = NOW()`);
+        await execute('DELETE FROM quota_requests');
+        await execute('DELETE FROM quota_allocations');
+        await execute('DELETE FROM quota_accounts');
+        await execute(`UPDATE users SET balance = 0, updated_at = NOW()`);
         // 重置管理员额度
-        await query(`
+        await execute(`
           INSERT INTO quota_accounts (user_id, balance, total_in, total_out)
           SELECT id, 100000000, 100000000, 0 FROM users WHERE role = 'admin'
           ON CONFLICT (user_id) DO UPDATE SET balance = 100000000, total_in = 100000000, total_out = 0
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
         await execute('DELETE FROM quota_accounts');
         await execute(`UPDATE users SET energy_value = 0, balance = 0, updated_at = NOW()`);
         // 初始化管理员额度
-        await query(`
+        await execute(`
           INSERT INTO quota_accounts (user_id, balance, total_in, total_out)
           SELECT id, 100000000, 100000000, 0 FROM users WHERE role = 'admin'
           ON CONFLICT (user_id) DO UPDATE SET balance = 100000000, total_in = 100000000, total_out = 0

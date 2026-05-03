@@ -8,11 +8,15 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.COZE_SUPABASE_URL || '';
+// 优先使用用户自己的 Supabase（NEXT_PUBLIC_SUPABASE_URL / SUPABASE_URL）
+// Coze 平台的 COZE_SUPABASE_URL 可能指向不同的数据库实例
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || process.env.COZE_SUPABASE_URL || '';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.COZE_SUPABASE_SERVICE_ROLE_KEY || '';
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.error('[supabase-client] Missing SUPABASE_URL or SUPABASE_SERVICE_KEY');
+} else {
+  console.log(`[supabase-client] Using URL: ${SUPABASE_URL.substring(0, 40)}...`);
 }
 
 // 单例 Supabase 客户端
@@ -110,22 +114,26 @@ async function executeSql(supabase: SupabaseClient, sql: string, params?: unknow
   // SELECT 语句：通过 rpc_query 执行
   if (command === 'SELECT' || command === 'WITH') {
     try {
+      console.log('[supabase-client] rpc_query SQL:', trimmedSql.substring(0, 200));
       const { data, error } = await supabase.rpc('rpc_query', { sql_query: trimmedSql });
+      console.log('[supabase-client] rpc_query result:', JSON.stringify(data)?.substring(0, 200), 'error:', error?.message);
       if (!error) {
         const rows = Array.isArray(data) ? data : (data ? [data] : []);
         return { rows, rowCount: rows.length, command };
       }
+      console.error('[supabase-client] rpc_query error:', error.message);
       if (!error.message.includes('Could not find the function')) {
-        console.error('[supabase-client] rpc_query error:', error.message);
         throw new Error('Supabase RPC error: ' + error.message);
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
+      console.error('[supabase-client] rpc_query catch:', msg);
       if (!msg.includes('Could not find the function')) {
         throw e;
       }
     }
     // rpc_query 不可用，fallthrough 到解析方式
+    console.warn('[supabase-client] rpc_query unavailable, using parseAndExecute fallback');
     return parseAndExecute(supabase, trimmedSql);
   }
 

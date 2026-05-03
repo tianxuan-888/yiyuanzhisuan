@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { queryOne, query } from '@/lib/pg-client';
+import { queryOne, execute } from '@/lib/pg-client';
 import { hashPassword } from '@/lib/password';
 import { getVerifyCode, deleteVerifyCode } from '@/lib/verify-code';
 
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await hashPassword(newPassword);
 
     // 更新密码
-    await query('UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2', [
+    await execute('UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2', [
       hashedPassword,
       user.id,
     ]);
