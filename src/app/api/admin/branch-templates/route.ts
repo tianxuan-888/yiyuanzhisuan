@@ -71,35 +71,27 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 分配算力模板给分公司（总公司操作）
+// 授权算力模板给分公司（总公司操作，纯授权不涉及额度）
 export async function POST(request: NextRequest) {
   try {
     const user = authenticateRequest(request);
     if (!user || !authorizeRole(user, ['admin'])) {
-      return NextResponse.json({ error: '只有总公司可以分配模板' }, { status: 403 });
+      return NextResponse.json({ error: '只有总公司可以授权模板' }, { status: 403 });
     }
 
     const body = await request.json();
-    const { templateId, branchId, quotaAmount } = body;
+    const { templateId, branchId } = body;
 
-    if (!templateId || !branchId || !quotaAmount) {
+    if (!templateId || !branchId) {
       return NextResponse.json(
-        { error: '缺少必要参数' },
-        { status: 400 }
-      );
-    }
-
-    const quota = parseFloat(quotaAmount);
-    if (quota < 10000) {
-      return NextResponse.json(
-        { error: '最小分配额度为10000' },
+        { error: '缺少必要参数（模板ID和分公司ID）' },
         { status: 400 }
       );
     }
 
     // 验证模板存在
-    const template = await queryOne<{ id: string; name: string }>(
-      'SELECT id, name FROM product_templates WHERE id = $1 AND status = $2',
+    const template = await queryOne<{ id: string; name: string; period: number; total_rate: number; market_rate: number; profit_rate: number }>(
+      'SELECT id, name, period, total_rate, market_rate, profit_rate FROM product_templates WHERE id = $1 AND status = $2',
       [templateId, 'active']
     );
 
@@ -117,7 +109,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '分公司不存在' }, { status: 404 });
     }
 
-    // 检查是否已有相同的分配记录
+    // 检查是否已授权过该模板给该分公司
     const existing = await queryOne<{ id: string }>(
       `SELECT id FROM quota_allocations 
        WHERE template_id = $1 AND branch_id = $2 AND provider_id IS NULL`,
@@ -125,35 +117,34 @@ export async function POST(request: NextRequest) {
     );
 
     if (existing) {
-      // 更新额度
-      await query(
-        `UPDATE quota_allocations 
-         SET quota_amount = $1, used_amount = 0, status = 'active', updated_at = NOW()
-         WHERE id = $2`,
-        [quota, existing.id]
-      );
-    } else {
-      // 创建新分配
-      await query(
-        `INSERT INTO quota_allocations (template_id, branch_id, quota_amount, used_amount, status)
-         VALUES ($1, $2, $3, 0, 'active')`,
-        [templateId, branchId, quota]
-      );
+      return NextResponse.json({
+        success: true,
+        message: `该分公司已获得「${template.name}」模板授权`,
+        data: { templateId, branchId, alreadyAuthorized: true },
+      });
     }
+
+    // 创建授权记录（模板授权，额度为0，不涉及额度分配）
+    await query(
+      `INSERT INTO quota_allocations (template_id, branch_id, quota_amount, used_amount, status)
+       VALUES ($1, $2, 0, 0, 'active')`,
+      [templateId, branchId]
+    );
 
     return NextResponse.json({
       success: true,
-      message: `已成功分配 ${quota.toLocaleString()} 额度给 ${branch.username}`,
+      message: `已成功授权「${template.name}」模板给 ${branch.username}，分公司可使用该模板为服务商生成产品`,
       data: {
         templateId,
         branchId,
-        quotaAmount: quota,
+        templateName: template.name,
+        branchName: branch.username,
       },
     });
   } catch (error) {
-    console.error('分配模板失败:', error);
+    console.error('授权模板失败:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : '分配模板失败' },
+      { error: error instanceof Error ? error.message : '授权模板失败' },
       { status: 500 }
     );
   }

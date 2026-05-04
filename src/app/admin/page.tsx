@@ -280,7 +280,6 @@ export default function AdminPage() {
   const [allocateForm, setAllocateForm] = useState({
     templateId: '',
     branchId: '',
-    quotaAmount: '',
   });
   const [selectingTemplate, setSelectingTemplate] = useState<any>(null);
   const [branchesList, setBranchesList] = useState<any[]>([]);
@@ -1010,7 +1009,6 @@ export default function AdminPage() {
     setAllocateForm({
       templateId: template.id,
       branchId: '',
-      quotaAmount: '',
     });
     
     // 加载分公司列表
@@ -1029,14 +1027,8 @@ export default function AdminPage() {
 
   // 分配模板给分公司
   const handleAllocateToBranch = async () => {
-    if (!allocateForm.branchId || !allocateForm.quotaAmount) {
-      showMessage('error', '请选择分公司并填写分配额度');
-      return;
-    }
-
-    const amount = parseFloat(allocateForm.quotaAmount);
-    if (amount < 10000) {
-      showMessage('error', '最小分配额度为10000');
+    if (!allocateForm.branchId) {
+      showMessage('error', '请选择分公司');
       return;
     }
 
@@ -1047,7 +1039,6 @@ export default function AdminPage() {
         body: JSON.stringify({
           templateId: allocateForm.templateId,
           branchId: allocateForm.branchId,
-          quotaAmount: amount,
         }),
       });
       const data = await response.json();
@@ -7335,30 +7326,19 @@ export default function AdminPage() {
                 </select>
               </div>
 
-              {/* 分配额度 */}
-              <div>
-                <Label>分配额度</Label>
-                <Input
-                  type="number"
-                  placeholder="请输入分配额度（最低10000）"
-                  value={allocateForm.quotaAmount}
-                  onChange={(e) => setAllocateForm({...allocateForm, quotaAmount: e.target.value})}
-                  className="mt-1"
-                />
-                <p className="text-sm text-gray-500 mt-1">
-                  最低分配额度: ¥10,000
-                </p>
-              </div>
+              <p className="text-sm text-muted-foreground">
+                授权后，该分公司即可使用此模板为服务商生成对应规则的产品。
+              </p>
 
               <div className="flex justify-end gap-2 pt-4">
                 <Button variant="outline" onClick={() => setShowAllocateDialog(false)}>取消</Button>
                 <Button 
                   className="bg-purple-600" 
                   onClick={handleAllocateToBranch}
-                  disabled={submitting || !allocateForm.branchId || !allocateForm.quotaAmount}
+                  disabled={submitting || !allocateForm.branchId}
                 >
                   {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                  确认分配
+                  确认授权
                 </Button>
               </div>
             </CardContent>
