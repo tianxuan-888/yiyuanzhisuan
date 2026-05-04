@@ -786,7 +786,7 @@ export default function ProviderPage() {
             return;
         }
         if (!generateQuotaAmount || parseInt(generateQuotaAmount) < 1000) {
-            showMessage("error", "最低总额为1,000元");
+            showMessage("error", "最低总额为100元");
             return;
         }
 
@@ -818,7 +818,7 @@ export default function ProviderPage() {
 
         const amount = parseInt(generateQuotaAmount);
         if (amount < 1000) {
-            showMessage("error", "最低额度为1万元");
+            showMessage("error", "最低额度为100元");
             return;
         }
 
@@ -1543,8 +1543,8 @@ export default function ProviderPage() {
         if (!providerId)
             return;
 
-        if (!applyQuotaAmount || parseFloat(applyQuotaAmount) < 10000) {
-            showMessage("error", "申请额度不能少于10,000元");
+        if (!applyQuotaAmount || parseFloat(applyQuotaAmount) < 5000) {
+            showMessage("error", "申请额度不能少于5,000元");
             return;
         }
 
@@ -2108,7 +2108,7 @@ export default function ProviderPage() {
                             </CardHeader>
                             <CardContent className="pt-2">
                                 <div className="space-y-3">
-                                    {stats.pending_quota >= 10000 && <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl border border-blue-200">
+                                    {stats.pending_quota >= 100 && <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl border border-blue-200">
                                         <p className="text-sm text-blue-700 font-medium mb-2">您有待使用的额度: ¥{(stats.pending_quota || 0).toLocaleString()}</p>
                                         <p className="text-xs text-blue-500">前往额度管理，一键生成算力</p>
                                     </div>}
@@ -2224,14 +2224,14 @@ export default function ProviderPage() {
                             </Card>
                             <Card className="bg-gradient-to-br from-orange-500 to-amber-600 text-white">
                                 <CardContent className="py-4">
-                                    <p className="text-orange-100 text-sm">可生成产品数</p>
-                                    <p className="text-2xl font-bold mt-1">{Math.floor((stats.available_quota || 0) / 10000) * 4} 个</p>
+                                    <p className="text-orange-100 text-sm">可生成额度</p>
+                                    <p className="text-2xl font-bold mt-1">¥{(stats.available_quota || 0).toLocaleString()}</p>
                                 </CardContent>
                             </Card>
                         </div>
 
                         {/* 快速生成产品卡片 */}
-                        {(stats.available_quota || 0) >= 10000 ? (
+                        {(stats.available_quota || 0) >= 100 ? (
                             <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-fuchsia-50">
                                 <CardContent className="py-6">
                                     <div className="flex items-center justify-between">
@@ -2241,7 +2241,7 @@ export default function ProviderPage() {
                                             </div>
                                             <div>
                                                 <p className="font-bold text-lg text-purple-800">可用额度 ¥{(stats.available_quota || 0).toLocaleString()}</p>
-                                                <p className="text-sm text-purple-600">可生成 {Math.floor((stats.available_quota || 0) / 10000) * 4} 个算力产品</p>
+                                                <p className="text-sm text-purple-600">选择模板和金额生成算力产品</p>
                                             </div>
                                         </div>
                                         <Button
@@ -2257,7 +2257,7 @@ export default function ProviderPage() {
                             <Card className="border-gray-200 bg-gray-50">
                                 <CardContent className="py-6 text-center">
                                     <AlertCircle className="w-10 h-10 mx-auto text-gray-400 mb-2" />
-                                    <p className="text-gray-500">可用额度不足，需达到1万元才能生成产品</p>
+                                    <p className="text-gray-500">可用额度不足，需达到100元才能生成产品</p>
                                     <p className="text-sm text-gray-400 mt-1">当前可用：¥{(stats.available_quota || 0).toLocaleString()}</p>
                                 </CardContent>
                             </Card>
@@ -2265,30 +2265,13 @@ export default function ProviderPage() {
 
                         <Card className="border-blue-200 bg-blue-50">
                             <CardContent className="py-4">
-                                <h4 className="font-medium text-blue-800 mb-3">💡 算力生成规则（5万额度）</h4>
-                                <div className="grid grid-cols-4 gap-4 text-sm">
-                                    <div className="p-3 bg-white rounded-lg">
-                                        <p className="text-blue-600 font-medium">小额算力</p>
-                                        <p className="text-gray-500">200-1000元 × 4个</p>
-                                        <p className="text-xs text-gray-400 mt-1">约2,400元</p>
-                                    </div>
-                                    <div className="p-3 bg-white rounded-lg">
-                                        <p className="text-blue-600 font-medium">中小算力</p>
-                                        <p className="text-gray-500">1千-6千元 × 5个</p>
-                                        <p className="text-xs text-gray-400 mt-1">约17,500元</p>
-                                    </div>
-                                    <div className="p-3 bg-white rounded-lg">
-                                        <p className="text-blue-600 font-medium">中大算力</p>
-                                        <p className="text-gray-500">6千-7千元 × 3个</p>
-                                        <p className="text-xs text-gray-400 mt-1">约19,500元</p>
-                                    </div>
-                                    <div className="p-3 bg-white rounded-lg">
-                                        <p className="text-blue-600 font-medium">大额算力</p>
-                                        <p className="text-gray-500">7千-1万元 × 3个</p>
-                                        <p className="text-xs text-gray-400 mt-1">约25,500元</p>
-                                    </div>
+                                <h4 className="font-medium text-blue-800 mb-3">💡 算力生成规则</h4>
+                                <div className="space-y-2 text-sm text-blue-700">
+                                    <p>• 只要可用额度 ≥ 100元即可生成产品</p>
+                                    <p>• 选择模板确定产品规则（周期、收益率），输入总额自动拆分</p>
+                                    <p>• 单个产品价格：100元 ~ 10,000元，金额为整数</p>
+                                    <p>• 未上架产品可删除，额度自动退回</p>
                                 </div>
-                                <p className="text-xs text-blue-600 mt-3">* 实际价格会根据额度按比例调整，价格取整到百位</p>
                             </CardContent>
                         </Card>
                         <Card>
@@ -4390,10 +4373,10 @@ export default function ProviderPage() {
                                     <label className="text-sm font-medium mb-2 block">申请金额</label>
                                     <Input
                                         type="number"
-                                        placeholder="请输入申请额度"
+                                        placeholder="请输入申请额度（最低5,000元）"
                                         value={quotaRequestAmount}
                                         onChange={(e) => setQuotaRequestAmount(e.target.value)}
-                                        min="1"
+                                        min="5000"
                                     />
                                 </div>
                                 <div>
@@ -4493,7 +4476,7 @@ export default function ProviderPage() {
                                         <div className="flex gap-3">
                                             <Input
                                                 type="number"
-                                                placeholder="请输入总额，最低1,000元"
+                                                placeholder="请输入总额，最低100元"
                                                 value={generateQuotaAmount}
                                                 onChange={(e) => {
                                                     setGenerateQuotaAmount(e.target.value);
@@ -4515,7 +4498,7 @@ export default function ProviderPage() {
                                                 )}
                                             </Button>
                                         </div>
-                                        <p className="text-xs text-gray-400">单个产品不超过1万元，金额为几百到几千元的整数</p>
+                                        <p className="text-xs text-gray-400">单个产品不超过1万元，金额为百元到几千元的整数</p>
                                     </div>
                                 )}
 

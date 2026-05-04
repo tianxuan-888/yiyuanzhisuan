@@ -11,13 +11,14 @@ import { query, queryOne } from '@/lib/pg-client';
  * - 模板只是规则定义（周期、收益率），不涉及额度
  * - 服务商选择模板 + 输入总额 → 系统生成整数价格产品
  * - 单个产品价格 ≤ 10,000
- * - 产品价格从几百到几千不等
+ * - 产品价格从百元到几千不等
+ * - 只要额度≥100即可生成产品
  * - 从服务商可用额度中扣除总额
  */
 
 /**
  * 将总额拆分为整数金额的产品列表
- * 规则：单个产品 ≤ 10,000，整数金额，优先几百到几千
+ * 规则：单个产品 ≤ 10,000，整数金额，从百元到几千
  */
 function generateProductPrices(totalAmount: number): number[] {
   if (totalAmount <= 0) return [];
@@ -25,13 +26,13 @@ function generateProductPrices(totalAmount: number): number[] {
   const prices: number[] = [];
   let remaining = totalAmount;
   
-  // 价格档位配置（几百到几千，最大1万）
+  // 价格档位配置（百元到几千，最大1万）
   const priceLevels = [
-    200, 300, 400, 500, 600, 700, 800, 900, 1000,
+    100, 200, 300, 400, 500, 600, 700, 800, 900, 1000,
     1500, 2000, 2500, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000
   ];
   
-  while (remaining >= 200) {
+  while (remaining >= 100) {
     if (remaining <= 10000) {
       // 剩余金额可以直接作为一个产品
       prices.push(remaining);
@@ -97,9 +98,9 @@ export async function GET(request: NextRequest) {
     const totalAmount = parseInt(totalAmountStr);
     const period = parseInt(periodStr);
 
-    if (isNaN(totalAmount) || totalAmount < 1000) {
+    if (isNaN(totalAmount) || totalAmount < 100) {
       return NextResponse.json(
-        { error: '最低总额为1,000元' },
+        { error: '最低总额为100元' },
         { status: 400 }
       );
     }
@@ -156,9 +157,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!totalAmount || totalAmount < 1000) {
+    if (!totalAmount || totalAmount < 100) {
       return NextResponse.json(
-        { error: '生成总额最低为1,000元' },
+        { error: '生成总额最低为100元' },
         { status: 400 }
       );
     }

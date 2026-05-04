@@ -66,6 +66,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (requesterType === 'provider' && requestedAmount < 5000) {
+      return NextResponse.json(
+        { error: '服务商申请额度最低5,000元' },
+        { status: 400 }
+      );
+    }
+
     if (!['branch', 'provider'].includes(requesterType)) {
       return NextResponse.json(
         { error: '无效的申请者类型' },
