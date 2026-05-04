@@ -1741,7 +1741,7 @@ export default function AdminPage() {
         return renderQuotaRecords();
       }
       if (quotaSubTab === 'requests') {
-        return renderQuotaRequestsInline();
+        return <QuotaRequestsPanel />;
       }
       // 默认：额度总览
       return renderQuotaOverview();
@@ -2310,8 +2310,8 @@ export default function AdminPage() {
     );
   };
 
-  // 额度申请Tab
-  const renderQuotaRequestsInline = () => {
+  // 额度申请Tab - 使用组件避免hooks规则违反
+  const QuotaRequestsPanel = React.memo(() => {
     const [applications, setApplications] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -2438,7 +2438,7 @@ export default function AdminPage() {
         </CardContent>
       </Card>
     );
-  };
+  });
 
   // 会员管理完整组件 - 使用 memo 优化防止不必要的重新渲染
   const MemberManagement = React.memo(() => {
