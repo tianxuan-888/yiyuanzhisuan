@@ -1,5 +1,5 @@
 -- ============================================
--- 纪元智科 GPU算力基建投资平台 - 完整数据库建表脚本
+-- 艺元智算 GPU算力基建投资平台 - 完整数据库建表脚本
 -- 执行位置：Supabase Dashboard → SQL Editor
 -- ============================================
 
@@ -333,7 +333,7 @@ ON CONFLICT (username) DO NOTHING;
 
 -- 插入分公司（如果有）
 INSERT INTO branches (id, name, code, region, manager_name, manager_phone) VALUES
-('00000000-0000-0000-0000-000000000010', '纪元智科华东分公司', 'BRANCH-EAST', '华东地区', '张经理', '13800000010')
+('00000000-0000-0000-0000-000000000010', '艺元智算华东分公司', 'BRANCH-EAST', '华东地区', '张经理', '13800000010')
 ON CONFLICT (code) DO NOTHING;
 
 -- 插入分公司管理员
@@ -363,7 +363,7 @@ INSERT INTO providers (id, user_id, branch_id, name, code, quota, used_quota, st
   (SELECT id FROM users WHERE username = 'member1'),
   (SELECT id FROM users WHERE username = 'member1'),
   '00000000-0000-0000-0000-000000000010',
-  '纪元智科服务商A',
+  '艺元智算服务商A',
   'PROV-001',
   50000,
   50000,
