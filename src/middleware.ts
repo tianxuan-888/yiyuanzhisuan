@@ -75,6 +75,11 @@ const PUBLIC_PATHS = [
   '/api/branch/convert-to-energy',
   '/api/branch/transfer-energy',
   '/api/admin/overview',
+  '/api/admin/income-stats',
+  '/api/admin/revenue-stats',
+  '/api/admin/fee-records',
+  '/api/admin/fee-stats',
+  '/api/admin/withdraw-review',
 ];
 
 // 静态资源和页面路径不走 API 认证

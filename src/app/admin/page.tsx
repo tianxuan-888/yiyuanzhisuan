@@ -239,6 +239,10 @@ export default function AdminPage() {
     todayIncome: 0,
     pendingSettlement: 0,
     distributed: 0,
+    totalOrders: 0,
+    todayOrders: 0,
+    totalSales: 0,
+    todaySales: 0,
   });
   const [incomeRecords, setIncomeRecords] = useState<any[]>([]);
   const [providerIncome, setProviderIncome] = useState<any[]>([]);
@@ -246,6 +250,10 @@ export default function AdminPage() {
   const [branchIncome, setBranchIncome] = useState<any[]>([]);
   const [incomeLoading, setIncomeLoading] = useState(false);
   const [incomeTypeFilter, setIncomeTypeFilter] = useState('all');
+  const [withdrawStats, setWithdrawStats] = useState<any>({
+    pendingCount: 0, pendingAmount: 0, approvedAmount: 0, actualPaid: 0, todayAmount: 0, totalRequests: 0,
+  });
+  const [withdrawList, setWithdrawList] = useState<any[]>([]);
 
   const [transferAmount, setTransferAmount] = useState('');
   const [transferNote, setTransferNote] = useState('');
@@ -636,11 +644,64 @@ export default function AdminPage() {
     }
   }, []);
 
+  // 加载收益管理数据
+  const loadIncomeData = useCallback(async (subType: string = 'overview') => {
+    try {
+      setIncomeLoading(true);
+      const res = await authFetch(`/api/admin/income-stats?subType=${subType}`);
+      const data = await res.json();
+      if (data.success) {
+        if (subType === 'overview') {
+          setIncomeStats({
+            totalIncome: data.data.summary.totalIncome || 0,
+            todayIncome: data.data.summary.todayIncome || 0,
+            pendingSettlement: data.data.summary.pendingSettlement || 0,
+            distributed: data.data.summary.distributed || 0,
+            totalOrders: data.data.summary.totalOrders || 0,
+            todayOrders: data.data.summary.todayOrders || 0,
+            totalSales: data.data.summary.totalSales || 0,
+            todaySales: data.data.summary.todaySales || 0,
+          });
+          // 更新收益趋势图表
+          if (data.data.trend?.length > 0) {
+            setChartData(data.data.trend.map((t: any) => ({
+              date: t.date,
+              收益金额: t.marketFee,
+              订单金额: t.sales,
+              订单数: t.orders,
+            })));
+          }
+        } else if (subType === 'detail') {
+          setIncomeRecords(data.data.records || []);
+        } else if (subType === 'withdraw') {
+          // 提现数据从 energy_withdraw_requests 加载
+          if (data.data.stats) {
+            setWithdrawStats(data.data.stats);
+          }
+          if (data.data.withdrawList) {
+            setWithdrawList(data.data.withdrawList);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('获取收益数据失败:', e);
+    } finally {
+      setIncomeLoading(false);
+    }
+  }, [authFetch]);
+
   useEffect(() => {
     if (!authLoading && user) {
       loadData();
     }
   }, [authLoading, user, loadData]);
+
+  // 收益管理 tab 切换时加载数据
+  useEffect(() => {
+    if (activeMenu === 'income' && user) {
+      loadIncomeData(incomeTab === 'withdraw' ? 'withdraw' : incomeTab === 'detail' ? 'detail' : 'overview');
+    }
+  }, [activeMenu, incomeTab, user, loadIncomeData]);
 
   // 系统设置 tab 切换时加载配置
   useEffect(() => {
@@ -2800,30 +2861,64 @@ export default function AdminPage() {
       {/* 收益总览内容 */}
       {incomeTab === 'overview' && (
         <>
-          {/* 统计卡片 */}
+          {/* 统计卡片 - 市场费总额 + 今日 + 订单数 + 销售额 */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
             <Card className="mobile-compact-card bg-gradient-to-br from-purple-500 to-purple-700 text-white">
               <CardContent className="p-4">
-                <div className="text-sm opacity-80">总收益</div>
-                <div className="text-3xl font-bold mt-1">¥{(incomeStats.totalIncome / 10000).toFixed(2)}万</div>
+                <div className="text-sm opacity-80 mobile-label">市场费总额</div>
+                <div className="text-3xl font-bold mt-1 mobile-num">¥{incomeStats.totalIncome.toLocaleString()}</div>
               </CardContent>
             </Card>
             <Card className="mobile-compact-card bg-gradient-to-br from-green-500 to-green-700 text-white">
               <CardContent className="p-4">
-                <div className="text-sm opacity-80">今日收益</div>
-                <div className="text-3xl font-bold mt-1">¥{(incomeStats.todayIncome / 10000).toFixed(2)}万</div>
+                <div className="text-sm opacity-80 mobile-label">今日市场费</div>
+                <div className="text-3xl font-bold mt-1 mobile-num">¥{incomeStats.todayIncome.toLocaleString()}</div>
               </CardContent>
             </Card>
             <Card className="mobile-compact-card bg-gradient-to-br from-orange-500 to-orange-700 text-white">
               <CardContent className="p-4">
-                <div className="text-sm opacity-80">待结算</div>
-                <div className="text-3xl font-bold mt-1">¥{(incomeStats.pendingSettlement / 10000).toFixed(2)}万</div>
+                <div className="text-sm opacity-80 mobile-label">总订单数</div>
+                <div className="text-3xl font-bold mt-1 mobile-num">{incomeStats.totalOrders || 0}</div>
               </CardContent>
             </Card>
             <Card className="mobile-compact-card bg-gradient-to-br from-blue-500 to-blue-700 text-white">
               <CardContent className="p-4">
-                <div className="text-sm opacity-80">已发放</div>
-                <div className="text-3xl font-bold mt-1">¥{(incomeStats.distributed / 10000).toFixed(2)}万</div>
+                <div className="text-sm opacity-80 mobile-label">总销售额</div>
+                <div className="text-3xl font-bold mt-1 mobile-num">¥{(incomeStats.totalSales || 0).toLocaleString()}</div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 市场费分配比例卡片 */}
+          <div className="grid grid-cols-5 gap-2 md:gap-3">
+            <Card className="mobile-compact-card text-center">
+              <CardContent className="p-3">
+                <div className="text-xs text-gray-500 mobile-label">服务商 70%</div>
+                <div className="text-lg font-bold text-purple-600 mobile-num">¥{Math.floor(incomeStats.totalIncome * 0.70).toLocaleString()}</div>
+              </CardContent>
+            </Card>
+            <Card className="mobile-compact-card text-center">
+              <CardContent className="p-3">
+                <div className="text-xs text-gray-500 mobile-label">直推奖励 10%</div>
+                <div className="text-lg font-bold text-pink-600 mobile-num">¥{Math.floor(incomeStats.totalIncome * 0.10).toLocaleString()}</div>
+              </CardContent>
+            </Card>
+            <Card className="mobile-compact-card text-center">
+              <CardContent className="p-3">
+                <div className="text-xs text-gray-500 mobile-label">上级服务商 10%</div>
+                <div className="text-lg font-bold text-indigo-600 mobile-num">¥{Math.floor(incomeStats.totalIncome * 0.10).toLocaleString()}</div>
+              </CardContent>
+            </Card>
+            <Card className="mobile-compact-card text-center">
+              <CardContent className="p-3">
+                <div className="text-xs text-gray-500 mobile-label">分公司 5%</div>
+                <div className="text-lg font-bold text-teal-600 mobile-num">¥{Math.floor(incomeStats.totalIncome * 0.05).toLocaleString()}</div>
+              </CardContent>
+            </Card>
+            <Card className="mobile-compact-card text-center">
+              <CardContent className="p-3">
+                <div className="text-xs text-gray-500 mobile-label">公司运营 5%</div>
+                <div className="text-lg font-bold text-emerald-600 mobile-num">¥{Math.floor(incomeStats.totalIncome * 0.05).toLocaleString()}</div>
               </CardContent>
             </Card>
           </div>
@@ -2849,11 +2944,11 @@ export default function AdminPage() {
             </CardContent>
           </Card>
 
-          {/* 收益来源分布 */}
-          <div className="grid grid-cols-2 gap-6">
+          {/* 收益来源分布 - 市场费分配比例 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>收益来源分布</CardTitle>
+                <CardTitle>市场费分配比例</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="h-64">
@@ -2861,9 +2956,11 @@ export default function AdminPage() {
                     <PieChart>
                       <Pie
                         data={[
-                          { name: '产品收益', value: 65, color: '#8b5cf6' },
-                          { name: '市场费', value: 25, color: '#f59e0b' },
-                          { name: '其他收益', value: 10, color: '#10b981' },
+                          { name: '服务商 70%', value: Math.max(incomeStats.totalIncome * 0.70, 1), color: '#8b5cf6' },
+                          { name: '直推奖励 10%', value: Math.max(incomeStats.totalIncome * 0.10, 1), color: '#ec4899' },
+                          { name: '上级服务商 10%', value: Math.max(incomeStats.totalIncome * 0.10, 1), color: '#6366f1' },
+                          { name: '分公司 5%', value: Math.max(incomeStats.totalIncome * 0.05, 1), color: '#14b8a6' },
+                          { name: '公司运营 5%', value: Math.max(incomeStats.totalIncome * 0.05, 1), color: '#10b981' },
                         ]}
                         cx="50%"
                         cy="50%"
@@ -2874,9 +2971,11 @@ export default function AdminPage() {
                         dataKey="value"
                       >
                         {[
-                          { name: '产品收益', value: 65, color: '#8b5cf6' },
-                          { name: '市场费', value: 25, color: '#f59e0b' },
-                          { name: '其他收益', value: 10, color: '#10b981' },
+                          { color: '#8b5cf6' },
+                          { color: '#ec4899' },
+                          { color: '#6366f1' },
+                          { color: '#14b8a6' },
+                          { color: '#10b981' },
                         ].map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
@@ -2890,40 +2989,42 @@ export default function AdminPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>服务商收益排行 TOP5</CardTitle>
+                <CardTitle>服务商能量值排行 TOP5</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {[
-                    { rank: 1, name: '服务商A', income: 125000, percent: 32 },
-                    { rank: 2, name: '服务商B', income: 98000, percent: 25 },
-                    { rank: 3, name: '服务商C', income: 75000, percent: 19 },
-                    { rank: 4, name: '服务商D', income: 52000, percent: 13 },
-                    { rank: 5, name: '服务商E', income: 45000, percent: 11 },
-                  ].map((item) => (
-                    <div key={item.rank} className="flex items-center gap-3">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                        item.rank === 1 ? 'bg-yellow-500 text-white' :
-                        item.rank === 2 ? 'bg-gray-400 text-white' :
-                        item.rank === 3 ? 'bg-amber-600 text-white' :
-                        'bg-gray-200 text-gray-600'
-                      }`}>
-                        {item.rank}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex justify-between text-sm">
-                          <span>{item.name}</span>
-                          <span className="font-medium">¥{item.income.toLocaleString()}</span>
+                  {providers.slice(0, 5).map((p: any, idx: number) => {
+                    const energy = p.energyValue || p.energy_value || p.totalEnergy || 0;
+                    const maxEnergy = (providers[0] as any)?.energyValue || (providers[0] as any)?.energy_value || (providers[0] as any)?.totalEnergy || 1;
+                    const percent = Math.max(Math.round((energy / maxEnergy) * 100), 5);
+                    return (
+                      <div key={p.id || idx} className="flex items-center gap-3">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                          idx === 0 ? 'bg-yellow-500 text-white' :
+                          idx === 1 ? 'bg-gray-400 text-white' :
+                          idx === 2 ? 'bg-amber-600 text-white' :
+                          'bg-gray-200 text-gray-600'
+                        }`}>
+                          {idx + 1}
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
-                          <div
-                            className="bg-purple-600 h-1.5 rounded-full"
-                            style={{ width: `${item.percent}%` }}
-                          />
+                        <div className="flex-1">
+                          <div className="flex justify-between text-sm">
+                            <span>{p.username || p.name || `服务商${idx + 1}`}</span>
+                            <span className="font-medium">{energy.toLocaleString()} 能量值</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                            <div
+                              className="bg-purple-600 h-1.5 rounded-full"
+                              style={{ width: `${percent}%` }}
+                            />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
+                  {providers.length === 0 && (
+                    <div className="text-center text-gray-400 py-4">暂无服务商数据</div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -2973,27 +3074,14 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* 收益明细内容 */}
+      {/* 收益明细内容 - 每笔购买订单的市场费分配 */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>收益明细</CardTitle>
+            <CardTitle>收益明细（市场费分配）</CardTitle>
             <div className="flex gap-2">
-              <select
-                value={incomeTypeFilter}
-                onChange={(e) => setIncomeTypeFilter(e.target.value)}
-                className="border rounded px-3 py-2"
-              >
-                <option value="all">全部类型</option>
-                <option value="product">产品收益</option>
-                <option value="market">市场费</option>
-                <option value="other">其他</option>
-              </select>
-              <Button variant="outline" onClick={() => {}}>
+              <Button variant="outline" onClick={() => loadIncomeData('detail')}>
                 <RefreshCw className="w-4 h-4 mr-2" />刷新
-              </Button>
-              <Button className="bg-purple-600">
-                <Download className="w-4 h-4 mr-2" />导出
               </Button>
             </div>
           </div>
@@ -3003,40 +3091,39 @@ export default function AdminPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>日期</TableHead>
-                <TableHead>类型</TableHead>
-                <TableHead>金额</TableHead>
-                <TableHead>来源</TableHead>
+                <TableHead>产品</TableHead>
+                <TableHead>购买价</TableHead>
+                <TableHead>市场费</TableHead>
+                <TableHead>服务商70%</TableHead>
+                <TableHead>分公司5%</TableHead>
+                <TableHead>公司5%</TableHead>
+                <TableHead>买家</TableHead>
                 <TableHead>服务商</TableHead>
-                <TableHead>状态</TableHead>
-                <TableHead>操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {[
-                { id: 1, date: '2026-04-16', type: 'product', typeName: '产品收益', amount: 5000, source: '购买产品', provider: '服务商A', status: 'completed', statusName: '已发放' },
-                { id: 2, date: '2026-04-16', type: 'market', typeName: '市场费', amount: 2500, source: '卖出产品', provider: '服务商A', status: 'pending', statusName: '待结算' },
-                { id: 3, date: '2026-04-15', type: 'product', typeName: '产品收益', amount: 8000, source: '购买产品', provider: '服务商B', status: 'completed', statusName: '已发放' },
-                { id: 4, date: '2026-04-15', type: 'market', typeName: '市场费', amount: 4000, source: '卖出产品', provider: '服务商B', status: 'completed', statusName: '已发放' },
-                { id: 5, date: '2026-04-14', type: 'other', typeName: '其他收益', amount: 1200, source: '活动奖励', provider: '服务商C', status: 'completed', statusName: '已发放' },
-              ].map((record) => (
+              {incomeRecords.length > 0 ? incomeRecords.map((record: any) => (
                 <TableRow key={record.id}>
-                  <TableCell className="font-mono text-sm">{record.date}</TableCell>
+                  <TableCell className="font-mono text-sm whitespace-nowrap">{record.date?.substring(0, 10)}</TableCell>
                   <TableCell>
-                    <Badge variant="outline">{record.typeName}</Badge>
+                    <div className="text-sm">{record.productName || '-'}</div>
+                    <div className="text-xs text-gray-400">{record.period}天</div>
                   </TableCell>
-                  <TableCell className="text-purple-600 font-medium">¥{record.amount.toLocaleString()}</TableCell>
-                  <TableCell>{record.source}</TableCell>
-                  <TableCell>{record.provider}</TableCell>
-                  <TableCell>
-                    <Badge className={record.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}>
-                      {record.statusName}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Button size="sm" variant="ghost">详情</Button>
+                  <TableCell className="font-medium">¥{(record.purchasePrice || 0).toLocaleString()}</TableCell>
+                  <TableCell className="text-purple-600 font-medium">¥{(record.marketFee || 0).toLocaleString()}</TableCell>
+                  <TableCell className="text-purple-500">¥{(record.shareDetail?.provider || 0).toLocaleString()}</TableCell>
+                  <TableCell className="text-teal-500">¥{(record.shareDetail?.branch || 0).toLocaleString()}</TableCell>
+                  <TableCell className="text-emerald-500">¥{(record.shareDetail?.company || 0).toLocaleString()}</TableCell>
+                  <TableCell className="text-sm">{record.buyerName || '-'}</TableCell>
+                  <TableCell className="text-sm">{record.providerName || '-'}</TableCell>
+                </TableRow>
+              )) : (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center text-gray-400 py-8">
+                    {incomeLoading ? '加载中...' : '暂无收益记录'}
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -3051,26 +3138,26 @@ export default function AdminPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
         <Card className="mobile-compact-card bg-gradient-to-br from-purple-500 to-purple-700 text-white">
           <CardContent className="p-4">
-            <div className="text-sm opacity-80">待审核</div>
-            <div className="text-3xl font-bold mt-1">0</div>
+            <div className="text-sm opacity-80 mobile-label">待审核</div>
+            <div className="text-3xl font-bold mt-1 mobile-num">{withdrawStats.pendingCount || 0}</div>
           </CardContent>
         </Card>
         <Card className="mobile-compact-card bg-gradient-to-br from-orange-500 to-orange-700 text-white">
           <CardContent className="p-4">
-            <div className="text-sm opacity-80">待发放</div>
-            <div className="text-3xl font-bold mt-1">¥0</div>
+            <div className="text-sm opacity-80 mobile-label">待发放</div>
+            <div className="text-3xl font-bold mt-1 mobile-num">¥{(withdrawStats.pendingAmount || 0).toLocaleString()}</div>
           </CardContent>
         </Card>
         <Card className="mobile-compact-card bg-gradient-to-br from-green-500 to-green-700 text-white">
           <CardContent className="p-4">
-            <div className="text-sm opacity-80">已发放</div>
-            <div className="text-3xl font-bold mt-1">¥0</div>
+            <div className="text-sm opacity-80 mobile-label">已发放</div>
+            <div className="text-3xl font-bold mt-1 mobile-num">¥{(withdrawStats.actualPaid || 0).toLocaleString()}</div>
           </CardContent>
         </Card>
         <Card className="mobile-compact-card bg-gradient-to-br from-blue-500 to-blue-700 text-white">
           <CardContent className="p-4">
-            <div className="text-sm opacity-80">本月总额</div>
-            <div className="text-3xl font-bold mt-1">¥0</div>
+            <div className="text-sm opacity-80 mobile-label">本月总额</div>
+            <div className="text-3xl font-bold mt-1 mobile-num">¥{(withdrawStats.todayAmount || 0).toLocaleString()}</div>
           </CardContent>
         </Card>
       </div>
@@ -3080,7 +3167,7 @@ export default function AdminPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>提现申请列表</CardTitle>
-            <Button variant="outline">
+            <Button variant="outline" onClick={() => loadIncomeData('withdraw')}>
               <RefreshCw className="w-4 h-4 mr-2" />刷新
             </Button>
           </div>
@@ -3090,7 +3177,7 @@ export default function AdminPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>申请时间</TableHead>
-                <TableHead>服务商</TableHead>
+                <TableHead>申请人</TableHead>
                 <TableHead>提现金额</TableHead>
                 <TableHead>手续费(5%)</TableHead>
                 <TableHead>实发金额</TableHead>
@@ -3100,11 +3187,49 @@ export default function AdminPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              <TableRow>
-                <TableCell colSpan={8} className="text-center text-gray-500 py-8">
-                  暂无提现申请记录
-                </TableCell>
-              </TableRow>
+              {withdrawList.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center text-gray-500 py-8">
+                    暂无提现申请记录
+                  </TableCell>
+                </TableRow>
+              ) : withdrawList.map((w: any) => (
+                <TableRow key={w.id}>
+                  <TableCell className="text-xs">{w.createdAt?.substring(0, 16) || '-'}</TableCell>
+                  <TableCell>{w.username || w.userId?.substring(0, 8) || '-'}</TableCell>
+                  <TableCell>¥{(w.amount || 0).toLocaleString()}</TableCell>
+                  <TableCell>¥{(w.fee || 0).toLocaleString()}</TableCell>
+                  <TableCell>¥{(w.actualAmount || 0).toLocaleString()}</TableCell>
+                  <TableCell className="text-xs">{w.alipayAccount || '-'}</TableCell>
+                  <TableCell>
+                    <Badge variant={w.status === 'pending' ? 'outline' : w.status === 'approved' ? 'default' : 'secondary'}>
+                      {w.status === 'pending' ? '待审核' : w.status === 'approved' ? '已通过' : w.status === 'rejected' ? '已拒绝' : w.status === 'completed' ? '已发放' : w.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {w.status === 'pending' && (
+                      <div className="flex gap-1">
+                        <Button size="sm" variant="default" onClick={async () => {
+                          await authFetch('/api/energy/approve-withdraw', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ requestId: w.id, reviewerId: user!.id, action: 'approve' }),
+                          });
+                          loadIncomeData('withdraw');
+                        }}>通过</Button>
+                        <Button size="sm" variant="destructive" onClick={async () => {
+                          await authFetch('/api/energy/approve-withdraw', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ requestId: w.id, reviewerId: user!.id, action: 'reject' }),
+                          });
+                          loadIncomeData('withdraw');
+                        }}>拒绝</Button>
+                      </div>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </CardContent>
