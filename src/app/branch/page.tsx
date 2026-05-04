@@ -136,7 +136,6 @@ export default function BranchPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [quotaSubTab, setQuotaSubTab] = useState('overview');
-  const [showQuotaRequestDialog, setShowQuotaRequestDialog] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   
@@ -1727,7 +1726,7 @@ export default function BranchPage() {
                           <Send className="w-5 h-5 text-purple-600" />
                           向总公司申请额度
                         </div>
-                        <Button size="sm" onClick={() => setShowQuotaRequestDialog(true)} className="bg-purple-600 hover:bg-purple-700">
+                        <Button size="sm" onClick={() => setShowQuotaApplyDialog(true)} className="bg-purple-600 hover:bg-purple-700">
                           申请额度
                         </Button>
                       </CardTitle>
@@ -1784,7 +1783,7 @@ export default function BranchPage() {
                           <FileText className="w-5 h-5 text-blue-600" />
                           我的额度申请记录
                         </div>
-                        <Button size="sm" onClick={() => setShowQuotaRequestDialog(true)}>
+                        <Button size="sm" onClick={() => setShowQuotaApplyDialog(true)}>
                           <PlusCircle className="w-4 h-4 mr-1" />申请额度
                         </Button>
                       </CardTitle>
