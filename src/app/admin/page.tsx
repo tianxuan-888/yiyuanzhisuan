@@ -3820,20 +3820,20 @@ export default function AdminPage() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {templates.length > 0 ? templates.map(template => (
             <Card key={template.id} className="border-purple-200 hover:shadow-lg transition-shadow">
               <CardContent className="pt-4">
                 <div className="flex justify-between items-start mb-3">
                   <div>
-                    <h4 className="font-medium text-lg">{template.name}</h4>
+                    <h4 className="font-medium text-sm md:text-lg truncate">{template.name}</h4>
                     <p className="text-sm text-gray-500">代码: {template.code}</p>
                   </div>
                   <Badge className={template.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}>
                     {template.status === 'active' ? '启用中' : '已禁用'}
                   </Badge>
                 </div>
-                <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="p-2 bg-purple-50 rounded">
                     <p className="text-gray-500">周期</p>
                     <p className="font-medium text-purple-600">{template.period}天</p>
@@ -3851,10 +3851,10 @@ export default function AdminPage() {
                     <p className="font-medium text-blue-600">{template.profit_rate}%</p>
                   </div>
                 </div>
-                <div className="mt-3 pt-3 border-t flex justify-between items-center">
-                  <span className="text-sm text-gray-500">最小额度: ¥{template.min_quota?.toLocaleString()}</span>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="border-purple-600 text-purple-600" onClick={() => openAllocateDialog(template)}>
+                <div className="mt-2 pt-2 border-t flex flex-wrap justify-between items-center gap-1">
+                  <span className="text-xs text-gray-500">最小额度: ¥{template.min_quota?.toLocaleString()}</span>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="outline" className="border-purple-600 text-purple-600 text-xs" onClick={() => openAllocateDialog(template)}>
                       <Building2 className="w-4 h-4 mr-1" />分配给分公司
                     </Button>
                     <Button size="sm" variant="ghost"><Edit className="w-4 h-4" /></Button>
@@ -3864,7 +3864,7 @@ export default function AdminPage() {
               </CardContent>
             </Card>
           )) : (
-            <div className="col-span-2 text-center py-12 text-gray-500">
+            <div className="col-span-1 md:col-span-2 text-center py-12 text-gray-500">
               <Package className="w-16 h-16 mx-auto mb-4 text-gray-300" />
               <p>暂无算力模板，点击上方按钮创建</p>
             </div>
