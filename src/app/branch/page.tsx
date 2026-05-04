@@ -1242,35 +1242,35 @@ export default function BranchPage() {
 
       {/* 顶部导航 - 深紫色主题 */}
       <header className="bg-gradient-to-r from-violet-900 to-purple-900 shadow-lg sticky top-0 z-40">
-        <div className="container mx-auto px-6 py-4">
+        <div className="container mx-auto px-3 md:px-6 py-3 md:py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-white/20 backdrop-blur flex items-center justify-center">
-                <Building2 className="w-6 h-6 text-white" />
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-white/20 backdrop-blur flex items-center justify-center">
+                <Building2 className="w-5 h-5 md:w-6 md:h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-white">分公司管理后台</h1>
-                <p className="text-xs text-white/70">Branch Management System</p>
+                <h1 className="text-base md:text-xl font-bold text-white">分公司管理后台</h1>
+                <p className="text-xs text-white/70 hidden md:block">Branch Management System</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <Badge className="bg-white/20 text-white backdrop-blur">
+            <div className="flex items-center gap-2 md:gap-3">
+              <Badge className="bg-white/20 text-white backdrop-blur text-xs">
                 <Building2 className="w-3 h-3 mr-1" />分公司
               </Badge>
-              <Button variant="ghost" onClick={logout} className="text-white hover:bg-white/20">退出</Button>
+              <Button variant="ghost" onClick={logout} className="text-white hover:bg-white/20 text-sm">退出</Button>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-6 py-8">
+      <main className="container mx-auto px-3 md:px-6 py-4 md:py-8">
         {/* 数据概览 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Card>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-4 md:mb-8">
+          <Card className="mobile-compact-card">
             <CardContent className="pt-4">
               <div className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-purple-500" />
-                <span className="text-gray-500 text-sm">服务商数量</span>
+                <Users className="w-5 h-5 text-purple-500 mobile-icon" />
+                <span className="text-gray-500 text-sm mobile-label">服务商数量</span>
               </div>
               <p className="text-2xl font-bold mt-2">{stats.provider_count}</p>
             </CardContent>
@@ -1278,8 +1278,8 @@ export default function BranchPage() {
           <Card>
             <CardContent className="pt-4">
               <div className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-green-500" />
-                <span className="text-gray-500 text-sm">会员数量</span>
+                <Users className="w-5 h-5 text-green-500 mobile-icon" />
+                <span className="text-gray-500 text-sm mobile-label">会员数量</span>
               </div>
               <p className="text-2xl font-bold mt-2">{stats.member_count}</p>
             </CardContent>
@@ -1287,8 +1287,8 @@ export default function BranchPage() {
           <Card>
             <CardContent className="pt-4">
               <div className="flex items-center gap-2">
-                <Zap className="w-5 h-5 text-yellow-500" />
-                <span className="text-gray-500 text-sm">会员总能量值</span>
+                <Zap className="w-5 h-5 text-yellow-500 mobile-icon" />
+                <span className="text-gray-500 text-sm mobile-label">会员总能量值</span>
               </div>
               <p className="text-2xl font-bold mt-2">{(stats.total_member_energy || 0).toLocaleString()}</p>
             </CardContent>
@@ -1296,8 +1296,8 @@ export default function BranchPage() {
           <Card>
             <CardContent className="pt-4">
               <div className="flex items-center gap-2">
-                <Package className="w-5 h-5 text-blue-500" />
-                <span className="text-gray-500 text-sm">待处理事项</span>
+                <Package className="w-5 h-5 text-blue-500 mobile-icon" />
+                <span className="text-gray-500 text-sm mobile-label">待处理事项</span>
               </div>
               <p className="text-2xl font-bold mt-2">{stats.pending_sell_count + stats.pending_withdrawal_count}</p>
             </CardContent>
@@ -1305,9 +1305,9 @@ export default function BranchPage() {
         </div>
 
         {/* 功能标签页 - 深紫色主题 */}
-        <div className="space-y-6">
+        <div className="space-y-3 md:space-y-6">
           <div className="flex justify-between items-center bg-gradient-to-r from-violet-900 to-purple-900 rounded-lg px-2 py-1">
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-2 px-2">
+            <div className="mobile-tab-nav flex gap-2 overflow-x-auto scrollbar-hide -mx-2 px-2">
               <button
                 onClick={() => setActiveTab('profile')}
                 className={`px-4 py-2 rounded-md transition-all flex items-center gap-1 ${
@@ -1831,7 +1831,7 @@ export default function BranchPage() {
 
           {/* 算力额度管理 */}
           {activeTab === 'quota' && (
-            <div className="space-y-6">
+            <div className="space-y-3 md:space-y-6">
               {/* 分公司额度概览 */}
               <Card>
                 <CardHeader>
@@ -1965,7 +1965,7 @@ export default function BranchPage() {
 
           {/* 服务商额度审批 */}
           {activeTab === 'quota-approve' && (
-            <div className="space-y-6">
+            <div className="space-y-3 md:space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
@@ -2089,7 +2089,7 @@ export default function BranchPage() {
 
           {/* 能量值申请记录 */}
           {activeTab === 'energy-apply' && (
-            <div className="space-y-6">
+            <div className="space-y-3 md:space-y-6">
               {/* 能量值申请统计 */}
               <div className="grid grid-cols-4 gap-4">
                 <Card className="bg-gradient-to-br from-purple-500 to-indigo-500 text-white">
@@ -2216,7 +2216,7 @@ export default function BranchPage() {
 
           {/* 能量值管理 */}
           {activeTab === 'energy' && (
-            <div className="space-y-6">
+            <div className="space-y-3 md:space-y-6">
               {/* 子Tab导航 */}
               <div className="flex gap-2 bg-white p-1 rounded-lg shadow-sm">
                 <button
@@ -2595,7 +2595,7 @@ export default function BranchPage() {
 
           {/* 提现审核 Tab */}
           {activeTab === 'withdraw-review' && (
-            <div className="space-y-6">
+            <div className="space-y-3 md:space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -2658,7 +2658,7 @@ export default function BranchPage() {
 
           {/* 收益管理 Tab */}
           {activeTab === 'revenue' && (
-            <div className="space-y-6">
+            <div className="space-y-3 md:space-y-6">
               {/* 收益统计卡片 */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">

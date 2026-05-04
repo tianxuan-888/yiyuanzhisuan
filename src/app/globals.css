@@ -160,20 +160,85 @@ body {
     margin: 8px !important;
   }
   
-  /* 按钮移动端优化 */
-  button, .btn {
+  /* 按钮移动端优化 - 仅针对独立操作按钮，排除Tab导航 */
+  button:not(.shrink-0):not([class*="rounded-xl"]):not([class*="rounded-md"]):not([class*="border-b-2"]) {
     min-height: 44px;
-    min-width: 44px;
   }
   
-  /* 输入框移动端优化 */
+  /* 输入框移动端优化 - 防止iOS缩放 */
   input, textarea, select {
     font-size: 16px !important;
+  }
+
+  /* 防止中文竖排换行 */
+  .whitespace-nowrap, [class*="flex-shrink-0"] {
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+
+  /* 表格横向滚动 */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 对话框全屏适配 */
+  [role="dialog"] > div {
+    max-width: calc(100vw - 32px) !important;
+    margin: 16px;
   }
   
   /* 隐藏PC端元素 */
   .hide-on-mobile {
     display: none !important;
+  }
+}
+
+/* 移动端统计卡片紧凑样式 */
+@layer base {
+  @media (max-width: 768px) {
+    .mobile-compact-card {
+      padding: 0.375rem 0.5rem !important;
+    }
+    .mobile-compact-card .mobile-num {
+      font-size: 1.125rem !important;
+      line-height: 1.5rem !important;
+    }
+    .mobile-compact-card .mobile-label {
+      font-size: 0.6875rem !important;
+      line-height: 1rem !important;
+    }
+    .mobile-compact-card .mobile-icon {
+      width: 1.25rem !important;
+      height: 1.25rem !important;
+    }
+    .mobile-compact-card .mobile-sub {
+      font-size: 0.625rem !important;
+      margin-top: 0 !important;
+    }
+
+    /* 移动端Tab导航样式 */
+    .mobile-tab-nav {
+      gap: 0.25rem !important;
+    }
+    .mobile-tab-nav button,
+    .mobile-tab-nav .mobile-tab-btn {
+      flex-shrink: 0 !important;
+      padding: 0.375rem 0.625rem !important;
+      font-size: 0.75rem !important;
+      white-space: nowrap !important;
+      min-width: auto !important;
+      min-height: 36px !important;
+    }
+    .mobile-tab-nav button svg,
+    .mobile-tab-nav .mobile-tab-btn svg {
+      width: 0.875rem !important;
+      height: 0.875rem !important;
+    }
+    .mobile-tab-nav button .lucide,
+    .mobile-tab-nav .mobile-tab-btn .lucide {
+      width: 0.875rem !important;
+      height: 0.875rem !important;
+    }
   }
 }
 

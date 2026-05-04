@@ -176,7 +176,10 @@ interface ProductTemplate {
 
 export default function AdminPage() {
   const { user, loading: authLoading, logout } = useAuth('admin');
-  
+
+  // 移动端侧边栏状态
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   // 菜单状态
   const [activeMenu, setActiveMenu] = useState('overview');
   const [expandedMenus, setExpandedMenus] = useState<string[]>(['orders', 'reports']);
@@ -1049,7 +1052,15 @@ export default function AdminPage() {
 
   // 渲染左侧导航
   const renderSidebar = () => (
-    <aside className="w-64 bg-purple-900 min-h-screen flex flex-col">
+    <>
+      {/* 移动端遮罩 */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-purple-900 min-h-screen flex flex-col transform transition-transform duration-300 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
       {/* Logo */}
       <div className="p-6 border-b border-purple-700">
         <div className="flex items-center gap-3">
@@ -1073,6 +1084,7 @@ export default function AdminPage() {
                   toggleMenu(menu.id);
                 } else {
                   selectMenu(menu.id);
+                  setSidebarOpen(false);
                 }
               }}
               className={`flex items-center justify-between px-6 py-3 cursor-pointer transition-colors ${
@@ -1095,7 +1107,7 @@ export default function AdminPage() {
                 {menu.children.map(child => (
                   <div
                     key={child.id}
-                    onClick={() => selectMenu(child.id)}
+                    onClick={() => { selectMenu(child.id); setSidebarOpen(false); }}
                     className={`pl-14 pr-6 py-2 cursor-pointer transition-colors ${
                       activeMenu === child.id ? 'bg-purple-600 text-white' : 'text-purple-300 hover:bg-purple-800 hover:text-white'
                     }`}
@@ -1124,53 +1136,54 @@ export default function AdminPage() {
           退出登录
         </Button>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 
   // 渲染主页内容
   const renderHomeContent = () => (
-    <div className="space-y-6">
+    <div className="space-y-3 md:space-y-6">
       {/* 数据卡片 */}
-      <div className="grid grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+        <Card className="mobile-compact-card bg-gradient-to-br from-purple-500 to-purple-600 text-white">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm opacity-80">服务商数量</p>
-                <p className="text-3xl font-bold">{stats.provider_count}</p>
+                <p className="text-3xl font-bold mobile-num">{stats.provider_count}</p>
               </div>
               <UserCog className="w-10 h-10 opacity-50" />
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+        <Card className="mobile-compact-card bg-gradient-to-br from-blue-500 to-blue-600 text-white">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm opacity-80">会员数量</p>
-                <p className="text-3xl font-bold">{stats.member_count}</p>
+                <p className="text-3xl font-bold mobile-num">{stats.member_count}</p>
               </div>
               <Users className="w-10 h-10 opacity-50" />
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white">
+        <Card className="mobile-compact-card bg-gradient-to-br from-orange-500 to-orange-600 text-white">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm opacity-80">总能量值</p>
-                <p className="text-3xl font-bold">{stats.total_energy.toLocaleString()}</p>
+                <p className="text-3xl font-bold mobile-num">{stats.total_energy.toLocaleString()}</p>
               </div>
               <TrendingUp className="w-10 h-10 opacity-50" />
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white">
+        <Card className="mobile-compact-card bg-gradient-to-br from-green-500 to-green-600 text-white">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm opacity-80">总订单数</p>
-                <p className="text-3xl font-bold">{stats.total_orders}</p>
+                <p className="text-3xl font-bold mobile-num">{stats.total_orders}</p>
               </div>
               <ClipboardList className="w-10 h-10 opacity-50" />
             </div>
@@ -1191,7 +1204,7 @@ export default function AdminPage() {
     }
     
     return (
-      <div className="space-y-6">
+      <div className="space-y-3 md:space-y-6">
         {/* 子 Tab 导航 - 左侧标题 + 右侧Tab样式 */}
         <div className="flex items-stretch bg-gradient-to-r from-purple-900 to-purple-800 rounded-lg overflow-hidden">
           {/* 左侧标题 */}
@@ -1239,10 +1252,10 @@ export default function AdminPage() {
         
         {/* 算力数据 Tab */}
         {overviewTab === 'product' && (
-          <div className="space-y-6">
+          <div className="space-y-3 md:space-y-6">
             {/* 核心指标卡片 */}
-            <div className="grid grid-cols-4 gap-4">
-              <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+              <Card className="mobile-compact-card bg-gradient-to-br from-green-500 to-green-600 text-white">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1254,7 +1267,7 @@ export default function AdminPage() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+              <Card className="mobile-compact-card bg-gradient-to-br from-blue-500 to-blue-600 text-white">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1266,7 +1279,7 @@ export default function AdminPage() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+              <Card className="mobile-compact-card bg-gradient-to-br from-purple-500 to-purple-600 text-white">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1278,7 +1291,7 @@ export default function AdminPage() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white">
+              <Card className="mobile-compact-card bg-gradient-to-br from-orange-500 to-orange-600 text-white">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1367,10 +1380,10 @@ export default function AdminPage() {
         
         {/* 用户数据 Tab */}
         {overviewTab === 'user' && (
-          <div className="space-y-6">
+          <div className="space-y-3 md:space-y-6">
             {/* 核心指标卡片 */}
-            <div className="grid grid-cols-4 gap-4">
-              <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+              <Card className="mobile-compact-card bg-gradient-to-br from-blue-500 to-blue-600 text-white">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1382,7 +1395,7 @@ export default function AdminPage() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white">
+              <Card className="mobile-compact-card bg-gradient-to-br from-green-500 to-green-600 text-white">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1396,7 +1409,7 @@ export default function AdminPage() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+              <Card className="mobile-compact-card bg-gradient-to-br from-purple-500 to-purple-600 text-white">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1408,7 +1421,7 @@ export default function AdminPage() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white">
+              <Card className="mobile-compact-card bg-gradient-to-br from-orange-500 to-orange-600 text-white">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1474,10 +1487,10 @@ export default function AdminPage() {
         
         {/* 能力值统计 Tab */}
         {overviewTab === 'energy' && (
-          <div className="space-y-6">
+          <div className="space-y-3 md:space-y-6">
             {/* 核心指标卡片 - 能量值统计 */}
-            <div className="grid grid-cols-3 gap-4">
-              <Card className="bg-gradient-to-br from-yellow-500 to-orange-500 text-white">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4">
+              <Card className="mobile-compact-card bg-gradient-to-br from-yellow-500 to-orange-500 text-white">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1489,7 +1502,7 @@ export default function AdminPage() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-gradient-to-br from-green-500 to-emerald-500 text-white">
+              <Card className="mobile-compact-card bg-gradient-to-br from-green-500 to-emerald-500 text-white">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1508,7 +1521,7 @@ export default function AdminPage() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-gradient-to-br from-amber-500 to-orange-500 text-white">
+              <Card className="mobile-compact-card bg-gradient-to-br from-amber-500 to-orange-500 text-white">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1522,7 +1535,7 @@ export default function AdminPage() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-gradient-to-br from-purple-500 to-indigo-500 text-white">
+              <Card className="mobile-compact-card bg-gradient-to-br from-purple-500 to-indigo-500 text-white">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1536,7 +1549,7 @@ export default function AdminPage() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-gradient-to-br from-blue-500 to-cyan-500 text-white">
+              <Card className="mobile-compact-card bg-gradient-to-br from-blue-500 to-cyan-500 text-white">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1550,7 +1563,7 @@ export default function AdminPage() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-gradient-to-br from-pink-500 to-rose-500 text-white">
+              <Card className="mobile-compact-card bg-gradient-to-br from-pink-500 to-rose-500 text-white">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1767,7 +1780,7 @@ export default function AdminPage() {
     };
     
     return (
-      <div className="space-y-6">
+      <div className="space-y-3 md:space-y-6">
         {/* 子Tab切换 - 左侧标题 + 右侧Tab样式 */}
         <div className="flex items-stretch bg-gradient-to-r from-blue-900 to-blue-800 rounded-lg overflow-hidden">
           {/* 左侧标题 */}
@@ -1814,7 +1827,7 @@ export default function AdminPage() {
 
         {/* 算力总额度 */}
         {quotaTab === 'total' && (
-          <div className="space-y-6">
+          <div className="space-y-3 md:space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
@@ -1833,7 +1846,7 @@ export default function AdminPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-6">
                   <div className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
                     <p className="text-sm text-gray-600">总公司额度</p>
                     <p className="text-3xl font-bold text-blue-600 mt-2">
@@ -2393,31 +2406,31 @@ export default function AdminPage() {
 
     // 会员统计Tab
     const renderMemberStatsTab = () => (
-      <div className="space-y-6">
+      <div className="space-y-3 md:space-y-6">
         {/* 概览卡片 */}
-        <div className="grid grid-cols-4 gap-4">
-          <Card className="bg-gradient-to-br from-purple-500 to-purple-700 text-white">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+          <Card className="mobile-compact-card bg-gradient-to-br from-purple-500 to-purple-700 text-white">
             <CardContent className="p-4">
               <div className="text-sm opacity-80">会员总数</div>
               <div className="text-3xl font-bold mt-1">{memberStats?.totalMembers || 0}</div>
               <div className="text-xs opacity-70 mt-2">较昨日 +{memberStats?.yesterdayNewMembers || 0}</div>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-blue-500 to-blue-700 text-white">
+          <Card className="mobile-compact-card bg-gradient-to-br from-blue-500 to-blue-700 text-white">
             <CardContent className="p-4">
               <div className="text-sm opacity-80">活跃会员</div>
               <div className="text-3xl font-bold mt-1">{memberStats?.activeMembers || 0}</div>
               <div className="text-xs opacity-70 mt-2">本周购买 ≥1</div>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-green-500 to-green-700 text-white">
+          <Card className="mobile-compact-card bg-gradient-to-br from-green-500 to-green-700 text-white">
             <CardContent className="p-4">
               <div className="text-sm opacity-80">总投资金额</div>
               <div className="text-3xl font-bold mt-1">¥{(memberStats?.totalInvestment || 0).toLocaleString()}</div>
               <div className="text-xs opacity-70 mt-2">累计购买总额</div>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-orange-500 to-orange-700 text-white">
+          <Card className="mobile-compact-card bg-gradient-to-br from-orange-500 to-orange-700 text-white">
             <CardContent className="p-4">
               <div className="text-sm opacity-80">持有能量值</div>
               <div className="text-3xl font-bold mt-1">{(memberStats?.totalEnergy || 0).toLocaleString()}</div>
@@ -2514,7 +2527,7 @@ export default function AdminPage() {
 
     // 用户管理Tab
     const renderUsersManagementTab = () => (
-      <div className="space-y-6">
+      <div className="space-y-3 md:space-y-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>用户管理</CardTitle>
@@ -2700,7 +2713,7 @@ export default function AdminPage() {
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className="mt-4 grid grid-cols-4 gap-4 text-center">
+        <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 text-center">
           <div className="p-4 bg-purple-50 rounded-lg">
             <p className="text-sm text-gray-500">总订单数</p>
             <p className="text-2xl font-bold text-purple-600">{stats.total_orders}</p>
@@ -2747,7 +2760,7 @@ export default function AdminPage() {
 
   // 渲染收益总览
   const renderIncomeOverview = () => (
-    <div className="space-y-6">
+    <div className="space-y-3 md:space-y-6">
       {/* 子Tab导航 - 左侧标题 + 右侧Tab样式 */}
       <div className="flex items-stretch bg-gradient-to-r from-purple-900 to-purple-800 rounded-lg overflow-hidden">
         {/* 左侧标题 */}
@@ -2788,26 +2801,26 @@ export default function AdminPage() {
       {incomeTab === 'overview' && (
         <>
           {/* 统计卡片 */}
-          <div className="grid grid-cols-4 gap-4">
-            <Card className="bg-gradient-to-br from-purple-500 to-purple-700 text-white">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+            <Card className="mobile-compact-card bg-gradient-to-br from-purple-500 to-purple-700 text-white">
               <CardContent className="p-4">
                 <div className="text-sm opacity-80">总收益</div>
                 <div className="text-3xl font-bold mt-1">¥{(incomeStats.totalIncome / 10000).toFixed(2)}万</div>
               </CardContent>
             </Card>
-            <Card className="bg-gradient-to-br from-green-500 to-green-700 text-white">
+            <Card className="mobile-compact-card bg-gradient-to-br from-green-500 to-green-700 text-white">
               <CardContent className="p-4">
                 <div className="text-sm opacity-80">今日收益</div>
                 <div className="text-3xl font-bold mt-1">¥{(incomeStats.todayIncome / 10000).toFixed(2)}万</div>
               </CardContent>
             </Card>
-            <Card className="bg-gradient-to-br from-orange-500 to-orange-700 text-white">
+            <Card className="mobile-compact-card bg-gradient-to-br from-orange-500 to-orange-700 text-white">
               <CardContent className="p-4">
                 <div className="text-sm opacity-80">待结算</div>
                 <div className="text-3xl font-bold mt-1">¥{(incomeStats.pendingSettlement / 10000).toFixed(2)}万</div>
               </CardContent>
             </Card>
-            <Card className="bg-gradient-to-br from-blue-500 to-blue-700 text-white">
+            <Card className="mobile-compact-card bg-gradient-to-br from-blue-500 to-blue-700 text-white">
               <CardContent className="p-4">
                 <div className="text-sm opacity-80">已发放</div>
                 <div className="text-3xl font-bold mt-1">¥{(incomeStats.distributed / 10000).toFixed(2)}万</div>
@@ -2923,7 +2936,7 @@ export default function AdminPage() {
   // 渲染收益明细
   // 渲染收益明细
   const renderIncomeDetail = () => (
-    <div className="space-y-6">
+    <div className="space-y-3 md:space-y-6">
       {/* 子Tab导航 - 左侧标题 + 右侧Tab样式 */}
       <div className="flex items-stretch bg-gradient-to-r from-purple-900 to-purple-800 rounded-lg overflow-hidden">
         {/* 左侧标题 */}
@@ -3033,28 +3046,28 @@ export default function AdminPage() {
 
   // 渲染提现管理（收益管理Tab）
   const renderWithdrawManagement = () => (
-    <div className="space-y-6">
+    <div className="space-y-3 md:space-y-6">
       {/* 统计卡片 */}
-      <div className="grid grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-purple-500 to-purple-700 text-white">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+        <Card className="mobile-compact-card bg-gradient-to-br from-purple-500 to-purple-700 text-white">
           <CardContent className="p-4">
             <div className="text-sm opacity-80">待审核</div>
             <div className="text-3xl font-bold mt-1">0</div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-orange-500 to-orange-700 text-white">
+        <Card className="mobile-compact-card bg-gradient-to-br from-orange-500 to-orange-700 text-white">
           <CardContent className="p-4">
             <div className="text-sm opacity-80">待发放</div>
             <div className="text-3xl font-bold mt-1">¥0</div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-green-500 to-green-700 text-white">
+        <Card className="mobile-compact-card bg-gradient-to-br from-green-500 to-green-700 text-white">
           <CardContent className="p-4">
             <div className="text-sm opacity-80">已发放</div>
             <div className="text-3xl font-bold mt-1">¥0</div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-blue-500 to-blue-700 text-white">
+        <Card className="mobile-compact-card bg-gradient-to-br from-blue-500 to-blue-700 text-white">
           <CardContent className="p-4">
             <div className="text-sm opacity-80">本月总额</div>
             <div className="text-3xl font-bold mt-1">¥0</div>
@@ -3156,7 +3169,7 @@ export default function AdminPage() {
     const pendingWithdrawals = branchWithdrawals.filter((w: any) => w.status === 'pending');
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-3 md:space-y-6">
         {/* 子Tab导航 */}
         <div className="flex items-stretch bg-gradient-to-r from-purple-900 to-purple-800 rounded-lg overflow-hidden">
           <div className="flex items-center gap-3 px-6 py-4 bg-purple-950/50">
@@ -3173,26 +3186,26 @@ export default function AdminPage() {
         {financeSubTab === 'overview' && (
           <>
             {/* 统计卡片 */}
-            <div className="grid grid-cols-4 gap-4">
-              <Card className="bg-gradient-to-br from-purple-500 to-purple-700 text-white">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+              <Card className="mobile-compact-card bg-gradient-to-br from-purple-500 to-purple-700 text-white">
                 <CardContent className="p-4">
                   <div className="text-sm opacity-80">累计手续费沉淀</div>
                   <div className="text-3xl font-bold mt-1">¥{totalFee.toLocaleString()}</div>
                 </CardContent>
               </Card>
-              <Card className="bg-gradient-to-br from-green-500 to-green-700 text-white">
+              <Card className="mobile-compact-card bg-gradient-to-br from-green-500 to-green-700 text-white">
                 <CardContent className="p-4">
                   <div className="text-sm opacity-80">提现手续费</div>
                   <div className="text-3xl font-bold mt-1">¥{withdrawFee.toLocaleString()}</div>
                 </CardContent>
               </Card>
-              <Card className="bg-gradient-to-br from-orange-500 to-orange-700 text-white">
+              <Card className="mobile-compact-card bg-gradient-to-br from-orange-500 to-orange-700 text-white">
                 <CardContent className="p-4">
                   <div className="text-sm opacity-80">市场费运营沉淀</div>
                   <div className="text-3xl font-bold mt-1">¥{marketFeeOps.toLocaleString()}</div>
                 </CardContent>
               </Card>
-              <Card className="bg-gradient-to-br from-blue-500 to-blue-700 text-white">
+              <Card className="mobile-compact-card bg-gradient-to-br from-blue-500 to-blue-700 text-white">
                 <CardContent className="p-4">
                   <div className="text-sm opacity-80">待审核分公司提现</div>
                   <div className="text-3xl font-bold mt-1">{pendingWithdrawals.length}</div>
@@ -3900,7 +3913,7 @@ export default function AdminPage() {
     }
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-3 md:space-y-6">
         {/* 子Tab导航 */}
         <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
           <button
@@ -4245,7 +4258,7 @@ export default function AdminPage() {
               </CardTitle>
               <CardDescription>开发阶段专用功能，清除测试数据</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-3 md:space-y-6">
               {/* 操作说明 */}
               <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <div className="flex items-start gap-3">
@@ -4421,7 +4434,7 @@ export default function AdminPage() {
 
     return (
       <div className="space-y-4">
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
           <Card>
             <CardContent className="p-4">
               <div className="text-sm text-gray-500">待审核</div>
@@ -4625,7 +4638,7 @@ export default function AdminPage() {
 
                 <div className="bg-purple-50 p-4 rounded-lg">
                   <h4 className="font-medium text-purple-800 mb-2">沉淀统计</h4>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4">
                     <div>
                       <div className="text-sm text-gray-500">通过笔数</div>
                       <div className="text-xl font-bold text-purple-600">
@@ -4776,10 +4789,10 @@ export default function AdminPage() {
       const rejectedRequests = branchEnergyRequests.filter((r: any) => r.status === 'rejected');
 
       return (
-        <div className="space-y-6">
+        <div className="space-y-3 md:space-y-6">
           {/* 统计卡片 */}
-          <div className="grid grid-cols-4 gap-4">
-            <Card className="bg-gradient-to-br from-purple-500 to-indigo-500 text-white">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+            <Card className="mobile-compact-card bg-gradient-to-br from-purple-500 to-indigo-500 text-white">
               <CardContent className="pt-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -4809,7 +4822,7 @@ export default function AdminPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-gradient-to-br from-green-500 to-emerald-500 text-white">
+            <Card className="mobile-compact-card bg-gradient-to-br from-green-500 to-emerald-500 text-white">
               <CardContent className="pt-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -4823,7 +4836,7 @@ export default function AdminPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-gradient-to-br from-gray-500 to-gray-600 text-white">
+            <Card className="mobile-compact-card bg-gradient-to-br from-gray-500 to-gray-600 text-white">
               <CardContent className="pt-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -5299,10 +5312,10 @@ export default function AdminPage() {
 
     // 总览视图
     const renderOverviewTab = () => (
-      <div className="space-y-6">
+      <div className="space-y-3 md:space-y-6">
         {/* 顶部统计卡片 */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+          <Card className="mobile-compact-card bg-gradient-to-br from-blue-500 to-blue-600 text-white">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -5315,7 +5328,7 @@ export default function AdminPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+          <Card className="mobile-compact-card bg-gradient-to-br from-purple-500 to-purple-600 text-white">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -5328,7 +5341,7 @@ export default function AdminPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white">
+          <Card className="mobile-compact-card bg-gradient-to-br from-green-500 to-green-600 text-white">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -5341,7 +5354,7 @@ export default function AdminPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-red-500 to-red-600 text-white">
+          <Card className="mobile-compact-card bg-gradient-to-br from-red-500 to-red-600 text-white">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -5356,7 +5369,7 @@ export default function AdminPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white">
+          <Card className="mobile-compact-card bg-gradient-to-br from-orange-500 to-orange-600 text-white">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -5820,10 +5833,10 @@ export default function AdminPage() {
       const rejectedRequests = branchEnergyRequests.filter((r: any) => r.status === 'rejected');
 
       return (
-        <div className="space-y-6">
+        <div className="space-y-3 md:space-y-6">
           {/* 统计卡片 */}
-          <div className="grid grid-cols-4 gap-4">
-            <Card className="bg-gradient-to-br from-purple-500 to-indigo-500 text-white">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+            <Card className="mobile-compact-card bg-gradient-to-br from-purple-500 to-indigo-500 text-white">
               <CardContent className="pt-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -5853,7 +5866,7 @@ export default function AdminPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-gradient-to-br from-green-500 to-emerald-500 text-white">
+            <Card className="mobile-compact-card bg-gradient-to-br from-green-500 to-emerald-500 text-white">
               <CardContent className="pt-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -5867,7 +5880,7 @@ export default function AdminPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-gradient-to-br from-gray-500 to-gray-600 text-white">
+            <Card className="mobile-compact-card bg-gradient-to-br from-gray-500 to-gray-600 text-white">
               <CardContent className="pt-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -6040,24 +6053,24 @@ export default function AdminPage() {
       const estimatedFee = totalWithdraw * 0.05;
 
       return (
-        <div className="space-y-6">
+        <div className="space-y-3 md:space-y-6">
           {/* 统计卡片 */}
-          <div className="grid grid-cols-3 gap-4">
-            <Card className="bg-gradient-to-br from-purple-500 to-indigo-500 text-white">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4">
+            <Card className="mobile-compact-card bg-gradient-to-br from-purple-500 to-indigo-500 text-white">
               <CardContent className="pt-4">
                 <p className="text-sm opacity-80">累计回收总额</p>
                 <p className="text-3xl font-bold mt-2">{totalFee.toLocaleString()}</p>
                 <p className="text-xs opacity-70 mt-2">能量值</p>
               </CardContent>
             </Card>
-            <Card className="bg-gradient-to-br from-green-500 to-emerald-500 text-white">
+            <Card className="mobile-compact-card bg-gradient-to-br from-green-500 to-emerald-500 text-white">
               <CardContent className="pt-4">
                 <p className="text-sm opacity-80">累计提现总额</p>
                 <p className="text-3xl font-bold mt-2">{totalWithdraw.toLocaleString()}</p>
                 <p className="text-xs opacity-70 mt-2">能量值</p>
               </CardContent>
             </Card>
-            <Card className="bg-gradient-to-br from-amber-500 to-orange-500 text-white">
+            <Card className="mobile-compact-card bg-gradient-to-br from-amber-500 to-orange-500 text-white">
               <CardContent className="pt-4">
                 <p className="text-sm opacity-80">回收比例</p>
                 <p className="text-3xl font-bold mt-2">5%</p>
@@ -6195,9 +6208,9 @@ export default function AdminPage() {
 
     // 变现审核视图
     const renderWithdrawTab = () => (
-      <div className="space-y-6">
+      <div className="space-y-3 md:space-y-6">
         {/* 统计卡片 - 可点击跳转筛选 */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4">
           <Card 
             className="bg-gradient-to-br from-amber-500 to-orange-500 text-white cursor-pointer hover:opacity-90 transition-opacity"
             onClick={() => {
@@ -6471,7 +6484,7 @@ export default function AdminPage() {
     );
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-3 md:space-y-6">
         {/* 消息提示 */}
         {message && (
           <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-lg ${
@@ -7089,9 +7102,26 @@ export default function AdminPage() {
       {renderSidebar()}
 
       {/* 右侧内容 */}
-      <main className="flex-1 p-6 overflow-auto">
-        {/* 面包屑 */}
-        <div className="mb-4 text-sm text-gray-500">
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* 移动端顶部栏 */}
+        <div className="lg:hidden flex items-center gap-3 p-4 bg-purple-900 text-white sticky top-0 z-30">
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 hover:bg-purple-800 rounded-lg">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <div className="flex items-center gap-2">
+            <Shield className="w-5 h-5" />
+            <span className="font-bold">算力中心</span>
+          </div>
+          <div className="ml-auto text-sm text-purple-200">
+            {menuItems.find(m => m.id === activeMenu)?.name || '功能模块'}
+          </div>
+        </div>
+
+        <main className="flex-1 p-3 md:p-6 overflow-auto">
+          {/* 面包屑 - 手机端隐藏 */}
+          <div className="mb-4 text-sm text-gray-500 hidden lg:block">
           <span className="text-purple-600 cursor-pointer hover:underline" onClick={() => selectMenu('home')}>总公司</span> / 
           <span className="ml-1">{menuItems.find(m => m.id === activeMenu)?.name || 
             menuItems.find(m => m.children?.some(c => c.id === activeMenu))?.children?.find(c => c.id === activeMenu)?.name || '功能模块'}</span>
@@ -7100,6 +7130,7 @@ export default function AdminPage() {
         {/* 页面内容 */}
         {renderContent()}
       </main>
+      </div>
     </div>
   );
 }

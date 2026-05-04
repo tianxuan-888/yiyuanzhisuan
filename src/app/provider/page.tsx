@@ -1549,40 +1549,40 @@ export default function ProviderPage() {
             <div className="h-1.5 bg-gradient-to-r from-purple-500 via-fuchsia-500 to-pink-500"></div>
             
             <header className="bg-gradient-to-r from-purple-900 via-purple-800 to-fuchsia-800 shadow-xl sticky top-0 z-40">
-                <div className="container mx-auto px-6 py-5">
+                <div className="container mx-auto px-3 md:px-6 py-3 md:py-5">
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2 md:gap-4">
                             <div
-                                className="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 flex items-center justify-center shadow-lg animate-pulse">
-                                <Users className="w-7 h-7 text-white" />
+                                className="w-9 h-9 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 flex items-center justify-center shadow-lg">
+                                <Users className="w-5 h-5 md:w-7 md:h-7 text-white" />
                             </div>
                             <div>
-                                <h1 className="text-2xl font-bold text-white tracking-wide">服务商管理后台</h1>
-                                <p className="text-xs text-purple-200">Provider Management System</p>
+                                <h1 className="text-base md:text-2xl font-bold text-white tracking-wide">服务商管理后台</h1>
+                                <p className="text-xs text-purple-200 hidden md:block">Provider Management System</p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2 md:gap-4">
                             <div className="hidden md:flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full">
                                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                                 <span className="text-purple-100 text-sm">在线</span>
                             </div>
-                            <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white border-0 shadow-lg">
+                            <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white border-0 shadow-lg text-xs">
                                 <Star className="w-3 h-3 mr-1" />服务商
                                               </Badge>
                             <Button 
                                 variant="ghost" 
                                 onClick={logout}
-                                className="text-white hover:bg-white/20 hover:text-white">
+                                className="text-white hover:bg-white/20 hover:text-white text-sm">
                                 <LogOut className="w-4 h-4 mr-1" />退出
                             </Button>
                         </div>
                     </div>
                 </div>
             </header>
-            <main className="container mx-auto px-6 py-8">
+            <main className="container mx-auto px-3 md:px-6 py-4 md:py-8">
                 {}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-                    <Card className="bg-gradient-to-br from-white to-orange-50 border-orange-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4 mb-4 md:mb-8">
+                    <Card className="mobile-compact-card bg-gradient-to-br from-white to-orange-50 border-orange-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                         <CardContent className="pt-5">
                             <div className="flex items-center justify-between mb-3">
                                 <div className="p-2.5 bg-gradient-to-br from-orange-400 to-orange-500 rounded-xl shadow-lg">
@@ -1595,7 +1595,7 @@ export default function ProviderPage() {
                             <p className="text-xs text-gray-500 mt-1">待使用额度</p>
                         </CardContent>
                     </Card>
-                    <Card className="bg-gradient-to-br from-white to-yellow-50 border-yellow-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                    <Card className="mobile-compact-card bg-gradient-to-br from-white to-yellow-50 border-yellow-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                         <CardContent className="pt-5">
                             <div className="flex items-center justify-between mb-3">
                                 <div className="p-2.5 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-xl shadow-lg">
@@ -1607,7 +1607,7 @@ export default function ProviderPage() {
                             <p className="text-xs text-gray-500 mt-1">待上架算力</p>
                         </CardContent>
                     </Card>
-                    <Card className="bg-gradient-to-br from-white to-green-50 border-green-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                    <Card className="mobile-compact-card bg-gradient-to-br from-white to-green-50 border-green-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                         <CardContent className="pt-5">
                             <div className="flex items-center justify-between mb-3">
                                 <div className="p-2.5 bg-gradient-to-br from-green-400 to-emerald-500 rounded-xl shadow-lg">
@@ -1619,7 +1619,7 @@ export default function ProviderPage() {
                             <p className="text-xs text-gray-500 mt-1">可售算力</p>
                         </CardContent>
                     </Card>
-                    <Card className="bg-gradient-to-br from-white to-blue-50 border-blue-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                    <Card className="mobile-compact-card bg-gradient-to-br from-white to-blue-50 border-blue-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                         <CardContent className="pt-5">
                             <div className="flex items-center justify-between mb-3">
                                 <div className="p-2.5 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-xl shadow-lg">
@@ -1633,7 +1633,7 @@ export default function ProviderPage() {
                         </CardContent>
                     </Card>
                     {/* 能量值卡片 */}
-                    <Card className="col-span-2 md:col-span-1 bg-gradient-to-br from-purple-600 via-fuchsia-600 to-purple-700 border-0 shadow-xl">
+                    <Card className="mobile-compact-card col-span-2 md:col-span-1 bg-gradient-to-br from-purple-600 via-fuchsia-600 to-purple-700 border-0 shadow-xl">
                         <CardContent className="pt-5">
                             <div className="flex items-center justify-between mb-3">
                                 <div className="p-2.5 bg-white/20 backdrop-blur rounded-xl">
@@ -1686,10 +1686,10 @@ export default function ProviderPage() {
                     </CardContent>
                 </Card>}
                 {}
-                <div className="space-y-6">
+                <div className="space-y-3 md:space-y-6">
                     {/* Tab导航 - 紫色主题胶囊式 - 移动端横向滚动 */}
-                    <div className="bg-white rounded-2xl shadow-lg p-2">
-                        <div className="flex flex-nowrap gap-1 overflow-x-auto scrollbar-hide -mx-2 px-2">
+                    <div className="bg-white rounded-2xl shadow-lg p-1.5 md:p-2">
+                        <div className="mobile-tab-nav flex flex-nowrap gap-1 overflow-x-auto scrollbar-hide -mx-2 px-2">
                             <button
                                 onClick={() => setActiveTab("profile")}
                                 className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "profile" || activeTab === "password" ? "bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-200" : "text-gray-600 hover:bg-purple-50"}`}>
@@ -1781,7 +1781,7 @@ export default function ProviderPage() {
 
                     {/* 我的资料 */}
                     {activeTab === "profile" && (
-                        <Card className="bg-gradient-to-br from-white to-purple-50 border-purple-200 shadow-xl">
+                        <Card className="mobile-compact-card bg-gradient-to-br from-white to-purple-50 border-purple-200 shadow-xl">
                             <CardHeader className="bg-gradient-to-r from-purple-600 to-fuchsia-600 rounded-t-lg">
                                 <CardTitle className="text-white flex items-center gap-2">
                                     <User className="w-5 h-5" />我的资料
@@ -1850,7 +1850,7 @@ export default function ProviderPage() {
 
                     {/* 修改密码 */}
                     {activeTab === "password" && (
-                        <Card className="bg-gradient-to-br from-white to-purple-50 border-purple-200 shadow-xl">
+                        <Card className="mobile-compact-card bg-gradient-to-br from-white to-purple-50 border-purple-200 shadow-xl">
                             <CardHeader className="bg-gradient-to-r from-purple-600 to-fuchsia-600 rounded-t-lg">
                                 <CardTitle className="text-white flex items-center gap-2">
                                     <Lock className="w-5 h-5" />修改登录密码
@@ -2067,7 +2067,7 @@ export default function ProviderPage() {
                     )}
 
                     {activeTab === "overview" && <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Card className="bg-gradient-to-br from-white to-blue-50 border-blue-200 shadow-lg">
+                        <Card className="mobile-compact-card bg-gradient-to-br from-white to-blue-50 border-blue-200 shadow-lg">
                             <CardHeader className="pb-2">
                                 <h3 className="font-bold text-lg flex items-center gap-2 text-blue-700">
                                     <Zap className="w-5 h-5" />快捷操作
@@ -2100,7 +2100,7 @@ export default function ProviderPage() {
                                 </div>
                             </CardContent>
                         </Card>
-                        <Card className="bg-gradient-to-br from-white to-purple-50 border-purple-200 shadow-lg">
+                        <Card className="mobile-compact-card bg-gradient-to-br from-white to-purple-50 border-purple-200 shadow-lg">
                             <CardHeader className="pb-2">
                                 <h3 className="font-bold text-lg flex items-center gap-2 text-purple-700">
                                     <TrendingUp className="w-5 h-5" />算力流转说明
@@ -2145,7 +2145,7 @@ export default function ProviderPage() {
                         </Card>
                     </div>}
                     {}
-                    {activeTab === "quota" && <div className="space-y-6">
+                    {activeTab === "quota" && <div className="space-y-3 md:space-y-6">
                         {}
                         {/* 额度统计卡片 */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -2452,7 +2452,7 @@ export default function ProviderPage() {
                     </Card>}
 
                     {/* 销售记录Tab */}
-                    {activeTab === "sales" && <div className="space-y-6">
+                    {activeTab === "sales" && <div className="space-y-3 md:space-y-6">
                         {/* 统计卡片 */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <Card className="bg-gradient-to-br from-purple-500 to-fuchsia-600 text-white">
@@ -2596,7 +2596,7 @@ export default function ProviderPage() {
                         </Card>
                     </div>}
 
-                    {activeTab === "applications" && <div className="space-y-6">
+                    {activeTab === "applications" && <div className="space-y-3 md:space-y-6">
                         {}
                         <Card className="border-purple-200 bg-purple-50">
                             <CardContent className="py-4">
@@ -2679,7 +2679,7 @@ export default function ProviderPage() {
                     </div>}
 
                     {/* 购买审核Tab */}
-                    {activeTab === "buyorders" && <div className="space-y-6">
+                    {activeTab === "buyorders" && <div className="space-y-3 md:space-y-6">
                         {}
                         {/* 统计卡片 */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -2811,7 +2811,7 @@ export default function ProviderPage() {
                     </div>}
                     
                     {/* 能量充值Tab */}
-                    {activeTab === "energy" && <div className="space-y-6">
+                    {activeTab === "energy" && <div className="space-y-3 md:space-y-6">
                         <Card>
                             <CardHeader>
                                 <CardTitle>能量值管理</CardTitle>
@@ -3121,7 +3121,7 @@ export default function ProviderPage() {
                     
                     {/* 流转审核 Tab */}
                     {activeTab === "transfers" && (
-                        <div className="space-y-6">
+                        <div className="space-y-3 md:space-y-6">
                             <Card>
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
@@ -3234,7 +3234,7 @@ export default function ProviderPage() {
 
                     {/* 提现管理 Tab */}
                     {activeTab === "withdrawals" && (
-                        <div className="space-y-6">
+                        <div className="space-y-3 md:space-y-6">
                             {/* 服务商自己提现 */}
                             <Card>
                                 <CardHeader>
@@ -3433,7 +3433,7 @@ export default function ProviderPage() {
 
                     {/* 收益记录 Tab */}
                     {activeTab === "revenue" && (
-                        <div className="space-y-6">
+                        <div className="space-y-3 md:space-y-6">
                             {/* 收益统计卡片 */}
                             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
                                 <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
@@ -3616,7 +3616,7 @@ export default function ProviderPage() {
 
                     {/* 积分 Tab */}
                     {activeTab === "points" && (
-                        <div className="space-y-6">
+                        <div className="space-y-3 md:space-y-6">
                             <Card className="bg-gradient-to-br from-amber-500 to-orange-500 text-white">
                                 <CardContent className="pt-4">
                                     <div className="flex items-center gap-2 mb-2">

@@ -431,7 +431,7 @@ export default function LoginPage() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-cyan-500/20 rounded-full filter blur-[120px] animate-pulse" style={{ animationDelay: '2s' }}></div>
       </div>
 
-      <Card className="w-full max-w-md relative z-10 bg-slate-800/70 border-slate-600/50 backdrop-blur-xl shadow-2xl shadow-purple-500/10">
+      <Card className="login-container w-full max-w-md relative z-10 bg-slate-800/70 border-slate-600/50 backdrop-blur-xl shadow-2xl shadow-purple-500/10">
         <CardHeader className="text-center pb-2">
           <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/30">
             <Shield className="w-8 h-8 text-white" />

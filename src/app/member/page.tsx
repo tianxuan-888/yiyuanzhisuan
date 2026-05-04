@@ -1699,21 +1699,21 @@ const [copySuccess, setCopySuccess] = useState(false);
             </Dialog>
 
             <header className="border-b bg-white shadow-sm sticky top-0 z-40">
-                <div className="container mx-auto px-6 py-4">
+                <div className="container mx-auto px-3 md:px-6 py-3 md:py-4">
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 md:gap-3">
                             <div
-                                className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
-                                <Cpu className="w-6 h-6 text-white" />
+                                className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
+                                <Cpu className="w-5 h-5 md:w-6 md:h-6 text-white" />
                             </div>
                             <div>
-                                <h1 className="text-xl font-bold text-gray-900">艺元智算</h1>
-                                <p className="text-xs text-gray-500">GPU算力收益平台</p>
+                                <h1 className="text-base md:text-xl font-bold text-gray-900">艺元智算</h1>
+                                <p className="text-xs text-gray-500 hidden md:block">GPU算力收益平台</p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2 md:gap-4">
                             {/* 会员信息 */}
-                            <div className="flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
+                            <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
                             <div className="text-left">
                                 <p className="text-sm font-semibold text-gray-900">
                                     {user?.name || '会员'}
@@ -1726,27 +1726,27 @@ const [copySuccess, setCopySuccess] = useState(false);
                             {notifications.filter(n => !n.is_read).length > 0 && <Badge className="bg-red-100 text-red-700">
                                 <Bell className="w-3 h-3 mr-1" />{notifications.filter(n => !n.is_read).length}条新消息
                                                 </Badge>}
-                            <Badge className="bg-green-100 text-green-700">
+                            <Badge className="bg-green-100 text-green-700 text-xs">
                                 <Users className="w-3 h-3 mr-1" />会员
                                               </Badge>
-                            <Button variant="ghost" onClick={logout}>退出</Button>
+                            <Button variant="ghost" onClick={logout} className="text-sm">退出</Button>
                         </div>
                     </div>
                 </div>
             </header>
-            <main className="container mx-auto px-6 py-8">
+            <main className="container mx-auto px-3 md:px-6 py-4 md:py-8">
                 {}
                 {/* 资产概览 - 移除余额显示 */}
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-                    <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white relative overflow-hidden">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4 mb-4 md:mb-8">
+                    <Card className="mobile-compact-card bg-gradient-to-br from-orange-500 to-orange-600 text-white relative overflow-hidden">
                         <CardContent className="pt-4">
                             <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
-                                    <Zap className="w-5 h-5" />
-                                    <span className="opacity-80 text-sm">能量值</span>
+                                    <Zap className="w-5 h-5 mobile-icon" />
+                                    <span className="opacity-80 text-sm mobile-label">能量值</span>
                                 </div>
                             </div>
-                            <p className="text-2xl font-bold">{stats.energy_value.toLocaleString()}</p>
+                            <p className="text-2xl font-bold mobile-num">{stats.energy_value.toLocaleString()}</p>
                             <div className="flex gap-2 mt-3">
                                 <Button
                                     size="sm"
@@ -1765,22 +1765,22 @@ const [copySuccess, setCopySuccess] = useState(false);
                             </div>
                         </CardContent>
                     </Card>
-                    <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                    <Card className="mobile-compact-card bg-gradient-to-br from-blue-500 to-blue-600 text-white">
                         <CardContent className="pt-4">
                             <div className="flex items-center gap-2">
-                                <Package className="w-5 h-5" />
-                                <span className="opacity-80 text-sm">持有算力</span>
+                                <Package className="w-5 h-5 mobile-icon" />
+                                <span className="opacity-80 text-sm mobile-label">持有算力</span>
                             </div>
-                            <p className="text-2xl font-bold mt-2">¥{stats.total_holding?.toLocaleString() || 0}</p>
+                            <p className="text-2xl font-bold mt-2 mobile-num">¥{stats.total_holding?.toLocaleString() || 0}</p>
                         </CardContent>
                     </Card>
-                    <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+                    <Card className="mobile-compact-card bg-gradient-to-br from-purple-500 to-purple-600 text-white">
                         <CardContent className="pt-4">
                             <div className="flex items-center gap-2">
-                                <TrendingUp className="w-5 h-5" />
-                                <span className="opacity-80 text-sm">累计收益</span>
+                                <TrendingUp className="w-5 h-5 mobile-icon" />
+                                <span className="opacity-80 text-sm mobile-label">累计收益</span>
                             </div>
-                            <p className="text-2xl font-bold mt-2">¥{stats.total_profit?.toLocaleString() || 0}</p>
+                            <p className="text-2xl font-bold mt-2 mobile-num">¥{stats.total_profit?.toLocaleString() || 0}</p>
                             <div className="mt-2 pt-2 border-t border-white/20">
                                 <div className="flex items-center justify-between">
                                     <div>
@@ -1800,8 +1800,8 @@ const [copySuccess, setCopySuccess] = useState(false);
                     </Card>
                 </div>
                 {}
-                <div className="space-y-6">
-                    <div className="flex gap-4 border-b overflow-x-auto scrollbar-hide">
+                <div className="space-y-3 md:space-y-6">
+                    <div className="mobile-tab-nav flex gap-4 border-b overflow-x-auto scrollbar-hide">
                         <button
                             onClick={() => setActiveTab("profile")}
                             className={`px-4 py-2 border-b-2 transition-colors flex-shrink-0 ${activeTab === "profile" ? "border-green-500 text-green-600" : "border-transparent text-gray-500"}`}>
@@ -2019,7 +2019,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             收款信息设置
                                         </CardTitle>
                                     </CardHeader>
-                                    <CardContent className="space-y-6">
+                                    <CardContent className="space-y-3 md:space-y-6">
                                         <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                                             <p className="text-sm text-blue-700">
                                                 <strong>提示：</strong>请填写您的支付宝和微信收款信息，以便服务商为您充值能量值时进行验证。付款码用于线下转账确认。
@@ -2167,7 +2167,7 @@ const [copySuccess, setCopySuccess] = useState(false);
 
                             {/* 邀请推广子Tab */}
                             {profileSubTab === "invite" && (
-                                <div className="space-y-6">
+                                <div className="space-y-3 md:space-y-6">
                                     {/* 邀请码卡片 */}
                                     <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white overflow-hidden relative">
                                         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIj48cGF0aCBkPSJNMCAwaDEwMHYxMDBIMHoiIGZpbGw9Im5vbmUiLz48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSIyIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMSkiLz48L3N2Zz4=')] opacity-30"></div>
@@ -2403,7 +2403,7 @@ const [copySuccess, setCopySuccess] = useState(false);
 
                             {/* 修改密码Tab */}
                             {profileSubTab === "password" && (
-                                <div className="space-y-6">
+                                <div className="space-y-3 md:space-y-6">
                                     <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700">
                                         <CardHeader>
                                             <CardTitle className="flex items-center gap-2 text-white">
@@ -2490,7 +2490,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                         </div>
                     )}
 
-                    {activeTab === "products" && <div className="space-y-6">
+                    {activeTab === "products" && <div className="space-y-3 md:space-y-6">
                         {}
                         
                         {/* 购买限制提示 */}
@@ -3034,7 +3034,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                     </Card>}
 
                     {/* 能量值记录 Tab */}
-                    {activeTab === "transfers" && <div className="space-y-6">
+                    {activeTab === "transfers" && <div className="space-y-3 md:space-y-6">
                         {/* 统计卡片 */}
                         <div className="grid grid-cols-4 gap-4">
                             <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
@@ -3240,7 +3240,7 @@ const [copySuccess, setCopySuccess] = useState(false);
 
                     {/* 我的收益 Tab */}
                     {activeTab === "profit" && (
-                        <div className="space-y-6">
+                        <div className="space-y-3 md:space-y-6">
                             {/* 收益统计卡片 */}
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
@@ -3459,7 +3459,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                     )}
 
                     {/* 提现 Tab */}
-                    {activeTab === "withdraw" && <div className="space-y-6">
+                    {activeTab === "withdraw" && <div className="space-y-3 md:space-y-6">
                         <Card className="bg-gradient-to-br from-rose-500 to-rose-600 text-white">
                             <CardContent className="pt-4">
                                 <div className="flex items-center gap-2 mb-2">
@@ -3603,7 +3603,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                     </div>}
 
                     {/* 积分 Tab */}
-                    {activeTab === "points" && <div className="space-y-6">
+                    {activeTab === "points" && <div className="space-y-3 md:space-y-6">
                         <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white">
                             <CardContent className="pt-4">
                                 <div className="flex items-center gap-2 mb-2">
@@ -3651,7 +3651,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                     </div>}
 
                     {/* 充值申请 Tab */}
-                    {activeTab === "recharge" && <div className="space-y-6">
+                    {activeTab === "recharge" && <div className="space-y-3 md:space-y-6">
                         <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white">
                             <CardContent className="pt-4">
                                 <div className="flex items-center gap-2 mb-2">
