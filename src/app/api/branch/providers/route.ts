@@ -41,16 +41,46 @@ export async function GET(request: NextRequest) {
       [branchId]
     );
 
+    // 从 providers 表获取服务商额度信息
+    const providerQuotas = await query<{
+      user_id: string;
+      quota: number;
+      used_quota: number;
+    }>(
+      `SELECT user_id, quota, used_quota FROM providers WHERE branch_id = $1`,
+      [branchId]
+    );
+
+    // 从 quota_accounts 表获取服务商账户余额
+    const providerAccounts = await query<{
+      user_id: string;
+      balance: number;
+      total_in: number;
+      total_out: number;
+    }>(
+      `SELECT user_id, balance, total_in, total_out FROM quota_accounts WHERE user_id = ANY($1)`,
+      [users.map(u => u.id)]
+    );
+
     // 合并数据
     const allocationsMap = new Map(allocations.map(a => [a.provider_id, a]));
+    const providerQuotaMap = new Map(providerQuotas.map(p => [p.user_id, p]));
+    const providerAccountMap = new Map(providerAccounts.map(p => [p.user_id, p]));
     
     const providers = users.map(user => {
       const allocation = allocationsMap.get(user.id);
+      const providerQuota = providerQuotaMap.get(user.id);
+      const account = providerAccountMap.get(user.id);
       return {
         id: user.id,
         username: user.username || '',
         energy_value: parseInt(user.energy_value || '0'),
         balance: parseInt(user.balance || '0'),
+        // 优先从 providers 表获取额度
+        quota: providerQuota?.quota || account?.balance || allocation?.quota_amount || 0,
+        used_quota: providerQuota?.used_quota || (account ? account.total_out : 0) || allocation?.used_amount || 0,
+        available_quota: (providerQuota?.quota || account?.balance || allocation?.quota_amount || 0) - (providerQuota?.used_quota || (account ? account.total_out : 0) || allocation?.used_amount || 0),
+        // 保留旧的字段名兼容
         quota_amount: allocation?.quota_amount || 0,
         used_amount: allocation?.used_amount || 0,
         available_amount: (allocation?.quota_amount || 0) - (allocation?.used_amount || 0),

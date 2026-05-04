@@ -132,6 +132,12 @@ export async function POST(request: NextRequest) {
       [providerId, quota]
     );
 
+    // 更新 providers 表的额度
+    await execute(
+      `UPDATE providers SET quota = quota + $2, updated_at = NOW() WHERE user_id = $1`,
+      [providerId, quota]
+    );
+
     // 记录额度分配流水
     await execute(
       `INSERT INTO quota_records (from_user_id, to_user_id, amount, type, note, created_at)

@@ -10,7 +10,8 @@ import {
   Users, Zap, Package, Loader2, Send, Building2, 
   RefreshCw, Plus, Bell, ChevronDown, ChevronUp,
   Eye, DollarSign, ClipboardList, CheckCircle, XCircle, Database,
-  FileCheck, ClipboardCheck, User, History, Banknote, Gift, TrendingUp
+  FileCheck, ClipboardCheck, User, History, Banknote, Gift, TrendingUp,
+  AlertCircle
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -38,6 +39,9 @@ interface Provider {
   username: string;
   energy_value: number;
   balance: number;
+  quota?: number;
+  used_quota?: number;
+  available_quota?: number;
   created_at: string;
 }
 
@@ -1181,12 +1185,46 @@ export default function BranchPage() {
 
       {/* 分配额度对话框 */}
       {showAllocateDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-[500px]">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-lg">
             <CardHeader>
               <CardTitle>分配额度给服务商</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* 分公司额度信息 */}
+              <div className="bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Building2 className="w-4 h-4 text-violet-600" />
+                  <span className="text-sm font-medium text-violet-800">我的算力额度</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <p className="text-lg font-bold text-violet-700">{(stats.total_quota || 0).toLocaleString()}</p>
+                    <p className="text-xs text-violet-500">总额度</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-green-600">{(stats.available_quota || 0).toLocaleString()}</p>
+                    <p className="text-xs text-violet-500">可用额度</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-orange-600">{(stats.used_quota || 0).toLocaleString()}</p>
+                    <p className="text-xs text-violet-500">已分配</p>
+                  </div>
+                </div>
+                {/* 额度进度条 */}
+                <div className="mt-2">
+                  <div className="w-full bg-violet-200 rounded-full h-2">
+                    <div 
+                      className="bg-violet-600 h-2 rounded-full transition-all" 
+                      style={{ width: `${stats.total_quota ? Math.min((stats.used_quota || 0) / stats.total_quota * 100, 100) : 0}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-violet-500 mt-1 text-right">
+                    已使用 {stats.total_quota ? ((stats.used_quota || 0) / stats.total_quota * 100).toFixed(1) : 0}%
+                  </p>
+                </div>
+              </div>
+
               <div>
                 <Label>选择服务商</Label>
                 <select
@@ -1196,9 +1234,30 @@ export default function BranchPage() {
                 >
                   <option value="">请选择服务商</option>
                   {providers.map(p => (
-                    <option key={p.id} value={p.id}>{p.username}</option>
+                    <option key={p.id} value={p.id}>
+                      {p.username} (可用额度: {(p.available_quota ?? p.quota ?? 0).toLocaleString()})
+                    </option>
                   ))}
                 </select>
+                {/* 选中服务商后显示其额度 */}
+                {selectedProvider && (() => {
+                  const provider = providers.find(p => p.id === selectedProvider);
+                  if (!provider) return null;
+                  return (
+                    <div className="mt-2 bg-blue-50 border border-blue-200 rounded-lg p-2">
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span className="text-blue-500">当前额度:</span>
+                          <span className="font-medium ml-1">{(provider.quota ?? 0).toLocaleString()}</span>
+                        </div>
+                        <div>
+                          <span className="text-blue-500">已使用:</span>
+                          <span className="font-medium ml-1">{(provider.used_quota ?? 0).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
               <div>
                 <Label>选择算力模板</Label>
@@ -1223,13 +1282,27 @@ export default function BranchPage() {
                   className="mt-1"
                 />
                 <p className="text-sm text-gray-500 mt-1">提示: 5万元可生成15个算力</p>
+                {/* 额度不足提示 */}
+                {quotaAmount && parseFloat(quotaAmount) > (stats.available_quota || 0) && (
+                  <div className="mt-1 flex items-center gap-1 text-red-600 text-sm">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>额度不足！可用额度 {(stats.available_quota || 0).toLocaleString()} 元，需分配 {parseFloat(quotaAmount).toLocaleString()} 元</span>
+                  </div>
+                )}
+                {/* 额度充足提示 */}
+                {quotaAmount && parseFloat(quotaAmount) > 0 && parseFloat(quotaAmount) <= (stats.available_quota || 0) && (
+                  <div className="mt-1 flex items-center gap-1 text-green-600 text-sm">
+                    <CheckCircle className="w-4 h-4" />
+                    <span>分配后剩余: {((stats.available_quota || 0) - parseFloat(quotaAmount)).toLocaleString()} 元</span>
+                  </div>
+                )}
               </div>
               <div className="flex justify-end gap-2 pt-4">
                 <Button variant="outline" onClick={() => setShowAllocateDialog(false)}>取消</Button>
                 <Button 
                   className="bg-blue-600" 
                   onClick={handleAllocateQuota}
-                  disabled={submitting}
+                  disabled={submitting || (quotaAmount ? parseFloat(quotaAmount) > (stats.available_quota || 0) : false)}
                 >
                   {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                   确认分配
