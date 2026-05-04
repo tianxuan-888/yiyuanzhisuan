@@ -53,6 +53,7 @@ import {
     History,
     Wallet,
     ArrowUpDown,
+    Cpu,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -241,7 +242,8 @@ export default function ProviderPage() {
         text: string;
     } | null>(null);
 
-    const [activeTab, setActiveTab] = useState("overview");
+    const [activeTab, setActiveTab] = useState<string>("overview");
+    const [powerSubTab, setPowerSubTab] = useState<string>("quota");
     const [salesRecords, setSalesRecords] = useState<any[]>([]);
     const [salesStats, setSalesStats] = useState<any>({ total: 0, available: 0, sold: 0, totalAmount: 0 });
     const [salesFilter, setSalesFilter] = useState<string>("all");
@@ -1766,23 +1768,9 @@ export default function ProviderPage() {
                                 <TrendingUp className="w-4 h-4" />概览
                             </button>
                             <button
-                                onClick={() => setActiveTab("quota")}
-                                className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "quota" ? "bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-200" : "text-gray-600 hover:bg-purple-50"}`}>
-                                <Database className="w-4 h-4" />额度管理
-                            </button>
-                            <button
-                                onClick={() => setActiveTab("products")}
-                                className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "products" ? "bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-200" : "text-gray-600 hover:bg-purple-50"}`}>
-                                <Package className="w-4 h-4" />算力列表
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setActiveTab("sales");
-                                    loadSalesRecords();
-                                }}
-                                className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "sales" ? "bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-200" : "text-gray-600 hover:bg-purple-50"}`}>
-                                <TrendingUp className="w-4 h-4" />销售记录
-                                {salesStats.sold > 0 && <Badge className="ml-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs shadow-lg">{salesStats.sold}</Badge>}
+                                onClick={() => setActiveTab("power")}
+                                className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "power" ? "bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-200" : "text-gray-600 hover:bg-purple-50"}`}>
+                                <Cpu className="w-4 h-4" />算力管理
                             </button>
                             <button
                                 onClick={() => setActiveTab("applications")}
@@ -1790,15 +1778,7 @@ export default function ProviderPage() {
                                 <ClipboardList className="w-4 h-4" />审核申请
                                           {applications.length > 0 && <Badge className="ml-1 bg-gradient-to-r from-red-500 to-rose-500 text-white text-xs shadow-lg animate-pulse">{applications.length}</Badge>}
                             </button>
-                            <button
-                                onClick={() => {
-                                    setActiveTab("buyorders");
-                                    loadPendingBuyOrders();
-                                }}
-                                className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "buyorders" ? "bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-200" : "text-gray-600 hover:bg-purple-50"}`}>
-                                <ShoppingCart className="w-4 h-4" />购买审核
-                                          {pendingBuyOrders.length > 0 && <Badge className="ml-1 bg-gradient-to-r from-red-500 to-rose-500 text-white text-xs shadow-lg animate-pulse">{pendingBuyOrders.length}</Badge>}
-                            </button>
+
                             <button
                                 onClick={() => setActiveTab("energy")}
                                 className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "energy" ? "bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-200" : "text-gray-600 hover:bg-purple-50"}`}>
@@ -1812,14 +1792,7 @@ export default function ProviderPage() {
                                 className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "revenue" ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg shadow-green-200" : "text-gray-600 hover:bg-green-50"}`}>
                                 <TrendingUp className="w-4 h-4" />收益记录
                             </button>
-                            <button
-                                onClick={() => {
-                                    setActiveTab("transfers");
-                                    loadTransferData();
-                                }}
-                                className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "transfers" ? "bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-200" : "text-gray-600 hover:bg-purple-50"}`}>
-                                <ArrowLeftRight className="w-4 h-4" />流转审核
-                            </button>
+
                             <button
                                 onClick={() => {
                                     setActiveTab("withdrawals");
@@ -2146,13 +2119,13 @@ export default function ProviderPage() {
                                         <CheckCircle className="w-4 h-4 mr-2" />一键上架 {stats.pending_count}个算力
                                                               </Button>}
                                     <Button
-                                        onClick={() => setActiveTab("quota")}
+                                        onClick={() => { setActiveTab("power"); setPowerSubTab("quota"); }}
                                         variant="outline"
                                         className="w-full border-purple-300 text-purple-600 hover:bg-purple-50">
                                         <Database className="w-4 h-4 mr-2" />查看额度分配
                                                             </Button>
                                     <Button
-                                        onClick={() => setActiveTab("products")}
+                                        onClick={() => { setActiveTab("power"); setPowerSubTab("products"); }}
                                         variant="outline"
                                         className="w-full border-fuchsia-300 text-fuchsia-600 hover:bg-fuchsia-50">
                                         <Package className="w-4 h-4 mr-2" />管理算力
@@ -2205,7 +2178,29 @@ export default function ProviderPage() {
                         </Card>
                     </div>}
                     {}
-                    {activeTab === "quota" && <div className="space-y-3 md:space-y-6">
+                    {activeTab === "power" && <div className="space-y-3 md:space-y-6">
+                        {/* 算力管理子Tab导航 */}
+                        <div className="flex flex-wrap gap-2">
+                            <button onClick={() => setPowerSubTab('quota')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${powerSubTab === 'quota' ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-purple-50'}`}>
+                                <Database className="w-3.5 h-3.5 inline mr-1" />额度概览
+                            </button>
+                            <button onClick={() => { setPowerSubTab('products'); }} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${powerSubTab === 'products' ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-purple-50'}`}>
+                                <Package className="w-3.5 h-3.5 inline mr-1" />算力列表
+                            </button>
+                            <button onClick={() => { setPowerSubTab('sales'); loadSalesRecords(); }} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${powerSubTab === 'sales' ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-purple-50'}`}>
+                                <TrendingUp className="w-3.5 h-3.5 inline mr-1" />销售记录
+                            </button>
+                            <button onClick={() => { setPowerSubTab('buyorders'); loadPendingBuyOrders(); }} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${powerSubTab === 'buyorders' ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-purple-50'}`}>
+                                <ShoppingCart className="w-3.5 h-3.5 inline mr-1" />购买审核
+                                {pendingBuyOrders.length > 0 && <Badge className="ml-1 bg-gradient-to-r from-red-500 to-rose-500 text-white text-xs shadow-lg animate-pulse">{pendingBuyOrders.length}</Badge>}
+                            </button>
+                            <button onClick={() => { setPowerSubTab('transfers'); loadTransferData(); }} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${powerSubTab === 'transfers' ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-purple-50'}`}>
+                                <ArrowLeftRight className="w-3.5 h-3.5 inline mr-1" />流转审核
+                            </button>
+                        </div>
+
+                        {/* 额度概览 */}
+                        {powerSubTab === "quota" && <div className="space-y-3 md:space-y-6">
                         {}
                         {/* 额度统计卡片 */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -2425,8 +2420,7 @@ export default function ProviderPage() {
                             </CardContent>
                         </Card>
                     </div>}
-                    {}
-                    {activeTab === "products" && <Card>
+                    {powerSubTab === "products" && <Card>
                         <CardHeader>
                             <div className="flex items-center justify-between">
                                 <CardTitle>我的算力</CardTitle>
@@ -2559,8 +2553,8 @@ export default function ProviderPage() {
                         </CardContent>
                     </Card>}
 
-                    {/* 销售记录Tab */}
-                    {activeTab === "sales" && <div className="space-y-3 md:space-y-6">
+                    {/* 销售记录 */}
+                    {powerSubTab === "sales" && <div className="space-y-3 md:space-y-6">
                         {/* 统计卡片 */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <Card className="bg-gradient-to-br from-purple-500 to-fuchsia-600 text-white">
@@ -2703,91 +2697,8 @@ export default function ProviderPage() {
                             </CardContent>
                         </Card>
                     </div>}
-
-                    {activeTab === "applications" && <div className="space-y-3 md:space-y-6">
-                        {}
-                        <Card className="border-purple-200 bg-purple-50">
-                            <CardContent className="py-4">
-                                <h4 className="font-medium text-purple-800 mb-2">💡 下级服务商审核说明</h4>
-                                <p className="text-sm text-purple-600">通过审核后，将从您的额度中拆分给下级服务商。建议分配额度为5万元的倍数。
-                                                      </p>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader>
-                                <div className="flex items-center justify-between">
-                                    <CardTitle>第二代服务商申请</CardTitle>
-                                    <Badge className="bg-purple-100 text-purple-700">待审核: {applications.length}个
-                                                            </Badge>
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                {applications.length === 0 ? <div className="py-12 text-center text-gray-500">
-                                    <ClipboardList className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                                    <p>暂无待审核的申请</p>
-                                </div> : <div className="space-y-4">
-                                    {applications.map(
-                                        app => <div key={app.id} className="p-4 border rounded-lg hover:bg-gray-50">
-                                            <div className="flex items-start justify-between">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <h4 className="font-medium">{app.applicant_name || app.users?.real_name || "申请人"}</h4>
-                                                        <Badge className="bg-blue-100 text-blue-700">第二代申请
-                                                                                            </Badge>
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                                                        <div>
-                                                            <span className="text-gray-400">用户名：</span>
-                                                            {app.users?.username || "-"}
-                                                        </div>
-                                                        <div>
-                                                            <span className="text-gray-400">手机号：</span>
-                                                            {app.phone || "-"}
-                                                        </div>
-                                                        <div>
-                                                            <span className="text-gray-400">支付宝：</span>
-                                                            {app.alipay_account || "-"}
-                                                        </div>
-                                                        <div>
-                                                            <span className="text-gray-400">申请额度：</span>
-                                                            <span className="text-green-600 font-medium">¥{(app.quota_request || 50000).toLocaleString()}</span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="mt-2 text-xs text-gray-400">申请时间: {new Date(app.created_at).toLocaleString()}
-                                                    </div>
-                                                </div>
-                                                <div className="flex gap-2 ml-4">
-                                                    <Button
-                                                        size="sm"
-                                                        className="bg-green-600 hover:bg-green-700"
-                                                        onClick={() => handleReviewApplication(app.id, "approve", app.quota_request)}
-                                                        disabled={submitting}>
-                                                        <CheckCircle className="w-4 h-4 mr-1" />通过
-                                                                                      </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="destructive"
-                                                        onClick={() => {
-                                                            const reason = prompt("请输入拒绝原因:");
-
-                                                            if (reason) {
-                                                                handleReviewApplication(app.id, "reject");
-                                                            }
-                                                        }}
-                                                        disabled={submitting}>
-                                                        <XCircle className="w-4 h-4 mr-1" />拒绝
-                                                                                      </Button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>}
-                            </CardContent>
-                        </Card>
-                    </div>}
-
-                    {/* 购买审核Tab */}
-                    {activeTab === "buyorders" && <div className="space-y-3 md:space-y-6">
+                    {/* 购买审核 */}
+                    {powerSubTab === "buyorders" && <div className="space-y-3 md:space-y-6">
                         {}
                         {/* 统计卡片 */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -2917,7 +2828,202 @@ export default function ProviderPage() {
                             </Card>
                         )}
                     </div>}
-                    
+                    {/* 流转审核 */}
+                    {powerSubTab === "transfers" && (
+                        <div className="space-y-3 md:space-y-6">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <RefreshCw className="w-5 h-5" />
+                                        流转审核管理
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-4">
+                                        {/* 待审核流转 */}
+                                        <div className="mb-6">
+                                            <h4 className="font-medium mb-3 flex items-center gap-2">
+                                                <AlertCircle className="w-4 h-4 text-orange-500" />
+                                                待审核流转（{pendingTransfers.length}）
+                                            </h4>
+                                            {pendingTransfers.length > 0 ? (
+                                                <div className="space-y-3">
+                                                    {pendingTransfers.map((transfer: any) => (
+                                                        <div key={transfer.id} className="border rounded-lg p-4 bg-orange-50">
+                                                            <div className="flex justify-between items-start mb-3">
+                                                                <div>
+                                                                    <p className="font-medium">{transfer.product?.name || '算力流转'}</p>
+                                                                    <p className="text-sm text-gray-500">流转价: ¥{transfer.transfer_price?.toLocaleString()}</p>
+                                                                </div>
+                                                                <Badge className="bg-orange-500">待审核</Badge>
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                                                                <div className="text-gray-600">
+                                                                    <span className="font-medium">卖家:</span> {transfer.from_user?.username || '未知'}
+                                                                </div>
+                                                                <div className="text-gray-600">
+                                                                    <span className="font-medium">买家:</span> {transfer.to_user?.username || '未知'}
+                                                                </div>
+                                                            </div>
+                                                            {transfer.payment_proof && (
+                                                                <div className="text-sm text-blue-600 mb-3">
+                                                                    凭证: {transfer.payment_proof}
+                                                                </div>
+                                                            )}
+                                                            <div className="flex gap-2">
+                                                                <Button 
+                                                                    size="sm" 
+                                                                    className="bg-green-600 hover:bg-green-700"
+                                                                    onClick={() => handleTransferReview(transfer.id, 'approve')}
+                                                                    disabled={submitting}
+                                                                >
+                                                                    <CheckCircle className="w-4 h-4 mr-1" /> 通过
+                                                                </Button>
+                                                                <Button 
+                                                                    size="sm" 
+                                                                    variant="destructive"
+                                                                    onClick={() => handleTransferReview(transfer.id, 'reject')}
+                                                                    disabled={submitting}
+                                                                >
+                                                                    <XCircle className="w-4 h-4 mr-1" /> 拒绝
+                                                                </Button>
+                                                                {transfer.expires_at && (
+                                                                    <span className="text-sm text-gray-500 ml-auto self-center">
+                                                                        过期时间: {new Date(transfer.expires_at).toLocaleString()}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-gray-500 text-center py-4">暂无待审核流转</p>
+                                            )}
+                                        </div>
+
+                                        {/* 待回购算力 */}
+                                        <div>
+                                            <h4 className="font-medium mb-3 flex items-center gap-2">
+                                                <Clock className="w-4 h-4 text-red-500" />
+                                                待回购算力（{pendingRepurchases.length}）
+                                            </h4>
+                                            {pendingRepurchases.length > 0 ? (
+                                                <div className="space-y-3">
+                                                    {pendingRepurchases.map((item: any) => (
+                                                        <div key={item.id} className="border rounded-lg p-4 bg-red-50">
+                                                            <div className="flex justify-between items-start mb-3">
+                                                                <div>
+                                                                    <p className="font-medium">{item.product?.name || '算力'}</p>
+                                                                    <p className="text-sm text-gray-500">流转价: ¥{item.transfer_price?.toLocaleString()}</p>
+                                                                </div>
+                                                                <Badge className="bg-red-500">已过期</Badge>
+                                                            </div>
+                                                            <div className="flex gap-2">
+                                                                <Button 
+                                                                    size="sm" 
+                                                                    className="bg-blue-600 hover:bg-blue-700"
+                                                                    onClick={() => handleRepurchase(item.id)}
+                                                                    disabled={submitting}
+                                                                >
+                                                                    回购
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-gray-500 text-center py-4">暂无待回购算力</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
+                    </div>}
+
+                    {activeTab === "applications" && <div className="space-y-3 md:space-y-6">
+                        {}
+                        <Card className="border-purple-200 bg-purple-50">
+                            <CardContent className="py-4">
+                                <h4 className="font-medium text-purple-800 mb-2">💡 下级服务商审核说明</h4>
+                                <p className="text-sm text-purple-600">通过审核后，将从您的额度中拆分给下级服务商。建议分配额度为5万元的倍数。
+                                                      </p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader>
+                                <div className="flex items-center justify-between">
+                                    <CardTitle>第二代服务商申请</CardTitle>
+                                    <Badge className="bg-purple-100 text-purple-700">待审核: {applications.length}个
+                                                            </Badge>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                {applications.length === 0 ? <div className="py-12 text-center text-gray-500">
+                                    <ClipboardList className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                                    <p>暂无待审核的申请</p>
+                                </div> : <div className="space-y-4">
+                                    {applications.map(
+                                        app => <div key={app.id} className="p-4 border rounded-lg hover:bg-gray-50">
+                                            <div className="flex items-start justify-between">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <h4 className="font-medium">{app.applicant_name || app.users?.real_name || "申请人"}</h4>
+                                                        <Badge className="bg-blue-100 text-blue-700">第二代申请
+                                                                                            </Badge>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                                                        <div>
+                                                            <span className="text-gray-400">用户名：</span>
+                                                            {app.users?.username || "-"}
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-gray-400">手机号：</span>
+                                                            {app.phone || "-"}
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-gray-400">支付宝：</span>
+                                                            {app.alipay_account || "-"}
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-gray-400">申请额度：</span>
+                                                            <span className="text-green-600 font-medium">¥{(app.quota_request || 50000).toLocaleString()}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="mt-2 text-xs text-gray-400">申请时间: {new Date(app.created_at).toLocaleString()}
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2 ml-4">
+                                                    <Button
+                                                        size="sm"
+                                                        className="bg-green-600 hover:bg-green-700"
+                                                        onClick={() => handleReviewApplication(app.id, "approve", app.quota_request)}
+                                                        disabled={submitting}>
+                                                        <CheckCircle className="w-4 h-4 mr-1" />通过
+                                                                                      </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="destructive"
+                                                        onClick={() => {
+                                                            const reason = prompt("请输入拒绝原因:");
+
+                                                            if (reason) {
+                                                                handleReviewApplication(app.id, "reject");
+                                                            }
+                                                        }}
+                                                        disabled={submitting}>
+                                                        <XCircle className="w-4 h-4 mr-1" />拒绝
+                                                                                      </Button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>}
+                            </CardContent>
+                        </Card>
+                    </div>}
+
                     {/* 能量充值Tab */}
                     {activeTab === "energy" && <div className="space-y-3 md:space-y-6">
                         <Card>
@@ -3226,119 +3332,6 @@ export default function ProviderPage() {
                             </CardContent>
                         </Card>
                     </div>}
-                    
-                    {/* 流转审核 Tab */}
-                    {activeTab === "transfers" && (
-                        <div className="space-y-3 md:space-y-6">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <RefreshCw className="w-5 h-5" />
-                                        流转审核管理
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        {/* 待审核流转 */}
-                                        <div className="mb-6">
-                                            <h4 className="font-medium mb-3 flex items-center gap-2">
-                                                <AlertCircle className="w-4 h-4 text-orange-500" />
-                                                待审核流转（{pendingTransfers.length}）
-                                            </h4>
-                                            {pendingTransfers.length > 0 ? (
-                                                <div className="space-y-3">
-                                                    {pendingTransfers.map((transfer: any) => (
-                                                        <div key={transfer.id} className="border rounded-lg p-4 bg-orange-50">
-                                                            <div className="flex justify-between items-start mb-3">
-                                                                <div>
-                                                                    <p className="font-medium">{transfer.product?.name || '算力流转'}</p>
-                                                                    <p className="text-sm text-gray-500">流转价: ¥{transfer.transfer_price?.toLocaleString()}</p>
-                                                                </div>
-                                                                <Badge className="bg-orange-500">待审核</Badge>
-                                                            </div>
-                                                            <div className="grid grid-cols-2 gap-2 text-sm mb-3">
-                                                                <div className="text-gray-600">
-                                                                    <span className="font-medium">卖家:</span> {transfer.from_user?.username || '未知'}
-                                                                </div>
-                                                                <div className="text-gray-600">
-                                                                    <span className="font-medium">买家:</span> {transfer.to_user?.username || '未知'}
-                                                                </div>
-                                                            </div>
-                                                            {transfer.payment_proof && (
-                                                                <div className="text-sm text-blue-600 mb-3">
-                                                                    凭证: {transfer.payment_proof}
-                                                                </div>
-                                                            )}
-                                                            <div className="flex gap-2">
-                                                                <Button 
-                                                                    size="sm" 
-                                                                    className="bg-green-600 hover:bg-green-700"
-                                                                    onClick={() => handleTransferReview(transfer.id, 'approve')}
-                                                                    disabled={submitting}
-                                                                >
-                                                                    <CheckCircle className="w-4 h-4 mr-1" /> 通过
-                                                                </Button>
-                                                                <Button 
-                                                                    size="sm" 
-                                                                    variant="destructive"
-                                                                    onClick={() => handleTransferReview(transfer.id, 'reject')}
-                                                                    disabled={submitting}
-                                                                >
-                                                                    <XCircle className="w-4 h-4 mr-1" /> 拒绝
-                                                                </Button>
-                                                                {transfer.expires_at && (
-                                                                    <span className="text-sm text-gray-500 ml-auto self-center">
-                                                                        过期时间: {new Date(transfer.expires_at).toLocaleString()}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <p className="text-gray-500 text-center py-4">暂无待审核流转</p>
-                                            )}
-                                        </div>
-
-                                        {/* 待回购算力 */}
-                                        <div>
-                                            <h4 className="font-medium mb-3 flex items-center gap-2">
-                                                <Clock className="w-4 h-4 text-red-500" />
-                                                待回购算力（{pendingRepurchases.length}）
-                                            </h4>
-                                            {pendingRepurchases.length > 0 ? (
-                                                <div className="space-y-3">
-                                                    {pendingRepurchases.map((item: any) => (
-                                                        <div key={item.id} className="border rounded-lg p-4 bg-red-50">
-                                                            <div className="flex justify-between items-start mb-3">
-                                                                <div>
-                                                                    <p className="font-medium">{item.product?.name || '算力'}</p>
-                                                                    <p className="text-sm text-gray-500">流转价: ¥{item.transfer_price?.toLocaleString()}</p>
-                                                                </div>
-                                                                <Badge className="bg-red-500">已过期</Badge>
-                                                            </div>
-                                                            <div className="flex gap-2">
-                                                                <Button 
-                                                                    size="sm" 
-                                                                    className="bg-blue-600 hover:bg-blue-700"
-                                                                    onClick={() => handleRepurchase(item.id)}
-                                                                    disabled={submitting}
-                                                                >
-                                                                    回购
-                                                                </Button>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <p className="text-gray-500 text-center py-4">暂无待回购算力</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    )}
 
                     {/* 提现管理 Tab */}
                     {activeTab === "withdrawals" && (
