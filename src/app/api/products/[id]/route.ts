@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
+import { query } from '@/lib/pg-client';
 
 // 允许更新的字段白名单
 const ALLOWED_PRODUCT_FIELDS = new Set([
@@ -122,31 +123,91 @@ export async function PUT(
   }
 }
 
-// 删除产品
+// 删除产品（未上架产品，退回额度给服务商）
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // 鉴权：仅管理员可删除
+    const { id } = await params;
+
+    // 先获取产品信息，检查状态
+    const client = getSupabaseClient();
+    const { data: product, error: findError } = await client
+      .from('products')
+      .select('id, provider_id, price, status, name')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (findError) {
+      throw new Error(`查询产品失败: ${findError.message}`);
+    }
+
+    if (!product) {
+      return NextResponse.json({ error: '产品不存在' }, { status: 404 });
+    }
+
+    // 只有未上架（draft/available但未被购买）的产品可以删除
+    // sold 状态的产品不能删除
+    if (product.status === 'sold') {
+      return NextResponse.json(
+        { error: '已售出的产品不能删除' },
+        { status: 400 }
+      );
+    }
+
+    if (product.status === 'pending_sell') {
+      return NextResponse.json(
+        { error: '待审核卖出的产品不能删除' },
+        { status: 400 }
+      );
+    }
+
+    // 鉴权：管理员可删除所有，服务商只能删除自己的未上架产品
     const user = authenticateRequest(request);
-    if (!user || !authorizeRole(user, ['admin'])) {
+    if (!user) {
+      return NextResponse.json({ error: '未登录' }, { status: 401 });
+    }
+
+    const userAny = user as { role: string; id?: string };
+    if (userAny.role !== 'admin' && userAny.role !== 'provider') {
       return NextResponse.json({ error: '无权操作' }, { status: 403 });
     }
 
-    const { id } = await params;
-    const client = getSupabaseClient();
+    if (userAny.role === 'provider' && product.provider_id !== userAny.id) {
+      return NextResponse.json({ error: '无权删除此产品' }, { status: 403 });
+    }
 
-    const { error } = await client
+    // 删除产品
+    const { error: deleteError } = await client
       .from('products')
       .delete()
       .eq('id', id);
 
-    if (error) {
-      throw new Error(`删除产品失败: ${error.message}`);
+    if (deleteError) {
+      throw new Error(`删除产品失败: ${deleteError.message}`);
     }
 
-    return NextResponse.json({ success: true, message: '产品已删除' });
+    // 退回额度给服务商
+    if (product.provider_id && product.price) {
+      const now = new Date().toISOString();
+      await query(
+        `UPDATE providers 
+         SET used_quota = GREATEST(0, COALESCE(used_quota, 0) - $1),
+             updated_at = $2
+         WHERE user_id = $3`,
+        [product.price, now, product.provider_id]
+      );
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      message: `产品已删除，¥${product.price.toLocaleString()} 额度已退回`,
+      data: {
+        refundedAmount: product.price,
+        providerId: product.provider_id,
+      }
+    });
   } catch (error) {
     console.error('删除产品失败:', error);
     return NextResponse.json({ error: '服务器错误' }, { status: 500 });

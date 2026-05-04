@@ -35,6 +35,8 @@ import {
     AlertCircle,
     ClipboardList,
     Database,
+    Trash2,
+    FileText,
     ArrowLeftRight,
     User,
     Star,
@@ -299,6 +301,9 @@ export default function ProviderPage() {
     const [generateQuotaAmount, setGenerateQuotaAmount] = useState("");
     const [generatePreview, setGeneratePreview] = useState<any>(null);
     const [loadingPreview, setLoadingPreview] = useState(false);
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+    const [availableTemplates, setAvailableTemplates] = useState<any[]>([]);
+    const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
 
     // 购买审核相关状态
     const [pendingBuyOrders, setPendingBuyOrders] = useState<any[]>([]);
@@ -751,26 +756,44 @@ export default function ProviderPage() {
         setTimeout(() => setMessage(null), 3000);
     };
 
-    // 打开额度生成对话框
-    const openQuotaGenerateDialog = () => {
+    // 打开额度生成对话框（已由openGenerateDialog替代）
+
+    // 打开生成产品对话框时加载模板
+    const openGenerateDialog = async () => {
         setGenerateQuotaAmount("");
         setGeneratePreview(null);
+        setSelectedTemplateId("");
         setShowQuotaGenerateDialog(true);
+        
+        // 加载可用模板
+        try {
+            const response = await authFetch("/api/product-templates");
+            const data = await response.json();
+            if (data.success) {
+                setAvailableTemplates(data.data || []);
+            }
+        } catch {
+            // 静默失败
+        }
     };
 
     // 获取产品生成预览
     const fetchGeneratePreview = async () => {
-        if (!generateQuotaAmount || parseInt(generateQuotaAmount) < 10000) {
-            showMessage("error", "最低额度为1万元");
+        if (!selectedTemplateId) {
+            showMessage("error", "请先选择产品模板");
+            return;
+        }
+        if (!generateQuotaAmount || parseInt(generateQuotaAmount) < 1000) {
+            showMessage("error", "最低总额为1,000元");
             return;
         }
 
-        const providerId = localStorage.getItem("userId");
-        if (!providerId) return;
+        const template = availableTemplates.find((t: any) => t.id === selectedTemplateId);
+        if (!template) return;
 
         setLoadingPreview(true);
         try {
-            const response = await authFetch(`/api/provider/generate-products?quota=${generateQuotaAmount}`);
+            const response = await authFetch(`/api/provider/generate-products?totalAmount=${generateQuotaAmount}&period=${template.period}`);
             const data = await response.json();
             if (data.success) {
                 setGeneratePreview(data.data);
@@ -786,13 +809,13 @@ export default function ProviderPage() {
         }
     };
 
-    // 使用自定义额度生成产品
+    // 生成产品
     const handleGenerateWithQuota = async () => {
         const providerId = localStorage.getItem("userId");
-        if (!providerId || !generateQuotaAmount) return;
+        if (!providerId || !generateQuotaAmount || !selectedTemplateId) return;
 
         const amount = parseInt(generateQuotaAmount);
-        if (amount < 10000) {
+        if (amount < 1000) {
             showMessage("error", "最低额度为1万元");
             return;
         }
@@ -806,7 +829,8 @@ export default function ProviderPage() {
                 },
                 body: JSON.stringify({
                     providerId,
-                    customQuota: amount
+                    templateId: selectedTemplateId,
+                    totalAmount: amount
                 })
             });
 
@@ -874,6 +898,68 @@ export default function ProviderPage() {
         }
     };
 
+    // 删除单个未上架产品
+    const handleDeleteProduct = async (productId: string, productName: string) => {
+        if (!confirm(`确定删除产品"${productName}"？删除后额度将退回到您的账户。`)) return;
+
+        const providerId = localStorage.getItem("userId");
+        if (!providerId) return;
+
+        try {
+            const response = await authFetch(`/api/products/${productId}`, {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+            });
+            const data = await response.json();
+            if (data.success) {
+                showMessage("success", data.message || "产品已删除");
+                loadData();
+            } else {
+                showMessage("error", data.error || "删除失败");
+            }
+        } catch {
+            showMessage("error", "网络错误");
+        }
+    };
+
+    // 批量删除未上架产品
+    const handleBatchDeleteProducts = async () => {
+        const providerId = localStorage.getItem("userId");
+        if (!providerId) return;
+
+        // 获取选中的草稿产品
+        const draftProducts = products.filter((p: any) => 
+            (p.status === 'draft' || p.status === 'unlisted') && selectedProductIds.includes(p.id)
+        );
+        if (draftProducts.length === 0) {
+            showMessage("error", "请选择要删除的未上架产品");
+            return;
+        }
+
+        if (!confirm(`确定删除${draftProducts.length}个产品？删除后额度将退回。`)) return;
+
+        try {
+            const response = await authFetch("/api/provider/products/batch-status", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    providerId,
+                    productIds: draftProducts.map((p: any) => p.id),
+                }),
+            });
+            const data = await response.json();
+            if (data.success) {
+                showMessage("success", data.message);
+                setSelectedProductIds([]);
+                loadData();
+            } else {
+                showMessage("error", data.error || "删除失败");
+            }
+        } catch {
+            showMessage("error", "网络错误");
+        }
+    };
+
     const handleListAllProducts = async () => {
         const providerId = localStorage.getItem("userId");
 
@@ -883,43 +969,17 @@ export default function ProviderPage() {
         setSubmitting(true);
 
         try {
-            // 先获取所有待上架的产品
-            const listRes = await authFetch("/api/provider/products?providerId=" + providerId + "&status=all");
-            const listData = await listRes.json();
-            
-            if (!listData.success || !listData.data?.products) {
-                showMessage("error", "获取产品列表失败");
-                setSubmitting(false);
-                return;
-            }
-            
-            // 筛选出 pending 状态的产品
-            const pendingProducts = listData.data.products.filter((p: any) => 
-                p.status === 'pending' || p.status === 'unlisted'
-            );
-            
-            if (pendingProducts.length === 0) {
-                showMessage("error", "没有待上架的产品");
-                setSubmitting(false);
-                return;
-            }
-            
-            const productIds = pendingProducts.map((p: any) => p.id);
-            
-            // 使用 PUT 方法批量上架
-            const response = await authFetch("/api/provider/products", {
+            // 使用 PUT 方法一键上架所有草稿产品
+            const response = await authFetch("/api/provider/products/batch-status", {
                 method: "PUT",
-
-                body: JSON.stringify({
-                    productIds,
-                    status: "available"
-                })
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ providerId })
             });
 
             const data = await response.json();
 
             if (data.success) {
-                showMessage("success", data.message || `成功上架 ${data.data?.listed_count} 个算力`);
+                showMessage("success", data.message || "上架成功");
                 loadData();
             } else {
                 showMessage("error", data.error || "上架失败");
@@ -2190,7 +2250,7 @@ export default function ProviderPage() {
                                             </div>
                                         </div>
                                         <Button
-                                            onClick={openQuotaGenerateDialog}
+                                            onClick={openGenerateDialog}
                                             className="bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-700 hover:to-fuchsia-700 shadow-lg px-6"
                                         >
                                             <Plus className="w-4 h-4 mr-2" />自定义生成产品
@@ -2288,14 +2348,13 @@ export default function ProviderPage() {
                                                             </Badge>
                                                         </td>
                                                         <td className="py-3 px-4">
-                                                            {remaining >= 10000 && allocation.status === "active" && <Button
+                                                            {allocation.status === "active" && <Button
                                                                 size="sm"
                                                                 className="bg-purple-600"
-                                                                onClick={() => handleGenerateProducts(allocation.id)}
+                                                                onClick={openGenerateDialog}
                                                                 disabled={submitting}>
                                                                 {submitting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}生成算力
-                                                                                                  </Button>}
-                                                            {remaining < 10000 && allocation.status === "active" && <span className="text-sm text-gray-500">额度不足</span>}
+                                                            </Button>}
                                                         </td>
                                                     </tr>
                                                 );
@@ -2396,14 +2455,31 @@ export default function ProviderPage() {
                                             <th className="text-left py-3 px-4">收益率</th>
                                             <th className="text-left py-3 px-4">状态</th>
                                             <th className="text-left py-3 px-4">创建时间</th>
+                                            <th className="text-left py-3 px-4">操作</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {products.map(product => <tr key={product.id} className="border-b hover:bg-gray-50">
                                             <td className="py-3 px-4">
-                                                <div>
-                                                    <p className="font-medium">{product.name}</p>
-                                                    <p className="text-sm text-gray-500">{product.code}</p>
+                                                <div className="flex items-center gap-2">
+                                                    {(product.status === 'draft' || product.status === 'unlisted') && (
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedProductIds.includes(product.id)}
+                                                            onChange={(e) => {
+                                                                if (e.target.checked) {
+                                                                    setSelectedProductIds([...selectedProductIds, product.id]);
+                                                                } else {
+                                                                    setSelectedProductIds(selectedProductIds.filter(id => id !== product.id));
+                                                                }
+                                                            }}
+                                                            className="w-4 h-4"
+                                                        />
+                                                    )}
+                                                    <div>
+                                                        <p className="font-medium">{product.name}</p>
+                                                        <p className="text-sm text-gray-500">{product.code}</p>
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="py-3 px-4 text-green-600 font-medium">¥{(product.price || 0).toLocaleString()}
@@ -2424,13 +2500,13 @@ export default function ProviderPage() {
                                             <td className="py-3 px-4">
                                                 <Badge
                                                     className={
-                                                        product.status === "pending" || product.status === "unlisted" ? "bg-orange-100 text-orange-700" :
+                                                        product.status === "draft" || product.status === "unlisted" ? "bg-orange-100 text-orange-700" :
                                                         product.status === "available" ? "bg-green-100 text-green-700" :
                                                         product.status === "sold" ? "bg-blue-100 text-blue-700" :
                                                         product.status === "pending_sell" ? "bg-purple-100 text-purple-700" :
                                                         "bg-gray-100 text-gray-700"
                                                     }>
-                                                    {product.status === "pending" || product.status === "unlisted" ? "待上架" :
+                                                    {product.status === "draft" || product.status === "unlisted" ? "草稿" :
                                                      product.status === "available" ? "已上架" :
                                                      product.status === "sold" ? "已出售" :
                                                      product.status === "pending_sell" ? "待流转" :
@@ -2440,13 +2516,45 @@ export default function ProviderPage() {
                                             <td className="py-3 px-4 text-sm text-gray-500">
                                                 {product.created_at?.slice(0, 10)}
                                             </td>
+                                            <td className="py-3 px-4">
+                                                {(product.status === 'draft' || product.status === 'unlisted') && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="text-red-600 hover:text-red-800"
+                                                        onClick={() => handleDeleteProduct(product.id, product.name)}
+                                                    >
+                                                        <Trash2 className="w-4 h-4 mr-1" />删除
+                                                    </Button>
+                                                )}
+                                            </td>
                                         </tr>)}
                                         {products.length === 0 && <tr>
-                                            <td colSpan={7} className="py-8 text-center text-gray-500">暂无算力，请先使用额度生成算力
+                                            <td colSpan={8} className="py-8 text-center text-gray-500">暂无算力，请先使用额度生成算力
                                                                           </td>
                                         </tr>}
                                     </tbody>
                                 </table>
+                                {/* 批量操作栏 */}
+                                {selectedProductIds.length > 0 && (
+                                    <div className="flex items-center gap-3 p-3 bg-red-50 border-t">
+                                        <span className="text-sm text-red-700">已选 {selectedProductIds.length} 个草稿产品</span>
+                                        <Button
+                                            size="sm"
+                                            variant="destructive"
+                                            onClick={handleBatchDeleteProducts}
+                                        >
+                                            <Trash2 className="w-4 h-4 mr-1" />批量删除
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => setSelectedProductIds([])}
+                                        >
+                                            取消选择
+                                        </Button>
+                                    </div>
+                                )}
                             </div>
                         </CardContent>
                     </Card>}
@@ -4320,110 +4428,154 @@ export default function ProviderPage() {
                         </DialogContent>
                     </Dialog>
 
-                    {/* 自定义额度生成产品对话框 */}
+                    {/* 生成产品对话框 */}
                     <Dialog open={showQuotaGenerateDialog} onOpenChange={setShowQuotaGenerateDialog}>
                         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                             <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">
                                     <Zap className="w-5 h-5 text-purple-600" />
-                                    自定义生成算力产品
+                                    生成算力产品
                                 </DialogTitle>
                             </DialogHeader>
                             <div className="space-y-6 py-4">
-                                {/* 可用额度信息 */}
-                                <div className="bg-gradient-to-r from-purple-50 to-fuchsia-50 rounded-xl p-4">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm text-gray-500">当前可用额度</p>
-                                            <p className="text-2xl font-bold text-purple-600">¥{(stats.available_quota || 0).toLocaleString()}</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-sm text-gray-500">可生成产品</p>
-                                            <p className="text-lg font-semibold text-fuchsia-600">{Math.floor((stats.available_quota || 0) / 10000) * 4} 个</p>
-                                        </div>
+                                {/* 第一步：选择模板 */}
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-2">
+                                        <span className="bg-purple-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">1</span>
+                                        <label className="text-sm font-medium text-foreground">选择产品模板</label>
                                     </div>
+                                    {availableTemplates.length > 0 ? (
+                                        <div className="grid grid-cols-1 gap-2">
+                                            {availableTemplates.map((template: any) => (
+                                                <div
+                                                    key={template.id}
+                                                    onClick={() => {
+                                                        setSelectedTemplateId(template.id);
+                                                        setGeneratePreview(null);
+                                                    }}
+                                                    className={`cursor-pointer rounded-lg border-2 p-3 transition-all ${
+                                                        selectedTemplateId === template.id
+                                                            ? "border-purple-600 bg-purple-50"
+                                                            : "border-border hover:border-purple-300"
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <p className="font-medium text-foreground">{template.name}</p>
+                                                            <p className="text-xs text-muted-foreground mt-1">
+                                                                {template.period}天周期 | 总收益{template.total_rate}% | 会员到手{template.profit_rate}% | 能量值{template.market_rate}%
+                                                            </p>
+                                                        </div>
+                                                        {selectedTemplateId === template.id && (
+                                                            <Badge className="bg-purple-600 text-white">已选</Badge>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-6 text-muted-foreground">
+                                            <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                            <p>暂无可用模板，请联系分公司授权</p>
+                                        </div>
+                                    )}
                                 </div>
 
-                                {/* 额度输入 */}
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-700">
-                                        输入要使用的额度（万元）
-                                    </label>
-                                    <div className="flex gap-3">
-                                        <Input
-                                            type="number"
-                                            placeholder="请输入额度，如：1、2、5"
-                                            value={generateQuotaAmount}
-                                            onChange={(e) => {
-                                                setGenerateQuotaAmount(e.target.value);
-                                                setGeneratePreview(null);
-                                            }}
-                                            min={1}
-                                            max={Math.floor((stats.available_quota || 0) / 10000)}
-                                            className="text-lg"
-                                        />
-                                        <Button
-                                            onClick={fetchGeneratePreview}
-                                            disabled={loadingPreview || !generateQuotaAmount || parseInt(generateQuotaAmount) < 1}
-                                            className="bg-purple-600"
-                                        >
-                                            {loadingPreview ? (
-                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                            ) : (
-                                                "预览"
-                                            )}
-                                        </Button>
+                                {/* 第二步：输入总额 */}
+                                {selectedTemplateId && (
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-2">
+                                            <span className="bg-purple-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">2</span>
+                                            <label className="text-sm font-medium text-foreground">输入生成总额（元）</label>
+                                        </div>
+                                        {/* 可用额度信息 */}
+                                        <div className="bg-gradient-to-r from-purple-50 to-fuchsia-50 rounded-xl p-4">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-sm text-gray-500">当前可用额度</p>
+                                                    <p className="text-2xl font-bold text-purple-600">¥{(stats.available_quota || 0).toLocaleString()}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <Input
+                                                type="number"
+                                                placeholder="请输入总额，最低1,000元"
+                                                value={generateQuotaAmount}
+                                                onChange={(e) => {
+                                                    setGenerateQuotaAmount(e.target.value);
+                                                    setGeneratePreview(null);
+                                                }}
+                                                min={1000}
+                                                max={stats.available_quota || 0}
+                                                className="text-lg"
+                                            />
+                                            <Button
+                                                onClick={fetchGeneratePreview}
+                                                disabled={loadingPreview || !generateQuotaAmount || parseInt(generateQuotaAmount) < 1000}
+                                                className="bg-purple-600"
+                                            >
+                                                {loadingPreview ? (
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                ) : (
+                                                    "预览"
+                                                )}
+                                            </Button>
+                                        </div>
+                                        <p className="text-xs text-gray-400">单个产品不超过1万元，金额为几百到几千元的整数</p>
                                     </div>
-                                    <p className="text-xs text-gray-400">最低额度1万元，1万元可生成4个产品</p>
-                                </div>
+                                )}
 
                                 {/* 预览结果 */}
                                 {generatePreview && (
                                     <div className="space-y-4">
-                                        <div className="border-t pt-4">
-                                            <h4 className="font-semibold text-gray-800 mb-3">生成预览</h4>
-                                            
-                                            {/* 统计卡片 */}
-                                            <div className="grid grid-cols-3 gap-3 mb-4">
-                                                <div className="bg-blue-50 rounded-lg p-3 text-center">
-                                                    <p className="text-sm text-blue-600">使用额度</p>
-                                                    <p className="text-xl font-bold text-blue-700">¥{generatePreview.usedQuota?.toLocaleString()}</p>
-                                                </div>
-                                                <div className="bg-green-50 rounded-lg p-3 text-center">
-                                                    <p className="text-sm text-green-600">生成产品</p>
-                                                    <p className="text-xl font-bold text-green-700">{generatePreview.stats?.total} 个</p>
-                                                </div>
-                                                <div className="bg-orange-50 rounded-lg p-3 text-center">
-                                                    <p className="text-sm text-orange-600">剩余额度</p>
-                                                    <p className="text-xl font-bold text-orange-700">¥{generatePreview.remainingQuota?.toLocaleString()}</p>
-                                                </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="bg-purple-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">3</span>
+                                            <label className="text-sm font-medium text-foreground">确认生成</label>
+                                        </div>
+                                        
+                                        {/* 统计卡片 */}
+                                        <div className="grid grid-cols-3 gap-3 mb-4">
+                                            <div className="bg-blue-50 rounded-lg p-3 text-center">
+                                                <p className="text-sm text-blue-600">生成总额</p>
+                                                <p className="text-xl font-bold text-blue-700">¥{generatePreview.stats?.totalValue?.toLocaleString()}</p>
                                             </div>
+                                            <div className="bg-green-50 rounded-lg p-3 text-center">
+                                                <p className="text-sm text-green-600">产品数量</p>
+                                                <p className="text-xl font-bold text-green-700">{generatePreview.stats?.total} 个</p>
+                                            </div>
+                                            <div className="bg-orange-50 rounded-lg p-3 text-center">
+                                                <p className="text-sm text-orange-600">价格区间</p>
+                                                <p className="text-lg font-bold text-orange-700">¥{generatePreview.stats?.minPrice?.toLocaleString()}-{generatePreview.stats?.maxPrice?.toLocaleString()}</p>
+                                            </div>
+                                        </div>
 
-                                            {/* 产品列表 */}
-                                            <div className="space-y-2">
-                                                <p className="text-sm font-medium text-gray-700">产品明细：</p>
-                                                {generatePreview.products?.map((product: any, index: number) => (
-                                                    <div key={index} className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2">
-                                                        <div className="flex items-center gap-3">
-                                                            <Badge variant="outline" className={product.period === 3 ? "text-orange-600 border-orange-300" : "text-red-600 border-red-300"}>
-                                                                {product.period}天({product.period * 24}小时)
-                                                            </Badge>
-                                                            <span className="text-sm text-gray-600">{product.name}</span>
-                                                        </div>
-                                                        <span className="font-semibold text-gray-800">¥{product.price.toLocaleString()}</span>
+                                        {/* 产品列表 */}
+                                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                                            <p className="text-sm font-medium text-gray-700">产品明细：</p>
+                                            {generatePreview.products?.map((product: any, index: number) => (
+                                                <div key={index} className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2">
+                                                    <div className="flex items-center gap-3">
+                                                        <Badge variant="outline" className="text-purple-600 border-purple-300">
+                                                            {product.period}天
+                                                        </Badge>
+                                                        <span className="text-sm text-gray-600">
+                                                            收益{product.totalRate}% / 会员到手{product.profitRate}% / 能量值{product.marketRate}%
+                                                        </span>
                                                     </div>
-                                                ))}
-                                            </div>
+                                                    <span className="font-semibold text-gray-800">¥{product.price.toLocaleString()}</span>
+                                                </div>
+                                            ))}
+                                        </div>
 
-                                            {/* 说明 */}
-                                            <div className="mt-4 p-3 bg-amber-50 rounded-lg text-sm text-amber-800">
-                                                <p className="font-medium mb-1">生成说明：</p>
-                                                <ul className="list-disc list-inside space-y-1 text-amber-700">
-                                                    <li>3天产品：总收益5%，会员到手2%，能量值3%</li>
-                                                    <li>7天产品：总收益10%，会员到手5%，能量值5%</li>
-                                                    <li>生成后产品自动上架，可立即销售</li>
-                                                </ul>
-                                            </div>
+                                        {/* 说明 */}
+                                        <div className="mt-4 p-3 bg-amber-50 rounded-lg text-sm text-amber-800">
+                                            <p className="font-medium mb-1">生成说明：</p>
+                                            <ul className="list-disc list-inside space-y-1 text-amber-700">
+                                                <li>产品生成后为草稿状态，需手动上架</li>
+                                                <li>未上架产品可删除，额度将退回</li>
+                                                <li>已上架产品不可删除</li>
+                                            </ul>
                                         </div>
                                     </div>
                                 )}
@@ -4435,7 +4587,7 @@ export default function ProviderPage() {
                                 <Button
                                     className="bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-700 hover:to-fuchsia-700"
                                     onClick={handleGenerateWithQuota}
-                                    disabled={submitting || !generatePreview}
+                                    disabled={submitting || !generatePreview || !selectedTemplateId}
                                 >
                                     {submitting ? (
                                         <Loader2 className="w-4 h-4 animate-spin mr-2" />

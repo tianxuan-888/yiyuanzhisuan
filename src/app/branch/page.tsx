@@ -53,11 +53,7 @@ interface Template {
   total_rate: number;
   market_rate: number;
   profit_rate: number;
-  min_quota: number;
-  // 额度信息（来自分配记录）
-  quota_amount?: number;
-  used_amount?: number;
-  available_amount?: number;
+  status?: string;
 }
 
 interface QuotaAllocation {
@@ -1190,9 +1186,16 @@ export default function BranchPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-lg">
             <CardHeader>
-              <CardTitle>分配额度给服务商</CardTitle>
+              <CardTitle>授权模板 & 分配额度</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* 说明 */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+                <p className="font-medium mb-1">操作说明</p>
+                <p>1. <strong>授权模板</strong>：选择要授权给服务商的算力模板（决定服务商能生成什么类型的产品）</p>
+                <p>2. <strong>分配额度</strong>：输入分配给服务商的额度金额（决定服务商能生成多少产品）</p>
+                <p className="mt-1 text-xs text-blue-500">模板和额度独立：模板只是产品规则，额度才是资源。同一个模板可反复使用。</p>
+              </div>
               {/* 分公司额度信息 */}
               <div className="bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 rounded-lg p-3">
                 <div className="flex items-center gap-2 mb-2">
@@ -1262,17 +1265,26 @@ export default function BranchPage() {
                 })()}
               </div>
               <div>
-                <Label>选择算力模板</Label>
+                <Label>授权算力模板</Label>
                 <select
                   value={selectedTemplate}
                   onChange={(e) => setSelectedTemplate(e.target.value)}
                   className="w-full border rounded px-3 py-2 mt-1"
                 >
-                  <option value="">请选择模板</option>
+                  <option value="">请选择要授权的模板</option>
                   {templates.map(t => (
-                    <option key={t.id} value={t.id}>{t.name} ({t.period}天, 收益{t.total_rate}%)</option>
+                    <option key={t.id} value={t.id}>{t.name} ({t.period}天, 总收益{t.total_rate}%)</option>
                   ))}
                 </select>
+                {selectedTemplate && (() => {
+                  const tpl = templates.find(t => t.id === selectedTemplate);
+                  if (!tpl) return null;
+                  return (
+                    <div className="mt-2 bg-green-50 border border-green-200 rounded-lg p-2 text-sm">
+                      <p className="text-green-700">模板规则：{tpl.period}天周期 | 总收益{tpl.total_rate}% | 会员到手{tpl.profit_rate}% | 市场费{tpl.market_rate}%</p>
+                    </div>
+                  );
+                })()}
               </div>
               <div>
                 <Label>分配额度 (元)</Label>
@@ -1283,7 +1295,7 @@ export default function BranchPage() {
                   placeholder="输入额度金额"
                   className="mt-1"
                 />
-                <p className="text-sm text-gray-500 mt-1">提示: 5万元可生成15个算力</p>
+                <p className="text-sm text-gray-500 mt-1">提示: 服务商用此额度按模板规则生成产品，单产品不超¥10,000</p>
                 {/* 额度不足提示 */}
                 {quotaAmount && parseFloat(quotaAmount) > (stats.available_quota || 0) && (
                   <div className="mt-1 flex items-center gap-1 text-red-600 text-sm">
@@ -1829,7 +1841,7 @@ export default function BranchPage() {
               {quotaSubTab === 'templates' && (
             <Card>
               <CardHeader>
-                <CardTitle>总公司下发的算力模板</CardTitle>
+                <CardTitle>可用算力模板（产品规则）</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4">
@@ -1860,31 +1872,33 @@ export default function BranchPage() {
                           <span className="ml-1 text-blue-600">{template.profit_rate}%</span>
                         </div>
                       </div>
-                      {/* 额度信息 */}
-                      <div className="mt-3 p-2 bg-gray-50 rounded text-sm">
+                      {/* 产品规则 */}
+                      <div className="mt-3 p-2 bg-gray-50 rounded text-sm space-y-1">
                         <div className="flex justify-between">
-                          <span>分配额度:</span>
-                          <span className="font-medium">¥{template.quota_amount?.toLocaleString() || 0}</span>
+                          <span className="text-gray-500">产品类型:</span>
+                          <span className="font-medium">{template.period}天算力套餐</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>已使用:</span>
-                          <span className="text-orange-600">¥{template.used_amount?.toLocaleString() || 0}</span>
+                          <span className="text-gray-500">金额范围:</span>
+                          <span className="font-medium text-green-600">
+                            ¥{template.period === 3 ? '200~5,000' : template.period === 7 ? '200~10,000' : '200~10,000'}
+                          </span>
                         </div>
                         <div className="flex justify-between">
-                          <span>剩余额度:</span>
-                          <span className="text-green-600">¥{((template.available_amount ?? ((template.quota_amount ?? 0) - (template.used_amount ?? 0))))?.toLocaleString() || 0}</span>
+                          <span className="text-gray-500">单产品上限:</span>
+                          <span className="font-medium">¥10,000</span>
                         </div>
                       </div>
                       <div className="mt-3 pt-3 border-t">
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           className="w-full bg-blue-600"
                           onClick={() => {
                             setSelectedTemplate(template.id);
                             openAllocateDialog();
                           }}
                         >
-                          使用此模板分配给服务商
+                          使用此模板授权给服务商
                         </Button>
                       </div>
                     </div>

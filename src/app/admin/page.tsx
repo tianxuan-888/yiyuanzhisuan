@@ -170,7 +170,6 @@ interface ProductTemplate {
   total_rate: number;
   market_rate: number;
   profit_rate: number;
-  min_quota: number;
   status: string;
 }
 
@@ -273,7 +272,7 @@ export default function AdminPage() {
     total_rate: '10',
     market_rate: '5',
     profit_rate: '5',
-    min_quota: '10000',
+    min_quota: 0,
   });
   
   // 分配模板给分公司对话框
@@ -992,7 +991,7 @@ export default function AdminPage() {
           total_rate: '10',
           market_rate: '5',
           profit_rate: '5',
-          min_quota: '10000',
+          min_quota: 0,
         });
         loadData();
       } else {
@@ -4134,8 +4133,7 @@ export default function AdminPage() {
                     <p className="font-medium text-blue-600">{template.profit_rate}%</p>
                   </div>
                 </div>
-                <div className="mt-2 pt-2 border-t flex flex-wrap justify-between items-center gap-1">
-                  <span className="text-xs text-gray-500">最小额度: ¥{template.min_quota?.toLocaleString()}</span>
+                <div className="mt-2 pt-2 border-t flex justify-end items-center gap-1">
                   <div className="flex gap-1">
                     <Button size="sm" variant="outline" className="border-purple-600 text-purple-600 text-xs" onClick={() => openAllocateDialog(template)}>
                       <Building2 className="w-4 h-4 mr-1" />分配给分公司
@@ -7250,15 +7248,6 @@ export default function AdminPage() {
                     type="number"
                     value={templateForm.period}
                     onChange={(e) => setTemplateForm({...templateForm, period: e.target.value})}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label>最小额度</Label>
-                  <Input 
-                    type="number"
-                    value={templateForm.min_quota}
-                    onChange={(e) => setTemplateForm({...templateForm, min_quota: e.target.value})}
                     className="mt-1"
                   />
                 </div>

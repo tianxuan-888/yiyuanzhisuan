@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne } from '@/lib/pg-client';
-import { providerProductConfig } from '@/config/powerPackages';
 
 /**
  * 服务商生成产品
@@ -8,60 +7,123 @@ import { providerProductConfig } from '@/config/powerPackages';
  * GET 请求：获取产品生成预览
  * POST 请求：实际生成产品
  * 
- * 规则：
- * - 1万 = 4个产品（2个3天 + 2个7天交替）
- * - 2万 = 8个产品
- * - 3万 = 12个产品
- * - 4万 = 16个产品
- * - 5万 = 20个产品
- * 
- * 产品配置：
- * - 3天：总收益5%，会员到手2%，能量值3%，金额¥200-5,000
- * - 7天：总收益10%，会员到手5%，能量值5%，金额¥200-10,000
+ * 新逻辑：
+ * - 模板只是规则定义（周期、收益率），不涉及额度
+ * - 服务商选择模板 + 输入总额 → 系统生成整数价格产品
+ * - 单个产品价格 ≤ 10,000
+ * - 产品价格从几百到几千不等
+ * - 从服务商可用额度中扣除总额
  */
+
+/**
+ * 将总额拆分为整数金额的产品列表
+ * 规则：单个产品 ≤ 10,000，整数金额，优先几百到几千
+ */
+function generateProductPrices(totalAmount: number): number[] {
+  if (totalAmount <= 0) return [];
+  
+  const prices: number[] = [];
+  let remaining = totalAmount;
+  
+  // 价格档位配置（几百到几千，最大1万）
+  const priceLevels = [
+    200, 300, 400, 500, 600, 700, 800, 900, 1000,
+    1500, 2000, 2500, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000
+  ];
+  
+  while (remaining >= 200) {
+    if (remaining <= 10000) {
+      // 剩余金额可以直接作为一个产品
+      prices.push(remaining);
+      break;
+    }
+    
+    // 随机选择一个价格档位，不超过剩余金额
+    const maxLevel = priceLevels.filter(p => p <= remaining - 200).length;
+    if (maxLevel === 0) {
+      // 剩余金额不够再分一个200的产品，把剩余全给最后一个
+      prices.push(remaining);
+      break;
+    }
+    
+    // 按权重选择：小额(200-1000)权重更高，大额权重较低
+    const weights = priceLevels.slice(0, maxLevel).map(p => {
+      if (p <= 1000) return 3;      // 小额权重3
+      if (p <= 3000) return 2.5;    // 中小权重2.5
+      if (p <= 6000) return 1.5;    // 中大权重1.5
+      return 1;                      // 大额权重1
+    });
+    
+    const totalWeight = weights.reduce((a, b) => a + b, 0);
+    let random = Math.random() * totalWeight;
+    let selectedIndex = 0;
+    for (let i = 0; i < weights.length; i++) {
+      random -= weights[i];
+      if (random <= 0) {
+        selectedIndex = i;
+        break;
+      }
+    }
+    
+    const selectedPrice = priceLevels[selectedIndex];
+    prices.push(selectedPrice);
+    remaining -= selectedPrice;
+  }
+  
+  // 处理剩余零头（< 200的部分）
+  if (remaining > 0 && remaining < 200) {
+    // 把零头加到最后一个产品上
+    if (prices.length > 0) {
+      prices[prices.length - 1] += remaining;
+    }
+  }
+  
+  return prices;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const quotaStr = searchParams.get('quota');
+    const totalAmountStr = searchParams.get('totalAmount');
+    const periodStr = searchParams.get('period');
 
-    if (!quotaStr) {
+    if (!totalAmountStr || !periodStr) {
       return NextResponse.json(
-        { error: '请提供额度参数' },
+        { error: '请提供总额和产品周期参数' },
         { status: 400 }
       );
     }
 
-    const quota = parseInt(quotaStr);
-    if (isNaN(quota) || quota < 10000) {
+    const totalAmount = parseInt(totalAmountStr);
+    const period = parseInt(periodStr);
+
+    if (isNaN(totalAmount) || totalAmount < 1000) {
       return NextResponse.json(
-        { error: '最低额度为1万元' },
+        { error: '最低总额为1,000元' },
         { status: 400 }
       );
     }
 
-    // 计算产品预览
-    const config = providerProductConfig;
-    const products = config.generateProducts(quota);
-    const usedQuota = quota;
-    const remainingQuota = 0;
-
-    // 统计
-    const day3Products = products.filter(p => p.period === 3);
-    const day7Products = products.filter(p => p.period === 7);
+    // 生成预览
+    const prices = generateProductPrices(totalAmount);
+    const products = prices.map(price => ({
+      price,
+      period,
+      totalRate: period === 3 ? 5 : period === 7 ? 10 : period === 15 ? 20 : period === 30 ? 44 : 120,
+      marketRate: period === 3 ? 3 : period === 7 ? 5 : period === 15 ? 10 : period === 30 ? 22 : 60,
+      profitRate: period === 3 ? 2 : period === 7 ? 5 : period === 15 ? 10 : period === 30 ? 22 : 60,
+    }));
 
     return NextResponse.json({
       success: true,
       data: {
-        usedQuota,
-        remainingQuota,
         products,
         stats: {
           total: products.length,
-          totalValue: usedQuota,
-          day3Count: day3Products.length,
-          day7Count: day7Products.length,
-          day3Value: day3Products.reduce((sum, p) => sum + p.price, 0),
-          day7Value: day7Products.reduce((sum, p) => sum + p.price, 0),
+          totalValue: products.reduce((sum, p) => sum + p.price, 0),
+          minPrice: Math.min(...prices),
+          maxPrice: Math.max(...prices),
+          avgPrice: Math.round(products.reduce((sum, p) => sum + p.price, 0) / products.length),
         }
       }
     });
@@ -77,12 +139,26 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { providerId, allocationId, customQuota } = body;
+    const { providerId, templateId, totalAmount } = body;
 
     // 参数验证
     if (!providerId) {
       return NextResponse.json(
         { error: '服务商ID不能为空' },
+        { status: 400 }
+      );
+    }
+
+    if (!templateId) {
+      return NextResponse.json(
+        { error: '请选择产品模板' },
+        { status: 400 }
+      );
+    }
+
+    if (!totalAmount || totalAmount < 1000) {
+      return NextResponse.json(
+        { error: '生成总额最低为1,000元' },
         { status: 400 }
       );
     }
@@ -103,54 +179,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 获取额度分配记录
-    let availableQuota = 0;
-    
-    if (customQuota && customQuota > 0) {
-      // 使用自定义额度（不能超过可用额度）
-      const totalAvailable = parseFloat(provider.quota || 0) - parseFloat(provider.used_quota || 0);
-      availableQuota = Math.min(customQuota, totalAvailable);
-      
-      if (availableQuota < 10000) {
-        return NextResponse.json(
-          { error: '最低额度为1万元' },
-          { status: 400 }
-        );
-      }
-    } else if (allocationId) {
-      // 使用指定的额度分配
-      const allocation = await queryOne<any>(
-        `SELECT * FROM quota_allocations WHERE id = $1 AND provider_id = $2 AND status = 'active'`,
-        [allocationId, providerId]
-      );
-      
-      if (!allocation) {
-        return NextResponse.json(
-          { error: '额度分配记录不存在' },
-          { status: 404 }
-        );
-      }
-      
-      availableQuota = parseFloat(allocation.quota_amount) - parseFloat(allocation.used_amount);
-    } else {
-      // 使用服务商总可用额度
-      availableQuota = parseFloat(provider.quota || 0) - parseFloat(provider.used_quota || 0);
-    }
-
-    if (availableQuota < 10000) {
+    // 检查可用额度
+    const availableQuota = parseFloat(provider.quota || 0) - parseFloat(provider.used_quota || 0);
+    if (availableQuota < totalAmount) {
       return NextResponse.json(
-        { error: '可用额度不足，最低需要1万元' },
+        { error: `可用额度不足，当前可用额度: ¥${availableQuota.toLocaleString()}` },
         { status: 400 }
       );
     }
 
-    // 使用配置生成产品
-    const config = providerProductConfig;
-    const productsToCreate = config.generateProducts(availableQuota);
+    // 获取模板信息
+    const template = await queryOne<any>(
+      `SELECT * FROM product_templates WHERE id = $1 AND status = 'active'`,
+      [templateId]
+    );
 
-    if (productsToCreate.length === 0) {
+    if (!template) {
       return NextResponse.json(
-        { error: '无法生成产品，请检查额度配置' },
+        { error: '产品模板不存在或已停用' },
+        { status: 404 }
+      );
+    }
+
+    // 生成产品价格列表
+    const prices = generateProductPrices(totalAmount);
+    if (prices.length === 0) {
+      return NextResponse.json(
+        { error: '无法生成产品，请检查金额' },
         { status: 400 }
       );
     }
@@ -159,21 +214,22 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
     let codeCounter = Date.now();
     
-    const insertPromises = productsToCreate.map(product => {
+    const insertPromises = prices.map(price => {
+      const seq = (codeCounter++).toString().slice(-6);
       return query(
         `INSERT INTO products (id, name, code, price, period, total_rate, market_rate, profit_rate, provider_id, status, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
         [
           crypto.randomUUID(),
-          product.period === 3 ? `3天算力套餐-${(codeCounter++).toString().slice(-6)}` : `7天算力套餐-${(codeCounter++).toString().slice(-6)}`,
-          product.period === 3 ? `GPU-3D-${(codeCounter++).toString().slice(-6)}` : `GPU-7D-${(codeCounter++).toString().slice(-6)}`,
-          product.price,
-          product.period,
-          product.totalRate,
-          product.energyRate,
-          product.memberRate,
+          `${template.period}天算力套餐-${seq}`,
+          `GPU-${template.period}D-${seq}`,
+          price,
+          template.period,
+          template.total_rate,
+          template.market_rate,
+          template.profit_rate,
           providerId,
-          'available',
+          'draft',  // 生成后为草稿状态，需手动上架
           now,
           now
         ]
@@ -183,37 +239,31 @@ export async function POST(request: NextRequest) {
     await Promise.all(insertPromises);
 
     // 更新服务商的已使用额度
+    const usedAmount = prices.reduce((sum, p) => sum + p, 0);
     await query(
       `UPDATE providers 
        SET used_quota = COALESCE(used_quota, 0) + $1,
            updated_at = $2
        WHERE user_id = $3`,
-      [availableQuota, now, providerId]
+      [usedAmount, now, providerId]
     );
-
-    // 更新额度分配记录（如果有）
-    if (allocationId) {
-      await query(
-        `UPDATE quota_allocations 
-         SET used_amount = COALESCE(used_amount, 0) + $1,
-             updated_at = $2
-         WHERE id = $3`,
-        [availableQuota, now, allocationId]
-      );
-    }
-
-    const totalValue = productsToCreate.reduce((sum, p) => sum + p.price, 0);
 
     return NextResponse.json({
       success: true,
-      message: `成功生成 ${productsToCreate.length} 个算力产品`,
+      message: `成功生成 ${prices.length} 个算力产品，总计 ¥${usedAmount.toLocaleString()}`,
       data: {
-        products: productsToCreate,
+        products: prices.map(price => ({
+          price,
+          period: template.period,
+          totalRate: template.total_rate,
+          marketRate: template.market_rate,
+          profitRate: template.profit_rate,
+        })),
         stats: {
-          total: productsToCreate.length,
-          totalValue,
-          day3Count: productsToCreate.filter(p => p.period === 3).length,
-          day7Count: productsToCreate.filter(p => p.period === 7).length,
+          total: prices.length,
+          totalValue: usedAmount,
+          minPrice: Math.min(...prices),
+          maxPrice: Math.max(...prices),
         }
       }
     });

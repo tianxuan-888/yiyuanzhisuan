@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, code, period, total_rate, market_rate, profit_rate, min_quota } = body;
+    const { name, code, period, total_rate, market_rate, profit_rate } = body;
 
     if (!name || !code || !period || !total_rate || !market_rate || !profit_rate) {
       return NextResponse.json(
@@ -36,10 +36,10 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await query(
-      `INSERT INTO product_templates (name, code, period, total_rate, market_rate, profit_rate, min_quota, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO product_templates (name, code, period, total_rate, market_rate, profit_rate, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [name, code, period, total_rate, market_rate, profit_rate, min_quota || 10000, 'active']
+      [name, code, period, total_rate, market_rate, profit_rate, 'active']
     );
 
     return NextResponse.json({
