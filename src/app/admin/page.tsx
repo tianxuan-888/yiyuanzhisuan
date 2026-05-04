@@ -54,6 +54,7 @@ import {
   User,
   Key,
   FileCheck,
+  Cpu,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -87,7 +88,6 @@ const menuItems: MenuItem[] = [
   { id: 'my-profile', name: '我的', icon: <User className="w-5 h-5" /> },
   { id: 'overview', name: '数据总览', icon: <LayoutDashboard className="w-5 h-5" /> },
   { id: 'quota', name: '算力额度管理', icon: <Database className="w-5 h-5" /> },
-  { id: 'product-templates', name: '产品模板', icon: <Package className="w-5 h-5" /> },
   { id: 'branches', name: '分公司管理', icon: <Building2 className="w-5 h-5" /> },
   { id: 'providers', name: '服务商管理', icon: <UserCog className="w-5 h-5" /> },
   { id: 'members', name: '会员管理', icon: <Users className="w-5 h-5" /> },
@@ -180,6 +180,9 @@ export default function AdminPage() {
   // 移动端侧边栏状态
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // 算力额度管理子Tab
+  const [quotaSubTab, setQuotaSubTab] = useState<'overview' | 'templates' | 'records' | 'requests'>('overview');
+
   // 菜单状态
   const [activeMenu, setActiveMenu] = useState('overview');
   const [expandedMenus, setExpandedMenus] = useState<string[]>(['orders', 'reports']);
@@ -216,7 +219,6 @@ export default function AdminPage() {
   const [overviewLoading, setOverviewLoading] = useState(false);
   
   // 算力额度管理子 Tab 状态
-  const [quotaTab, setQuotaTab] = useState<'total' | 'idle' | 'sold' | 'distribute'>('total');
   const [quotaAccounts, setQuotaAccounts] = useState<any[]>([]);
   const [quotaRecords, setQuotaRecords] = useState<any[]>([]);
   const [quotaApplications, setQuotaApplications] = useState<any[]>([]);
@@ -1732,8 +1734,58 @@ export default function AdminPage() {
     );
   };
   
-  // 渲染算力额度管理
+  // 渲染算力额度管理（合并：额度总览+算力模板+分配记录+额度申请）
   const renderQuotaManagement = () => {
+    const subTabs = [
+      { key: 'overview' as const, label: '额度总览', icon: Database },
+      { key: 'templates' as const, label: '算力模板', icon: Cpu },
+      { key: 'records' as const, label: '分配记录', icon: FileText },
+      { key: 'requests' as const, label: '额度申请', icon: ClipboardList },
+    ];
+
+    const renderSubContent = () => {
+      if (quotaSubTab === 'templates') {
+        return renderProductTemplates();
+      }
+      if (quotaSubTab === 'records') {
+        return renderQuotaRecords();
+      }
+      if (quotaSubTab === 'requests') {
+        return renderQuotaRequestsInline();
+      }
+      // 默认：额度总览
+      return renderQuotaOverview();
+    };
+
+    return (
+      <div className="space-y-4">
+        {/* 子Tab导航 */}
+        <div className="flex gap-2 border-b pb-2 mobile-tab-nav">
+          {subTabs.map(tab => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setQuotaSubTab(tab.key)}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-t-lg text-sm font-medium transition-colors ${
+                  quotaSubTab === tab.key
+                    ? 'bg-purple-100 text-purple-700 border-b-2 border-purple-600'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+        {renderSubContent()}
+      </div>
+    );
+  };
+
+  // 额度总览
+  const renderQuotaOverview = () => {
     // 获取总公司账户信息
     const adminAccount = quotaAccounts.find(a => a.role === 'admin');
     const branchAccounts = quotaAccounts.filter(a => a.role === 'branch');
@@ -1842,275 +1894,129 @@ export default function AdminPage() {
     
     return (
       <div className="space-y-3 md:space-y-6">
-        {/* 子Tab切换 - 左侧标题 + 右侧Tab样式 */}
-        <div className="flex items-stretch bg-gradient-to-r from-blue-900 to-blue-800 rounded-lg overflow-hidden">
-          {/* 左侧标题 */}
-          <div className="flex items-center gap-3 px-6 py-4 bg-blue-950/50">
-            <Database className="w-5 h-5 text-white" />
-            <span className="text-white font-semibold text-lg">算力额度管理</span>
+        {/* 额度统计卡片 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+          <div className="mobile-compact-card p-4 md:p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
+            <p className="text-sm text-gray-600 mobile-label">总公司额度</p>
+            <p className="text-2xl md:text-3xl font-bold text-blue-600 mt-2 mobile-num">
+              ¥{formatWan(adminAccount?.total_in)}
+            </p>
+            <p className="text-xs text-gray-500 mt-1 mobile-sub">
+              已分配: ¥{formatWan(totalIssued)}
+            </p>
           </div>
-          {/* 右侧Tab选项 */}
-          <div className="flex items-center gap-1 px-4">
-            <button
-              onClick={() => setQuotaTab('total')}
-              className={`px-4 py-2 rounded-md transition-colors cursor-pointer ${
-                quotaTab === 'total' ? 'bg-blue-500 text-white' : 'bg-blue-800/50 text-white/80 hover:bg-blue-700'
-              }`}
-            >
-              算力总额度
-            </button>
-            <button
-              onClick={() => setQuotaTab('idle')}
-              className={`px-4 py-2 rounded-md transition-colors cursor-pointer ${
-                quotaTab === 'idle' ? 'bg-blue-500 text-white' : 'bg-blue-800/50 text-white/80 hover:bg-blue-700'
-              }`}
-            >
-              闲置额度
-            </button>
-            <button
-              onClick={() => setQuotaTab('sold')}
-              className={`px-4 py-2 rounded-md transition-colors cursor-pointer ${
-                quotaTab === 'sold' ? 'bg-blue-500 text-white' : 'bg-blue-800/50 text-white/80 hover:bg-blue-700'
-              }`}
-            >
-              已购买额度
-            </button>
-            <button
-              onClick={() => setQuotaTab('distribute')}
-              className={`px-4 py-2 rounded-md transition-colors cursor-pointer ${
-                quotaTab === 'distribute' ? 'bg-blue-500 text-white' : 'bg-blue-800/50 text-white/80 hover:bg-blue-700'
-              }`}
-            >
-              额度分配
-            </button>
+          <div className="mobile-compact-card p-4 md:p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-lg">
+            <p className="text-sm text-gray-600 mobile-label">已分配额度</p>
+            <p className="text-2xl md:text-3xl font-bold text-green-600 mt-2 mobile-num">
+              ¥{formatWan(totalIssued)}
+            </p>
+            <p className="text-xs text-gray-500 mt-1 mobile-sub">
+              分配给 {branchAccounts.length} 个分公司
+            </p>
+          </div>
+          <div className="mobile-compact-card p-4 md:p-6 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg">
+            <p className="text-sm text-gray-600 mobile-label">可用余额</p>
+            <p className="text-2xl md:text-3xl font-bold text-orange-600 mt-2 mobile-num">
+              ¥{formatWan(adminAccount?.balance)}
+            </p>
+            <p className="text-xs text-gray-500 mt-1 mobile-sub">
+              可继续分配
+            </p>
+          </div>
+          <div className="mobile-compact-card p-4 md:p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg">
+            <p className="text-sm text-gray-600 mobile-label">已购买额度</p>
+            <p className="text-2xl md:text-3xl font-bold text-purple-600 mt-2 mobile-num">
+              ¥{formatWan(totalSold)}
+            </p>
+            <p className="text-xs text-gray-500 mt-1 mobile-sub">
+              会员累计购买
+            </p>
           </div>
         </div>
 
-        {/* 算力总额度 */}
-        {quotaTab === 'total' && (
-          <div className="space-y-3 md:space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Database className="w-5 h-5 text-blue-600" />
-                    算力总额度
-                  </div>
-                  <div className="flex gap-2">
-                    <Button onClick={() => setShowTransferDialog(true)} variant="outline" className="border-green-500 text-green-600">
-                      <Zap className="w-4 h-4 mr-2" />分配额度
-                    </Button>
-                    <Button onClick={() => setShowCreateQuotaDialog(true)} className="bg-blue-600">
-                      <Plus className="w-4 h-4 mr-2" />创建额度
-                    </Button>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-6">
-                  <div className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
-                    <p className="text-sm text-gray-600">总公司额度</p>
-                    <p className="text-3xl font-bold text-blue-600 mt-2">
-                      ¥{formatWan(adminAccount?.total_in)}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      已分配: ¥{formatWan(totalIssued)}
-                    </p>
-                  </div>
-                  <div className="p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-lg">
-                    <p className="text-sm text-gray-600">已分配额度</p>
-                    <p className="text-3xl font-bold text-green-600 mt-2">
-                      ¥{formatWan(totalIssued)}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      分配给 {branchAccounts.length} 个分公司
-                    </p>
-                  </div>
-                  <div className="p-6 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg">
-                    <p className="text-sm text-gray-600">可用余额</p>
-                    <p className="text-3xl font-bold text-orange-600 mt-2">
-                      ¥{formatWan(adminAccount?.balance)}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      可继续分配
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+        <div className="flex gap-2">
+          <Button onClick={() => setShowTransferDialog(true)} variant="outline" className="border-green-500 text-green-600">
+            <Zap className="w-4 h-4 mr-2" />分配额度
+          </Button>
+          <Button onClick={() => setShowCreateQuotaDialog(true)} className="bg-blue-600">
+            <Plus className="w-4 h-4 mr-2" />创建额度
+          </Button>
+        </div>
 
-            {/* 下属分公司 */}
-            <Card>
-              <CardHeader>
-                <CardTitle>下属分公司</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {branchAccounts.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
-                      暂无分公司
-                    </div>
-                  )}
-                  {branchAccounts.map(account => (
-                    <div key={account.id} className="p-4 border rounded-lg">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-medium">{account.username}</p>
-                          <p className="text-sm text-gray-500">{account.phone || '-'}</p>
-                          {account.unique_id && <p className="text-xs text-gray-400">专属ID: {account.unique_id}</p>}
-                        </div>
-                        <div className="text-right">
-                          <p className="text-lg font-bold text-blue-600">
-                            ¥{formatWan(account.balance)}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            累计获得: ¥{formatWan(account.total_in)}
-                          </p>
-                        </div>
-                      </div>
-                      {account.total_in > 0 && (
-                        <div className="mt-3">
-                          <div className="flex justify-between text-xs text-gray-500 mb-1">
-                            <span>额度使用</span>
-                            <span>{account.total_in > 0 ? Math.round(((account.total_in - account.balance) / account.total_in) * 100) : 0}%</span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                              className="bg-blue-500 rounded-full h-2 transition-all"
-                              style={{ width: `${account.total_in > 0 ? Math.round(((account.total_in - account.balance) / account.total_in) * 100) : 0}%` }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* 待处理申请 */}
-            {quotaApplications.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>待处理申请 ({quotaApplications.length})</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {quotaApplications.map(app => (
-                      <div key={app.id} className="p-4 border rounded-lg flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">{app.applicant_name || '未知'}</p>
-                          <p className="text-sm text-gray-500">申请金额: ¥{Number(app.amount).toLocaleString()}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button size="sm" className="bg-green-600" onClick={() => handleApproveApplication(app.id, 'approve')}>
-                            同意
-                          </Button>
-                          <Button size="sm" variant="destructive" onClick={() => handleApproveApplication(app.id, 'reject')}>
-                            拒绝
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        )}
-
-        {/* 闲置额度 */}
-        {quotaTab === 'idle' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>闲置额度</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-12">
-                <Package className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                <p className="text-gray-500">闲置额度是指未被会员购买的产品对应的额度</p>
-                <p className="text-3xl font-bold text-orange-600 mt-4">
-                  ¥{formatWan(totalIdle)}
-                </p>
-                <p className="text-sm text-gray-500 mt-2">
-                  当前可分配至分公司的额度
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* 已购买额度 */}
-        {quotaTab === 'sold' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>已购买额度</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-12">
-                <ShoppingCart className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                <p className="text-gray-500">已购买额度是指会员已购买的产品对应的额度</p>
-                <p className="text-3xl font-bold text-green-600 mt-4">
-                  ¥{formatWan(totalSold)}
-                </p>
-                <p className="text-sm text-gray-500 mt-2">
-                  会员累计购买额度
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* 额度分配记录 */}
-        {quotaTab === 'distribute' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>额度分配记录</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {quotaRecords.length === 0 ? (
-                <div className="text-center py-12">
-                  <FileText className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                  <p className="text-gray-500">暂无分配记录</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b bg-gray-50">
-                        <th className="text-left py-3 px-4">时间</th>
-                        <th className="text-left py-3 px-4">类型</th>
-                        <th className="text-left py-3 px-4">转出方</th>
-                        <th className="text-left py-3 px-4">转入方</th>
-                        <th className="text-right py-3 px-4">金额</th>
-                        <th className="text-left py-3 px-4">备注</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {quotaRecords.map(record => (
-                        <tr key={record.id} className="border-b hover:bg-gray-50">
-                          <td className="py-3 px-4 text-sm">{new Date(record.created_at).toLocaleString()}</td>
-                          <td className="py-3 px-4">
-                            <Badge className={
-                              record.type === 'create' ? 'bg-blue-100 text-blue-700' :
-                              record.type === 'allocate' ? 'bg-purple-100 text-purple-700' :
-                              'bg-green-100 text-green-700'
-                            }>
-                              {record.type === 'create' ? '创建' : record.type === 'allocate' ? '分配' : record.type === 'transfer' ? '调拨' : record.type}
-                            </Badge>
-                          </td>
-                          <td className="py-3 px-4">{record.from_username || '-'}</td>
-                          <td className="py-3 px-4">{record.to_username || '-'}</td>
-                          <td className="py-3 px-4 text-right text-green-600 font-medium">
-                            +¥{formatWan(record.amount)}
-                          </td>
-                          <td className="py-3 px-4 text-sm text-gray-500">{record.note || '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+        {/* 下属分公司额度 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>下属分公司额度</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {branchAccounts.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  暂无分公司
                 </div>
               )}
+              {branchAccounts.map(account => (
+                <div key={account.id} className="p-4 border rounded-lg">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-medium">{account.username}</p>
+                      <p className="text-sm text-gray-500">{account.phone || '-'}</p>
+                      {account.unique_id && <p className="text-xs text-gray-400">专属ID: {account.unique_id}</p>}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-blue-600">
+                        ¥{formatWan(account.balance)}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        累计获得: ¥{formatWan(account.total_in)}
+                      </p>
+                    </div>
+                  </div>
+                  {account.total_in > 0 && (
+                    <div className="mt-3">
+                      <div className="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>额度使用</span>
+                        <span>{account.total_in > 0 ? Math.round(((account.total_in - account.balance) / account.total_in) * 100) : 0}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-blue-500 rounded-full h-2 transition-all"
+                          style={{ width: `${account.total_in > 0 ? Math.round(((account.total_in - account.balance) / account.total_in) * 100) : 0}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 待处理申请 */}
+        {quotaApplications.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>待处理申请 ({quotaApplications.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {quotaApplications.map(app => (
+                  <div key={app.id} className="p-4 border rounded-lg flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">{app.applicant_name || '未知'}</p>
+                      <p className="text-sm text-gray-500">申请金额: ¥{Number(app.amount).toLocaleString()}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" className="bg-green-600" onClick={() => handleApproveApplication(app.id, 'approve')}>
+                        同意
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => handleApproveApplication(app.id, 'reject')}>
+                        拒绝
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         )}
@@ -2291,6 +2197,258 @@ export default function AdminPage() {
       </CardContent>
     </Card>
   );
+
+  // 分配记录Tab
+  const renderQuotaRecords = () => {
+    const [records, setRecords] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [filterType, setFilterType] = useState('all');
+
+    useEffect(() => {
+      const fetchRecords = async () => {
+        setLoading(true);
+        try {
+          const url = filterType === 'all' 
+            ? '/api/quota-records' 
+            : `/api/quota-records?type=${filterType}`;
+          const res = await authFetch(url);
+          const data = await res.json();
+          if (data.success) {
+            setRecords(data.data || []);
+          }
+        } catch (e) {
+          console.error('获取分配记录失败:', e);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchRecords();
+    }, [filterType]);
+
+    const getTypeLabel = (type: string) => {
+      const map: Record<string, string> = {
+        transfer: '额度下发',
+        allocate: '额度分配',
+        create: '额度创建',
+        return: '额度退回',
+        use: '额度使用',
+      };
+      return map[type] || type;
+    };
+
+    const getTypeColor = (type: string) => {
+      const map: Record<string, string> = {
+        transfer: 'bg-blue-100 text-blue-700',
+        allocate: 'bg-purple-100 text-purple-700',
+        create: 'bg-green-100 text-green-700',
+        return: 'bg-orange-100 text-orange-700',
+        use: 'bg-red-100 text-red-700',
+      };
+      return map[type] || 'bg-gray-100 text-gray-700';
+    };
+
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-lg">分配记录</CardTitle>
+          <div className="flex gap-2">
+            {['all', 'transfer', 'allocate', 'create'].map(t => (
+              <Button
+                key={t}
+                size="sm"
+                variant={filterType === t ? 'default' : 'outline'}
+                onClick={() => setFilterType(t)}
+              >
+                {t === 'all' ? '全部' : getTypeLabel(t)}
+              </Button>
+            ))}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="text-center py-8 text-gray-500">加载中...</div>
+          ) : records.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">暂无分配记录</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-3 px-2">时间</th>
+                    <th className="text-left py-3 px-2">类型</th>
+                    <th className="text-left py-3 px-2">操作方</th>
+                    <th className="text-left py-3 px-2">接收方</th>
+                    <th className="text-right py-3 px-2">金额</th>
+                    <th className="text-left py-3 px-2">备注</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {records.map((r: any, i: number) => (
+                    <tr key={i} className="border-b hover:bg-gray-50">
+                      <td className="py-3 px-2 text-gray-500 whitespace-nowrap">
+                        {r.created_at ? new Date(r.created_at).toLocaleString('zh-CN') : '-'}
+                      </td>
+                      <td className="py-3 px-2">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getTypeColor(r.type)}`}>
+                          {getTypeLabel(r.type)}
+                        </span>
+                      </td>
+                      <td className="py-3 px-2">
+                        {r.from_username ? (
+                          <span>{r.from_username} <span className="text-gray-400 text-xs">({r.from_role})</span></span>
+                        ) : <span className="text-gray-400">系统</span>}
+                      </td>
+                      <td className="py-3 px-2">
+                        {r.to_username ? (
+                          <span>{r.to_username} <span className="text-gray-400 text-xs">({r.to_role})</span></span>
+                        ) : '-'}
+                      </td>
+                      <td className="py-3 px-2 text-right font-medium text-blue-600">
+                        ¥{Number(r.amount).toLocaleString()}
+                      </td>
+                      <td className="py-3 px-2 text-gray-500 max-w-[200px] truncate">
+                        {r.note || '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
+  // 额度申请Tab
+  const renderQuotaRequestsInline = () => {
+    const [applications, setApplications] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+    const fetchApplications = async () => {
+      setLoading(true);
+      try {
+        const res = await authFetch('/api/quota-applications');
+        const data = await res.json();
+        if (data.success) {
+          setApplications(data.data || []);
+        }
+      } catch (e) {
+        console.error('获取额度申请失败:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    useEffect(() => { fetchApplications(); }, []);
+
+    const handleAction = async (applicationId: string, action: 'approve' | 'reject') => {
+      setActionLoading(applicationId);
+      try {
+        const res = await authFetch('/api/quota-applications/action', {
+          method: 'PUT',
+          body: JSON.stringify({ applicationId, action }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          showMessage('success', data.message);
+          fetchApplications();
+          loadData();
+        } else {
+          showMessage('error', data.error || '操作失败');
+        }
+      } catch (e) {
+        showMessage('error', '操作失败');
+      } finally {
+        setActionLoading(null);
+      }
+    };
+
+    const getStatusBadge = (status: string) => {
+      const map: Record<string, string> = {
+        pending: 'bg-yellow-100 text-yellow-700',
+        approved: 'bg-green-100 text-green-700',
+        rejected: 'bg-red-100 text-red-700',
+      };
+      const labelMap: Record<string, string> = {
+        pending: '待审批',
+        approved: '已通过',
+        rejected: '已拒绝',
+      };
+      return (
+        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${map[status] || 'bg-gray-100 text-gray-700'}`}>
+          {labelMap[status] || status}
+        </span>
+      );
+    };
+
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-lg">额度申请</CardTitle>
+          <Button size="sm" variant="outline" onClick={fetchApplications}>刷新</Button>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="text-center py-8 text-gray-500">加载中...</div>
+          ) : applications.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">暂无额度申请</div>
+          ) : (
+            <div className="space-y-3">
+              {applications.map((app: any) => (
+                <div key={app.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <p className="font-medium">{app.applicant_name || '未知'}</p>
+                        <p className="text-xs text-gray-500">{app.applicant_phone || ''}</p>
+                      </div>
+                      {getStatusBadge(app.status)}
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-lg">¥{Number(app.amount).toLocaleString()}</p>
+                      <p className="text-xs text-gray-500">
+                        {app.created_at ? new Date(app.created_at).toLocaleString('zh-CN') : ''}
+                      </p>
+                    </div>
+                  </div>
+                  {app.note && (
+                    <p className="text-sm text-gray-600 mt-2">备注: {app.note}</p>
+                  )}
+                  {app.status === 'pending' && (
+                    <div className="flex gap-2 mt-3 justify-end">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-green-600 border-green-300 hover:bg-green-50"
+                        onClick={() => handleAction(app.id, 'approve')}
+                        disabled={actionLoading === app.id}
+                      >
+                        通过
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-red-600 border-red-300 hover:bg-red-50"
+                        onClick={() => handleAction(app.id, 'reject')}
+                        disabled={actionLoading === app.id}
+                      >
+                        拒绝
+                      </Button>
+                    </div>
+                  )}
+                  {app.status === 'approved' && app.approved_amount && (
+                    <p className="text-sm text-green-600 mt-2">审批额度: ¥{Number(app.approved_amount).toLocaleString()}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
 
   // 会员管理完整组件 - 使用 memo 优化防止不必要的重新渲染
   const MemberManagement = React.memo(() => {
@@ -6981,8 +7139,6 @@ export default function AdminPage() {
         return renderOverviewContent();
       case 'quota':
         return renderQuotaManagement();
-      case 'quota-requests':
-        return renderQuotaRequests();
       case 'members':
         return <MemberManagement />;
       case 'member-list':
@@ -7015,8 +7171,6 @@ export default function AdminPage() {
         return renderProviderList();
       case 'provider-audit':
         return renderProviderAudit();
-      case 'product-templates':
-        return renderProductTemplates();
       case 'product-list':
         return renderProductList();
       case 'system-config':
