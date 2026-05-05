@@ -274,15 +274,6 @@ export default function AdminPage() {
     min_quota: 0,
   });
   
-  // 分配模板给分公司对话框
-  const [showAllocateDialog, setShowAllocateDialog] = useState(false);
-  const [allocateForm, setAllocateForm] = useState({
-    templateId: '',
-    branchId: '',
-  });
-  const [selectingTemplate, setSelectingTemplate] = useState<any>(null);
-  const [branchesList, setBranchesList] = useState<any[]>([]);
-  
   // 消息提示
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -989,59 +980,6 @@ export default function AdminPage() {
         loadData();
       } else {
         showMessage('error', data.error || '创建失败');
-      }
-    } catch (error) {
-      showMessage('error', '网络错误');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // 打开分配对话框
-  const openAllocateDialog = async (template: any) => {
-    setSelectingTemplate(template);
-    setAllocateForm({
-      templateId: template.id,
-      branchId: '',
-    });
-    
-    // 加载分公司列表
-    try {
-      const response = await authFetch('/api/admin/branch-management');
-      const data = await response.json();
-      if (data.success && data.data) {
-        setBranchesList(data.data.branches || []);
-      }
-    } catch (error) {
-      console.error('加载分公司列表失败:', error);
-    }
-    
-    setShowAllocateDialog(true);
-  };
-
-  // 分配模板给分公司
-  const handleAllocateToBranch = async () => {
-    if (!allocateForm.branchId) {
-      showMessage('error', '请选择分公司');
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const response = await authFetch('/api/admin/branch-templates', {
-        method: 'POST',
-        body: JSON.stringify({
-          templateId: allocateForm.templateId,
-          branchId: allocateForm.branchId,
-        }),
-      });
-      const data = await response.json();
-      if (data.success) {
-        showMessage('success', data.message);
-        setShowAllocateDialog(false);
-        loadData();
-      } else {
-        showMessage('error', data.error || '分配失败');
       }
     } catch (error) {
       showMessage('error', '网络错误');
@@ -4331,9 +4269,7 @@ export default function AdminPage() {
                 </div>
                 <div className="mt-2 pt-2 border-t flex justify-end items-center gap-1">
                   <div className="flex gap-1">
-                    <Button size="sm" variant="outline" className="border-purple-600 text-purple-600 text-xs" onClick={() => openAllocateDialog(template)}>
-                      <Building2 className="w-4 h-4 mr-1" />分配给分公司
-                    </Button>
+
                     <Button size="sm" variant="ghost"><Edit className="w-4 h-4" /></Button>
                     <Button size="sm" variant="ghost" className="text-red-600"><Trash2 className="w-4 h-4" /></Button>
                   </div>
@@ -7491,65 +7427,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* 分配模板给分公司对话框 */}
-      {showAllocateDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-purple-600" />
-                分配算力模板
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* 模板信息 */}
-              {selectingTemplate && (
-                <div className="bg-purple-50 p-3 rounded-lg">
-                  <p className="font-medium text-purple-700">{selectingTemplate.name}</p>
-                  <p className="text-sm text-gray-600">
-                    周期: {selectingTemplate.period}天 | 
-                    总收益率: {selectingTemplate.total_rate}% | 
-                    市场费: {selectingTemplate.market_rate}%
-                  </p>
-                </div>
-              )}
 
-              {/* 选择分公司 */}
-              <div>
-                <Label>选择分公司</Label>
-                <select
-                  value={allocateForm.branchId}
-                  onChange={(e) => setAllocateForm({...allocateForm, branchId: e.target.value})}
-                  className="w-full mt-1 px-3 py-2 border rounded-md"
-                >
-                  <option value="">请选择分公司</option>
-                  {branchesList.map((branch) => (
-                    <option key={branch.id} value={branch.id}>
-                      {branch.username} ({branch.phone || '无电话'})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <p className="text-sm text-muted-foreground">
-                授权后，该分公司即可使用此模板为服务商生成对应规则的产品。
-              </p>
-
-              <div className="flex justify-end gap-2 pt-4">
-                <Button variant="outline" onClick={() => setShowAllocateDialog(false)}>取消</Button>
-                <Button 
-                  className="bg-purple-600" 
-                  onClick={handleAllocateToBranch}
-                  disabled={submitting || !allocateForm.branchId}
-                >
-                  {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                  确认授权
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
       {/* 左侧导航 */}
       {renderSidebar()}

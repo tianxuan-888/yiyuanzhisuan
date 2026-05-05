@@ -424,8 +424,8 @@ export default function BranchPage() {
 
   // 分配额度给服务商
   const handleAllocateQuota = async () => {
-    if (!selectedProvider || !selectedTemplate || !quotaAmount) {
-      showMessage('error', '请填写完整信息');
+    if (!selectedProvider || !quotaAmount) {
+      showMessage('error', '请选择服务商并输入额度');
       return;
     }
 
@@ -440,7 +440,6 @@ export default function BranchPage() {
         body: JSON.stringify({
           branchId,
           providerId: selectedProvider,
-          templateId: selectedTemplate,
           quotaAmount: parseFloat(quotaAmount),
         }),
       });
@@ -451,7 +450,6 @@ export default function BranchPage() {
         showMessage('success', data.message || '额度分配成功');
         setShowAllocateDialog(false);
         setSelectedProvider('');
-        setSelectedTemplate('');
         setQuotaAmount('50000');
         loadData();
       } else {
@@ -1185,15 +1183,13 @@ export default function BranchPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-lg">
             <CardHeader>
-              <CardTitle>授权模板 & 分配额度</CardTitle>
+              <CardTitle>分配额度给服务商</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* 说明 */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
                 <p className="font-medium mb-1">操作说明</p>
-                <p>1. <strong>授权模板</strong>：选择要授权给服务商的算力模板（决定服务商能生成什么类型的产品）</p>
-                <p>2. <strong>分配额度</strong>：输入分配给服务商的额度金额（决定服务商能生成多少产品）</p>
-                <p className="mt-1 text-xs text-blue-500">模板和额度独立：模板只是产品规则，额度才是资源。同一个模板可反复使用。</p>
+                <p>选择服务商并输入分配的额度金额，服务商获得额度后可直接选择总公司设定的产品模板生成算力产品。</p>
               </div>
               {/* 分公司额度信息 */}
               <div className="bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 rounded-lg p-3">
@@ -1264,28 +1260,6 @@ export default function BranchPage() {
                 })()}
               </div>
               <div>
-                <Label>授权算力模板</Label>
-                <select
-                  value={selectedTemplate}
-                  onChange={(e) => setSelectedTemplate(e.target.value)}
-                  className="w-full border rounded px-3 py-2 mt-1"
-                >
-                  <option value="">请选择要授权的模板</option>
-                  {templates.map(t => (
-                    <option key={t.id} value={t.id}>{t.name} ({t.period}天, 总收益{t.total_rate}%)</option>
-                  ))}
-                </select>
-                {selectedTemplate && (() => {
-                  const tpl = templates.find(t => t.id === selectedTemplate);
-                  if (!tpl) return null;
-                  return (
-                    <div className="mt-2 bg-green-50 border border-green-200 rounded-lg p-2 text-sm">
-                      <p className="text-green-700">模板规则：{tpl.period}天周期 | 总收益{tpl.total_rate}% | 会员到手{tpl.profit_rate}% | 市场费{tpl.market_rate}%</p>
-                    </div>
-                  );
-                })()}
-              </div>
-              <div>
                 <Label>分配额度 (元)</Label>
                 <Input
                   type="number"
@@ -1294,7 +1268,7 @@ export default function BranchPage() {
                   placeholder="输入额度金额"
                   className="mt-1"
                 />
-                <p className="text-sm text-gray-500 mt-1">提示: 服务商用此额度按模板规则生成产品，单产品不超¥10,000</p>
+                <p className="text-sm text-gray-500 mt-1">服务商获得额度后，可自主选择产品模板生成算力产品</p>
                 {/* 额度不足提示 */}
                 {quotaAmount && parseFloat(quotaAmount) > (stats.available_quota || 0) && (
                   <div className="mt-1 flex items-center gap-1 text-red-600 text-sm">
@@ -1624,7 +1598,6 @@ export default function BranchPage() {
               <div className="mobile-tab-nav flex gap-1 overflow-x-auto pb-1">
                 {[
                   { key: 'overview', label: '额度总览', icon: Database },
-                  { key: 'templates', label: '算力模板', icon: Cpu },
                   { key: 'allocations', label: '额度分配', icon: Share2 },
                   { key: 'approve', label: '额度审批', icon: ClipboardList },
                 ].map(sub => (
@@ -1836,82 +1809,6 @@ export default function BranchPage() {
                 </div>
               )}
 
-              {/* 子Tab: 算力模板 */}
-              {quotaSubTab === 'templates' && (
-            <Card>
-              <CardHeader>
-                <CardTitle>可用算力模板（产品规则）</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  {templates.map(template => (
-                    <div key={template.id} className="p-4 border rounded-lg">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h4 className="font-medium">{template.name}</h4>
-                          <p className="text-sm text-gray-500">{template.code}</p>
-                        </div>
-                        <Badge className="bg-green-100 text-green-700">可用</Badge>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div>
-                          <span className="text-gray-500">周期:</span>
-                          <span className="ml-1">{template.period}天</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">总收益:</span>
-                          <span className="ml-1 text-green-600">{template.total_rate}%</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">市场费:</span>
-                          <span className="ml-1 text-orange-600">{template.market_rate}%</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">会员收益:</span>
-                          <span className="ml-1 text-blue-600">{template.profit_rate}%</span>
-                        </div>
-                      </div>
-                      {/* 产品规则 */}
-                      <div className="mt-3 p-2 bg-gray-50 rounded text-sm space-y-1">
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">产品类型:</span>
-                          <span className="font-medium">{template.period}天算力套餐</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">金额范围:</span>
-                          <span className="font-medium text-green-600">
-                            ¥{template.period === 3 ? '200~5,000' : template.period === 7 ? '200~10,000' : '200~10,000'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">单产品上限:</span>
-                          <span className="font-medium">¥10,000</span>
-                        </div>
-                      </div>
-                      <div className="mt-3 pt-3 border-t">
-                        <Button
-                          size="sm"
-                          className="w-full bg-blue-600"
-                          onClick={() => {
-                            setSelectedTemplate(template.id);
-                            openAllocateDialog();
-                          }}
-                        >
-                          使用此模板授权给服务商
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                  {templates.length === 0 && (
-                    <div className="col-span-2 text-center py-8 text-gray-500">
-                      <Package className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                      <p>暂无算力模板，请等待总公司下发</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
               {/* 子Tab: 额度分配 */}
               {quotaSubTab === 'allocations' && (
@@ -1930,7 +1827,6 @@ export default function BranchPage() {
                     <thead>
                       <tr className="border-b bg-gray-50">
                         <th className="text-left py-3 px-4">服务商</th>
-                        <th className="text-left py-3 px-4">算力模板</th>
                         <th className="text-left py-3 px-4">分配额度</th>
                         <th className="text-left py-3 px-4">已用额度</th>
                         <th className="text-left py-3 px-4">状态</th>
@@ -1941,7 +1837,6 @@ export default function BranchPage() {
                       {allocations.map(allocation => (
                         <tr key={allocation.id} className="border-b hover:bg-gray-50">
                           <td className="py-3 px-4">{(allocation as any).provider_name || '-'}</td>
-                          <td className="py-3 px-4">{(allocation as any).template_name || '-'}</td>
                           <td className="py-3 px-4 text-green-600 font-medium">
                             ¥{(parseFloat(String(allocation.quota_amount)) || 0).toLocaleString()}
                           </td>

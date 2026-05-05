@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { branchId, templateId, providerId, quotaAmount } = body;
 
-    if (!branchId || !templateId || !providerId || !quotaAmount) {
+    if (!branchId || !providerId || !quotaAmount) {
       return NextResponse.json(
         { error: '缺少必要参数' },
         { status: 400 }
@@ -113,12 +113,12 @@ export async function POST(request: NextRequest) {
       [branchId, quota]
     );
 
-    // 创建额度分配记录
+    // 创建额度分配记录（template_id 可为空，纯额度分配）
     const result = await queryOne<{ id: string }>(
       `INSERT INTO quota_allocations (template_id, branch_id, provider_id, quota_amount, used_amount, status, created_at, updated_at)
        VALUES ($1, $2, $3, $4, 0, 'active', NOW(), NOW())
        RETURNING id`,
-      [templateId, branchId, providerId, quota]
+      [templateId || null, branchId, providerId, quota]
     );
 
     // 给服务商增加额度（插入或更新 quota_accounts）

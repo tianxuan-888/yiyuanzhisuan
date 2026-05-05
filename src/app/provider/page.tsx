@@ -2248,7 +2248,7 @@ export default function ProviderPage() {
                                             onClick={openGenerateDialog}
                                             className="bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-700 hover:to-fuchsia-700 shadow-lg px-6"
                                         >
-                                            <Plus className="w-4 h-4 mr-2" />自定义生成产品
+                                            <Plus className="w-4 h-4 mr-2" />生成算力
                                         </Button>
                                     </div>
                                 </CardContent>
@@ -2263,17 +2263,7 @@ export default function ProviderPage() {
                             </Card>
                         )}
 
-                        <Card className="border-blue-200 bg-blue-50">
-                            <CardContent className="py-4">
-                                <h4 className="font-medium text-blue-800 mb-3">💡 算力生成规则</h4>
-                                <div className="space-y-2 text-sm text-blue-700">
-                                    <p>• 只要可用额度 ≥ 100元即可生成产品</p>
-                                    <p>• 选择模板确定产品规则（周期、收益率），输入总额自动拆分</p>
-                                    <p>• 单个产品价格：100元 ~ 10,000元，金额为整数</p>
-                                    <p>• 未上架产品可删除，额度自动退回</p>
-                                </div>
-                            </CardContent>
-                        </Card>
+
                         <Card>
                             <CardHeader>
                                 <div className="flex items-center justify-between">
@@ -2291,12 +2281,11 @@ export default function ProviderPage() {
                                     <table className="w-full">
                                         <thead>
                                             <tr className="border-b bg-gray-50">
-                                                <th className="text-left py-3 px-4">算力模板</th>
                                                 <th className="text-left py-3 px-4">分配额度</th>
                                                 <th className="text-left py-3 px-4">已用额度</th>
                                                 <th className="text-left py-3 px-4">剩余额度</th>
                                                 <th className="text-left py-3 px-4">状态</th>
-                                                <th className="text-left py-3 px-4">操作</th>
+                                                <th className="text-left py-3 px-4">时间</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -2305,14 +2294,6 @@ export default function ProviderPage() {
 
                                                 return (
                                                     <tr key={allocation.id} className="border-b hover:bg-gray-50">
-                                                        <td className="py-3 px-4">
-                                                            <div>
-                                                                <p className="font-medium">{allocation.product_templates?.name || "-"}</p>
-                                                                <p className="text-sm text-gray-500">
-                                                                    {allocation.product_templates?.period}天 | {allocation.product_templates?.period ? allocation.product_templates.period * 24 : 0}小时锁 | 收益{allocation.product_templates?.total_rate}%
-                                                                                                      </p>
-                                                            </div>
-                                                        </td>
                                                         <td className="py-3 px-4 text-green-600 font-medium">¥{(allocation.quota_amount || 0).toLocaleString()}
                                                         </td>
                                                         <td className="py-3 px-4 text-orange-600">¥{(allocation.used_amount || 0).toLocaleString()}
@@ -2325,21 +2306,14 @@ export default function ProviderPage() {
                                                                 {allocation.status === "active" ? "可使用" : allocation.status === "completed" ? "已完成" : allocation.status}
                                                             </Badge>
                                                         </td>
-                                                        <td className="py-3 px-4">
-                                                            {allocation.status === "active" && <Button
-                                                                size="sm"
-                                                                className="bg-purple-600"
-                                                                onClick={openGenerateDialog}
-                                                                disabled={submitting}>
-                                                                {submitting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}生成算力
-                                                            </Button>}
+                                                        <td className="py-3 px-4 text-sm text-gray-500">
+                                                            {allocation.created_at ? new Date(allocation.created_at).toLocaleDateString() : '-'}
                                                         </td>
                                                     </tr>
                                                 );
                                             })}
                                             {allocations.length === 0 && <tr>
-                                                <td colSpan={6} className="py-8 text-center text-gray-500">暂无额度分配，请点击右上角按钮申请额度
-                                                                                </td>
+                                                <td colSpan={5} className="py-8 text-center text-gray-500">暂无额度分配，请点击右上角按钮申请额度</td>
                                             </tr>}
                                         </tbody>
                                     </table>
@@ -4452,7 +4426,7 @@ export default function ProviderPage() {
                                     ) : (
                                         <div className="text-center py-6 text-muted-foreground">
                                             <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                            <p>暂无可用模板，请联系分公司授权</p>
+                                            <p>暂无可用模板，请联系总公司创建</p>
                                         </div>
                                     )}
                                 </div>
