@@ -30,50 +30,71 @@ export async function GET(request: NextRequest) {
 
     const user = usersResult[0];
 
-    // 使用 quota_accounts 表获取额度（统一的算力额度系统）
-    const quotaData = {
-      total_quota: 0,      // 总额度（从quota_accounts获取）
-      used_quota: 0,       // 已使用额度
-      available_quota: 0,  // 可用额度
+    const quotaData: {
+      total_quota: number;
+      used_quota: number;
+      available_quota: number;
+      pending_requests: number;
+      allocations?: unknown[];
+    } = {
+      total_quota: 0,
+      used_quota: 0,
+      available_quota: 0,
       pending_requests: 0,
     };
 
-    try {
-      // 从 quota_accounts 表获取额度数据
-      const accountsResult = await query(
-        `SELECT balance::float as balance_float, total_in::float as total_in_float 
-         FROM quota_accounts 
-         WHERE user_id = $1`,
-        [userId]
-      );
-      
-      if (accountsResult && accountsResult.length > 0) {
-        const account = accountsResult[0];
-        quotaData.total_quota = account.total_in_float || 0;
-        quotaData.available_quota = account.balance_float || 0;
-        // 已使用 = 总额度 - 可用额度
-        quotaData.used_quota = Math.max(0, quotaData.total_quota - quotaData.available_quota);
-      }
-    } catch (dbError) {
-      console.error('查询quota_accounts失败:', dbError);
-    }
-
-    // 获取待审核的服务商额度申请（来自 quota_requests 表）
-    if (user.role === 'branch') {
+    if (user.role === 'provider') {
+      // 服务商：从 quota_allocations 汇总计算额度（最可靠的数据源）
       try {
-        const pendingResult = await query(
-          `SELECT COUNT(*) as count FROM quota_requests 
-           WHERE parent_id = $1 AND requester_type = 'provider' AND status = 'pending'`,
+        const allocResult = await query(
+          `SELECT 
+            COALESCE(SUM(quota_amount), 0)::float as total_allocated,
+            COALESCE(SUM(used_amount), 0)::float as total_used
+           FROM quota_allocations 
+           WHERE provider_id = $1`,
           [userId]
         );
-        quotaData.pending_requests = Number(pendingResult[0]?.count || 0);
+        
+        if (allocResult && allocResult.length > 0) {
+          quotaData.total_quota = allocResult[0].total_allocated || 0;
+          quotaData.used_quota = allocResult[0].total_used || 0;
+          quotaData.available_quota = Math.max(0, quotaData.total_quota - quotaData.used_quota);
+        }
       } catch (e) {
-        console.error('查询待审核申请失败:', e);
+        console.error('从quota_allocations汇总额度失败:', e);
+        // fallback: 尝试从 providers 表读取
+        try {
+          const providerResult = await query(
+            `SELECT CAST(quota AS FLOAT) as quota_float, CAST(used_quota AS FLOAT) as used_quota_float 
+             FROM providers WHERE user_id = $1`,
+            [userId]
+          );
+          if (providerResult && providerResult.length > 0) {
+            quotaData.total_quota = providerResult[0].quota_float || 0;
+            quotaData.used_quota = providerResult[0].used_quota_float || 0;
+            quotaData.available_quota = Math.max(0, quotaData.total_quota - quotaData.used_quota);
+          }
+        } catch (e2) {
+          console.error('从providers表fallback读取额度失败:', e2);
+        }
       }
-    }
 
-    // 获取服务商的额度申请记录
-    if (user.role === 'provider') {
+      // 获取分配记录列表
+      try {
+        const allocList = await query(
+          `SELECT qa.*, pt.name as template_name, pt.period, pt.total_rate
+           FROM quota_allocations qa
+           LEFT JOIN product_templates pt ON qa.template_id = pt.id
+           WHERE qa.provider_id = $1
+           ORDER BY qa.created_at DESC`,
+          [userId]
+        );
+        quotaData.allocations = allocList || [];
+      } catch (e) {
+        console.error('获取分配记录失败:', e);
+      }
+
+      // 获取服务商的额度申请记录
       try {
         const requestsResult = await query(
           `SELECT qr.*, u.username as requester_name
@@ -94,6 +115,38 @@ export async function GET(request: NextRequest) {
         });
       } catch (e) {
         console.error('查询服务商额度申请记录失败:', e);
+      }
+
+    } else if (user.role === 'branch') {
+      // 分公司：从 quota_accounts 表获取额度
+      try {
+        const accountsResult = await query(
+          `SELECT balance::float as balance_float, total_in::float as total_in_float 
+           FROM quota_accounts 
+           WHERE user_id = $1`,
+          [userId]
+        );
+        
+        if (accountsResult && accountsResult.length > 0) {
+          const account = accountsResult[0];
+          quotaData.total_quota = account.total_in_float || 0;
+          quotaData.available_quota = account.balance_float || 0;
+          quotaData.used_quota = Math.max(0, quotaData.total_quota - quotaData.available_quota);
+        }
+      } catch (dbError) {
+        console.error('查询quota_accounts失败:', dbError);
+      }
+
+      // 获取待审核的服务商额度申请
+      try {
+        const pendingResult = await query(
+          `SELECT COUNT(*) as count FROM quota_requests 
+           WHERE parent_id = $1 AND requester_type = 'provider' AND status = 'pending'`,
+          [userId]
+        );
+        quotaData.pending_requests = Number(pendingResult[0]?.count || 0);
+      } catch (e) {
+        console.error('查询待审核申请失败:', e);
       }
     }
 

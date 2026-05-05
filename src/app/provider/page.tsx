@@ -598,12 +598,16 @@ export default function ProviderPage() {
             if (quotaData.success) {
                 setStats(prev => ({
                     ...prev,
-                    total_quota: quotaData.data?.quota?.total || 0,
-                    available_quota: quotaData.data?.quota?.available || 0,
-                    used_quota: quotaData.data?.quota?.used || 0
+                    total_quota: quotaData.data?.total_quota || 0,
+                    available_quota: quotaData.data?.available_quota || 0,
+                    used_quota: quotaData.data?.used_quota || 0
                 }));
 
                 setQuotaRequests(quotaData.data?.requests || []);
+                // 更新额度分配记录
+                if (quotaData.data?.allocations) {
+                    setAllocations(quotaData.data.allocations);
+                }
             }
 
             // 处理待审核购买订单
