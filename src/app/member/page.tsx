@@ -44,6 +44,7 @@ import {
     Eye,
     EyeOff,
     Banknote,
+    ArrowRightLeft,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -1820,13 +1821,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                         <button
                             onClick={() => setActiveTab("transfers")}
                             className={`px-4 py-2 border-b-2 transition-colors flex-shrink-0 ${activeTab === "transfers" ? "border-green-500 text-green-600" : "border-transparent text-gray-500"}`}>
-                            <History className="w-4 h-4 inline mr-2" />能量值记录
-                        </button>
-                        <button
-                            onClick={() => setActiveTab("recharge")}
-                            className={`px-4 py-2 border-b-2 transition-colors flex-shrink-0 ${activeTab === "recharge" ? "border-green-500 text-green-600" : "border-transparent text-gray-500"}`}>
-                            <Zap className="w-4 h-4 inline mr-2" />充值申请
-                            {pendingRechargeCount > 0 && <Badge className="ml-2 bg-orange-500 text-white text-xs">{pendingRechargeCount}</Badge>}
+                            <Zap className="w-4 h-4 inline mr-2" />能量值管理
                         </button>
                         <button
                             onClick={() => {
@@ -1845,14 +1840,6 @@ const [copySuccess, setCopySuccess] = useState(false);
                             }}
                             className={`px-4 py-2 border-b-2 transition-colors flex-shrink-0 ${activeTab === "profit" ? "border-green-500 text-green-600" : "border-transparent text-gray-500"}`}>
                             <TrendingUp className="w-4 h-4 inline mr-2" />我的收益
-                        </button>
-                        <button
-                            onClick={() => {
-                                setActiveTab("withdraw");
-                                loadWithdrawRecords();
-                            }}
-                            className={`px-4 py-2 border-b-2 transition-colors flex-shrink-0 ${activeTab === "withdraw" ? "border-green-500 text-green-600" : "border-transparent text-gray-500"}`}>
-                            <Banknote className="w-4 h-4 inline mr-2" />收益提现
                         </button>
                         <button
                             onClick={() => {
@@ -3033,53 +3020,111 @@ const [copySuccess, setCopySuccess] = useState(false);
                         </CardContent>
                     </Card>}
 
-                    {/* 能量值记录 Tab */}
+                    {/* 能量值管理 Tab */}
                     {activeTab === "transfers" && <div className="space-y-3 md:space-y-6">
                         {/* 统计卡片 */}
-                        <div className="grid grid-cols-4 gap-4">
+                        <div className="grid grid-cols-3 gap-3 md:gap-4">
                             <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
-                                <CardContent className="pt-4">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <ArrowDownCircle className="w-5 h-5" />
-                                        <span className="text-sm opacity-80">累计充值</span>
+                                <CardContent className="pt-3 pb-3 md:pt-4 md:pb-4">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <ArrowDownCircle className="w-4 h-4" />
+                                        <span className="text-xs md:text-sm opacity-80">累计转入</span>
                                     </div>
-                                    <p className="text-2xl font-bold">{energyStats.totalRecharge.toLocaleString()}</p>
-                                    <p className="text-xs opacity-70 mt-1">{energyStats.rechargeCount} 笔</p>
-                                </CardContent>
-                            </Card>
-                            <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-                                <CardContent className="pt-4">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <ArrowDownCircle className="w-5 h-5" />
-                                        <span className="text-sm opacity-80">累计转入</span>
-                                    </div>
-                                    <p className="text-2xl font-bold">{energyStats.totalTransferIn.toLocaleString()}</p>
-                                    <p className="text-xs opacity-70 mt-1">{energyStats.transferInCount} 笔</p>
+                                    <p className="text-xl md:text-2xl font-bold">{(energyStats.totalRecharge + energyStats.totalTransferIn).toLocaleString()}</p>
                                 </CardContent>
                             </Card>
                             <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white">
-                                <CardContent className="pt-4">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <ArrowUpCircle className="w-5 h-5" />
-                                        <span className="text-sm opacity-80">累计转出</span>
+                                <CardContent className="pt-3 pb-3 md:pt-4 md:pb-4">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <ArrowUpCircle className="w-4 h-4" />
+                                        <span className="text-xs md:text-sm opacity-80">累计转出</span>
                                     </div>
-                                    <p className="text-2xl font-bold">{energyStats.totalTransferOut.toLocaleString()}</p>
-                                    <p className="text-xs opacity-70 mt-1">{energyStats.transferOutCount} 笔</p>
+                                    <p className="text-xl md:text-2xl font-bold">{energyStats.totalTransferOut.toLocaleString()}</p>
                                 </CardContent>
                             </Card>
                             <Card className="bg-gradient-to-br from-red-500 to-red-600 text-white">
-                                <CardContent className="pt-4">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <TrendingDown className="w-5 h-5" />
-                                        <span className="text-sm opacity-80">支付市场费</span>
+                                <CardContent className="pt-3 pb-3 md:pt-4 md:pb-4">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <TrendingDown className="w-4 h-4" />
+                                        <span className="text-xs md:text-sm opacity-80">市场费消耗</span>
                                     </div>
-                                    <p className="text-2xl font-bold">-{energyStats.totalConsume.toLocaleString()}</p>
-                                    <p className="text-xs opacity-70 mt-1">{energyStats.consumeCount} 笔</p>
+                                    <p className="text-xl md:text-2xl font-bold">-{energyStats.totalConsume.toLocaleString()}</p>
                                 </CardContent>
                             </Card>
                         </div>
 
-                        {/* 筛选器 */}
+                        {/* 操作按钮 */}
+                        <div className="flex gap-2">
+                            <Button
+                                onClick={() => setShowRechargeDialog(true)}
+                                className="bg-green-600 hover:bg-green-700 text-white flex-1"
+                            >
+                                <Zap className="w-4 h-4 mr-2" />申请能量值
+                            </Button>
+                            <Button
+                                onClick={() => setShowTransferDialog(true)}
+                                className="bg-blue-600 hover:bg-blue-700 text-white flex-1"
+                            >
+                                <ArrowRightLeft className="w-4 h-4 mr-2" />能量值互转
+                            </Button>
+                        </div>
+
+                        {/* 充值申请记录 */}
+                        {rechargeRequests.length > 0 && (
+                            <Card>
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-sm flex items-center gap-2">
+                                        <Clock className="w-4 h-4" />
+                                        充值申请记录
+                                        {rechargeRequests.filter(r => r.status === 'pending').length > 0 && (
+                                            <Badge className="bg-orange-100 text-orange-700 text-xs">
+                                                {rechargeRequests.filter(r => r.status === 'pending').length} 待确认
+                                            </Badge>
+                                        )}
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-2">
+                                        {rechargeRequests.slice(0, 5).map((request) => (
+                                            <div key={request.id} className={`flex items-center justify-between p-3 border rounded-lg text-sm ${
+                                                request.status === 'pending' ? 'bg-yellow-50 border-yellow-200' :
+                                                request.status === 'approved' ? 'bg-green-50 border-green-200' :
+                                                'bg-red-50 border-red-200'
+                                            }`}>
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs ${
+                                                        request.status === 'pending' ? 'bg-yellow-100 text-yellow-600' :
+                                                        request.status === 'approved' ? 'bg-green-100 text-green-600' :
+                                                        'bg-red-100 text-red-600'
+                                                    }`}>
+                                                        {request.status === 'pending' ? <Clock className="w-4 h-4" /> :
+                                                         request.status === 'approved' ? <CheckCircle className="w-4 h-4" /> :
+                                                         <AlertCircle className="w-4 h-4" />}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium">充值申请</p>
+                                                        <p className="text-xs text-gray-500">{request.provider?.username || '服务商'} · {request.createdAt || request.created_at ? new Date(request.createdAt || request.created_at).toLocaleString('zh-CN') : ''}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-bold text-green-600">+{request.amount?.toLocaleString() || 0}</span>
+                                                    <Badge className={
+                                                        request.status === 'pending' ? 'bg-yellow-100 text-yellow-700 text-xs' :
+                                                        request.status === 'approved' ? 'bg-green-100 text-green-700 text-xs' :
+                                                        'bg-red-100 text-red-700 text-xs'
+                                                    }>
+                                                        {request.status === 'pending' ? '待确认' :
+                                                         request.status === 'approved' ? '已通过' : '已拒绝'}
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* 交易明细 */}
                         <Card>
                             <CardHeader className="pb-2">
                                 <div className="flex items-center justify-between">
@@ -3087,28 +3132,20 @@ const [copySuccess, setCopySuccess] = useState(false);
                                         <History className="w-5 h-5" />
                                         交易明细
                                     </CardTitle>
-                                    <div className="flex gap-2">
+                                    <div className="flex gap-1 md:gap-2 flex-wrap">
                                         <Button
                                             size="sm"
                                             variant={energyRecordFilter === 'all' ? 'default' : 'outline'}
                                             onClick={() => setEnergyRecordFilter('all')}
-                                            className={energyRecordFilter === 'all' ? 'bg-green-600' : ''}
+                                            className={`text-xs ${energyRecordFilter === 'all' ? 'bg-green-600' : ''}`}
                                         >
                                             全部
                                         </Button>
                                         <Button
                                             size="sm"
-                                            variant={energyRecordFilter === 'recharge' ? 'default' : 'outline'}
-                                            onClick={() => setEnergyRecordFilter('recharge')}
-                                            className={energyRecordFilter === 'recharge' ? 'bg-green-600' : ''}
-                                        >
-                                            充值
-                                        </Button>
-                                        <Button
-                                            size="sm"
                                             variant={energyRecordFilter === 'transfer_in' ? 'default' : 'outline'}
                                             onClick={() => setEnergyRecordFilter('transfer_in')}
-                                            className={energyRecordFilter === 'transfer_in' ? 'bg-blue-600' : ''}
+                                            className={`text-xs ${energyRecordFilter === 'transfer_in' ? 'bg-blue-600' : ''}`}
                                         >
                                             转入
                                         </Button>
@@ -3116,7 +3153,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             size="sm"
                                             variant={energyRecordFilter === 'transfer_out' ? 'default' : 'outline'}
                                             onClick={() => setEnergyRecordFilter('transfer_out')}
-                                            className={energyRecordFilter === 'transfer_out' ? 'bg-orange-600' : ''}
+                                            className={`text-xs ${energyRecordFilter === 'transfer_out' ? 'bg-orange-600' : ''}`}
                                         >
                                             转出
                                         </Button>
@@ -3124,9 +3161,17 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             size="sm"
                                             variant={energyRecordFilter === 'consume' ? 'default' : 'outline'}
                                             onClick={() => setEnergyRecordFilter('consume')}
-                                            className={energyRecordFilter === 'consume' ? 'bg-red-600' : ''}
+                                            className={`text-xs ${energyRecordFilter === 'consume' ? 'bg-red-600' : ''}`}
                                         >
-                                            消耗
+                                            市场费
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant={energyRecordFilter === 'recharge' ? 'default' : 'outline'}
+                                            onClick={() => setEnergyRecordFilter('recharge')}
+                                            className={`text-xs ${energyRecordFilter === 'recharge' ? 'bg-green-600' : ''}`}
+                                        >
+                                            充值
                                         </Button>
                                     </div>
                                 </div>
@@ -3162,7 +3207,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                     {record.recordType === 'recharge' ? '能量值充值' :
                                                                      record.recordType === 'transfer_in' ? '能量值转入' :
                                                                      record.recordType === 'convert_from_balance' ? '收益转能量值' :
-                                                                     record.recordType === 'consume' ? '能量值消耗' :
+                                                                     record.recordType === 'consume' ? '市场费消耗' :
                                                                      record.recordType === 'market_transfer' ? '市场费支付' :
                                                                      record.recordType === 'purchase' ? '购买产品支付' :
                                                                      record.recordType === 'withdraw' ? '能量值变现' :
@@ -3455,152 +3500,145 @@ const [copySuccess, setCopySuccess] = useState(false);
                                     )}
                                 </CardContent>
                             </Card>
-                        </div>
-                    )}
-
-                    {/* 提现 Tab */}
-                    {activeTab === "withdraw" && <div className="space-y-3 md:space-y-6">
-                        <Card className="bg-gradient-to-br from-rose-500 to-rose-600 text-white">
-                            <CardContent className="pt-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Banknote className="w-5 h-5" />
-                                    <span className="text-sm opacity-80">收益提现</span>
-                                </div>
-                                <p className="text-3xl font-bold">¥{Number(user?.balance || 0).toLocaleString()}</p>
-                                <p className="text-xs opacity-70 mt-1">提现至支付宝，扣除5%手续费后由分公司线下转账</p>
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardHeader className="pb-3">
-                                <div className="flex items-center justify-between">
-                                    <CardTitle className="text-base">申请提现</CardTitle>
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="text-sm text-muted-foreground mb-1 block">提现金额</label>
-                                        <Input
-                                            type="number"
-                                            placeholder="请输入提现金额（最低50元）"
-                                            value={withdrawAmount}
-                                            onChange={e => setWithdrawAmount(e.target.value)}
-                                            min="50"
-                                            max={user?.balance || 0}
-                                        />
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                            可提现余额: ¥{Number(user?.balance || 0).toLocaleString()}
-                                            {Number(withdrawAmount) > 0 && (
-                                                <span className="ml-3">
-                                                    手续费(5%): ¥{(Number(withdrawAmount) * 0.05).toFixed(2)}
-                                                    ，实际到账: ¥{(Number(withdrawAmount) * 0.95).toFixed(2)}
-                                                </span>
-                                            )}
-                                        </p>
+                            {/* 提现功能 */}
+                            <Card>
+                                <CardHeader className="pb-3">
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="flex items-center gap-2 text-base">
+                                            <Banknote className="w-5 h-5 text-rose-500" />
+                                            收益提现
+                                        </CardTitle>
+                                        <span className="text-xs text-muted-foreground">
+                                            可提现: ¥{Number(user?.balance || 0).toLocaleString()}
+                                        </span>
                                     </div>
-                                    <div>
-                                        <label className="text-sm text-muted-foreground mb-1 block">支付宝账号</label>
-                                        <Input
-                                            placeholder="请输入支付宝账号"
-                                            value={withdrawAlipay}
-                                            onChange={e => setWithdrawAlipay(e.target.value)}
-                                        />
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="text-sm text-muted-foreground mb-1 block">提现金额</label>
+                                            <Input
+                                                type="number"
+                                                placeholder="请输入提现金额（最低50元）"
+                                                value={withdrawAmount}
+                                                onChange={e => setWithdrawAmount(e.target.value)}
+                                                min="50"
+                                                max={user?.balance || 0}
+                                            />
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                可提现余额: ¥{Number(user?.balance || 0).toLocaleString()}
+                                                {Number(withdrawAmount) > 0 && (
+                                                    <span className="ml-3">
+                                                        手续费(5%): ¥{(Number(withdrawAmount) * 0.05).toFixed(2)}
+                                                        ，实际到账: ¥{(Number(withdrawAmount) * 0.95).toFixed(2)}
+                                                    </span>
+                                                )}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <label className="text-sm text-muted-foreground mb-1 block">支付宝账号</label>
+                                            <Input
+                                                placeholder="请输入支付宝账号"
+                                                value={withdrawAlipay}
+                                                onChange={e => setWithdrawAlipay(e.target.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-sm text-muted-foreground mb-1 block">真实姓名</label>
+                                            <Input
+                                                placeholder="请输入真实姓名（需与支付宝一致）"
+                                                value={withdrawRealName}
+                                                onChange={e => setWithdrawRealName(e.target.value)}
+                                            />
+                                        </div>
+                                        <Button
+                                            className="w-full bg-rose-500 hover:bg-rose-600"
+                                            disabled={!withdrawAmount || Number(withdrawAmount) < 50 || !withdrawAlipay || !withdrawRealName}
+                                            onClick={handleWithdraw}
+                                        >
+                                            提交提现申请
+                                        </Button>
                                     </div>
-                                    <div>
-                                        <label className="text-sm text-muted-foreground mb-1 block">真实姓名</label>
-                                        <Input
-                                            placeholder="请输入真实姓名（需与支付宝一致）"
-                                            value={withdrawRealName}
-                                            onChange={e => setWithdrawRealName(e.target.value)}
-                                        />
-                                    </div>
-                                    <Button
-                                        className="w-full bg-rose-500 hover:bg-rose-600"
-                                        disabled={!withdrawAmount || Number(withdrawAmount) < 50 || !withdrawAlipay || !withdrawRealName}
-                                        onClick={handleWithdraw}
-                                    >
-                                        提交提现申请
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
+                                </CardContent>
+                            </Card>
 
-                        <Card>
-                            <CardHeader className="pb-3">
-                                <CardTitle className="text-base">提现记录</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {withdrawRecords.length > 0 ? (
-                                    <div className="space-y-3">
-                                        {withdrawRecords.map((record: any) => (
-                                            <div key={record.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                                                <div>
-                                                    <div className="flex items-center gap-2">
-                                                        <Banknote className="w-4 h-4 text-rose-500" />
-                                                        <span className="font-medium">¥{Number(record.amount).toLocaleString()}</span>
-                                                        <Badge variant={
-                                                            record.status === 'completed' ? 'default' :
-                                                            record.status === 'rejected' ? 'destructive' :
-                                                            record.status === 'approved' ? 'secondary' :
-                                                            record.status === 'transferred' ? 'outline' :
-                                                            'outline'
-                                                        }>
-                                                            {record.status === 'pending' ? '待审核' :
-                                                             record.status === 'approved' ? '已审核' :
-                                                             record.status === 'transferred' ? '已打款待确认' :
-                                                             record.status === 'completed' ? '已完成' :
-                                                             record.status === 'rejected' ? '已拒绝' : record.status}
-                                                        </Badge>
-                                                        {record.status === 'transferred' && (
-                                                            <Button
-                                                                size="sm"
-                                                                variant="outline"
-                                                                className="text-xs h-6"
-                                                                onClick={async () => {
-                                                                    const res = await fetch('/api/member/withdraw', {
-                                                                        method: 'POST',
-                                                                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-                                                                        body: JSON.stringify({ withdrawalId: record.id, action: 'confirm_receipt' })
-                                                                    });
-                                                                    const data = await res.json();
-                                                                    if (data.success) {
-                                                                        alert('已确认收款');
-                                                                        loadData();
-                                                                    } else {
-                                                                        alert(data.error || '操作失败');
-                                                                    }
-                                                                }}
-                                                            >
-                                                                确认收款
-                                                            </Button>
+                            {/* 提现记录 */}
+                            <Card>
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-base">提现记录</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    {withdrawRecords.length > 0 ? (
+                                        <div className="space-y-3">
+                                            {withdrawRecords.map((record: any) => (
+                                                <div key={record.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <Banknote className="w-4 h-4 text-rose-500" />
+                                                            <span className="font-medium">¥{Number(record.amount).toLocaleString()}</span>
+                                                            <Badge variant={
+                                                                record.status === 'completed' ? 'default' :
+                                                                record.status === 'rejected' ? 'destructive' :
+                                                                record.status === 'approved' ? 'secondary' :
+                                                                record.status === 'transferred' ? 'outline' :
+                                                                'outline'
+                                                            }>
+                                                                {record.status === 'pending' ? '待审核' :
+                                                                 record.status === 'approved' ? '已审核' :
+                                                                 record.status === 'transferred' ? '已打款待确认' :
+                                                                 record.status === 'completed' ? '已完成' :
+                                                                 record.status === 'rejected' ? '已拒绝' : record.status}
+                                                            </Badge>
+                                                            {record.status === 'transferred' && (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    className="text-xs h-6"
+                                                                    onClick={async () => {
+                                                                        const res = await fetch('/api/member/withdraw', {
+                                                                            method: 'POST',
+                                                                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                                                                            body: JSON.stringify({ withdrawalId: record.id, action: 'confirm_receipt' })
+                                                                        });
+                                                                        const data = await res.json();
+                                                                        if (data.success) {
+                                                                            alert('已确认收款');
+                                                                            loadData();
+                                                                        } else {
+                                                                            alert(data.error || '操作失败');
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    确认收款
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-xs text-muted-foreground mt-1">
+                                                            实际到账: ¥{Number(record.actual_amount).toLocaleString()} | 手续费: ¥{Number(record.fee).toLocaleString()}
+                                                        </p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            支付宝: {record.alipay_account} | {record.real_name}
+                                                        </p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {new Date(record.createdAt || record.created_at).toLocaleString('zh-CN')}
+                                                        </p>
+                                                        {record.reject_reason && (
+                                                            <p className="text-xs text-red-500 mt-1">拒绝原因: {record.reject_reason}</p>
                                                         )}
                                                     </div>
-                                                    <p className="text-xs text-muted-foreground mt-1">
-                                                        实际到账: ¥{Number(record.actual_amount).toLocaleString()} | 手续费: ¥{Number(record.fee).toLocaleString()}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        支付宝: {record.alipay_account} | {record.real_name}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {new Date(record.createdAt || record.created_at).toLocaleString('zh-CN')}
-                                                    </p>
-                                                    {record.reject_reason && (
-                                                        <p className="text-xs text-red-500 mt-1">拒绝原因: {record.reject_reason}</p>
-                                                    )}
                                                 </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-8 text-gray-500">
-                                        <Banknote className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                                        <p>暂无提现记录</p>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>}
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-8 text-gray-500">
+                                            <Banknote className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                                            <p>暂无提现记录</p>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
 
                     {/* 积分 Tab */}
                     {activeTab === "points" && <div className="space-y-3 md:space-y-6">
