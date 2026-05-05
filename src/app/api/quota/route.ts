@@ -44,38 +44,37 @@ export async function GET(request: NextRequest) {
     };
 
     if (user.role === 'provider') {
-      // 服务商：从 quota_allocations 汇总计算额度（最可靠的数据源）
+      // 服务商：优先从 providers 表读取额度（与生成产品API同步更新）
       try {
-        const allocResult = await query(
-          `SELECT 
-            COALESCE(SUM(quota_amount), 0)::float as total_allocated,
-            COALESCE(SUM(used_amount), 0)::float as total_used
-           FROM quota_allocations 
-           WHERE provider_id = $1`,
+        const providerResult = await query(
+          `SELECT CAST(quota AS FLOAT) as quota_float, CAST(used_quota AS FLOAT) as used_quota_float 
+           FROM providers WHERE user_id = $1`,
           [userId]
         );
-        
-        if (allocResult && allocResult.length > 0) {
-          quotaData.total_quota = allocResult[0].total_allocated || 0;
-          quotaData.used_quota = allocResult[0].total_used || 0;
+        if (providerResult && providerResult.length > 0) {
+          quotaData.total_quota = providerResult[0].quota_float || 0;
+          quotaData.used_quota = providerResult[0].used_quota_float || 0;
           quotaData.available_quota = Math.max(0, quotaData.total_quota - quotaData.used_quota);
         }
       } catch (e) {
-        console.error('从quota_allocations汇总额度失败:', e);
-        // fallback: 尝试从 providers 表读取
+        console.error('从providers表读取额度失败:', e);
+        // fallback: 尝试从 quota_allocations 汇总
         try {
-          const providerResult = await query(
-            `SELECT CAST(quota AS FLOAT) as quota_float, CAST(used_quota AS FLOAT) as used_quota_float 
-             FROM providers WHERE user_id = $1`,
+          const allocResult = await query(
+            `SELECT 
+              COALESCE(SUM(quota_amount), 0)::float as total_allocated,
+              COALESCE(SUM(used_amount), 0)::float as total_used
+             FROM quota_allocations 
+             WHERE provider_id = $1`,
             [userId]
           );
-          if (providerResult && providerResult.length > 0) {
-            quotaData.total_quota = providerResult[0].quota_float || 0;
-            quotaData.used_quota = providerResult[0].used_quota_float || 0;
+          if (allocResult && allocResult.length > 0) {
+            quotaData.total_quota = allocResult[0].total_allocated || 0;
+            quotaData.used_quota = allocResult[0].total_used || 0;
             quotaData.available_quota = Math.max(0, quotaData.total_quota - quotaData.used_quota);
           }
         } catch (e2) {
-          console.error('从providers表fallback读取额度失败:', e2);
+          console.error('从quota_allocations fallback读取额度失败:', e2);
         }
       }
 

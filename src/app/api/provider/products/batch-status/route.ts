@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     if (action === 'list') {
       // 上架：draft → available
       const validProductIds = products
-        .filter((p: any) => p.status === 'draft' || p.status === 'unlisted')
+        .filter((p: any) => p.status === 'unlisted' || p.status === 'unlisted')
         .map((p: any) => p.id);
 
       if (validProductIds.length === 0) {
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
       }
 
       await query(
-        `UPDATE products SET status = 'draft', updated_at = NOW() 
+        `UPDATE products SET status = 'unlisted', updated_at = NOW() 
          WHERE id = ANY($1)`,
         [validProductIds]
       );
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: `已下架 ${validProductIds.length} 个产品`,
-        data: { updatedCount: validProductIds.length, status: 'draft' },
+        data: { updatedCount: validProductIds.length, status: 'unlisted' },
       });
 
     } else {
@@ -139,7 +139,7 @@ export async function PUT(request: NextRequest) {
 
     // 获取所有草稿产品
     const products = await query<any>(
-      `SELECT id, price FROM products WHERE provider_id = $1 AND status IN ('draft', 'unlisted')`,
+      `SELECT id, price FROM products WHERE provider_id = $1 AND status IN ('unlisted', 'unlisted')`,
       [providerId]
     );
 
@@ -209,7 +209,7 @@ export async function DELETE(request: NextRequest) {
 
     // 只能删除未上架（draft/unlisted）的产品
     const deletableProducts = products.filter(
-      (p: any) => p.status === 'draft' || p.status === 'unlisted'
+      (p: any) => p.status === 'unlisted' || p.status === 'unlisted'
     );
 
     if (deletableProducts.length === 0) {

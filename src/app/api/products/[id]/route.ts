@@ -147,7 +147,7 @@ export async function DELETE(
       return NextResponse.json({ error: '产品不存在' }, { status: 404 });
     }
 
-    // 只有未上架（draft/available但未被购买）的产品可以删除
+    // 只有未上架（unlisted/available但未被购买）的产品可以删除
     // sold 状态的产品不能删除
     if (product.status === 'sold') {
       return NextResponse.json(

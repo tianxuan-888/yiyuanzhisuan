@@ -215,29 +215,34 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
     let codeCounter = Date.now();
     
-    const insertPromises = prices.map(price => {
+    const insertResults: any[] = [];
+    for (const price of prices) {
       const seq = (codeCounter++).toString().slice(-6);
-      return query(
+      const productId = crypto.randomUUID();
+      const productName = `${template.period}天算力套餐-${seq}`;
+      const productCode = `GPU-${template.period}D-${seq}`;
+      
+      const result = await query(
         `INSERT INTO products (id, name, code, price, period, total_rate, market_rate, profit_rate, provider_id, status, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         RETURNING id, name, status`,
         [
-          crypto.randomUUID(),
-          `${template.period}天算力套餐-${seq}`,
-          `GPU-${template.period}D-${seq}`,
+          productId,
+          productName,
+          productCode,
           price,
           template.period,
           template.total_rate,
           template.market_rate,
           template.profit_rate,
           providerId,
-          'draft',  // 生成后为草稿状态，需手动上架
+          'unlisted',
           now,
           now
         ]
       );
-    });
-
-    await Promise.all(insertPromises);
+      insertResults.push(...result);
+    }
 
     // 更新服务商的已使用额度
     const usedAmount = prices.reduce((sum, p) => sum + p, 0);
