@@ -379,9 +379,12 @@ export default function ProviderPage() {
     const authFetch = async (url: string, options: RequestInit = {}) => {
         const token = localStorage.getItem('token');
         const headers: Record<string, string> = {
-            'Content-Type': 'application/json',
             ...(options.headers as Record<string, string>),
         };
+        // 只在没设置 Content-Type 时默认加 application/json
+        if (!headers['Content-Type'] && !headers['content-type']) {
+            headers['Content-Type'] = 'application/json';
+        }
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
         }
@@ -832,19 +835,39 @@ export default function ProviderPage() {
 
         setSubmitting(true);
         try {
+            const requestBody = {
+                providerId,
+                templateId: selectedTemplateId,
+                totalAmount: amount
+            };
+            console.log('[generate] 发送请求:', JSON.stringify(requestBody));
             const response = await authFetch("/api/provider/generate-products", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({
-                    providerId,
-                    templateId: selectedTemplateId,
-                    totalAmount: amount
-                })
+                body: JSON.stringify(requestBody)
             });
 
+            console.log('[generate] HTTP状态:', response.status, response.statusText);
+
+            // 检查 HTTP 状态码
+            if (!response.ok) {
+                const text = await response.text();
+                console.error('[generate] 响应内容:', text);
+                let errorMsg = `HTTP ${response.status}`;
+                try {
+                    const errData = JSON.parse(text);
+                    errorMsg = errData.error || errorMsg;
+                } catch {
+                    errorMsg = text.substring(0, 200) || errorMsg;
+                }
+                showMessage("error", `生成失败: ${errorMsg}`);
+                return;
+            }
+
             const data = await response.json();
+            console.log('[generate] 响应数据:', JSON.stringify(data).substring(0, 500));
 
             if (data.success) {
                 showMessage("success", data.message || `成功生成 ${data.data?.stats?.total} 个算力`);
@@ -853,8 +876,9 @@ export default function ProviderPage() {
             } else {
                 showMessage("error", data.error || "生成失败");
             }
-        } catch {
-            showMessage("error", "网络错误");
+        } catch (err) {
+            const errMsg = err instanceof Error ? err.message : "网络错误";
+            showMessage("error", `生成产品异常: ${errMsg}`);
         } finally {
             setSubmitting(false);
         }

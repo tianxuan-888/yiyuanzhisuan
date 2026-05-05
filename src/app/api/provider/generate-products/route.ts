@@ -142,6 +142,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { providerId, templateId, totalAmount } = body;
 
+    console.log('[generate-products] 请求参数:', { providerId, templateId, totalAmount });
+
     // 参数验证
     if (!providerId) {
       return NextResponse.json(
@@ -174,11 +176,14 @@ export async function POST(request: NextRequest) {
     );
 
     if (!provider) {
+      console.error('[generate-products] 服务商不存在:', providerId);
       return NextResponse.json(
         { error: '服务商不存在' },
         { status: 404 }
       );
     }
+
+    console.log('[generate-products] 服务商信息:', { id: provider.user_id, quota: provider.quota, used_quota: provider.used_quota });
 
     // 检查可用额度
     const availableQuota = parseFloat(provider.quota || 0) - parseFloat(provider.used_quota || 0);
@@ -196,11 +201,14 @@ export async function POST(request: NextRequest) {
     );
 
     if (!template) {
+      console.error('[generate-products] 模板不存在:', templateId);
       return NextResponse.json(
         { error: '产品模板不存在或已停用' },
         { status: 404 }
       );
     }
+
+    console.log('[generate-products] 模板信息:', { id: template.id, period: template.period });
 
     // 生成产品价格列表
     const prices = generateProductPrices(totalAmount);
@@ -211,37 +219,45 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('[generate-products] 生成价格列表:', prices.length, '个产品, 总额:', prices.reduce((s, p) => s + p, 0));
+
     // 批量插入产品
     const now = new Date().toISOString();
     let codeCounter = Date.now();
     
     const insertResults: any[] = [];
-    for (const price of prices) {
+    for (let i = 0; i < prices.length; i++) {
+      const price = prices[i];
       const seq = (codeCounter++).toString().slice(-6);
       const productId = crypto.randomUUID();
       const productName = `${template.period}天算力套餐-${seq}`;
       const productCode = `GPU-${template.period}D-${seq}`;
       
-      const result = await query(
-        `INSERT INTO products (id, name, code, price, period, total_rate, market_rate, profit_rate, provider_id, status, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-         RETURNING id, name, status`,
-        [
-          productId,
-          productName,
-          productCode,
-          price,
-          template.period,
-          template.total_rate,
-          template.market_rate,
-          template.profit_rate,
-          providerId,
-          'unlisted',
-          now,
-          now
-        ]
-      );
-      insertResults.push(...result);
+      try {
+        const result = await query(
+          `INSERT INTO products (id, name, code, price, period, total_rate, market_rate, profit_rate, provider_id, status, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+           RETURNING id, name, status`,
+          [
+            productId,
+            productName,
+            productCode,
+            price,
+            template.period,
+            template.total_rate,
+            template.market_rate,
+            template.profit_rate,
+            providerId,
+            'unlisted',
+            now,
+            now
+          ]
+        );
+        insertResults.push(...result);
+      } catch (insertError) {
+        console.error(`[generate-products] 插入第${i + 1}个产品失败:`, insertError);
+        throw insertError;
+      }
     }
 
     // 更新服务商的已使用额度
@@ -253,6 +269,8 @@ export async function POST(request: NextRequest) {
        WHERE user_id = $3`,
       [usedAmount, now, providerId]
     );
+
+    console.log('[generate-products] 生成成功:', prices.length, '个产品, 总额:', usedAmount);
 
     return NextResponse.json({
       success: true,
@@ -275,8 +293,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('生成产品失败:', error);
+    const errMsg = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { error: '生成产品失败' },
+      { error: `生成产品失败: ${errMsg}` },
       { status: 500 }
     );
   }
