@@ -3310,7 +3310,7 @@ export default function ProviderPage() {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm text-gray-500">收益余额</p>
-                                                <p className="text-2xl font-bold text-green-600">¥{revenueStats.totalRevenue?.toLocaleString() || 0}</p>
+                                                <p className="text-2xl font-bold text-green-600">¥{revenueStats.balance?.toLocaleString() || 0}</p>
                                             </div>
                                             <div className="flex gap-2">
                                                 <Button
@@ -3532,10 +3532,10 @@ export default function ProviderPage() {
                                     <CardContent className="pt-4">
                                         <div className="flex items-center gap-2 mb-2">
                                             <Gift className="w-5 h-5" />
-                                            <span className="text-sm opacity-80">会员充值</span>
+                                            <span className="text-sm opacity-80">会员充值支出</span>
                                         </div>
                                         <p className="text-2xl font-bold">{Number(revenueStats.rechargeRevenue || 0).toLocaleString()}</p>
-                                        <p className="text-xs opacity-70 mt-1">给会员充值的金额</p>
+                                        <p className="text-xs opacity-70 mt-1">给会员充值的能量值</p>
                                     </CardContent>
                                 </Card>
                                 <Card className="bg-gradient-to-br from-rose-500 to-pink-600 text-white">
@@ -4036,7 +4036,7 @@ export default function ProviderPage() {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="bg-slate-100 rounded-lg p-3">
                                         <p className="text-xs text-gray-500">收益余额</p>
-                                        <p className="text-xl font-bold text-green-600">¥{revenueStats.totalRevenue?.toLocaleString() || 0}</p>
+                                        <p className="text-xl font-bold text-green-600">¥{revenueStats.balance?.toLocaleString() || 0}</p>
                                     </div>
                                     <div className="bg-slate-100 rounded-lg p-3">
                                         <p className="text-xs text-gray-500">当前能量值</p>
@@ -4110,7 +4110,7 @@ export default function ProviderPage() {
                                 </div>
                                 <div>
                                     <label className="text-sm font-medium mb-2 block">我的收益余额</label>
-                                    <p className="text-2xl font-bold text-green-600">¥{revenueStats.totalRevenue?.toLocaleString() || 0}</p>
+                                    <p className="text-2xl font-bold text-green-600">¥{revenueStats.balance?.toLocaleString() || 0}</p>
                                 </div>
                                 <div>
                                     <label className="text-sm font-medium mb-2 block">提现金额</label>

@@ -98,8 +98,9 @@ export async function GET(request: NextRequest) {
       // 表可能不存在
     }
 
-    // 总收益 = 能量值收益 + 提现到账 + 充值收益 + 下级分成 + 分配表收益
-    const totalRevenue = energyRevenue + withdrawRevenue + rechargeRevenue + subordinateRevenue + distSelfRevenue + distDirectReward + distParentShare;
+    // 累计收益 = 能量值收益(市场费分成) + 下级分成 + 分配表收益
+    // 注意：withdrawRevenue(已提现)是资金流出，rechargeRevenue(给会员充值)是能量转出，都不应计入收益
+    const totalRevenue = energyRevenue + subordinateRevenue + distSelfRevenue + distDirectReward + distParentShare;
 
     // 6. 综合收益记录列表（从多个来源合并）
     // 来源A: 能量值转入记录
