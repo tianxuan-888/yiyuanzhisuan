@@ -1738,7 +1738,7 @@ export default function AdminPage() {
         return renderProductTemplates();
       }
       if (quotaSubTab === 'records') {
-        return renderQuotaRecords();
+        return <QuotaRecordsPanel />;
       }
       if (quotaSubTab === 'requests') {
         return <QuotaRequestsPanel />;
@@ -2189,7 +2189,7 @@ export default function AdminPage() {
   );
 
   // 分配记录Tab
-  const renderQuotaRecords = () => {
+  const QuotaRecordsPanel = React.memo(() => {
     const [records, setRecords] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [filterType, setFilterType] = useState('all');
@@ -2308,7 +2308,7 @@ export default function AdminPage() {
         </CardContent>
       </Card>
     );
-  };
+  });
 
   // 额度申请Tab - 使用组件避免hooks规则违反
   const QuotaRequestsPanel = React.memo(() => {
@@ -3386,7 +3386,7 @@ export default function AdminPage() {
   );
 
   // 渲染财务管理（不使用内部状态，通过父组件financeTab管理）
-  const renderFinanceManagement = () => {
+  const FinanceManagementPanel = React.memo(() => {
     // 加载分公司提现和手续费记录
     const [branchWithdrawals, setBranchWithdrawals] = useState<any[]>([]);
     const [feeRecords, setFeeRecords] = useState<any[]>([]);
@@ -3626,7 +3626,7 @@ export default function AdminPage() {
         )}
       </div>
     );
-  };
+  });
 
   // 渲染用户统计
   const renderUserStats = () => (
@@ -7174,7 +7174,7 @@ export default function AdminPage() {
       case 'income-withdraw':
         return incomeTab === 'withdraw' ? renderWithdrawManagement() : (incomeTab === 'detail' ? renderIncomeDetail() : renderIncomeOverview());
       case 'finance':
-        return renderFinanceManagement();
+        return <FinanceManagementPanel />;
       case 'energy':
         return <EnergyManagement />;
       case 'branches':
