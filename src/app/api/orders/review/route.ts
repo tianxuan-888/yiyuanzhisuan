@@ -29,6 +29,7 @@ async function recordProviderRevenueDistribution(
   providerId: string,
   memberId: string,
   productId: string,
+  productPrice: number,
   marketFee: number,
   providerShare: number,
   directReward: number,
@@ -41,10 +42,10 @@ async function recordProviderRevenueDistribution(
 ) {
   await query(
     `INSERT INTO provider_revenue_distribution 
-     (id, order_id, provider_id, member_id, product_id, market_fee, provider_share, direct_reward, direct_reward_to, parent_provider_share, parent_provider_id, branch_share, branch_id, company_share, status, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'completed', NOW())`,
+     (id, order_id, provider_id, member_id, product_id, product_price, market_fee, provider_share, direct_reward, direct_reward_to, parent_provider_share, parent_provider_id, branch_share, branch_id, company_share, status, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'completed', NOW())`,
     [
-      randomUUID(), orderId, providerId, memberId, productId,
+      randomUUID(), orderId, providerId, memberId, productId, productPrice,
       marketFee, providerShare, directReward, directRewardTo,
       parentProviderShare, parentProviderId, branchShare, branchId,
       companyShare
@@ -58,11 +59,39 @@ async function calculateSubordinateSplit(
   productPrice: number,
   productName: string
 ): Promise<{ splitAmount: number; splitRatio: number; subordinateCount: number }> {
-  const subProviders: any[] = await query(
-    'SELECT COUNT(*) as count FROM providers WHERE parent_provider_id = $1',
-    [providerId]
-  );
-  const subordinateCount = parseInt(subProviders?.[0]?.count || '0');
+  // 查找该服务商培养的下级服务商数量
+  // 方式1：通过 providers.parent_provider_id 查找（如果列存在）
+  // 方式2：通过 users 表查找 role='provider' 且 provider_id 指向当前服务商的用户
+  let subordinateCount = 0;
+  
+  try {
+    // 先尝试用 providers.parent_provider_id 查询
+    const subProviders: any[] = await query(
+      'SELECT COUNT(*) as count FROM providers WHERE parent_provider_id = $1',
+      [providerId]
+    );
+    subordinateCount = parseInt(subProviders?.[0]?.count || '0');
+  } catch {
+    // 如果 parent_provider_id 列不存在，回退到 users 表查询
+    try {
+      // 获取当前服务商的 user_id
+      const providerRecord: any = await queryOne(
+        'SELECT user_id FROM providers WHERE id = $1',
+        [providerId]
+      );
+      if (providerRecord?.user_id) {
+        // 查找 role='provider' 且 provider_id 指向当前服务商的用户（这些是下级服务商）
+        const subUsers: any[] = await query(
+          "SELECT COUNT(*) as count FROM users WHERE role = 'provider' AND provider_id = $1",
+          [providerRecord.user_id]
+        );
+        subordinateCount = parseInt(subUsers?.[0]?.count || '0');
+      }
+    } catch (e2) {
+      console.error('计算下级分成失败:', e2);
+      subordinateCount = 0;
+    }
+  }
   
   let splitRatio = 0;
   let splitAmount = 0;
@@ -91,25 +120,30 @@ async function recordSubordinateSplit(
 ) {
   if (splitAmount <= 0) return;
   
-  // 使用 addEnergy 发放能量值给上级服务商
-  const result = await addEnergy(
-    upperProviderUserId,
-    splitAmount,
-    'subordinate_split',
-    { note: `下级服务商(${subordinateCount}个)会员购买 ${productName} 交易额分成 (${(splitRatio * 100).toFixed(1)}%)` }
-  );
-  
-  if (!result.success) {
-    console.error('下级分成能量值发放失败:', result.error);
+  try {
+    // 使用 addEnergy 发放能量值给上级服务商
+    const result = await addEnergy(
+      upperProviderUserId,
+      splitAmount,
+      'subordinate_split',
+      { note: `下级服务商(${subordinateCount}个)会员购买 ${productName} 交易额分成 (${(splitRatio * 100).toFixed(1)}%)` }
+    );
+    
+    if (!result.success) {
+      console.error('下级分成能量值发放失败:', result.error);
+    }
+    
+    // 记录到服务商收益分配表
+    await query(
+      `INSERT INTO provider_subordinate_split 
+       (id, order_id, provider_id, upper_provider_id, product_name, order_amount, split_ratio, split_amount, subordinate_count, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+      [randomUUID(), orderId, providerId, upperProviderId, productName, splitAmount / splitRatio, splitRatio, splitAmount, subordinateCount]
+    );
+  } catch (error) {
+    console.error('记录下级分成失败:', error);
+    // 不抛出异常，不影响主流程
   }
-  
-  // 记录到服务商收益分配表
-  await query(
-    `INSERT INTO provider_subordinate_split 
-     (id, order_id, provider_id, upper_provider_id, product_name, order_amount, split_ratio, split_amount, subordinate_count, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
-    [randomUUID(), orderId, providerId, upperProviderId, productName, splitAmount / splitRatio, splitRatio, splitAmount, subordinateCount]
-  );
 }
 
 export async function POST(request: NextRequest) {
@@ -358,6 +392,7 @@ export async function POST(request: NextRequest) {
         product?.provider_id,
         order.user_id,
         order.product_id,
+        product?.price || order.amount,
         marketFee,
         providerShare,
         directRewardAmount,

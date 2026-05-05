@@ -88,6 +88,12 @@ interface Product {
     status: string;
     is_listed: boolean;
     created_at: string;
+    holder?: {
+        user_id: string;
+        username: string;
+        phone: string;
+        unique_id?: string;
+    } | null;
 }
 
 interface Stats {
@@ -2501,6 +2507,13 @@ export default function ProviderPage() {
                                                      product.status === "pending_sell" ? "待流转" :
                                                      "闲置中"}
                                                 </Badge>
+                                                {product.status === "sold" && product.holder && (
+                                                    <div className="text-xs text-gray-500 mt-1">
+                                                        持有: {product.holder.username}
+                                                        {product.holder.unique_id && <span className="text-gray-400"> [{product.holder.unique_id}]</span>}
+                                                        {product.holder.phone && <span className="text-gray-400"> ({product.holder.phone.slice(0,3)}****{product.holder.phone.slice(-4)})</span>}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="py-3 px-4 text-sm text-gray-500">
                                                 {product.created_at?.slice(0, 10)}

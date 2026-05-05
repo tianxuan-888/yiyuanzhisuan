@@ -19,13 +19,11 @@ export async function GET(request: NextRequest) {
       conditions.push(`provider_id = $${paramIndex}`);
       params.push(providerId);
       paramIndex++;
-      // 服务商只能看到自己的产品，排除已售出的
+      // 服务商查询：允许看到所有状态的产品（包括已售出的）
       if (status && status !== 'all') {
         conditions.push(`status = $${paramIndex}`);
         params.push(status);
         paramIndex++;
-      } else {
-        conditions.push(`status != 'sold'`);
       }
     } else if (memberId) {
       // 如果是会员查询，只显示该会员服务商的产品
@@ -68,9 +66,42 @@ export async function GET(request: NextRequest) {
       profit_rate: parseFloat(p.profit_rate).toFixed(2),
     }));
 
+    // 为已出售产品关联持有会员信息
+    const soldProductIds = formattedProducts
+      .filter((p: any) => p.status === 'sold')
+      .map((p: any) => p.id);
+
+    let holderMap: Record<string, { userId: string; username: string; phone: string; uniqueId: string }> = {};
+
+    if (soldProductIds.length > 0) {
+      // 查询 user_products 关联表获取持有会员
+      const userProducts = await query(
+        `SELECT up.product_id, up.user_id, u.username, u.phone, u.unique_id
+         FROM user_products up
+         JOIN users u ON up.user_id = u.id
+         WHERE up.product_id = ANY($1) AND up.status IN ('holding', 'pending_sell')`,
+        [soldProductIds]
+      );
+
+      for (const up of userProducts) {
+        holderMap[up.product_id] = {
+          userId: up.user_id,
+          username: up.username || '',
+          phone: up.phone || '',
+          uniqueId: up.unique_id || '',
+        };
+      }
+    }
+
+    // 将持有会员信息附加到产品数据
+    const productsWithHolder = formattedProducts.map((p: any) => ({
+      ...p,
+      holder: holderMap[p.id] || null,
+    }));
+
     return NextResponse.json({
       success: true,
-      data: formattedProducts,
+      data: productsWithHolder,
     });
   } catch (error) {
     console.error('获取产品列表失败:', error);
