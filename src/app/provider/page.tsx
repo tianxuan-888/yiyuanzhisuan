@@ -825,6 +825,10 @@ export default function ProviderPage() {
             showMessage("error", "最低额度为100元");
             return;
         }
+        if (amount > (stats.available_quota || 0)) {
+            showMessage("error", `生成总额不能超过可用额度 ¥${(stats.available_quota || 0).toLocaleString()}`);
+            return;
+        }
 
         setSubmitting(true);
         try {
@@ -2385,7 +2389,12 @@ export default function ProviderPage() {
                         <CardHeader>
                             <div className="flex items-center justify-between">
                                 <CardTitle>我的算力</CardTitle>
-                                <div className="flex gap-2">
+                                <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-4 text-sm">
+                                        <span className="text-gray-500">产品总数：<span className="text-purple-600 font-bold">{products.length}</span></span>
+                                        <span className="text-gray-500">产品总额：<span className="text-green-600 font-bold">¥{products.reduce((sum, p) => sum + (p.price || 0), 0).toLocaleString()}</span></span>
+                                    </div>
+                                    <div className="flex gap-2">
                                     {stats.pending_count > 0 && <Button
                                         onClick={handleListAllProducts}
                                         className="bg-green-600"
@@ -2394,7 +2403,8 @@ export default function ProviderPage() {
                                                               </Button>}
                                     <Button variant="outline" onClick={loadData}>
                                         <RefreshCw className="w-4 h-4 mr-2" />刷新
-                                                            </Button>
+                                    </Button>
+                                    </div>
                                 </div>
                             </div>
                         </CardHeader>
