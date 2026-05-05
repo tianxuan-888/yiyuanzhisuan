@@ -118,6 +118,7 @@ export default function MemberPage() {
         loading: authLoading,
         logout,
         setUser,
+        refreshUser,
     } = useAuth("member");
 
     // 统一认证 fetch
@@ -504,6 +505,16 @@ const [copySuccess, setCopySuccess] = useState(false);
         }
     }, [user?.id]);
 
+    // 全量并行刷新：用户信息 + 业务数据
+    const refreshAll = useCallback(async () => {
+        await Promise.allSettled([
+            refreshUser(),
+            loadData(),
+            loadProfitRecords(),
+            loadChainData(),
+        ]);
+    }, [refreshUser, loadData, loadProfitRecords, loadChainData]);
+
     useEffect(() => {
         if (profileSubTab === 'chain' && !chainData) {
             loadChainData();
@@ -565,7 +576,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                 localStorage.setItem('userName', newUsername.trim());
 
                 // 刷新页面数据
-                loadData();
+                refreshAll();
                 setEditingUsername(false);
                 showMessage("success", "用户名修改成功");
             } else {
@@ -719,7 +730,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                 }
 
                 setSelectedProduct(null);
-                loadData();
+                refreshAll();
             } else {
                 // 如果购买失败，从submittingProductIds移除
                 if (selectedProduct) {
@@ -771,7 +782,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                 showMessage("success", "卖出申请已提交，等待审核");
                 setShowSellDialog(false);
                 setSelectedUserProduct(null);
-                loadData();
+                refreshAll();
             } else {
                 showMessage("error", data.error || "卖出失败");
             }
@@ -870,7 +881,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                 setShowRechargeDialog(false);
                 setRechargeAmount("100");
                 setRechargeNote("");
-                loadData();
+                refreshAll();
             } else {
                 showMessage("error", data.error || "充值申请失败");
             }
@@ -935,7 +946,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                 setTransferAmount("100");
                 setPaymentAccount("");
                 setTransferRealName("");
-                loadData();
+                refreshAll();
             } else {
                 showMessage("error", data.error || "转账失败");
             }
@@ -974,7 +985,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                 showMessage("success", `转换成功！${result.energyAmount || 0}→能量值，${result.pointsAmount || 0}→积分`);
                 setShowProfitToEnergyDialog(false);
                 setProfitToEnergyAmount("100");
-                loadData();
+                refreshAll();
             } else {
                 showMessage("error", data.error || "转换失败");
             }
@@ -1014,7 +1025,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                 showMessage("success", `转换成功！${result.energyAmount || 0}→能量值，${result.pointsAmount || 0}→积分`);
                 setShowProfitConvertDialog(false);
                 setProfitConvertAmount("");
-                loadData();
+                refreshAll();
             } else {
                 showMessage("error", data.error || "转换失败");
             }
@@ -1064,7 +1075,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                 setWithdrawAmount("");
                 setWithdrawAlipay("");
                 setWithdrawRealName("");
-                loadData();
+                refreshAll();
             } else {
                 showMessage("error", data.error || "提现失败");
             }
@@ -1088,7 +1099,7 @@ const [copySuccess, setCopySuccess] = useState(false);
             const data = await response.json();
             if (data.success) {
                 showMessage("success", "已确认收款，提现完成");
-                loadData();
+                refreshAll();
             } else {
                 showMessage("error", data.error || "操作失败");
             }
@@ -3603,7 +3614,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                         const data = await res.json();
                                                                         if (data.success) {
                                                                             alert('已确认收款');
-                                                                            loadData();
+                                                                            refreshAll();
                                                                         } else {
                                                                             alert(data.error || '操作失败');
                                                                         }

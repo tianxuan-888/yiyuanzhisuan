@@ -215,7 +215,8 @@ export default function ProviderPage() {
     const {
         user,
         loading: authLoading,
-        logout
+        logout,
+        refreshUser
     } = useAuth("provider");
 
     const [allocations, setAllocations] = useState<QuotaAllocation[]>([]);
@@ -476,10 +477,8 @@ export default function ProviderPage() {
                 if (data.success) {
                     showMessage("success", "已确认收款，产品分配成功");
                     await loadPendingBuyOrders();
-                    loadData();
-                    // 跳转到收益记录Tab并刷新数据
                     setActiveTab('revenue');
-                    loadRevenueRecords();
+                    refreshAll();
                 } else {
                     showMessage("error", data.error || "操作失败");
                 }
@@ -536,7 +535,7 @@ export default function ProviderPage() {
             if (data.success) {
                 showMessage("success", action === 'approve' ? "已批准充值申请" : "已拒绝充值申请");
                 await loadMemberRechargeRequests();
-                loadData();
+                refreshAll();
             } else {
                 showMessage("error", data.error || "操作失败");
             }
@@ -709,7 +708,7 @@ export default function ProviderPage() {
                 localStorage.setItem('userName', newUsername.trim());
 
                 // 刷新页面数据
-                loadData();
+                refreshAll();
                 setEditingUsername(false);
                 showMessage("success", "用户名修改成功");
             } else {
@@ -888,7 +887,7 @@ export default function ProviderPage() {
             if (data.success) {
                 showMessage("success", data.message || `成功生成 ${data.data?.stats?.total} 个算力`);
                 setShowQuotaGenerateDialog(false);
-                loadData();
+                refreshAll();
             } else {
                 showMessage("error", data.error || "生成失败");
             }
@@ -937,7 +936,7 @@ export default function ProviderPage() {
 
             if (data.success) {
                 showMessage("success", data.message || `成功生成 ${data.data?.stats?.total} 个算力`);
-                loadData();
+                refreshAll();
             } else {
                 showMessage("error", data.error || "生成失败");
             }
@@ -963,7 +962,7 @@ export default function ProviderPage() {
             const data = await response.json();
             if (data.success) {
                 showMessage("success", data.message || "产品已删除");
-                loadData();
+                refreshAll();
             } else {
                 showMessage("error", data.error || "删除失败");
             }
@@ -1001,7 +1000,7 @@ export default function ProviderPage() {
             if (data.success) {
                 showMessage("success", data.message);
                 setSelectedProductIds([]);
-                loadData();
+                refreshAll();
             } else {
                 showMessage("error", data.error || "删除失败");
             }
@@ -1030,7 +1029,7 @@ export default function ProviderPage() {
 
             if (data.success) {
                 showMessage("success", data.message || "上架成功");
-                loadData();
+                refreshAll();
             } else {
                 showMessage("error", data.error || "上架失败");
             }
@@ -1111,7 +1110,7 @@ export default function ProviderPage() {
                 setTransferUserId("");
                 setTransferAmount("");
                 setTransferNote("");
-                loadData();
+                refreshAll();
             } else {
                 showMessage("error", data.error || "转账失败");
             }
@@ -1213,7 +1212,7 @@ export default function ProviderPage() {
                 setRechargeMemberId("");
                 setRechargeAmount("");
                 setRechargeNote("");
-                loadData();
+                refreshAll();
             } else {
                 showMessage("error", data.error || "充值失败");
             }
@@ -1287,7 +1286,7 @@ export default function ProviderPage() {
                 setShowEnergyRequestDialog(false);
                 setEnergyRequestAmount("");
                 setEnergyRequestNote("");
-                loadEnergyRequests();
+                refreshAll();
             } else {
                 alert(data.error || '申请失败');
             }
@@ -1381,6 +1380,19 @@ export default function ProviderPage() {
         }
     }, []);
 
+    // 全局刷新：并行加载所有数据，确保操作后实时更新
+    const refreshAll = useCallback(async () => {
+        await Promise.allSettled([
+            refreshUser(),
+            loadData(),
+            loadRevenueRecords(),
+            loadTransferRecords(),
+            loadWithdrawRecords(),
+            loadEnergyRequests(),
+            loadPointsRecords(),
+        ]);
+    }, [refreshUser, loadData, loadRevenueRecords, loadTransferRecords, loadWithdrawRecords, loadEnergyRequests, loadPointsRecords]);
+
     // 积分转能量值
     const handlePointsToEnergy = async () => {
         const amount = parseFloat(pointsConvertAmount);
@@ -1406,8 +1418,7 @@ export default function ProviderPage() {
                 showMessage("success", `转换成功！${amount}积分 → ${amount}能量值`);
                 setShowPointsToEnergyDialog(false);
                 setPointsConvertAmount("");
-                loadPointsRecords();
-                loadData();
+                refreshAll();
             } else {
                 showMessage("error", data.error || "转换失败");
             }
@@ -1529,7 +1540,7 @@ export default function ProviderPage() {
                 setShowTransferReviewDialog(false);
                 setSelectedTransferRequest(null);
                 loadWithdrawalData();
-                loadData();
+                refreshAll();
             } else {
                 showMessage("error", data.error || "操作失败");
             }
@@ -1572,7 +1583,7 @@ export default function ProviderPage() {
 
             if (data.success) {
                 showMessage("success", data.message || "审核完成");
-                loadData();
+                refreshAll();
             } else {
                 showMessage("error", data.error || "审核失败");
             }
@@ -1628,7 +1639,7 @@ export default function ProviderPage() {
                 showMessage("success", data.message || "额度申请已提交，请等待分公司审核");
                 setShowQuotaApplyDialog(false);
                 setApplyQuotaAmount("");
-                loadData();
+                refreshAll();
             } else {
                 showMessage("error", data.error || "申请失败");
             }
@@ -3873,8 +3884,7 @@ export default function ProviderPage() {
                                                 showMessage("success", `转换成功！${data.data?.pointsAdded || 0}→积分，${data.data?.energyAdded || 0}→能量值`);
                                                 setShowConvertDialog(false);
                                                 setWithdrawAmount("");
-                                                loadRevenueRecords();
-                                                loadData();
+                                                refreshAll();
                                             } else {
                                                 showMessage("error", data.error || "转换失败");
                                             }
