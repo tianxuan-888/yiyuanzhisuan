@@ -71,8 +71,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 验证服务商权限
-    const userAny = user as { role: string; provider_id?: string };
-    if (userAny.role === 'provider' && product.provider_id !== userAny.provider_id) {
+    const userAny = user as { role: string; userId?: string };
+    if (userAny.role === 'provider' && product.provider_id !== userAny.userId) {
       return NextResponse.json({ error: '无权审核此流转' }, { status: 403 });
     }
 

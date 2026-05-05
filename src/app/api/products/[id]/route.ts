@@ -86,8 +86,8 @@ export async function PUT(
     }
 
     // 验证权限：管理员可更新所有，服务商只能更新自己的产品
-    const userAny = user as { role: string; provider_id?: string };
-    if (userAny.role === 'provider' && existingProduct.provider_id !== userAny.provider_id) {
+    const userAny = user as { role: string; userId?: string };
+    if (userAny.role === 'provider' && existingProduct.provider_id !== userAny.userId) {
       return NextResponse.json({ error: '无权操作此产品' }, { status: 403 });
     }
 
@@ -169,12 +169,12 @@ export async function DELETE(
       return NextResponse.json({ error: '未登录' }, { status: 401 });
     }
 
-    const userAny = user as { role: string; id?: string };
+    const userAny = user as { role: string; userId?: string };
     if (userAny.role !== 'admin' && userAny.role !== 'provider') {
       return NextResponse.json({ error: '无权操作' }, { status: 403 });
     }
 
-    if (userAny.role === 'provider' && product.provider_id !== userAny.id) {
+    if (userAny.role === 'provider' && product.provider_id !== userAny.userId) {
       return NextResponse.json({ error: '无权删除此产品' }, { status: 403 });
     }
 

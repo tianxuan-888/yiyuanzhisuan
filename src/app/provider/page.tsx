@@ -961,16 +961,16 @@ export default function ProviderPage() {
         const providerId = localStorage.getItem("userId");
         if (!providerId) return;
 
-        // 获取选中的草稿产品
-        const draftProducts = products.filter((p: any) => 
-            (p.status === 'draft' || p.status === 'unlisted') && selectedProductIds.includes(p.id)
+        // 获取选中的未上架产品
+        const unlistedProducts = products.filter((p: any) => 
+            p.status === 'unlisted' && selectedProductIds.includes(p.id)
         );
-        if (draftProducts.length === 0) {
+        if (unlistedProducts.length === 0) {
             showMessage("error", "请选择要删除的未上架产品");
             return;
         }
 
-        if (!confirm(`确定删除${draftProducts.length}个产品？删除后额度将退回。`)) return;
+        if (!confirm(`确定删除${unlistedProducts.length}个产品？删除后额度将退回。`)) return;
 
         try {
             const response = await authFetch("/api/provider/products/batch-status", {
@@ -978,7 +978,7 @@ export default function ProviderPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     providerId,
-                    productIds: draftProducts.map((p: any) => p.id),
+                    productIds: unlistedProducts.map((p: any) => p.id),
                 }),
             });
             const data = await response.json();
@@ -1003,7 +1003,7 @@ export default function ProviderPage() {
         setSubmitting(true);
 
         try {
-            // 使用 PUT 方法一键上架所有草稿产品
+            // 使用 PUT 方法一键上架所有未上架产品
             const response = await authFetch("/api/provider/products/batch-status", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
@@ -2495,7 +2495,7 @@ export default function ProviderPage() {
                                                         product.status === "pending_sell" ? "bg-purple-100 text-purple-700" :
                                                         "bg-gray-100 text-gray-700"
                                                     }>
-                                                    {product.status === "draft" || product.status === "unlisted" ? "草稿" :
+                                                    {product.status === "unlisted" ? "未上架" :
                                                      product.status === "available" ? "已上架" :
                                                      product.status === "sold" ? "已出售" :
                                                      product.status === "pending_sell" ? "待流转" :
@@ -2527,7 +2527,7 @@ export default function ProviderPage() {
                                 {/* 批量操作栏 */}
                                 {selectedProductIds.length > 0 && (
                                     <div className="flex items-center gap-3 p-3 bg-red-50 border-t">
-                                        <span className="text-sm text-red-700">已选 {selectedProductIds.length} 个草稿产品</span>
+                                        <span className="text-sm text-red-700">已选 {selectedProductIds.length} 个未上架产品</span>
                                         <Button
                                             size="sm"
                                             variant="destructive"
@@ -4560,7 +4560,7 @@ export default function ProviderPage() {
                                         <div className="mt-4 p-3 bg-amber-50 rounded-lg text-sm text-amber-800">
                                             <p className="font-medium mb-1">生成说明：</p>
                                             <ul className="list-disc list-inside space-y-1 text-amber-700">
-                                                <li>产品生成后为草稿状态，需手动上架</li>
+                                                <li>产品生成后为未上架状态，需手动上架</li>
                                                 <li>未上架产品可删除，额度将退回</li>
                                                 <li>已上架产品不可删除</li>
                                             </ul>

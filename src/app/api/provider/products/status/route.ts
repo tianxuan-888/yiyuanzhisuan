@@ -29,7 +29,7 @@ export async function PUT(request: NextRequest) {
     const client = getSupabaseClient();
 
     // 验证产品归属
-    const userAny = user as { role: string; provider_id?: string };
+    const userAny = user as { role: string; userId?: string };
     if (userAny.role === 'provider') {
       const { data: products } = await client
         .from('products')
@@ -37,7 +37,7 @@ export async function PUT(request: NextRequest) {
         .in('id', productIds);
 
       const productList = (products || []) as { id: string; provider_id?: string }[];
-      const unauthorized = productList.filter(p => p.provider_id !== userAny.provider_id);
+      const unauthorized = productList.filter(p => p.provider_id !== userAny.userId);
       if (unauthorized && unauthorized.length > 0) {
         return NextResponse.json({ error: '无权操作部分产品' }, { status: 403 });
       }
