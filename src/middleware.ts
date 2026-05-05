@@ -23,6 +23,8 @@ const PUBLIC_PATHS = [
   '/api/branch/providers',
   '/api/branch/members',
   '/api/branch/quota-requests',
+  '/api/quota-requests',
+  '/api/quota-requests/review',
   '/api/member/products',
   '/api/member/assets',
   '/api/member/energy-records',

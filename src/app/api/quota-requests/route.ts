@@ -40,9 +40,27 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // 补充申请人用户信息
+    let enrichedData = data || [];
+    if (enrichedData.length > 0) {
+      const requesterIds = [...new Set(enrichedData.map((r: any) => r.requester_id))];
+      const { data: users } = await client
+        .from('users')
+        .select('id, username, real_name, phone, role')
+        .in('id', requesterIds);
+
+      const userMap = new Map((users || []).map((u: any) => [u.id, u]));
+      enrichedData = enrichedData.map((r: any) => ({
+        ...r,
+        requester_name: userMap.get(r.requester_id)?.real_name || userMap.get(r.requester_id)?.username || '未知',
+        requester_phone: userMap.get(r.requester_id)?.phone || '',
+        requester_role: userMap.get(r.requester_id)?.role || r.requester_type,
+      }));
+    }
+
     return NextResponse.json({
       success: true,
-      data: data || [],
+      data: enrichedData,
     });
   } catch (error) {
     console.error('获取额度申请列表失败:', error);

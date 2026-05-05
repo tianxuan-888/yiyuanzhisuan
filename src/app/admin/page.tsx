@@ -604,7 +604,7 @@ export default function AdminPage() {
         const [accountsRes, recordsRes, applicationsRes] = await Promise.all([
           authFetch(`/api/quota-accounts?_=${ts}`),
           authFetch(`/api/quota-records?_=${ts}`),
-          authFetch(`/api/quota-applications?status=pending&_=${ts}`),
+          authFetch(`/api/quota-requests?status=pending&requesterType=branch&_=${ts}`),
         ]);
         const accountsData = await accountsRes.json();
         const recordsData = await recordsRes.json();
@@ -1861,12 +1861,14 @@ export default function AdminPage() {
     };
     
     // 审批申请处理
-    const handleApproveApplication = async (applicationId: string, action: 'approve' | 'reject') => {
+    const handleApproveApplication = async (requestId: string, action: 'approve' | 'reject') => {
       setSubmitting(true);
       try {
-        const res = await authFetch('/api/quota-applications/action', {
-          method: 'PUT',
-          body: JSON.stringify({ applicationId, action }),
+        const userId = localStorage.getItem('userId') || '';
+        const res = await authFetch('/api/quota-requests/review', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requestId, reviewerId: userId, action }),
         });
         const data = await res.json();
         if (data.success) {
@@ -1990,11 +1992,17 @@ export default function AdminPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {quotaApplications.map(app => (
+                {quotaApplications.map((app: any) => (
                   <div key={app.id} className="p-4 border rounded-lg flex items-center justify-between">
                     <div>
-                      <p className="font-medium">{app.applicant_name || '未知'}</p>
-                      <p className="text-sm text-gray-500">申请金额: ¥{Number(app.amount).toLocaleString()}</p>
+                      <p className="font-medium">
+                        {app.requester_name || '未知'}
+                        <span className="text-xs text-gray-400 ml-2">{app.requester_type === 'branch' ? '分公司' : '服务商'}</span>
+                      </p>
+                      <p className="text-sm text-gray-500">申请金额: ¥{Number(app.requested_amount).toLocaleString()}</p>
+                      {app.requester_type === 'branch' && (
+                        <p className="text-xs text-orange-500">配比能量值: ¥{Math.floor(Number(app.requested_amount) * 0.2).toLocaleString()}</p>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       <Button size="sm" className="bg-green-600" onClick={() => handleApproveApplication(app.id, 'approve')}>
@@ -2319,7 +2327,8 @@ export default function AdminPage() {
     const fetchApplications = async () => {
       setLoading(true);
       try {
-        const res = await authFetch('/api/quota-applications');
+        // 从 quota_requests 表读取（分公司/服务商的申请都写在这里）
+        const res = await authFetch('/api/quota-requests?requesterType=branch');
         const data = await res.json();
         if (data.success) {
           setApplications(data.data || []);
@@ -2333,12 +2342,14 @@ export default function AdminPage() {
 
     useEffect(() => { fetchApplications(); }, []);
 
-    const handleAction = async (applicationId: string, action: 'approve' | 'reject') => {
-      setActionLoading(applicationId);
+    const handleAction = async (requestId: string, action: 'approve' | 'reject') => {
+      setActionLoading(requestId);
       try {
-        const res = await authFetch('/api/quota-applications/action', {
-          method: 'PUT',
-          body: JSON.stringify({ applicationId, action }),
+        const userId = localStorage.getItem('userId') || '';
+        const res = await authFetch('/api/quota-requests/review', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requestId, reviewerId: userId, action }),
         });
         const data = await res.json();
         if (data.success) {
@@ -2373,10 +2384,18 @@ export default function AdminPage() {
       );
     };
 
+    const getTypeLabel = (type: string) => {
+      const labels: Record<string, string> = {
+        branch: '分公司',
+        provider: '服务商',
+      };
+      return labels[type] || type;
+    };
+
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg">额度申请</CardTitle>
+          <CardTitle className="text-lg">分公司额度申请</CardTitle>
           <Button size="sm" variant="outline" onClick={fetchApplications}>刷新</Button>
         </CardHeader>
         <CardContent>
@@ -2391,20 +2410,28 @@ export default function AdminPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div>
-                        <p className="font-medium">{app.applicant_name || '未知'}</p>
-                        <p className="text-xs text-gray-500">{app.applicant_phone || ''}</p>
+                        <p className="font-medium">
+                          {app.requester_name || '未知'}
+                          <span className="text-xs text-gray-400 ml-2">{getTypeLabel(app.requester_type)}</span>
+                        </p>
+                        <p className="text-xs text-gray-500">{app.requester_phone || ''}</p>
                       </div>
                       {getStatusBadge(app.status)}
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-lg">¥{Number(app.amount).toLocaleString()}</p>
+                      <p className="font-bold text-lg">¥{Number(app.requested_amount).toLocaleString()}</p>
+                      {app.requester_type === 'branch' && (
+                        <p className="text-xs text-orange-500">
+                          配比能量值: ¥{Math.floor(Number(app.requested_amount) * 0.2).toLocaleString()}
+                        </p>
+                      )}
                       <p className="text-xs text-gray-500">
                         {app.created_at ? new Date(app.created_at).toLocaleString('zh-CN') : ''}
                       </p>
                     </div>
                   </div>
-                  {app.note && (
-                    <p className="text-sm text-gray-600 mt-2">备注: {app.note}</p>
+                  {app.reject_reason && (
+                    <p className="text-sm text-red-600 mt-2">拒绝原因: {app.reject_reason}</p>
                   )}
                   {app.status === 'pending' && (
                     <div className="flex gap-2 mt-3 justify-end">

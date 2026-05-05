@@ -101,6 +101,108 @@ export async function POST(request: NextRequest) {
           used_quota: companyQuota.used_quota + finalAmount
         }).eq('id', companyQuota.id);
       }
+
+      // 给分公司增加额度（quota_accounts 表）
+      try {
+        const { query: pgQuery } = await import('@/lib/pg-client');
+        // 先检查分公司是否已有 quota_accounts 记录
+        const existingAccount = await pgQuery(
+          `SELECT id FROM quota_accounts WHERE user_id = $1`,
+          [quotaRequest.requester_id]
+        );
+
+        if (existingAccount && existingAccount.length > 0) {
+          // 更新已有记录
+          await pgQuery(
+            `UPDATE quota_accounts SET 
+              balance = balance + $1, 
+              total_in = total_in + $1,
+              updated_at = NOW()
+            WHERE user_id = $2`,
+            [finalAmount, quotaRequest.requester_id]
+          );
+        } else {
+          // 创建新记录
+          await pgQuery(
+            `INSERT INTO quota_accounts (user_id, balance, total_in, total_out, created_at, updated_at)
+             VALUES ($1, $2, $2, 0, NOW(), NOW())`,
+            [quotaRequest.requester_id, finalAmount]
+          );
+        }
+
+        // 记录额度流转
+        await pgQuery(
+          `INSERT INTO quota_records (from_user_id, to_user_id, amount, type, note, created_at)
+           VALUES ($1, $2, $3, 'transfer', $4, NOW())`,
+          [
+            quotaRequest.parent_id || '00000000-0000-0000-0000-000000000001',
+            quotaRequest.requester_id,
+            finalAmount,
+            `分公司额度申请审批通过`
+          ]
+        );
+      } catch (dbError) {
+        console.error('更新分公司额度账户失败:', dbError);
+        // 不回滚，因为申请状态还没更新，可以重试
+      }
+
+      // 分公司申请配比20%能量值
+      const energyAmount = Math.floor(approvedAmount * 0.2);
+      if (energyAmount > 0) {
+        try {
+          // 给分公司增加能量值
+          const { data: energyAccount } = await client
+            .from('energy_accounts')
+            .select('*')
+            .eq('user_id', quotaRequest.requester_id)
+            .maybeSingle();
+
+          if (energyAccount) {
+            await client
+              .from('energy_accounts')
+              .update({
+                balance: energyAccount.balance + energyAmount,
+                total_in: energyAccount.total_in + energyAmount,
+              })
+              .eq('id', energyAccount.id);
+          } else {
+            await client
+              .from('energy_accounts')
+              .insert({
+                user_id: quotaRequest.requester_id,
+                balance: energyAmount,
+                total_in: energyAmount,
+                total_out: 0,
+              });
+          }
+
+          // 记录能量值流水
+          await client
+            .from('energy_transactions')
+            .insert({
+              type: 'quota_match',
+              amount: energyAmount,
+              from_user_id: quotaRequest.parent_id || '00000000-0000-0000-0000-000000000001',
+              to_user_id: quotaRequest.requester_id,
+            });
+
+          // 同步更新 users 表的 energy_value
+          const { data: userRow } = await client
+            .from('users')
+            .select('energy_value')
+            .eq('id', quotaRequest.requester_id)
+            .single();
+
+          if (userRow) {
+            await client
+              .from('users')
+              .update({ energy_value: (userRow.energy_value || 0) + energyAmount })
+              .eq('id', quotaRequest.requester_id);
+          }
+        } catch (energyError) {
+          console.error('更新分公司能量值失败:', energyError);
+        }
+      }
     }
 
     // 更新申请状态
