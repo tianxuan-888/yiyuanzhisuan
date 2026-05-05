@@ -75,15 +75,30 @@ async function calculateSubordinateSplit(
     // 如果 parent_provider_id 列不存在，回退到 users 表查询
     try {
       // 获取当前服务商的 user_id
-      const providerRecord: any = await queryOne(
+      // 注意：providerId 可能是 users.id（从 product.provider_id 传入），需要兼容两种情况
+      let providerUserId = providerId;
+      // 先尝试按 providers.id 查找
+      const providerById: any = await queryOne(
         'SELECT user_id FROM providers WHERE id = $1',
         [providerId]
       );
-      if (providerRecord?.user_id) {
+      if (providerById?.user_id) {
+        providerUserId = providerById.user_id;
+      } else {
+        // 如果按 providers.id 找不到，说明传入的是 users.id，直接使用
+        const providerByUserId: any = await queryOne(
+          'SELECT user_id FROM providers WHERE user_id = $1',
+          [providerId]
+        );
+        if (providerByUserId?.user_id) {
+          providerUserId = providerByUserId.user_id;
+        }
+      }
+      if (providerUserId) {
         // 查找 role='provider' 且 provider_id 指向当前服务商的用户（这些是下级服务商）
         const subUsers: any[] = await query(
           "SELECT COUNT(*) as count FROM users WHERE role = 'provider' AND provider_id = $1",
-          [providerRecord.user_id]
+          [providerUserId]
         );
         subordinateCount = parseInt(subUsers?.[0]?.count || '0');
       }
@@ -227,20 +242,25 @@ export async function POST(request: NextRequest) {
       );
 
       // 3. 获取服务商信息
+      // 注意：product.provider_id 存的是用户ID（users.id），不是providers表的主键id
       const providerRecord: any = await queryOne(
-        'SELECT * FROM providers WHERE id = $1',
+        'SELECT * FROM providers WHERE user_id = $1',
         [product?.provider_id]
       );
 
       // 4. 查找直推奖励接收者（会员的邀请人）
+      // 规则：直推奖励10%给邀请人
+      // - 如果邀请人就是服务商，直推奖励直接加到服务商分成中（不单独发放）
+      // - 如果邀请人不是服务商（比如是其他会员），则单独发放给邀请人
       let directRewardTo: string | null = null;
-      let directRewardAmount = 0;
-      if (member?.inviter_id) {
-        if (member.inviter_id !== providerRecord?.user_id) {
-          directRewardTo = member.inviter_id;
-          directRewardAmount = Math.floor(marketFee * REVENUE_SHARE_RATIOS.directReward);
-        }
+      let directRewardAmount = Math.floor(marketFee * REVENUE_SHARE_RATIOS.directReward);
+      const inviterIsProvider = member?.inviter_id && member.inviter_id === providerRecord?.user_id;
+      
+      if (member?.inviter_id && !inviterIsProvider) {
+        // 邀请人不是当前服务商，单独发放直推奖励给邀请人
+        directRewardTo = member.inviter_id;
       }
+      // 如果邀请人就是服务商（inviterIsProvider=true），直推奖励不单独发放，直接加到服务商分成
 
       // 5. 查找上级服务商
       let parentProviderId: string | null = null;
@@ -268,11 +288,13 @@ export async function POST(request: NextRequest) {
 
       // 8. 按比例分配能量值给各方
       const baseProviderShare = Math.floor(marketFee * REVENUE_SHARE_RATIOS.provider);
-      const providerShare = baseProviderShare + directRewardAmount;
+      // 如果邀请人就是服务商，直推奖励加到服务商分成中
+      const providerShare = inviterIsProvider ? baseProviderShare + directRewardAmount : baseProviderShare;
       const parentProviderShare = Math.floor(marketFee * REVENUE_SHARE_RATIOS.parentProvider);
-      const branchBaseShare = Math.floor(marketFee * REVENUE_SHARE_RATIOS.branch);
-      const branchShare = parentProviderId ? branchBaseShare : branchBaseShare + parentProviderShare;
-      const companyShare = Math.floor(marketFee * REVENUE_SHARE_RATIOS.company);
+      const branchShare = Math.floor(marketFee * REVENUE_SHARE_RATIOS.branch);
+      // 没有上级服务商时，上级服务商的10%归总公司运营（而非分公司）
+      const companyBaseShare = Math.floor(marketFee * REVENUE_SHARE_RATIOS.company);
+      const companyShare = parentProviderId ? companyBaseShare : companyBaseShare + parentProviderShare;
 
       // 8.1 给服务商增加能量值
       if (providerRecord?.user_id) {
@@ -319,14 +341,11 @@ export async function POST(request: NextRequest) {
           [branchId, 'branch']
         );
         if (branchUser) {
-          const branchDescription = parentProviderId 
-            ? `服务商会员购买产品分成 (5%)` 
-            : `服务商会员购买产品分成 (5%) + 上级服务商分成 (10%)`;
           await addEnergy(
             branchUser.id,
             branchShare,
             'branch_share',
-            { note: branchDescription }
+            { note: `服务商会员购买产品分成 (5%)` }
           );
         }
       }
@@ -337,11 +356,14 @@ export async function POST(request: NextRequest) {
         []
       );
       if (adminUser) {
+        const companyEnergyNote = parentProviderId 
+          ? `公司运营收益 (5%)` 
+          : `公司运营收益 (5%) + 上级服务商分成 (10%)`;
         await addEnergy(
           adminUser.id,
           companyShare,
           'company_share',
-          { note: `公司运营收益 (5%)` }
+          { note: companyEnergyNote }
         );
       }
 
@@ -351,17 +373,9 @@ export async function POST(request: NextRequest) {
         await execute(
           `INSERT INTO branch_revenue_records (branch_id, type, amount, related_user_id, related_order_id, note, status, created_at)
            VALUES ($1, 'market_fee_share', $2, $3, $4, $5, 'received', NOW())`,
-          [branchId, branchBaseShare, order.user_id, orderId, `市场费5%分润 (订单: ${orderId})`]
+          [branchId, branchShare, order.user_id, orderId, `市场费5%分润 (订单: ${orderId})`]
         );
-        branchRevenueTotal += branchBaseShare;
-        if (!parentProviderId) {
-          await execute(
-            `INSERT INTO branch_revenue_records (branch_id, type, amount, related_user_id, related_order_id, note, status, created_at)
-             VALUES ($1, 'provider_upstream', $2, $3, $4, $5, 'received', NOW())`,
-            [branchId, parentProviderShare, order.user_id, orderId, `一级服务商上级收益10% (订单: ${orderId})`]
-          );
-          branchRevenueTotal += parentProviderShare;
-        }
+        branchRevenueTotal += branchShare;
         if (branchRevenueTotal > 0) {
           const branchBalRes = await query(
             'SELECT balance FROM users WHERE id = $1',
@@ -377,12 +391,15 @@ export async function POST(request: NextRequest) {
           }
         }
       }
-      // 总公司运营5%
+      // 总公司运营
       if (companyShare > 0) {
+        const companyNote = parentProviderId 
+          ? `公司运营收益5% (订单: ${orderId})`
+          : `公司运营收益5% + 上级服务商分成10% (订单: ${orderId})`;
         await execute(
           `INSERT INTO company_fee_records (type, amount, source_user_id, source_role, source_order_id, note, created_at)
            VALUES ('market_fee_ops', $1, $2, 'member', $3, $4, NOW())`,
-          [companyShare, order.user_id, orderId, `公司运营收益5% (订单: ${orderId})`]
+          [companyShare, order.user_id, orderId, companyNote]
         );
       }
 
@@ -449,8 +466,10 @@ export async function POST(request: NextRequest) {
           marketFee,
           distribution: {
             provider: providerShare,
-            directReward: directRewardAmount,
-            parentProvider: parentProviderShare,
+            directReward: inviterIsProvider ? directRewardAmount : 0,
+            directRewardTo,
+            parentProvider: parentProviderId ? parentProviderShare : 0,
+            parentProviderToCompany: parentProviderId ? 0 : parentProviderShare,
             branch: branchShare,
             company: companyShare,
           }
