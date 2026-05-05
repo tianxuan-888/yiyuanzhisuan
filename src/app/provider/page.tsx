@@ -54,6 +54,8 @@ import {
     Wallet,
     ArrowUpDown,
     Cpu,
+    ArrowUpRight,
+    ArrowDownLeft,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -266,6 +268,11 @@ export default function ProviderPage() {
     const [rechargeMemberId, setRechargeMemberId] = useState("");
     const [rechargeAmount, setRechargeAmount] = useState("");
 
+    // 能量值管理子Tab
+    const [energySubTab, setEnergySubTab] = useState<string>("balance");
+    // 收益管理子Tab
+    const [revenueSubTab, setRevenueSubTab] = useState<string>("records");
+
     // 关系链状态
     const [chainData, setChainData] = useState<any>(null);
     const [chainLoading, setChainLoading] = useState(false);
@@ -297,7 +304,7 @@ export default function ProviderPage() {
         energyValue: 0,
         orderCount: 0,
     });
-    const [revenueFilter, setRevenueFilter] = useState<string>("all");
+
 
     // 额度申请相关状态
     const [showQuotaRequestDialog, setShowQuotaRequestDialog] = useState(false);
@@ -361,18 +368,21 @@ export default function ProviderPage() {
     // 加载服务商收益记录
     const loadRevenueRecords = async () => {
         try {
-            const response = await authFetch(`/api/provider/revenue?type=${revenueFilter}`);
+            const response = await authFetch(`/api/provider/revenue`);
             const data = await response.json();
             if (data.success) {
                 setRevenueRecords(data.data?.records || []);
                 setRevenueStats(data.data?.stats || {
                     totalRevenue: 0,
-                    energyRevenue: 0,
-                    withdrawRevenue: 0,
-                    rechargeRevenue: 0,
+                    distSelfRevenue: 0,
+                    distDirectReward: 0,
+                    distParentShare: 0,
                     subordinateRevenue: 0,
                     balance: 0,
                     energyValue: 0,
+                    totalWithdrawn: 0,
+                    totalConverted: 0,
+                    availableRevenue: 0,
                     orderCount: 0,
                 });
             }
@@ -1820,24 +1830,16 @@ export default function ProviderPage() {
                             <button
                                 onClick={() => setActiveTab("energy")}
                                 className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "energy" ? "bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-200" : "text-gray-600 hover:bg-purple-50"}`}>
-                                <Zap className="w-4 h-4" />能量充值
+                                <Zap className="w-4 h-4" />能量值管理
                             </button>
                             <button
                                 onClick={() => {
                                     setActiveTab("revenue");
                                     loadRevenueRecords();
-                                }}
-                                className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "revenue" ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg shadow-green-200" : "text-gray-600 hover:bg-green-50"}`}>
-                                <TrendingUp className="w-4 h-4" />收益记录
-                            </button>
-
-                            <button
-                                onClick={() => {
-                                    setActiveTab("withdrawals");
                                     loadWithdrawalData();
                                 }}
-                                className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "withdrawals" ? "bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-200" : "text-gray-600 hover:bg-purple-50"}`}>
-                                <DollarSign className="w-4 h-4" />提现管理
+                                className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "revenue" ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg shadow-green-200" : "text-gray-600 hover:bg-green-50"}`}>
+                                <TrendingUp className="w-4 h-4" />收益管理
                             </button>
                             <button
                                 onClick={() => {
@@ -3032,298 +3034,380 @@ export default function ProviderPage() {
                         </Card>
                     </div>}
 
-                    {/* 能量充值Tab */}
+                    {/* 能量值管理 Tab */}
                     {activeTab === "energy" && <div className="space-y-3 md:space-y-6">
+                        {/* 能量值余额总览 */}
                         <Card>
-                            <CardHeader>
-                                <CardTitle>能量值管理</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
-                                    <p className="text-sm text-purple-800">
-                                        <strong>说明：</strong>
-                                        <br/>• 申请能量值：向分公司申请，审核通过后获得能量值
-                                        <br/>• 能量值互转：同级服务商之间互转，不扣手续费
-                                        <br/>• 给会员充值：线下收款后给会员充值
-                                    </p>
-                                </div>
-                                
-                                <div className="flex justify-between items-center mb-4">
-                                    <h3 className="font-medium">我的能量值: <span className="text-purple-600 text-xl">{user?.energyValue?.toLocaleString() || 0}</span></h3>
-                                    <div className="flex gap-2 flex-wrap">
-                                        <Button onClick={() => { loadEnergyRequests(); setShowEnergyRequestDialog(true); }} variant="outline" className="border-orange-300 text-orange-600">
-                                            <Plus className="w-4 h-4 mr-2" />向分公司申请
-                                        </Button>
-                                        <Button onClick={() => { loadTransferTargets(); setShowTransferDialog(true); }} variant="outline" className="border-purple-300 text-purple-600">
-                                            <ArrowLeftRight className="w-4 h-4 mr-2" />能量值互转
-                                        </Button>
-                                        <Button onClick={() => { loadEnergyMembers(); setShowRechargeDialog(true); }} variant="outline" className="border-green-300 text-green-600">
-                                            <Zap className="w-4 h-4 mr-2" />给会员充值
-                                        </Button>
-
+                            <CardContent className="p-4 md:p-6">
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                                    <div>
+                                        <p className="text-sm text-muted-foreground">我的能量值</p>
+                                        <p className="text-3xl font-bold text-purple-600">{user?.energyValue?.toLocaleString() || 0}</p>
+                                        <p className="text-xs text-muted-foreground mt-1">用于给会员充值、购买产品付市场费等</p>
                                     </div>
+                                    <div className="flex gap-2 flex-wrap">
+                                        <Button onClick={() => { loadEnergyRequests(); setShowEnergyRequestDialog(true); }} variant="outline" size="sm" className="border-orange-300 text-orange-600">
+                                            <Plus className="w-4 h-4 mr-1" />向分公司申请
+                                        </Button>
+                                        <Button onClick={() => { loadTransferTargets(); setShowTransferDialog(true); }} variant="outline" size="sm" className="border-purple-300 text-purple-600">
+                                            <ArrowLeftRight className="w-4 h-4 mr-1" />互转
+                                        </Button>
+                                        <Button onClick={() => { loadEnergyMembers(); setShowRechargeDialog(true); }} variant="outline" size="sm" className="border-green-300 text-green-600">
+                                            <Zap className="w-4 h-4 mr-1" />给会员充值
+                                        </Button>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* 子Tab切换 */}
+                        <div className="flex gap-1 bg-muted/50 p-1 rounded-lg">
+                            <button
+                                onClick={() => setEnergySubTab("balance")}
+                                className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-all ${energySubTab === "balance" ? "bg-purple-600 text-white shadow" : "text-muted-foreground hover:text-foreground"}`}
+                            >
+                                <Wallet className="w-4 h-4 inline mr-1" />现有能量值
+                            </button>
+                            <button
+                                onClick={() => setEnergySubTab("expense")}
+                                className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-all ${energySubTab === "expense" ? "bg-red-600 text-white shadow" : "text-muted-foreground hover:text-foreground"}`}
+                            >
+                                <ArrowUpRight className="w-4 h-4 inline mr-1" />支出
+                            </button>
+                            <button
+                                onClick={() => setEnergySubTab("income")}
+                                className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-all ${energySubTab === "income" ? "bg-green-600 text-white shadow" : "text-muted-foreground hover:text-foreground"}`}
+                            >
+                                <ArrowDownLeft className="w-4 h-4 inline mr-1" />转入
+                            </button>
+                        </div>
+
+                        {/* 子Tab内容：现有能量值 */}
+                        {energySubTab === "balance" && (
+                            <div className="space-y-4">
+                                {/* 可转给谁 + 可向谁申请 */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {/* 可转给谁 */}
+                                    <Card>
+                                        <CardHeader className="pb-3">
+                                            <CardTitle className="text-sm flex items-center gap-2">
+                                                <ArrowUpRight className="w-4 h-4 text-purple-500" />
+                                                可转给谁
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="space-y-2">
+                                                {transferTargets.members?.length > 0 ? (
+                                                    transferTargets.members.slice(0, 5).map((member: any) => (
+                                                        <div key={member.id} className="flex items-center justify-between p-2 border rounded-lg hover:bg-muted/50 transition-colors">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold">
+                                                                    {(member.username || '?')[0]}
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-sm font-medium">{member.username}</p>
+                                                                    <p className="text-xs text-muted-foreground">{member.phone || ''} · 能量值: {member.energy_value?.toLocaleString() || 0}</p>
+                                                                </div>
+                                                            </div>
+                                                            <Button size="sm" variant="outline" className="text-xs h-7 border-purple-300 text-purple-600"
+                                                                onClick={() => {
+                                                                    setTransferUserId(member.id);
+                                                                    setTransferUserType("member");
+                                                                    setShowTransferDialog(true);
+                                                                }}>
+                                                                转给TA
+                                                            </Button>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <p className="text-sm text-muted-foreground text-center py-3">暂无下级会员</p>
+                                                )}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* 可向谁申请 */}
+                                    <Card>
+                                        <CardHeader className="pb-3">
+                                            <CardTitle className="text-sm flex items-center gap-2">
+                                                <ArrowDownLeft className="w-4 h-4 text-orange-500" />
+                                                可向谁申请
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="space-y-2">
+                                                {transferTargets.branch && (
+                                                    <div className="flex items-center justify-between p-2 border rounded-lg bg-orange-50">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-xs font-bold">
+                                                                分
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-sm font-medium">{transferTargets.branch.username || '分公司'}</p>
+                                                                <p className="text-xs text-muted-foreground">所属分公司 · 能量值: {transferTargets.branch.energy_value?.toLocaleString() || 0}</p>
+                                                            </div>
+                                                        </div>
+                                                        <Button size="sm" variant="outline" className="text-xs h-7 border-orange-300 text-orange-600"
+                                                            onClick={() => { loadEnergyRequests(); setShowEnergyRequestDialog(true); }}>
+                                                            申请能量值
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                                {transferTargets.providers?.length > 0 && transferTargets.providers.map((prov: any) => (
+                                                    <div key={prov.id} className="flex items-center justify-between p-2 border rounded-lg hover:bg-muted/50 transition-colors">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-xs font-bold">
+                                                                {(prov.username || '?')[0]}
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-sm font-medium">{prov.username}</p>
+                                                                <p className="text-xs text-muted-foreground">服务商 · 能量值: {prov.energy_value?.toLocaleString() || 0}</p>
+                                                            </div>
+                                                        </div>
+                                                        <Button size="sm" variant="outline" className="text-xs h-7 border-purple-300 text-purple-600"
+                                                            onClick={() => {
+                                                                setTransferUserId(prov.id);
+                                                                setTransferUserType("provider");
+                                                                setShowTransferDialog(true);
+                                                            }}>
+                                                            申请互转
+                                                        </Button>
+                                                    </div>
+                                                ))}
+                                                {!transferTargets.branch && (!transferTargets.providers || transferTargets.providers.length === 0) && (
+                                                    <p className="text-sm text-muted-foreground text-center py-3">暂无可申请对象</p>
+                                                )}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
                                 </div>
 
                                 {/* 能量值申请记录 */}
-                                <div className="mb-6">
-                                    <div className="flex items-center justify-between mb-3 mt-6">
-                                        <h4 className="font-medium">能量值申请记录</h4>
-                                        {energyRequests.length > 3 && (
-                                            <Button 
-                                                size="sm" 
-                                                variant="ghost" 
-                                                onClick={() => {
-                                                    setShowEnergyRequestListDialog(true);
-                                                }}
-                                                className="text-orange-600 hover:text-orange-700"
-                                            >
-                                                查看全部 ({energyRequests.length})
-                                            </Button>
-                                        )}
-                                    </div>
-                                    {energyRequests.length > 0 ? (
-                                        <div className="space-y-2">
-                                            {energyRequests.slice(0, 3).map((record: any) => {
-                                                const desc = typeof record.description === 'string' 
-                                                    ? JSON.parse(record.description) 
-                                                    : record;
-                                                return (
-                                                    <div key={record.id} className="flex justify-between items-center p-3 border rounded-lg bg-orange-50">
-                                                        <div>
-                                                            <div className="flex items-center gap-2">
-                                                                <Badge variant="outline" className={`${
-                                                                    desc.status === 'pending' ? 'text-yellow-600 border-yellow-300' :
-                                                                    desc.status === 'completed' ? 'text-green-600 border-green-300' :
-                                                                    'text-red-600 border-red-300'
-                                                                }`}>
-                                                                    {desc.status === 'pending' ? '待审核' : desc.status === 'completed' ? '已通过' : '已拒绝'}
-                                                                </Badge>
-                                                                <p className="font-medium">
-                                                                    申请 {desc.requestedAmount?.toLocaleString() || 0} 能量值
+                                <Card>
+                                    <CardHeader className="pb-3">
+                                        <CardTitle className="text-sm flex items-center gap-2">
+                                            <History className="w-4 h-4" />
+                                            申请记录
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        {energyRequests.length > 0 ? (
+                                            <div className="space-y-2">
+                                                {energyRequests.slice(0, 5).map((record: any) => {
+                                                    const desc = typeof record.description === 'string'
+                                                        ? JSON.parse(record.description)
+                                                        : record;
+                                                    return (
+                                                        <div key={record.id} className="flex justify-between items-center p-3 border rounded-lg bg-orange-50">
+                                                            <div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <Badge variant="outline" className={`${
+                                                                        desc.status === 'pending' ? 'text-yellow-600 border-yellow-300' :
+                                                                        desc.status === 'completed' ? 'text-green-600 border-green-300' :
+                                                                        'text-red-600 border-red-300'
+                                                                    }`}>
+                                                                        {desc.status === 'pending' ? '待审核' : desc.status === 'completed' ? '已通过' : '已拒绝'}
+                                                                    </Badge>
+                                                                    <p className="font-medium text-sm">
+                                                                        申请 {desc.requestedAmount?.toLocaleString() || 0} 能量值
+                                                                    </p>
+                                                                </div>
+                                                                <p className="text-xs text-muted-foreground mt-1">
+                                                                    {record.created_at ? new Date(record.created_at).toLocaleString() : '-'}
                                                                 </p>
                                                             </div>
-                                                            <p className="text-xs text-gray-500 mt-1">
-                                                                申请时间: {record.created_at ? new Date(record.created_at).toLocaleString() : '-'}
-                                                            </p>
-                                                            {desc.reviewerNote && (
-                                                                <p className="text-xs text-gray-400 mt-1">
-                                                                    审核备注: {desc.reviewerNote}
-                                                                </p>
-                                                            )}
                                                         </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <p className="text-gray-500 text-center py-4">暂无申请记录</p>
-                                    )}
+                                                    );
+                                                })}
+                                                {energyRequests.length > 5 && (
+                                                    <Button size="sm" variant="ghost" className="w-full text-orange-600"
+                                                        onClick={() => setShowEnergyRequestListDialog(true)}>
+                                                        查看全部 ({energyRequests.length})
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-muted-foreground text-center py-4">暂无申请记录</p>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        )}
+
+                        {/* 子Tab内容：支出记录 */}
+                        {energySubTab === "expense" && (
+                            <div className="space-y-4">
+                                {/* 支出统计 */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <Card className="bg-gradient-to-br from-red-500 to-rose-600 text-white">
+                                        <CardContent className="p-3 md:p-4">
+                                            <p className="text-xs opacity-80">累计转出</p>
+                                            <p className="text-lg md:text-xl font-bold">{transferRecords.filter((r: any) => r.type === 'transfer_out').reduce((sum: number, r: any) => sum + Math.abs(r.amount), 0).toLocaleString()}</p>
+                                        </CardContent>
+                                    </Card>
+                                    <Card className="bg-gradient-to-br from-orange-500 to-amber-600 text-white">
+                                        <CardContent className="p-3 md:p-4">
+                                            <p className="text-xs opacity-80">给会员充值</p>
+                                            <p className="text-lg md:text-xl font-bold">{transferRecords.filter((r: any) => r.type === 'recharge').reduce((sum: number, r: any) => sum + Math.abs(r.amount), 0).toLocaleString()}</p>
+                                        </CardContent>
+                                    </Card>
                                 </div>
 
-                                {/* 会员充值申请 */}
-                                <div className="mb-6">
-                                    <div className="flex items-center justify-between mb-3 mt-6">
-                                        <h4 className="font-medium flex items-center gap-2">
-                                            <Zap className="w-4 h-4 text-green-600" />
-                                            会员充值申请
-                                            {memberRechargeRequests.filter(r => r.status === 'pending').length > 0 && (
-                                                <Badge className="bg-green-500 text-white">{memberRechargeRequests.filter(r => r.status === 'pending').length}</Badge>
-                                            )}
-                                        </h4>
-                                        {memberRechargeRequests.length > 0 && (
-                                            <Button 
-                                                size="sm" 
-                                                variant="ghost" 
-                                                onClick={() => loadMemberRechargeRequests()}
-                                                className="text-green-600 hover:text-green-700"
-                                            >
-                                                刷新
-                                            </Button>
-                                        )}
-                                    </div>
-                                    {memberRechargeRequests.length > 0 ? (
-                                        <div className="space-y-2">
-                                            {memberRechargeRequests.filter(r => r.status === 'pending').slice(0, 5).map((request) => (
-                                                <div key={request.id} className="flex justify-between items-center p-3 border rounded-lg bg-green-50 hover:bg-green-100 transition-colors">
-                                                    <div>
-                                                        <div className="flex items-center gap-2">
-                                                            <Badge variant="outline" className="text-yellow-600 border-yellow-300">
-                                                                待处理
-                                                            </Badge>
-                                                            <p className="font-medium">
-                                                                会员: {request.memberName || '未知'}
+                                {/* 支出记录列表 */}
+                                <Card>
+                                    <CardHeader className="pb-3">
+                                        <CardTitle className="text-sm flex items-center gap-2">
+                                            <ArrowUpRight className="w-4 h-4 text-red-500" />
+                                            支出明细
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        {transferRecords.filter((r: any) => r.type === 'transfer_out' || r.type === 'recharge').length > 0 ? (
+                                            <div className="space-y-2">
+                                                {transferRecords.filter((r: any) => r.type === 'transfer_out' || r.type === 'recharge').map((record: any) => (
+                                                    <div key={record.id} className="flex justify-between items-center p-3 border rounded-lg">
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <Badge variant="outline" className={record.type === 'transfer_out' ? 'text-red-600 border-red-300' : 'text-orange-600 border-orange-300'}>
+                                                                    {record.type === 'transfer_out' ? '转出' : '会员充值'}
+                                                                </Badge>
+                                                                <p className="font-medium text-sm text-red-600">
+                                                                    -{Math.abs(record.amount)} 能量值
+                                                                </p>
+                                                            </div>
+                                                            <p className="text-xs text-muted-foreground mt-1">
+                                                                {record.note || (record.type === 'transfer_out' ? '转给其他用户' : '充值给会员')}
                                                             </p>
-                                                            <p className="text-green-600 font-bold">
-                                                                +{request.amount} 能量值
+                                                            <p className="text-xs text-muted-foreground">{new Date(record.created_at).toLocaleString()}</p>
+                                                        </div>
+                                                        <p className="text-xs text-muted-foreground">余额: {record.energy_after?.toLocaleString() || 0}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-6 text-muted-foreground">
+                                                <ArrowUpRight className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                                <p className="text-sm">暂无支出记录</p>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        )}
+
+                        {/* 子Tab内容：转入记录 */}
+                        {energySubTab === "income" && (
+                            <div className="space-y-4">
+                                {/* 转入统计 */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
+                                        <CardContent className="p-3 md:p-4">
+                                            <p className="text-xs opacity-80">累计转入</p>
+                                            <p className="text-lg md:text-xl font-bold">{transferRecords.filter((r: any) => r.type === 'transfer_in').reduce((sum: number, r: any) => sum + Math.abs(r.amount), 0).toLocaleString()}</p>
+                                        </CardContent>
+                                    </Card>
+                                    <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
+                                        <CardContent className="p-3 md:p-4">
+                                            <p className="text-xs opacity-80">市场费收益</p>
+                                            <p className="text-lg md:text-xl font-bold">{revenueStats.distSelfRevenue?.toLocaleString() || 0}</p>
+                                        </CardContent>
+                                    </Card>
+                                </div>
+
+                                {/* 转入记录列表 */}
+                                <Card>
+                                    <CardHeader className="pb-3">
+                                        <CardTitle className="text-sm flex items-center gap-2">
+                                            <ArrowDownLeft className="w-4 h-4 text-green-500" />
+                                            转入明细
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        {transferRecords.filter((r: any) => r.type === 'transfer_in').length > 0 ? (
+                                            <div className="space-y-2">
+                                                {transferRecords.filter((r: any) => r.type === 'transfer_in').map((record: any) => (
+                                                    <div key={record.id} className="flex justify-between items-center p-3 border rounded-lg bg-green-50">
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <Badge variant="outline" className="text-green-600 border-green-300">转入</Badge>
+                                                                <p className="font-medium text-sm text-green-600">
+                                                                    +{Math.abs(record.amount)} 能量值
+                                                                </p>
+                                                            </div>
+                                                            <p className="text-xs text-muted-foreground mt-1">
+                                                                {record.note || '从其他用户转入'}
+                                                            </p>
+                                                            <p className="text-xs text-muted-foreground">{new Date(record.created_at).toLocaleString()}</p>
+                                                        </div>
+                                                        <p className="text-xs text-muted-foreground">余额: {record.energy_after?.toLocaleString() || 0}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-6 text-muted-foreground">
+                                                <ArrowDownLeft className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                                <p className="text-sm">暂无转入记录</p>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+
+                                {/* 会员充值申请（待处理） */}
+                                <Card>
+                                    <CardHeader className="pb-3">
+                                        <CardTitle className="text-sm flex items-center gap-2">
+                                            <Zap className="w-4 h-4 text-green-500" />
+                                            待处理充值申请
+                                            {memberRechargeRequests.filter(r => r.status === 'pending').length > 0 && (
+                                                <Badge className="bg-green-500 text-white text-xs">{memberRechargeRequests.filter(r => r.status === 'pending').length}</Badge>
+                                            )}
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        {memberRechargeRequests.filter(r => r.status === 'pending').length > 0 ? (
+                                            <div className="space-y-2">
+                                                {memberRechargeRequests.filter(r => r.status === 'pending').slice(0, 5).map((request) => (
+                                                    <div key={request.id} className="flex justify-between items-center p-3 border rounded-lg bg-green-50">
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <Badge variant="outline" className="text-yellow-600 border-yellow-300">待处理</Badge>
+                                                                <p className="font-medium text-sm">{request.memberName || '未知'}</p>
+                                                                <p className="text-green-600 font-bold text-sm">+{request.amount}</p>
+                                                            </div>
+                                                            <p className="text-xs text-muted-foreground mt-1">
+                                                                {request.memberPhone || ''} · {request.createdAt ? new Date(request.createdAt).toLocaleString() : '-'}
                                                             </p>
                                                         </div>
-                                                        <p className="text-xs text-gray-500 mt-1">
-                                                            手机: {request.memberPhone || '未知'} | 
-                                                            申请时间: {request.createdAt ? new Date(request.createdAt).toLocaleString() : '-'}
-                                                        </p>
-                                                        {request.note && (
-                                                            <p className="text-xs text-gray-400 mt-1">
-                                                                备注: {request.note}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                    <div className="flex gap-2">
-                                                        <Button 
-                                                            size="sm" 
-                                                            className="bg-green-600 hover:bg-green-700"
+                                                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-xs h-7"
                                                             onClick={() => {
                                                                 setSelectedRechargeRequest(request);
                                                                 setShowMemberRechargeDialog(true);
-                                                            }}
-                                                        >
+                                                            }}>
                                                             处理
                                                         </Button>
                                                     </div>
-                                                </div>
-                                            ))}
-                                            {memberRechargeRequests.filter(r => r.status === 'pending').length === 0 && (
-                                                <p className="text-gray-500 text-center py-4">暂无待处理的会员充值申请</p>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <div className="text-center py-4 text-gray-500 bg-gray-50 rounded-lg">
-                                            <Zap className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                                            <p>暂无会员充值申请</p>
-                                            <p className="text-xs text-gray-400 mt-1">会员提交充值申请后会显示在这里</p>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* 提现记录 */}
-                                <h4 className="font-medium mb-3">提现记录</h4>
-                                {withdrawRecords.length > 0 ? (
-                                    <div className="space-y-2">
-                                        {withdrawRecords.slice(0, 5).map((record: any) => (
-                                            <div key={record.id} className="flex justify-between items-center p-3 border rounded-lg bg-gray-50">
-                                                <div>
-                                                    <p className="font-medium">收益提现 ¥{Number(record.amount || 0).toLocaleString()}</p>
-                                                    <p className="text-xs text-gray-500">
-                                                        实际到账: ¥{Number(record.actual_amount || 0).toLocaleString()} | 手续费: ¥{Number(record.fee || 0).toLocaleString()}
-                                                    </p>
-                                                </div>
-                                                <Badge className={record.status === 'pending' ? 'bg-yellow-500' : record.status === 'approved' ? 'bg-blue-500' : record.status === 'transferred' ? 'bg-indigo-500' : record.status === 'completed' ? 'bg-green-500' : 'bg-red-500'}>
-                                                    {record.status === 'pending' ? '待审核' : record.status === 'approved' ? '审核通过' : record.status === 'transferred' ? '已打款' : record.status === 'completed' ? '已完成' : '已拒绝'}
-                                                </Badge>
+                                                ))}
                                             </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="text-gray-500 text-center py-4">暂无提现记录</p>
-                                )}
+                                        ) : (
+                                            <p className="text-sm text-muted-foreground text-center py-3">暂无待处理的会员充值申请</p>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        )}
 
-                                {/* 转账记录 */}
-                                <h4 className="font-medium mb-3 mt-6">转账记录</h4>
-                                <div className="flex gap-2 mb-4">
-                                    <Button 
-                                        size="sm" 
-                                        variant={transferFilter === 'all' ? 'default' : 'outline'}
-                                        className={transferFilter === 'all' ? 'bg-purple-600' : ''}
-                                        onClick={() => { setTransferFilter('all'); loadTransferRecords(); }}
-                                    >
-                                        全部
-                                    </Button>
-                                    <Button 
-                                        size="sm" 
-                                        variant={transferFilter === 'transfer_out' ? 'default' : 'outline'}
-                                        className={transferFilter === 'transfer_out' ? 'bg-red-600' : ''}
-                                        onClick={() => { setTransferFilter('transfer_out'); loadTransferRecords(); }}
-                                    >
-                                        转出
-                                    </Button>
-                                    <Button 
-                                        size="sm" 
-                                        variant={transferFilter === 'transfer_in' ? 'default' : 'outline'}
-                                        className={transferFilter === 'transfer_in' ? 'bg-green-600' : ''}
-                                        onClick={() => { setTransferFilter('transfer_in'); loadTransferRecords(); }}
-                                    >
-                                        转入
-                                    </Button>
-                                </div>
-                                {transferRecords.length > 0 ? (
-                                    <div className="space-y-2">
-                                        {transferRecords.map((record: any) => (
-                                            <div key={record.id} className="flex justify-between items-center p-3 border rounded-lg bg-gray-50">
-                                                <div>
-                                                    <div className="flex items-center gap-2">
-                                                        {record.type === 'transfer_out' ? (
-                                                            <Badge variant="outline" className="text-red-600 border-red-300">转出</Badge>
-                                                        ) : record.type === 'transfer_in' ? (
-                                                            <Badge variant="outline" className="text-green-600 border-green-300">转入</Badge>
-                                                        ) : (
-                                                            <Badge variant="outline">{record.type}</Badge>
-                                                        )}
-                                                        <p className="font-medium">
-                                                            {record.type === 'transfer_out' ? '-' : '+'}{Math.abs(record.amount)} 能量值
-                                                        </p>
-                                                    </div>
-                                                    <p className="text-xs text-gray-500">
-                                                        {record.note || (record.type === 'transfer_out' ? `转给用户` : `来自用户`)}
-                                                    </p>
-                                                    <p className="text-xs text-gray-400">{new Date(record.created_at).toLocaleString()}</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-sm text-gray-500">余额: {record.energy_after?.toLocaleString() || 0}</p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="text-gray-500 text-center py-4">暂无转账记录</p>
-                                )}
-
-                                {/* 会员列表 */}
-                                <h4 className="font-medium mb-3">我的会员列表</h4>
-                                {(transferTargets.members?.length > 0 ? transferTargets.members : energyMembers).length > 0 ? (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {(transferTargets.members?.length > 0 ? transferTargets.members : energyMembers).map((member: any) => (
-                                            <div key={member.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <p className="font-medium">{member.username}</p>
-                                                        <p className="text-sm text-gray-500">{member.phone || '未绑定手机'}</p>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="text-lg font-bold text-purple-600">{member.energy_value?.toLocaleString() || 0}</p>
-                                                        <p className="text-xs text-gray-400">能量值</p>
-                                                    </div>
-                                                </div>
-                                                <Button 
-                                                    size="sm" 
-                                                    variant="outline" 
-                                                    className="w-full mt-3 border-purple-300 text-purple-600"
-                                                    onClick={() => {
-                                                        setRechargeMemberId(member.id);
-                                                        loadEnergyMembers();
-                                                        setShowRechargeDialog(true);
-                                                    }}>
-                                                    充值
-                                                </Button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="text-gray-500 text-center py-8">暂无下级会员</p>
-                                )}
-                            </CardContent>
-                        </Card>
-                        
-                        {/* 能量值规则说明 */}
+                        {/* 能量值消耗规则 */}
                         <Card className="bg-blue-50 border-blue-200">
-                            <CardHeader>
-                                <CardTitle className="text-blue-800">能量值消耗规则</CardTitle>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-blue-800 text-sm">能量值消耗规则</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <table className="w-full text-sm">
                                     <thead>
                                         <tr className="text-left">
-                                            <th className="py-2">算力周期</th>
-                                            <th className="py-2">能量值比例</th>
-                                            <th className="py-2">示例（¥1000算力）</th>
+                                            <th className="py-1">算力周期</th>
+                                            <th className="py-1">能量值比例</th>
+                                            <th className="py-1">示例（¥1000算力）</th>
                                         </tr>
                                     </thead>
                                     <tbody className="text-blue-700">
@@ -3334,392 +3418,304 @@ export default function ProviderPage() {
                                         <tr><td className="py-1">90天</td><td>60%</td><td>¥600</td></tr>
                                     </tbody>
                                 </table>
-                                <p className="text-xs text-blue-600 mt-3">
-                                    会员购买算力时需要消耗相应能量值作为市场费，能量值不足无法购买。
-                                </p>
+                                <p className="text-xs text-blue-600 mt-2">会员购买算力时需要消耗相应能量值作为市场费，能量值不足无法购买。</p>
                             </CardContent>
                         </Card>
                     </div>}
 
-                    {/* 提现管理 Tab */}
-                    {activeTab === "withdrawals" && (
+                    {/* 收益管理 Tab */}
+                    {activeTab === "revenue" && (
                         <div className="space-y-3 md:space-y-6">
-                            {/* 服务商自己提现 */}
+                            {/* 收益概览 */}
                             <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <DollarSign className="w-5 h-5" />
-                                        我的提现
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="text-sm text-gray-500">收益余额</p>
-                                                <p className="text-2xl font-bold text-green-600">¥{revenueStats.balance?.toLocaleString() || 0}</p>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <Button
-                                                    className="bg-green-600 hover:bg-green-700"
-                                                    onClick={() => setShowConvertDialog(true)}
-                                                >
-                                                    <Zap className="w-4 h-4 mr-1" /> 收益转能量值
-                                                </Button>
-                                                <Button
-                                                    className="bg-yellow-500 hover:bg-yellow-600 text-white"
-                                                    onClick={() => setShowWithdrawDialog(true)}
-                                                >
-                                                    <DollarSign className="w-4 h-4 mr-1" /> 收益提现
-                                                </Button>
+                                <CardContent className="p-4 md:p-6">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                                        <div>
+                                            <p className="text-sm text-muted-foreground">收益余额（可提现/可转能量值）</p>
+                                            <p className="text-3xl font-bold text-green-600">¥{Number(revenueStats.balance || 0).toLocaleString()}</p>
+                                            <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
+                                                <span>累计收益: ¥{Number(revenueStats.totalRevenue || 0).toLocaleString()}</span>
+                                                <span>已提现: ¥{Number(revenueStats.totalWithdrawn || 0).toLocaleString()}</span>
+                                                <span>已转能量值: ¥{Number(revenueStats.totalConverted || 0).toLocaleString()}</span>
                                             </div>
                                         </div>
-
-                                        {/* 我的提现记录 */}
-                                        <div className="mt-4">
-                                            <h4 className="font-medium mb-3 flex items-center gap-2">
-                                                <History className="w-4 h-4 text-gray-500" />
-                                                我的提现记录
-                                            </h4>
-                                            <ProviderWithdrawRecords userId={user?.id || ''} authFetch={authFetch} />
+                                        <div className="flex gap-2 flex-wrap">
+                                            <Button size="sm" className="bg-yellow-500 hover:bg-yellow-600 text-white"
+                                                onClick={() => setShowWithdrawDialog(true)}>
+                                                <DollarSign className="w-4 h-4 mr-1" /> 收益提现
+                                            </Button>
+                                            <Button size="sm" variant="outline" className="border-green-300 text-green-600"
+                                                onClick={() => setShowConvertDialog(true)}>
+                                                <Zap className="w-4 h-4 mr-1" /> 收益转能量值
+                                            </Button>
                                         </div>
                                     </div>
                                 </CardContent>
                             </Card>
 
-                            {/* 待处理会员提现 */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <AlertCircle className="w-5 h-5 text-orange-500" />
-                                        待处理提现申请（{pendingWithdrawals.length}）
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        {pendingWithdrawals.length > 0 ? (
-                                            <div className="space-y-3">
-                                                {pendingWithdrawals.map((withdrawal: any) => (
-                                                    <div key={withdrawal.id} className="border rounded-lg p-4 bg-orange-50">
-                                                        <div className="flex justify-between items-start mb-3">
-                                                            <div>
-                                                                <p className="font-medium">{withdrawal.user?.username || '用户'}</p>
-                                                                <p className="text-sm text-gray-500">
-                                                                    手机: {withdrawal.user?.phone || '未填写'}
-                                                                </p>
-                                                            </div>
-                                                            <div className="text-right">
-                                                                <p className="text-xl font-bold text-orange-600">¥{withdrawal.amount?.toLocaleString()}</p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="grid grid-cols-2 gap-2 text-sm mb-3">
-                                                            <div className="text-gray-600">
-                                                                <span className="font-medium">支付宝账号:</span> {withdrawal.alipay_account || '未填写'}
-                                                            </div>
-                                                            <div className="text-gray-600">
-                                                                <span className="font-medium">真实姓名:</span> {withdrawal.real_name || '未填写'}
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex gap-2">
-                                                            <Button 
-                                                                size="sm" 
-                                                                className="bg-green-600 hover:bg-green-700"
-                                                                onClick={() => handleWithdrawalConfirm(withdrawal.id, 'approve')}
-                                                                disabled={submitting}
-                                                            >
-                                                                <CheckCircle className="w-4 h-4 mr-1" /> 已打款
-                                                            </Button>
-                                                            <Button 
-                                                                size="sm" 
-                                                                variant="destructive"
-                                                                onClick={() => handleWithdrawalConfirm(withdrawal.id, 'reject')}
-                                                                disabled={submitting}
-                                                            >
-                                                                <XCircle className="w-4 h-4 mr-1" /> 拒绝
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <p className="text-gray-500 text-center py-4">暂无待处理提现</p>
-                                        )}
+                            {/* 子Tab切换 */}
+                            <div className="flex gap-1 bg-muted/50 p-1 rounded-lg">
+                                <button
+                                    onClick={() => setRevenueSubTab("records")}
+                                    className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-all ${revenueSubTab === "records" ? "bg-green-600 text-white shadow" : "text-muted-foreground hover:text-foreground"}`}
+                                >
+                                    <TrendingUp className="w-4 h-4 inline mr-1" />市场收益
+                                </button>
+                                <button
+                                    onClick={() => setRevenueSubTab("withdraw")}
+                                    className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-all ${revenueSubTab === "withdraw" ? "bg-yellow-600 text-white shadow" : "text-muted-foreground hover:text-foreground"}`}
+                                >
+                                    <Wallet className="w-4 h-4 inline mr-1" />提现/转账
+                                </button>
+                            </div>
 
-                                        {/* 提现规则 */}
-                                        <Card className="bg-blue-50 border-blue-200 mt-4">
-                                            <CardHeader>
-                                                <CardTitle className="text-blue-800 text-sm">提现说明</CardTitle>
-                                            </CardHeader>
-                                            <CardContent className="text-sm text-blue-700">
-                                                <ul className="list-disc list-inside space-y-1">
-                                                    <li>最低提现金额: ¥50</li>
-                                                    <li>提现手续费: 5%（沉淀到总公司）</li>
-                                                    <li>服务商提现到分公司，分公司审核后线下打款</li>
-                                                    <li>收到提现申请后需线下打款给会员</li>
-                                                </ul>
+                            {/* 子Tab内容：市场收益记录（只含市场业务收益，不含能量值进出） */}
+                            {revenueSubTab === "records" && (
+                                <div className="space-y-4">
+                                    {/* 收益统计 */}
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                        <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
+                                            <CardContent className="p-3 md:p-4">
+                                                <p className="text-xs opacity-80">产品分成收益</p>
+                                                <p className="text-lg md:text-xl font-bold">{Number(revenueStats.distSelfRevenue || 0).toLocaleString()}</p>
+                                                <p className="text-[10px] opacity-70">会员市场费70%+直推</p>
+                                            </CardContent>
+                                        </Card>
+                                        <Card className="bg-gradient-to-br from-rose-500 to-pink-600 text-white">
+                                            <CardContent className="p-3 md:p-4">
+                                                <p className="text-xs opacity-80">下级分成</p>
+                                                <p className="text-lg md:text-xl font-bold">{Number(revenueStats.subordinateRevenue || 0).toLocaleString()}</p>
+                                                <p className="text-[10px] opacity-70">0.3%~0.5%</p>
+                                            </CardContent>
+                                        </Card>
+                                        <Card className="bg-gradient-to-br from-amber-500 to-orange-500 text-white">
+                                            <CardContent className="p-3 md:p-4">
+                                                <p className="text-xs opacity-80">上级服务商分成</p>
+                                                <p className="text-lg md:text-xl font-bold">{Number(revenueStats.distParentShare || 0).toLocaleString()}</p>
+                                                <p className="text-[10px] opacity-70">下级交易额分成</p>
+                                            </CardContent>
+                                        </Card>
+                                        <Card className="bg-gradient-to-br from-purple-500 to-violet-600 text-white">
+                                            <CardContent className="p-3 md:p-4">
+                                                <p className="text-xs opacity-80">累计总收益</p>
+                                                <p className="text-lg md:text-xl font-bold">{Number(revenueStats.totalRevenue || 0).toLocaleString()}</p>
+                                                <p className="text-[10px] opacity-70">{revenueStats.orderCount || 0} 笔</p>
                                             </CardContent>
                                         </Card>
                                     </div>
-                                </CardContent>
-                            </Card>
 
-                            {/* 待审核转账申请 */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <ArrowRightLeft className="w-5 h-5 text-blue-500" />
-                                        待审核转账申请（{pendingTransferRequests.length}）
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        {pendingTransferRequests.length > 0 ? (
-                                            <div className="space-y-3">
-                                                {pendingTransferRequests.map((req: any) => (
-                                                    <div key={req.id} className="border rounded-lg p-4 bg-blue-50">
-                                                        <div className="flex justify-between items-start mb-3">
-                                                            <div>
-                                                                <p className="font-medium">{req.username || '用户'}</p>
-                                                                <p className="text-sm text-gray-500">
-                                                                    手机: {req.phone || '未填写'}
-                                                                    {req.unique_id && <span className="ml-2 text-blue-600">[{req.unique_id}]</span>}
-                                                                </p>
+                                    {/* 收益记录列表 - 只显示市场业务收益 */}
+                                    <Card>
+                                        <CardHeader className="pb-3">
+                                            <CardTitle className="text-sm flex items-center gap-2">
+                                                <History className="w-4 h-4" />
+                                                收益明细
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            {revenueRecords.filter((r: any) => r.source === 'distribution' || r.source === 'subordinate').length > 0 ? (
+                                                <div className="space-y-2">
+                                                    {revenueRecords.filter((r: any) => r.source === 'distribution' || r.source === 'subordinate').map((record: any) => {
+                                                        const sourceColorMap: Record<string, string> = {
+                                                            distribution: 'bg-green-100 text-green-700',
+                                                            subordinate: 'bg-rose-100 text-rose-700',
+                                                        };
+                                                        return (
+                                                            <div key={record.id} className="border rounded-lg p-3 bg-slate-50">
+                                                                <div className="flex justify-between items-start">
+                                                                    <div>
+                                                                        <div className="flex items-center gap-2 mb-1">
+                                                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${sourceColorMap[record.source] || 'bg-gray-100 text-gray-700'}`}>
+                                                                                {record.source_label || (record.source === 'distribution' ? '产品分成' : '下级分成')}
+                                                                            </span>
+                                                                        </div>
+                                                                        {record.source === 'distribution' && record.product_name && (
+                                                                            <p className="text-sm font-medium">{record.product_name}</p>
+                                                                        )}
+                                                                        {record.source === 'distribution' && record.member_name && (
+                                                                            <p className="text-xs text-muted-foreground">
+                                                                                会员: {record.member_name} {record.member_phone || ''}
+                                                                            </p>
+                                                                        )}
+                                                                        {record.source === 'subordinate' && record.subordinate_name && (
+                                                                            <p className="text-xs text-muted-foreground">
+                                                                                下级: {record.subordinate_name} {record.subordinate_phone || ''}
+                                                                            </p>
+                                                                        )}
+                                                                        <p className="text-xs text-muted-foreground mt-1">
+                                                                            {new Date(record.created_at).toLocaleString('zh-CN')}
+                                                                        </p>
+                                                                    </div>
+                                                                    <div className="text-right">
+                                                                        <p className="text-lg font-bold text-green-600">
+                                                                            +{Number(record.amount || 0).toLocaleString()}
+                                                                        </p>
+                                                                        {record.market_fee > 0 && (
+                                                                            <p className="text-xs text-muted-foreground">
+                                                                                市场费: {Number(record.market_fee).toLocaleString()}
+                                                                            </p>
+                                                                        )}
+                                                                        {record.split_rate > 0 && (
+                                                                            <p className="text-xs text-muted-foreground">
+                                                                                分成率: {(Number(record.split_rate) * 100).toFixed(1)}%
+                                                                            </p>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
                                                             </div>
-                                                            <div className="text-right">
-                                                                <p className="text-xl font-bold text-blue-600">{req.amount} 能量值</p>
-                                                                <p className="text-xs text-gray-400">{new Date(req.created_at).toLocaleString()}</p>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-6 text-muted-foreground">
+                                                    <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                                    <p className="text-sm">暂无市场收益记录</p>
+                                                    <p className="text-xs mt-1">会员购买产品后，市场费收益将在这里显示</p>
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                            )}
+
+                            {/* 子Tab内容：提现/转账管理 */}
+                            {revenueSubTab === "withdraw" && (
+                                <div className="space-y-4">
+                                    {/* 我的提现记录 */}
+                                    <Card>
+                                        <CardHeader className="pb-3">
+                                            <CardTitle className="text-sm flex items-center gap-2">
+                                                <History className="w-4 h-4" />
+                                                我的提现记录
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <ProviderWithdrawRecords userId={user?.id || ''} authFetch={authFetch} />
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* 待处理会员提现 */}
+                                    <Card>
+                                        <CardHeader className="pb-3">
+                                            <CardTitle className="text-sm flex items-center gap-2">
+                                                <AlertCircle className="w-4 h-4 text-orange-500" />
+                                                待处理提现申请
+                                                {pendingWithdrawals.length > 0 && (
+                                                    <Badge className="bg-orange-500 text-white text-xs">{pendingWithdrawals.length}</Badge>
+                                                )}
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            {pendingWithdrawals.length > 0 ? (
+                                                <div className="space-y-2">
+                                                    {pendingWithdrawals.map((withdrawal: any) => (
+                                                        <div key={withdrawal.id} className="border rounded-lg p-3 bg-orange-50">
+                                                            <div className="flex justify-between items-start mb-2">
+                                                                <div>
+                                                                    <p className="font-medium text-sm">{withdrawal.user?.username || '用户'}</p>
+                                                                    <p className="text-xs text-muted-foreground">{withdrawal.user?.phone || '未填写'}</p>
+                                                                </div>
+                                                                <p className="text-lg font-bold text-orange-600">¥{withdrawal.amount?.toLocaleString()}</p>
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-1 text-xs mb-2">
+                                                                <div className="text-muted-foreground">支付宝: {withdrawal.alipay_account || '未填写'}</div>
+                                                                <div className="text-muted-foreground">姓名: {withdrawal.real_name || '未填写'}</div>
+                                                            </div>
+                                                            <div className="flex gap-2">
+                                                                <Button size="sm" className="bg-green-600 hover:bg-green-700 text-xs h-7"
+                                                                    onClick={() => handleWithdrawalConfirm(withdrawal.id, 'approve')}
+                                                                    disabled={submitting}>
+                                                                    <CheckCircle className="w-3 h-3 mr-1" /> 已打款
+                                                                </Button>
+                                                                <Button size="sm" variant="destructive" className="text-xs h-7"
+                                                                    onClick={() => handleWithdrawalConfirm(withdrawal.id, 'reject')}
+                                                                    disabled={submitting}>
+                                                                    <XCircle className="w-3 h-3 mr-1" /> 拒绝
+                                                                </Button>
                                                             </div>
                                                         </div>
-                                                        <div className="grid grid-cols-2 gap-2 text-sm mb-3">
-                                                            <div className="text-gray-600">
-                                                                <span className="font-medium">收款方式:</span> {req.payment_method === 'alipay' ? '支付宝' : req.payment_method === 'wechat' ? '微信' : '未选择'}
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-sm text-muted-foreground text-center py-3">暂无待处理提现</p>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* 待审核转账申请 */}
+                                    <Card>
+                                        <CardHeader className="pb-3">
+                                            <CardTitle className="text-sm flex items-center gap-2">
+                                                <ArrowRightLeft className="w-4 h-4 text-blue-500" />
+                                                待审核转账申请
+                                                {pendingTransferRequests.length > 0 && (
+                                                    <Badge className="bg-blue-500 text-white text-xs">{pendingTransferRequests.length}</Badge>
+                                                )}
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            {pendingTransferRequests.length > 0 ? (
+                                                <div className="space-y-2">
+                                                    {pendingTransferRequests.map((req: any) => (
+                                                        <div key={req.id} className="border rounded-lg p-3 bg-blue-50">
+                                                            <div className="flex justify-between items-start mb-2">
+                                                                <div>
+                                                                    <p className="font-medium text-sm">{req.username || '用户'}</p>
+                                                                    <p className="text-xs text-muted-foreground">
+                                                                        {req.phone || '未填写'}
+                                                                        {req.unique_id && <span className="ml-1 text-blue-600">[{req.unique_id}]</span>}
+                                                                    </p>
+                                                                </div>
+                                                                <div className="text-right">
+                                                                    <p className="text-lg font-bold text-blue-600">{req.amount} 能量值</p>
+                                                                    <p className="text-xs text-muted-foreground">{new Date(req.created_at).toLocaleString()}</p>
+                                                                </div>
                                                             </div>
-                                                            <div className="text-gray-600">
-                                                                <span className="font-medium">收款账号:</span> {req.alipay_account || '未填写'}
+                                                            <div className="grid grid-cols-2 gap-1 text-xs mb-2">
+                                                                <div className="text-muted-foreground">收款方式: {req.payment_method === 'alipay' ? '支付宝' : req.payment_method === 'wechat' ? '微信' : '未选择'}</div>
+                                                                <div className="text-muted-foreground">账号: {req.alipay_account || '未填写'}</div>
+                                                                <div className="text-muted-foreground">姓名: {req.real_name || '未填写'}</div>
                                                             </div>
-                                                            <div className="text-gray-600">
-                                                                <span className="font-medium">真实姓名:</span> {req.real_name || '未填写'}
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex gap-2">
-                                                            <Button 
-                                                                size="sm" 
-                                                                className="bg-blue-600 hover:bg-blue-700"
+                                                            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-xs h-7"
                                                                 onClick={() => {
                                                                     setSelectedTransferRequest(req);
                                                                     setShowTransferReviewDialog(true);
-                                                                }}
-                                                            >
-                                                                <Eye className="w-4 h-4 mr-1" /> 查看详情并审核
+                                                                }}>
+                                                                <Eye className="w-3 h-3 mr-1" /> 查看详情并审核
                                                             </Button>
                                                         </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <p className="text-gray-500 text-center py-4">暂无待审核转账</p>
-                                        )}
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-sm text-muted-foreground text-center py-3">暂无待审核转账</p>
+                                            )}
 
-                                        {/* 转账审核说明 */}
-                                        <Card className="bg-green-50 border-green-200 mt-4">
-                                            <CardHeader>
-                                                <CardTitle className="text-green-800 text-sm">转账审核说明</CardTitle>
-                                            </CardHeader>
-                                            <CardContent className="text-sm text-green-700">
-                                                <ul className="list-disc list-inside space-y-1">
-                                                    <li>会员将能量值转账给您，您需线下打款给会员</li>
-                                                    <li>请根据会员提供的收款方式和账号进行线下转账</li>
-                                                    <li>确认已线下打款后，点击"审核通过"完成转账</li>
-                                                    <li>拒绝后能量值将退还给会员</li>
-                                                </ul>
-                                            </CardContent>
-                                        </Card>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    )}
+                                            <Card className="bg-green-50 border-green-200 mt-3">
+                                                <CardContent className="p-3 text-xs text-green-700">
+                                                    <p className="font-medium mb-1">转账审核说明</p>
+                                                    <ul className="list-disc list-inside space-y-0.5">
+                                                        <li>会员将能量值转账给您，您需线下打款给会员</li>
+                                                        <li>确认已线下打款后，点击"审核通过"完成转账</li>
+                                                        <li>拒绝后能量值将退还给会员</li>
+                                                    </ul>
+                                                </CardContent>
+                                            </Card>
+                                        </CardContent>
+                                    </Card>
 
-                    {/* 收益记录 Tab */}
-                    {activeTab === "revenue" && (
-                        <div className="space-y-3 md:space-y-6">
-                            {/* 收益统计卡片 */}
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-4">
-                                <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
-                                    <CardContent className="p-3 md:pt-4 md:p-6">
-                                        <div className="flex items-center gap-1.5 mb-1 md:mb-2">
-                                            <TrendingUp className="w-3.5 h-3.5 md:w-5 md:h-5" />
-                                            <span className="text-xs md:text-sm opacity-80">累计总收益</span>
-                                        </div>
-                                        <p className="text-lg md:text-2xl font-bold">{Number(revenueStats.totalRevenue || 0).toLocaleString()}</p>
-                                        <p className="text-[10px] md:text-xs opacity-70 mt-0.5 md:mt-1">{revenueStats.orderCount || 0} 笔记录</p>
-                                    </CardContent>
-                                </Card>
-                                <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-                                    <CardContent className="p-3 md:pt-4 md:p-6">
-                                        <div className="flex items-center gap-1.5 mb-1 md:mb-2">
-                                            <Zap className="w-3.5 h-3.5 md:w-5 md:h-5" />
-                                            <span className="text-xs md:text-sm opacity-80">能量值收益</span>
-                                        </div>
-                                        <p className="text-lg md:text-2xl font-bold">{Number(revenueStats.energyRevenue || 0).toLocaleString()}</p>
-                                        <p className="text-[10px] md:text-xs opacity-70 mt-0.5 md:mt-1">会员市场费70%</p>
-                                    </CardContent>
-                                </Card>
-                                <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
-                                    <CardContent className="p-3 md:pt-4 md:p-6">
-                                        <div className="flex items-center gap-1.5 mb-1 md:mb-2">
-                                            <Wallet className="w-3.5 h-3.5 md:w-5 md:h-5" />
-                                            <span className="text-xs md:text-sm opacity-80">提现到账</span>
-                                        </div>
-                                        <p className="text-lg md:text-2xl font-bold">{Number(revenueStats.withdrawRevenue || 0).toLocaleString()}</p>
-                                        <p className="text-[10px] md:text-xs opacity-70 mt-0.5 md:mt-1">已完成的提现</p>
-                                    </CardContent>
-                                </Card>
-                                <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white">
-                                    <CardContent className="p-3 md:pt-4 md:p-6">
-                                        <div className="flex items-center gap-1.5 mb-1 md:mb-2">
-                                            <Gift className="w-3.5 h-3.5 md:w-5 md:h-5" />
-                                            <span className="text-xs md:text-sm opacity-80">会员充值支出</span>
-                                        </div>
-                                        <p className="text-lg md:text-2xl font-bold">{Number(revenueStats.rechargeRevenue || 0).toLocaleString()}</p>
-                                        <p className="text-[10px] md:text-xs opacity-70 mt-0.5 md:mt-1">给会员充值的能量值</p>
-                                    </CardContent>
-                                </Card>
-                                <Card className="bg-gradient-to-br from-rose-500 to-pink-600 text-white col-span-2 md:col-span-1">
-                                    <CardContent className="p-3 md:pt-4 md:p-6">
-                                        <div className="flex items-center gap-1.5 mb-1 md:mb-2">
-                                            <Users className="w-3.5 h-3.5 md:w-5 md:h-5" />
-                                            <span className="text-xs md:text-sm opacity-80">下级分成</span>
-                                        </div>
-                                        <p className="text-lg md:text-2xl font-bold">{Number(revenueStats.subordinateRevenue || 0).toLocaleString()}</p>
-                                        <p className="text-[10px] md:text-xs opacity-70 mt-0.5 md:mt-1">0.3%~0.5%</p>
-                                    </CardContent>
-                                </Card>
-                            </div>
-
-                            {/* 当前账户状态 */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-4">
-                                <Card>
-                                    <CardContent className="p-3 md:pt-4 md:p-6">
-                                        <div className="flex justify-between items-center gap-2">
-                                            <div className="min-w-0">
-                                                <p className="text-xs md:text-sm text-muted-foreground">当前收益余额（可提现）</p>
-                                                <p className="text-xl md:text-3xl font-bold text-green-600">¥{Number(revenueStats.balance || 0).toLocaleString()}</p>
-                                            </div>
-                                            <div className="flex gap-1.5 md:gap-2 shrink-0">
-                                                <Button
-                                                    size="sm"
-                                                    className="text-xs h-7 md:h-8"
-                                                    onClick={() => {
-                                                        setWithdrawAmount("");
-                                                        setShowWithdrawDialog(true);
-                                                    }}
-                                                >
-                                                    <Wallet className="w-3 h-3 md:w-4 md:h-4 mr-0.5 md:mr-1" />
-                                                    提现
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="text-xs h-7 md:h-8"
-                                                    onClick={() => {
-                                                        setWithdrawAmount("");
-                                                        setShowWithdrawDialog(true);
-                                                    }}
-                                                >
-                                                    <Zap className="w-3 h-3 md:w-4 md:h-4 mr-0.5 md:mr-1" />
-                                                    转能量
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                                <Card>
-                                    <CardContent className="p-3 md:pt-4 md:p-6">
-                                        <div>
-                                            <p className="text-xs md:text-sm text-muted-foreground">当前能量值余额</p>
-                                            <p className="text-xl md:text-3xl font-bold text-blue-600">{Number(revenueStats.energyValue || 0).toLocaleString()}</p>
-                                            <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5 md:mt-1">用于给会员充值、购买产品付市场费等</p>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </div>
-
-                            {/* 收益记录列表 */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <History className="w-5 h-5" />
-                                        收益明细
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    {revenueRecords.length > 0 ? (
-                                        <div className="space-y-3">
-                                            {revenueRecords.map((record: any) => {
-                                                const sourceColorMap: Record<string, string> = {
-                                                    energy_income: 'bg-blue-100 text-blue-700',
-                                                    withdraw: 'bg-green-100 text-green-700',
-                                                    recharge: 'bg-orange-100 text-orange-700',
-                                                    distribution: 'bg-purple-100 text-purple-700',
-                                                };
-                                                const sourceIconMap: Record<string, string> = {
-                                                    energy_income: '能量值收益',
-                                                    withdraw: '提现到账',
-                                                    recharge: '会员充值',
-                                                    distribution: '产品分成',
-                                                };
-                                                return (
-                                                    <div key={record.id} className="border rounded-lg p-4 bg-slate-50">
-                                                        <div className="flex justify-between items-start">
-                                                            <div>
-                                                                <div className="flex items-center gap-2 mb-1">
-                                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${sourceColorMap[record.source] || 'bg-gray-100 text-gray-700'}`}>
-                                                                        {record.source_label || sourceIconMap[record.source] || record.source}
-                                                                    </span>
-                                                                    {record.type === 'transfer_in' && record.from_username && (
-                                                                        <span className="text-xs text-gray-500">来自: {record.from_username}</span>
-                                                                    )}
-                                                                    {record.type === 'recharge' && record.from_username && (
-                                                                        <span className="text-xs text-gray-500">充值给: {record.from_username}</span>
-                                                                    )}
-                                                                </div>
-                                                                {record.product_name && (
-                                                                    <p className="font-medium">{record.product_name}</p>
-                                                                )}
-                                                                {record.member_name && (
-                                                                    <p className="text-sm text-gray-500">
-                                                                        会员: {record.member_name} {record.member_phone || ''}
-                                                                    </p>
-                                                                )}
-                                                                <p className="text-xs text-gray-400 mt-1">
-                                                                    {new Date(record.created_at).toLocaleString('zh-CN')}
-                                                                </p>
-                                                            </div>
-                                                            <div className="text-right">
-                                                                <p className={`text-xl font-bold ${record.source === 'withdraw' ? 'text-green-600' : 'text-blue-600'}`}>
-                                                                    {record.source === 'withdraw' ? '+' : '+'}{Number(record.amount || 0).toLocaleString()}
-                                                                </p>
-                                                                {record.market_fee > 0 && (
-                                                                    <p className="text-xs text-gray-500">
-                                                                        市场费: {Number(record.market_fee).toLocaleString()}
-                                                                    </p>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <div className="text-center py-8 text-gray-500">
-                                            <TrendingUp className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                                            <p>暂无收益记录</p>
-                                            <p className="text-sm mt-1">会员购买产品后，收益将在这里显示</p>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
+                                    {/* 提现说明 */}
+                                    <Card className="bg-blue-50 border-blue-200">
+                                        <CardContent className="p-3 text-xs text-blue-700">
+                                            <p className="font-medium mb-1">提现说明</p>
+                                            <ul className="list-disc list-inside space-y-0.5">
+                                                <li>最低提现金额: ¥50</li>
+                                                <li>提现手续费: 5%（沉淀到总公司）</li>
+                                                <li>服务商提现到分公司，分公司审核后线下打款</li>
+                                            </ul>
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -4117,7 +4113,7 @@ export default function ProviderPage() {
                                             });
                                             const data = await res.json();
                                             if (data.success) {
-                                                showMessage("success", `转换成功！${data.data?.pointsAmount || 0}→积分，${data.data?.energyAmount || 0}→能量值`);
+                                                showMessage("success", `转换成功！${data.data?.pointsAdded || 0}→积分，${data.data?.energyAdded || 0}→能量值`);
                                                 setShowConvertDialog(false);
                                                 setWithdrawAmount("");
                                                 loadRevenueRecords();
