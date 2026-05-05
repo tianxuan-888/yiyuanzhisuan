@@ -220,7 +220,6 @@ export default function AdminPage() {
   // 算力额度管理子 Tab 状态
   const [quotaAccounts, setQuotaAccounts] = useState<any[]>([]);
   const [quotaRecords, setQuotaRecords] = useState<any[]>([]);
-  const [quotaApplications, setQuotaApplications] = useState<any[]>([]);
   const [quotaStats, setQuotaStats] = useState({ totalIssued: 0, totalIdle: 0, totalUsed: 0 });
   
   // 算力额度对话框状态
@@ -601,14 +600,12 @@ export default function AdminPage() {
       // 获取算力额度数据（添加时间戳防止缓存）
       try {
         const ts = Date.now();
-        const [accountsRes, recordsRes, applicationsRes] = await Promise.all([
+        const [accountsRes, recordsRes] = await Promise.all([
           authFetch(`/api/quota-accounts?_=${ts}`),
           authFetch(`/api/quota-records?_=${ts}`),
-          authFetch(`/api/quota-requests?status=pending&requesterType=branch&_=${ts}`),
         ]);
         const accountsData = await accountsRes.json();
         const recordsData = await recordsRes.json();
-        const applicationsData = await applicationsRes.json();
         
         if (accountsData.success) {
           setQuotaAccounts(accountsData.data || []);
@@ -618,9 +615,6 @@ export default function AdminPage() {
         if (recordsData.success) {
           setQuotaRecords(recordsData.data || []);
           setQuotaStats(recordsData.stats || { totalIssued: 0, totalIdle: 0, totalUsed: 0 });
-        }
-        if (applicationsData.success) {
-          setQuotaApplications(applicationsData.data || []);
         }
       } catch (e) {
         console.error('获取算力额度数据失败:', e);
@@ -1860,30 +1854,6 @@ export default function AdminPage() {
       }
     };
     
-    // 审批申请处理
-    const handleApproveApplication = async (requestId: string, action: 'approve' | 'reject') => {
-      setSubmitting(true);
-      try {
-        const userId = localStorage.getItem('userId') || '';
-        const res = await authFetch('/api/quota-requests/review', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ requestId, reviewerId: userId, action }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          setMessage({ type: 'success', text: data.message });
-          setTimeout(() => loadData(), 100);
-        } else {
-          setMessage({ type: 'error', text: data.error || '操作失败' });
-        }
-      } catch (e) {
-        setMessage({ type: 'error', text: '操作失败' });
-      } finally {
-        setSubmitting(false);
-      }
-    };
-    
     return (
       <div className="space-y-3 md:space-y-6">
         {/* 额度统计卡片 */}
@@ -1983,41 +1953,6 @@ export default function AdminPage() {
             </div>
           </CardContent>
         </Card>
-
-        {/* 待处理申请 */}
-        {quotaApplications.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>待处理申请 ({quotaApplications.length})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {quotaApplications.map((app: any) => (
-                  <div key={app.id} className="p-4 border rounded-lg flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">
-                        {app.requester_name || '未知'}
-                        <span className="text-xs text-gray-400 ml-2">{app.requester_type === 'branch' ? '分公司' : '服务商'}</span>
-                      </p>
-                      <p className="text-sm text-gray-500">申请金额: ¥{Number(app.requested_amount).toLocaleString()}</p>
-                      {app.requester_type === 'branch' && (
-                        <p className="text-xs text-orange-500">配比能量值: ¥{Math.floor(Number(app.requested_amount) * 0.2).toLocaleString()}</p>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" className="bg-green-600" onClick={() => handleApproveApplication(app.id, 'approve')}>
-                        同意
-                      </Button>
-                      <Button size="sm" variant="destructive" onClick={() => handleApproveApplication(app.id, 'reject')}>
-                        拒绝
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* 创建额度对话框 */}
         {showCreateQuotaDialog && (

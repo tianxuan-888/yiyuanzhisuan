@@ -24,19 +24,16 @@ export async function POST(request: NextRequest) {
 
     const client = getSupabaseClient();
 
-    // 获取申请信息
+    // 获取申请信息（加锁防止并发重复审批）
     const { data: quotaRequest, error: requestError } = await client
       .from('quota_requests')
       .select('*')
       .eq('id', requestId)
+      .eq('status', 'pending')  // 直接过滤pending状态，防止并发
       .single();
 
     if (requestError || !quotaRequest) {
-      return NextResponse.json({ error: '申请不存在' }, { status: 400 });
-    }
-
-    if (quotaRequest.status !== 'pending') {
-      return NextResponse.json({ error: '该申请已被处理' }, { status: 400 });
+      return NextResponse.json({ error: '申请不存在或已被处理' }, { status: 400 });
     }
 
     const now = new Date().toISOString();
