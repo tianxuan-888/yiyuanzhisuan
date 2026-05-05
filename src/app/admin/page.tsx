@@ -2472,9 +2472,50 @@ export default function AdminPage() {
     // 使用 ref 跟踪是否已初始化加载
     const initializedRef = useRef(false);
     
+    // 组件挂载时自动加载所有数据
+    useEffect(() => {
+      if (!initializedRef.current) {
+        initializedRef.current = true;
+        handleRefreshUpgradeAudit();
+        handleRefreshEnergyList();
+        handleRefreshStats();
+        loadAllUsers();
+      }
+    }, []);
+    
     // State 定义
     const [upgradeAuditList, setUpgradeAuditList] = useState<any[]>([]);
     const [memberEnergyList, setMemberEnergyList] = useState<any[]>([]);
+    const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+    const [memberDetail, setMemberDetail] = useState<any>(null);
+    const [memberDetailLoading, setMemberDetailLoading] = useState(false);
+    const [memberDetailTab, setMemberDetailTab] = useState<'holdings' | 'orders' | 'energy'>('holdings');
+    
+    // 加载会员详情
+    const loadMemberDetail = async (userId: string) => {
+      setSelectedMemberId(userId);
+      setMemberDetailLoading(true);
+      setMemberDetailTab('holdings');
+      try {
+        const res = await authFetch(`/api/admin/member-detail?userId=${userId}`);
+        const data = await res.json();
+        if (data.success) {
+          setMemberDetail(data.data);
+        } else {
+          console.error('获取会员详情失败:', data.error);
+        }
+      } catch (err) {
+        console.error('获取会员详情失败:', err);
+      } finally {
+        setMemberDetailLoading(false);
+      }
+    };
+    
+    // 关闭会员详情
+    const closeMemberDetail = () => {
+      setSelectedMemberId(null);
+      setMemberDetail(null);
+    };
     
     // 刷新函数 - 刷新升级审核列表
     const handleRefreshUpgradeAudit = () => {
@@ -2783,6 +2824,7 @@ export default function AdminPage() {
                       <th className="text-left p-3 font-medium text-gray-600">所属分公司</th>
                       <th className="text-left p-3 font-medium text-gray-600">所属服务商</th>
                       <th className="text-left p-3 font-medium text-gray-600">能量值</th>
+                      <th className="text-left p-3 font-medium text-gray-600">余额</th>
                       <th className="text-left p-3 font-medium text-gray-600">注册时间</th>
                       <th className="text-left p-3 font-medium text-gray-600">操作</th>
                     </tr>
@@ -2809,18 +2851,30 @@ export default function AdminPage() {
                         <td className="p-3">
                           <span className="text-orange-600 font-medium">{Number(user.energyValue || 0).toLocaleString()}</span>
                         </td>
+                        <td className="p-3">
+                          <span className="text-green-600 font-medium">¥{Number(user.balance || 0).toLocaleString()}</span>
+                        </td>
                         <td className="p-3 text-gray-500 text-sm">
                           {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '-'}
                         </td>
                         <td className="p-3">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                            onClick={() => handleResetPassword(user.id, user.username)}
-                          >
-                            <Key className="w-4 h-4 mr-1" />重置密码
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => loadMemberDetail(user.id)}
+                            >
+                              <Eye className="w-4 h-4 mr-1" />详情
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                              onClick={() => handleResetPassword(user.id, user.username)}
+                            >
+                              <Key className="w-4 h-4 mr-1" />重置
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -2838,6 +2892,195 @@ export default function AdminPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* 会员详情弹窗 */}
+        {selectedMemberId && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={closeMemberDetail}>
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+              {memberDetailLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <RefreshCw className="w-8 h-8 animate-spin text-gray-400" />
+                  <span className="ml-3 text-gray-500">加载中...</span>
+                </div>
+              ) : memberDetail ? (
+                <div className="flex flex-col h-full">
+                  {/* 头部 */}
+                  <div className="p-6 border-b bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-xl font-bold">{memberDetail.user.username}</h3>
+                        <p className="text-sm text-gray-500 mt-1">{memberDetail.user.phone} · {memberDetail.user.branchName} · {memberDetail.user.providerName}</p>
+                      </div>
+                      <button onClick={closeMemberDetail} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+                    </div>
+                    {/* 统计卡片 */}
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
+                      <div className="bg-white rounded-lg p-3 border">
+                        <div className="text-xs text-gray-500">能量值余额</div>
+                        <div className="text-lg font-bold text-orange-600">{Number(memberDetail.stats.energyBalance || 0).toLocaleString()}</div>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 border">
+                        <div className="text-xs text-gray-500">累计充值</div>
+                        <div className="text-lg font-bold text-green-600">{Number(memberDetail.stats.energyTotalIn || 0).toLocaleString()}</div>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 border">
+                        <div className="text-xs text-gray-500">累计转出</div>
+                        <div className="text-lg font-bold text-red-600">{Number(memberDetail.stats.energyTotalOut || 0).toLocaleString()}</div>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 border">
+                        <div className="text-xs text-gray-500">购买次数</div>
+                        <div className="text-lg font-bold text-blue-600">{memberDetail.stats.buyCount}</div>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 border">
+                        <div className="text-xs text-gray-500">持有产品</div>
+                        <div className="text-lg font-bold text-purple-600">{memberDetail.stats.holdingCount}</div>
+                      </div>
+                    </div>
+                  </div>
+                  {/* 子Tab */}
+                  <div className="flex border-b px-6 pt-2">
+                    <button
+                      onClick={() => setMemberDetailTab('holdings')}
+                      className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                        memberDetailTab === 'holdings' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+                      }`}
+                    >持仓记录 ({memberDetail.holdings?.length || 0})</button>
+                    <button
+                      onClick={() => setMemberDetailTab('orders')}
+                      className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                        memberDetailTab === 'orders' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+                      }`}
+                    >订单记录 ({memberDetail.orders?.length || 0})</button>
+                    <button
+                      onClick={() => setMemberDetailTab('energy')}
+                      className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                        memberDetailTab === 'energy' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+                      }`}
+                    >能量值流水 ({memberDetail.energyRecords?.length || 0})</button>
+                  </div>
+                  {/* 内容 */}
+                  <div className="flex-1 overflow-y-auto p-6">
+                    {/* 持仓记录 */}
+                    {memberDetailTab === 'holdings' && (
+                      memberDetail.holdings?.length > 0 ? (
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b bg-gray-50">
+                              <th className="text-left p-2 text-sm text-gray-600">产品</th>
+                              <th className="text-left p-2 text-sm text-gray-600">周期</th>
+                              <th className="text-left p-2 text-sm text-gray-600">购买价</th>
+                              <th className="text-left p-2 text-sm text-gray-600">预期收益</th>
+                              <th className="text-left p-2 text-sm text-gray-600">市场费</th>
+                              <th className="text-left p-2 text-sm text-gray-600">购买日期</th>
+                              <th className="text-left p-2 text-sm text-gray-600">状态</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {memberDetail.holdings.map((h: any) => (
+                              <tr key={h.id} className="border-b hover:bg-gray-50">
+                                <td className="p-2 text-sm">{h.productName}</td>
+                                <td className="p-2 text-sm">{h.period}天</td>
+                                <td className="p-2 text-sm font-medium">¥{Number(h.purchasePrice).toLocaleString()}</td>
+                                <td className="p-2 text-sm text-green-600">¥{Number(h.expectedProfit).toLocaleString()}</td>
+                                <td className="p-2 text-sm text-orange-600">¥{Number(h.marketFee).toLocaleString()}</td>
+                                <td className="p-2 text-sm text-gray-500">{h.purchaseDate ? new Date(h.purchaseDate).toLocaleDateString() : '-'}</td>
+                                <td className="p-2">
+                                  <Badge className={
+                                    h.status === 'holding' ? 'bg-green-100 text-green-700' :
+                                    h.status === 'expired' ? 'bg-yellow-100 text-yellow-700' :
+                                    'bg-gray-100 text-gray-700'
+                                  }>
+                                    {h.status === 'holding' ? '持有中' : h.status === 'expired' ? '已到期' : h.status}
+                                  </Badge>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : <div className="text-center py-8 text-gray-400">暂无持仓记录</div>
+                    )}
+                    {/* 订单记录 */}
+                    {memberDetailTab === 'orders' && (
+                      memberDetail.orders?.length > 0 ? (
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b bg-gray-50">
+                              <th className="text-left p-2 text-sm text-gray-600">类型</th>
+                              <th className="text-left p-2 text-sm text-gray-600">金额</th>
+                              <th className="text-left p-2 text-sm text-gray-600">状态</th>
+                              <th className="text-left p-2 text-sm text-gray-600">时间</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {memberDetail.orders.map((o: any) => (
+                              <tr key={o.id} className="border-b hover:bg-gray-50">
+                                <td className="p-2 text-sm">
+                                  <Badge className={o.orderType === 'buy' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                                    {o.orderType === 'buy' ? '购买' : '卖出'}
+                                  </Badge>
+                                </td>
+                                <td className="p-2 text-sm font-medium">¥{Number(o.amount).toLocaleString()}</td>
+                                <td className="p-2 text-sm">
+                                  <Badge className={
+                                    o.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                    o.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                                    'bg-gray-100 text-gray-700'
+                                  }>
+                                    {o.status === 'completed' ? '已完成' : o.status === 'pending' ? '待处理' : o.status}
+                                  </Badge>
+                                </td>
+                                <td className="p-2 text-sm text-gray-500">{o.createdAt ? new Date(o.createdAt).toLocaleDateString() : '-'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : <div className="text-center py-8 text-gray-400">暂无订单记录</div>
+                    )}
+                    {/* 能量值流水 */}
+                    {memberDetailTab === 'energy' && (
+                      memberDetail.energyRecords?.length > 0 ? (
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b bg-gray-50">
+                              <th className="text-left p-2 text-sm text-gray-600">类型</th>
+                              <th className="text-left p-2 text-sm text-gray-600">金额</th>
+                              <th className="text-left p-2 text-sm text-gray-600">时间</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {memberDetail.energyRecords.map((e: any) => {
+                              const typeMap: Record<string, string> = {
+                                create: '系统创建', quota_match: '额度匹配', purchase: '购买',
+                                transfer_in: '转入', transfer_out: '转出', withdraw_freeze: '变现冻结',
+                                withdraw: '变现发放', burn: '销毁', recharge: '充值',
+                              };
+                              const isIn = ['create', 'quota_match', 'transfer_in', 'recharge'].includes(e.type);
+                              return (
+                                <tr key={e.id} className="border-b hover:bg-gray-50">
+                                  <td className="p-2 text-sm">
+                                    <Badge className={isIn ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                                      {typeMap[e.type] || e.type}
+                                    </Badge>
+                                  </td>
+                                  <td className={`p-2 text-sm font-medium ${isIn ? 'text-green-600' : 'text-red-600'}`}>
+                                    {isIn ? '+' : '-'}{Number(e.amount).toLocaleString()}
+                                  </td>
+                                  <td className="p-2 text-sm text-gray-500">{e.createdAt ? new Date(e.createdAt).toLocaleDateString() : '-'}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      ) : <div className="text-center py-8 text-gray-400">暂无能量值流水</div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-20 text-gray-400">加载失败</div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     );
 

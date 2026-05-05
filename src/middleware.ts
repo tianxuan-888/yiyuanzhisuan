@@ -31,6 +31,7 @@ const PUBLIC_PATHS = [
   '/api/member/energy-recharge',
   '/api/member/recharge-request',
   '/api/member/revenue',
+  '/api/admin/member-detail',
   '/api/member/revenue/convert',
   '/api/member/revenue/details',
   '/api/member/purchase-limits',
