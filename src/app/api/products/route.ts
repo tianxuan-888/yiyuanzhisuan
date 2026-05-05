@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 
+// 禁用缓存，确保实时数据
+export const dynamic = 'force-dynamic';
+
 // 获取产品列表
 export async function GET(request: NextRequest) {
   try {

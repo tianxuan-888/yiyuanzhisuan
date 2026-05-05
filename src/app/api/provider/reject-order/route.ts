@@ -51,11 +51,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `订单状态为 ${order.status}，无法拒绝` }, { status: 400 });
     }
 
-    // 更新订单状态为已拒绝
+    // 更新订单状态为已取消（order_status 枚举没有 rejected，使用 cancelled）
     const { error: updateError } = await client
       .from('orders')
       .update({
-        status: 'rejected',
+        status: 'cancelled',
         reject_reason: reason || '服务商拒绝',
         updated_at: new Date().toISOString()
       })
