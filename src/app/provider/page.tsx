@@ -1683,65 +1683,65 @@ export default function ProviderPage() {
                 {}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4 mb-4 md:mb-8">
                     <Card className="mobile-compact-card bg-gradient-to-br from-white to-orange-50 border-orange-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                        <CardContent className="pt-5">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="p-2.5 bg-gradient-to-br from-orange-400 to-orange-500 rounded-xl shadow-lg">
-                                    <Zap className="w-5 h-5 text-white" />
+                        <CardContent className="p-3 md:pt-5">
+                            <div className="flex items-center justify-between mb-1.5 md:mb-3">
+                                <div className="p-1.5 md:p-2.5 bg-gradient-to-br from-orange-400 to-orange-500 rounded-lg md:rounded-xl shadow-lg">
+                                    <Zap className="w-4 h-4 md:w-5 md:h-5 text-white" />
                                 </div>
-                                <span className="text-xs font-medium text-orange-600 bg-orange-100 px-2 py-1 rounded-full">额度</span>
+                                <span className="text-[10px] md:text-xs font-medium text-orange-600 bg-orange-100 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full">额度</span>
                             </div>
-                            <p className="text-2xl font-bold mt-2 text-gradient bg-gradient-to-r from-orange-600 to-orange-700">¥{(stats.available_quota || 0).toLocaleString()}
+                            <p className="text-lg md:text-2xl font-bold mt-1 md:mt-2 text-gradient bg-gradient-to-r from-orange-600 to-orange-700">¥{(stats.available_quota || 0).toLocaleString()}
                             </p>
-                            <p className="text-xs text-gray-500 mt-1">可用额度</p>
+                            <p className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1">可用额度</p>
                         </CardContent>
                     </Card>
                     <Card className="mobile-compact-card bg-gradient-to-br from-white to-yellow-50 border-yellow-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                        <CardContent className="pt-5">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="p-2.5 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-xl shadow-lg">
-                                    <Package className="w-5 h-5 text-white" />
+                        <CardContent className="p-3 md:pt-5">
+                            <div className="flex items-center justify-between mb-1.5 md:mb-3">
+                                <div className="p-1.5 md:p-2.5 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-lg md:rounded-xl shadow-lg">
+                                    <Package className="w-4 h-4 md:w-5 md:h-5 text-white" />
                                 </div>
-                                <span className="text-xs font-medium text-yellow-600 bg-yellow-100 px-2 py-1 rounded-full">待上架</span>
+                                <span className="text-[10px] md:text-xs font-medium text-yellow-600 bg-yellow-100 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full">待上架</span>
                             </div>
-                            <p className="text-2xl font-bold mt-2 text-gradient bg-gradient-to-r from-yellow-600 to-amber-600">{stats.pending_count}</p>
-                            <p className="text-xs text-gray-500 mt-1">待上架算力</p>
+                            <p className="text-lg md:text-2xl font-bold mt-1 md:mt-2 text-gradient bg-gradient-to-r from-yellow-600 to-amber-600">{stats.pending_count}</p>
+                            <p className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1">待上架算力</p>
                         </CardContent>
                     </Card>
                     <Card className="mobile-compact-card bg-gradient-to-br from-white to-green-50 border-green-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                        <CardContent className="pt-5">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="p-2.5 bg-gradient-to-br from-green-400 to-emerald-500 rounded-xl shadow-lg">
-                                    <ShoppingCart className="w-5 h-5 text-white" />
+                        <CardContent className="p-3 md:pt-5">
+                            <div className="flex items-center justify-between mb-1.5 md:mb-3">
+                                <div className="p-1.5 md:p-2.5 bg-gradient-to-br from-green-400 to-emerald-500 rounded-lg md:rounded-xl shadow-lg">
+                                    <ShoppingCart className="w-4 h-4 md:w-5 md:h-5 text-white" />
                                 </div>
-                                <span className="text-xs font-medium text-green-600 bg-green-100 px-2 py-1 rounded-full">已上架</span>
+                                <span className="text-[10px] md:text-xs font-medium text-green-600 bg-green-100 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full">已上架</span>
                             </div>
-                            <p className="text-2xl font-bold mt-2 text-gradient bg-gradient-to-r from-green-600 to-emerald-600">{stats.available_count}</p>
-                            <p className="text-xs text-gray-500 mt-1">可售算力</p>
+                            <p className="text-lg md:text-2xl font-bold mt-1 md:mt-2 text-gradient bg-gradient-to-r from-green-600 to-emerald-600">{stats.available_count}</p>
+                            <p className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1">可售算力</p>
                         </CardContent>
                     </Card>
                     <Card className="mobile-compact-card bg-gradient-to-br from-white to-blue-50 border-blue-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                        <CardContent className="pt-5">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="p-2.5 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-xl shadow-lg">
-                                    <TrendingUp className="w-5 h-5 text-white" />
+                        <CardContent className="p-3 md:pt-5">
+                            <div className="flex items-center justify-between mb-1.5 md:mb-3">
+                                <div className="p-1.5 md:p-2.5 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-lg md:rounded-xl shadow-lg">
+                                    <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-white" />
                                 </div>
-                                <span className="text-xs font-medium text-blue-600 bg-blue-100 px-2 py-1 rounded-full">总额</span>
+                                <span className="text-[10px] md:text-xs font-medium text-blue-600 bg-blue-100 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full">总额</span>
                             </div>
-                            <p className="text-2xl font-bold mt-2 text-gradient bg-gradient-to-r from-blue-600 to-indigo-600">¥{(stats.total_value || 0).toLocaleString()}
+                            <p className="text-lg md:text-2xl font-bold mt-1 md:mt-2 text-gradient bg-gradient-to-r from-blue-600 to-indigo-600">¥{(stats.total_value || 0).toLocaleString()}
                             </p>
-                            <p className="text-xs text-gray-500 mt-1">算力总值</p>
+                            <p className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1">算力总值</p>
                         </CardContent>
                     </Card>
                     {/* 能量值卡片 */}
                     <Card className="mobile-compact-card col-span-2 md:col-span-1 bg-gradient-to-br from-purple-600 via-fuchsia-600 to-purple-700 border-0 shadow-xl">
-                        <CardContent className="pt-5">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="p-2.5 bg-white/20 backdrop-blur rounded-xl">
-                                    <Zap className="w-5 h-5 text-white" />
+                        <CardContent className="p-3 md:pt-5">
+                            <div className="flex items-center justify-between mb-1.5 md:mb-3">
+                                <div className="p-1.5 md:p-2.5 bg-white/20 backdrop-blur rounded-lg md:rounded-xl">
+                                    <Zap className="w-4 h-4 md:w-5 md:h-5 text-white" />
                                 </div>
-                                <span className="text-xs font-medium text-purple-200 bg-white/10 px-2 py-1 rounded-full backdrop-blur">能量值</span>
+                                <span className="text-[10px] md:text-xs font-medium text-purple-200 bg-white/10 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full backdrop-blur">能量值</span>
                             </div>
-                            <p className="text-2xl font-bold mt-2 text-white">{user?.energyValue?.toLocaleString() || 0}</p>
+                            <p className="text-lg md:text-2xl font-bold mt-1 md:mt-2 text-white">{user?.energyValue?.toLocaleString() || 0}</p>
                             <div className="flex gap-2 mt-3">
                                 <Button 
                                     size="sm" 
@@ -2241,29 +2241,29 @@ export default function ProviderPage() {
                         {powerSubTab === "quota" && <div className="space-y-3 md:space-y-6">
                         {}
                         {/* 额度统计卡片 */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
                             <Card className="bg-gradient-to-br from-purple-500 to-fuchsia-600 text-white">
-                                <CardContent className="py-4">
-                                    <p className="text-purple-100 text-sm">总分配额度</p>
-                                    <p className="text-2xl font-bold mt-1">¥{(stats.total_quota || 0).toLocaleString()}</p>
+                                <CardContent className="p-3 md:py-4">
+                                    <p className="text-purple-100 text-xs md:text-sm">总分配额度</p>
+                                    <p className="text-lg md:text-2xl font-bold mt-0.5 md:mt-1">¥{(stats.total_quota || 0).toLocaleString()}</p>
                                 </CardContent>
                             </Card>
                             <Card className="bg-gradient-to-br from-blue-500 to-cyan-600 text-white">
-                                <CardContent className="py-4">
-                                    <p className="text-blue-100 text-sm">已使用额度</p>
-                                    <p className="text-2xl font-bold mt-1">¥{(stats.used_quota || 0).toLocaleString()}</p>
+                                <CardContent className="p-3 md:py-4">
+                                    <p className="text-blue-100 text-xs md:text-sm">已使用额度</p>
+                                    <p className="text-lg md:text-2xl font-bold mt-0.5 md:mt-1">¥{(stats.used_quota || 0).toLocaleString()}</p>
                                 </CardContent>
                             </Card>
                             <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
-                                <CardContent className="py-4">
-                                    <p className="text-green-100 text-sm">可用额度</p>
-                                    <p className="text-2xl font-bold mt-1">¥{(stats.available_quota || 0).toLocaleString()}</p>
+                                <CardContent className="p-3 md:py-4">
+                                    <p className="text-green-100 text-xs md:text-sm">可用额度</p>
+                                    <p className="text-lg md:text-2xl font-bold mt-0.5 md:mt-1">¥{(stats.available_quota || 0).toLocaleString()}</p>
                                 </CardContent>
                             </Card>
                             <Card className="bg-gradient-to-br from-orange-500 to-amber-600 text-white">
-                                <CardContent className="py-4">
-                                    <p className="text-orange-100 text-sm">可生成额度</p>
-                                    <p className="text-2xl font-bold mt-1">¥{(stats.available_quota || 0).toLocaleString()}</p>
+                                <CardContent className="p-3 md:py-4">
+                                    <p className="text-orange-100 text-xs md:text-sm">可生成额度</p>
+                                    <p className="text-lg md:text-2xl font-bold mt-0.5 md:mt-1">¥{(stats.available_quota || 0).toLocaleString()}</p>
                                 </CardContent>
                             </Card>
                         </div>
@@ -3544,102 +3544,102 @@ export default function ProviderPage() {
                     {activeTab === "revenue" && (
                         <div className="space-y-3 md:space-y-6">
                             {/* 收益统计卡片 */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-4">
                                 <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
-                                    <CardContent className="pt-4">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <TrendingUp className="w-5 h-5" />
-                                            <span className="text-sm opacity-80">累计总收益</span>
+                                    <CardContent className="p-3 md:pt-4 md:p-6">
+                                        <div className="flex items-center gap-1.5 mb-1 md:mb-2">
+                                            <TrendingUp className="w-3.5 h-3.5 md:w-5 md:h-5" />
+                                            <span className="text-xs md:text-sm opacity-80">累计总收益</span>
                                         </div>
-                                        <p className="text-2xl font-bold">{Number(revenueStats.totalRevenue || 0).toLocaleString()}</p>
-                                        <p className="text-xs opacity-70 mt-1">{revenueStats.orderCount || 0} 笔记录</p>
+                                        <p className="text-lg md:text-2xl font-bold">{Number(revenueStats.totalRevenue || 0).toLocaleString()}</p>
+                                        <p className="text-[10px] md:text-xs opacity-70 mt-0.5 md:mt-1">{revenueStats.orderCount || 0} 笔记录</p>
                                     </CardContent>
                                 </Card>
                                 <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-                                    <CardContent className="pt-4">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <Zap className="w-5 h-5" />
-                                            <span className="text-sm opacity-80">能量值收益</span>
+                                    <CardContent className="p-3 md:pt-4 md:p-6">
+                                        <div className="flex items-center gap-1.5 mb-1 md:mb-2">
+                                            <Zap className="w-3.5 h-3.5 md:w-5 md:h-5" />
+                                            <span className="text-xs md:text-sm opacity-80">能量值收益</span>
                                         </div>
-                                        <p className="text-2xl font-bold">{Number(revenueStats.energyRevenue || 0).toLocaleString()}</p>
-                                        <p className="text-xs opacity-70 mt-1">会员市场费70%</p>
+                                        <p className="text-lg md:text-2xl font-bold">{Number(revenueStats.energyRevenue || 0).toLocaleString()}</p>
+                                        <p className="text-[10px] md:text-xs opacity-70 mt-0.5 md:mt-1">会员市场费70%</p>
                                     </CardContent>
                                 </Card>
                                 <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
-                                    <CardContent className="pt-4">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <Wallet className="w-5 h-5" />
-                                            <span className="text-sm opacity-80">提现到账</span>
+                                    <CardContent className="p-3 md:pt-4 md:p-6">
+                                        <div className="flex items-center gap-1.5 mb-1 md:mb-2">
+                                            <Wallet className="w-3.5 h-3.5 md:w-5 md:h-5" />
+                                            <span className="text-xs md:text-sm opacity-80">提现到账</span>
                                         </div>
-                                        <p className="text-2xl font-bold">{Number(revenueStats.withdrawRevenue || 0).toLocaleString()}</p>
-                                        <p className="text-xs opacity-70 mt-1">已完成的提现</p>
+                                        <p className="text-lg md:text-2xl font-bold">{Number(revenueStats.withdrawRevenue || 0).toLocaleString()}</p>
+                                        <p className="text-[10px] md:text-xs opacity-70 mt-0.5 md:mt-1">已完成的提现</p>
                                     </CardContent>
                                 </Card>
                                 <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white">
-                                    <CardContent className="pt-4">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <Gift className="w-5 h-5" />
-                                            <span className="text-sm opacity-80">会员充值支出</span>
+                                    <CardContent className="p-3 md:pt-4 md:p-6">
+                                        <div className="flex items-center gap-1.5 mb-1 md:mb-2">
+                                            <Gift className="w-3.5 h-3.5 md:w-5 md:h-5" />
+                                            <span className="text-xs md:text-sm opacity-80">会员充值支出</span>
                                         </div>
-                                        <p className="text-2xl font-bold">{Number(revenueStats.rechargeRevenue || 0).toLocaleString()}</p>
-                                        <p className="text-xs opacity-70 mt-1">给会员充值的能量值</p>
+                                        <p className="text-lg md:text-2xl font-bold">{Number(revenueStats.rechargeRevenue || 0).toLocaleString()}</p>
+                                        <p className="text-[10px] md:text-xs opacity-70 mt-0.5 md:mt-1">给会员充值的能量值</p>
                                     </CardContent>
                                 </Card>
-                                <Card className="bg-gradient-to-br from-rose-500 to-pink-600 text-white">
-                                    <CardContent className="pt-4">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <Users className="w-5 h-5" />
-                                            <span className="text-sm opacity-80">下级分成</span>
+                                <Card className="bg-gradient-to-br from-rose-500 to-pink-600 text-white col-span-2 md:col-span-1">
+                                    <CardContent className="p-3 md:pt-4 md:p-6">
+                                        <div className="flex items-center gap-1.5 mb-1 md:mb-2">
+                                            <Users className="w-3.5 h-3.5 md:w-5 md:h-5" />
+                                            <span className="text-xs md:text-sm opacity-80">下级分成</span>
                                         </div>
-                                        <p className="text-2xl font-bold">{Number(revenueStats.subordinateRevenue || 0).toLocaleString()}</p>
-                                        <p className="text-xs opacity-70 mt-1">0.3%~0.5%</p>
+                                        <p className="text-lg md:text-2xl font-bold">{Number(revenueStats.subordinateRevenue || 0).toLocaleString()}</p>
+                                        <p className="text-[10px] md:text-xs opacity-70 mt-0.5 md:mt-1">0.3%~0.5%</p>
                                     </CardContent>
                                 </Card>
                             </div>
 
                             {/* 当前账户状态 */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-4">
                                 <Card>
-                                    <CardContent className="pt-4">
-                                        <div className="flex justify-between items-center">
-                                            <div>
-                                                <p className="text-sm text-muted-foreground">当前收益余额（可提现）</p>
-                                                <p className="text-3xl font-bold text-green-600">¥{Number(revenueStats.balance || 0).toLocaleString()}</p>
+                                    <CardContent className="p-3 md:pt-4 md:p-6">
+                                        <div className="flex justify-between items-center gap-2">
+                                            <div className="min-w-0">
+                                                <p className="text-xs md:text-sm text-muted-foreground">当前收益余额（可提现）</p>
+                                                <p className="text-xl md:text-3xl font-bold text-green-600">¥{Number(revenueStats.balance || 0).toLocaleString()}</p>
                                             </div>
-                                            <div className="flex gap-2">
+                                            <div className="flex gap-1.5 md:gap-2 shrink-0">
                                                 <Button
                                                     size="sm"
+                                                    className="text-xs h-7 md:h-8"
                                                     onClick={() => {
                                                         setWithdrawAmount("");
                                                         setShowWithdrawDialog(true);
                                                     }}
                                                 >
-                                                    <Wallet className="w-4 h-4 mr-1" />
-                                                    收益提现
+                                                    <Wallet className="w-3 h-3 md:w-4 md:h-4 mr-0.5 md:mr-1" />
+                                                    提现
                                                 </Button>
                                                 <Button
                                                     size="sm"
                                                     variant="outline"
+                                                    className="text-xs h-7 md:h-8"
                                                     onClick={() => {
                                                         setWithdrawAmount("");
                                                         setShowWithdrawDialog(true);
                                                     }}
                                                 >
-                                                    <Zap className="w-4 h-4 mr-1" />
-                                                    转能量值
+                                                    <Zap className="w-3 h-3 md:w-4 md:h-4 mr-0.5 md:mr-1" />
+                                                    转能量
                                                 </Button>
                                             </div>
                                         </div>
                                     </CardContent>
                                 </Card>
                                 <Card>
-                                    <CardContent className="pt-4">
-                                        <div className="flex justify-between items-center">
-                                            <div>
-                                                <p className="text-sm text-muted-foreground">当前能量值余额</p>
-                                                <p className="text-3xl font-bold text-blue-600">{Number(revenueStats.energyValue || 0).toLocaleString()}</p>
-                                                <p className="text-xs text-muted-foreground mt-1">用于给会员充值、购买产品付市场费等</p>
-                                            </div>
+                                    <CardContent className="p-3 md:pt-4 md:p-6">
+                                        <div>
+                                            <p className="text-xs md:text-sm text-muted-foreground">当前能量值余额</p>
+                                            <p className="text-xl md:text-3xl font-bold text-blue-600">{Number(revenueStats.energyValue || 0).toLocaleString()}</p>
+                                            <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5 md:mt-1">用于给会员充值、购买产品付市场费等</p>
                                         </div>
                                     </CardContent>
                                 </Card>
