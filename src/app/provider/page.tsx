@@ -606,7 +606,7 @@ export default function ProviderPage() {
                     pending_count: productStats.pending || 0,
                     available_count: productStats.available || 0,
                     sold_count: productStats.sold || 0,
-                    total_value: productStats.total_value || 0
+                    total_value: productStats.totalValue || productStats.total_value || 0
                 }));
             }
 
