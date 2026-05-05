@@ -1684,9 +1684,9 @@ export default function ProviderPage() {
                                 </div>
                                 <span className="text-xs font-medium text-orange-600 bg-orange-100 px-2 py-1 rounded-full">额度</span>
                             </div>
-                            <p className="text-2xl font-bold mt-2 text-gradient bg-gradient-to-r from-orange-600 to-orange-700">¥{(stats.pending_quota || 0).toLocaleString()}
+                            <p className="text-2xl font-bold mt-2 text-gradient bg-gradient-to-r from-orange-600 to-orange-700">¥{(stats.available_quota || 0).toLocaleString()}
                             </p>
-                            <p className="text-xs text-gray-500 mt-1">待使用额度</p>
+                            <p className="text-xs text-gray-500 mt-1">可用额度</p>
                         </CardContent>
                     </Card>
                     <Card className="mobile-compact-card bg-gradient-to-br from-white to-yellow-50 border-yellow-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
@@ -2140,8 +2140,8 @@ export default function ProviderPage() {
                             </CardHeader>
                             <CardContent className="pt-2">
                                 <div className="space-y-3">
-                                    {stats.pending_quota >= 100 && <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl border border-blue-200">
-                                        <p className="text-sm text-blue-700 font-medium mb-2">您有待使用的额度: ¥{(stats.pending_quota || 0).toLocaleString()}</p>
+                                    {(stats.available_quota || 0) >= 100 && <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl border border-blue-200">
+                                        <p className="text-sm text-blue-700 font-medium mb-2">您有可用的额度: ¥{(stats.available_quota || 0).toLocaleString()}</p>
                                         <p className="text-xs text-blue-500">前往额度管理，一键生成算力</p>
                                     </div>}
                                     {stats.pending_count > 0 && <Button
