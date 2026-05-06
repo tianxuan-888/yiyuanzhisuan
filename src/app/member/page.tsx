@@ -807,14 +807,16 @@ const [copySuccess, setCopySuccess] = useState(false);
     };
 
     const calculateProfit = (product: Product) => {
-        // 使用总收益率计算预期总收益
-        const totalRate = product.total_rate || (product.period === 3 ? 5 : 10);
-        return Math.floor(product.price * totalRate / 100);
+        // 使用产品的 profit_rate 计算会员实际到手收益，不使用硬编码
+        const profitRate = product.profit_rate || 0;
+        if (!profitRate) return 0;
+        return Math.floor(product.price * profitRate / 100);
     };
 
     const calculateMarketFee = (product: Product) => {
-        // 使用能量值比例计算市场费
-        const marketRate = product.market_rate || (product.period === 3 ? 3 : 5);
+        // 使用产品自身的 market_rate 计算市场费，不使用硬编码
+        const marketRate = product.market_rate || 0;
+        if (!marketRate) return 0;
         return Math.floor(product.price * marketRate / 100);
     };
 

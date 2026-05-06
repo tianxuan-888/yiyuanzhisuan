@@ -87,6 +87,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const totalAmountStr = searchParams.get('totalAmount');
     const periodStr = searchParams.get('period');
+    const templateIdStr = searchParams.get('templateId');
 
     if (!totalAmountStr || !periodStr) {
       return NextResponse.json(
@@ -105,14 +106,28 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // 从模板获取费率，如果没有传templateId则用默认值
+    let totalRate = 0, marketRate = 0, profitRate = 0;
+    if (templateIdStr) {
+      const template = await queryOne<any>(
+        `SELECT total_rate, market_rate, profit_rate FROM product_templates WHERE id = $1 AND status = 'active'`,
+        [templateIdStr]
+      );
+      if (template) {
+        totalRate = parseFloat(template.total_rate) || 0;
+        marketRate = parseFloat(template.market_rate) || 0;
+        profitRate = parseFloat(template.profit_rate) || 0;
+      }
+    }
+
     // 生成预览
     const prices = generateProductPrices(totalAmount);
     const products = prices.map(price => ({
       price,
       period,
-      totalRate: period === 3 ? 5 : period === 7 ? 10 : period === 15 ? 20 : period === 30 ? 44 : 120,
-      marketRate: period === 3 ? 3 : period === 7 ? 5 : period === 15 ? 10 : period === 30 ? 22 : 60,
-      profitRate: period === 3 ? 2 : period === 7 ? 5 : period === 15 ? 10 : period === 30 ? 22 : 60,
+      totalRate,
+      marketRate,
+      profitRate,
     }));
 
     return NextResponse.json({

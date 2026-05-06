@@ -18,16 +18,6 @@ function parseNumeric(val: any): number {
   return 0;
 }
 
-// 能量值支付比例（根据产品周期）
-function getEnergyValueRate(period: number): number {
-  if (period === 3) return 0.03;
-  if (period === 7) return 0.05;
-  if (period === 15) return 0.10;
-  if (period === 30) return 0.22;
-  if (period === 90) return 0.60;
-  return 0.05;
-}
-
 // 购买产品接口（线下交易模式 + 能量值检查）
 export async function POST(request: NextRequest) {
   try {
@@ -142,7 +132,8 @@ export async function POST(request: NextRequest) {
     }
 
     // ========== 能量值检查 ==========
-    const energyRate = getEnergyValueRate(product.period);
+    // 直接从产品记录读取 market_rate，不使用硬编码比例
+    const energyRate = parseNumeric(product.market_rate) / 100;
     const marketFee = Math.ceil(productPrice * energyRate);
     
     let userEnergy = parseNumeric(user.energy_value);
@@ -191,14 +182,13 @@ export async function POST(request: NextRequest) {
     await query(
       `INSERT INTO energy_transactions (id, user_id, type, amount, note, created_at)
        VALUES ($1, $2, 'spend', $3, $4, NOW())`,
-      [crypto.randomUUID(), userId, marketFee, `购买产品 ${product.name} 支付市场费(${energyRate * 100}%)`]
+      [crypto.randomUUID(), userId, marketFee, `购买产品 ${product.name} 支付市场费(${(energyRate * 100).toFixed(1)}%)`]
     );
 
     // 2. 创建 user_products 记录（pending_confirm 状态）
     const userProductId = crypto.randomUUID();
     const purchaseDate = new Date();
     const expireDate = new Date(purchaseDate.getTime() + product.period * 24 * 60 * 60 * 1000);
-    const expectedProfit = Math.floor(productPrice * (parseNumeric(product.total_rate) / 100));
     const profitRate = parseNumeric(product.profit_rate) / 100;
     const memberActualProfit = Math.floor(productPrice * profitRate);
 
