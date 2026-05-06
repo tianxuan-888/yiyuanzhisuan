@@ -3370,23 +3370,25 @@ const [copySuccess, setCopySuccess] = useState(false);
                             </Card>
 
                             {/* 收益统计卡片 */}
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
                                     <CardContent className="pt-4">
                                         <div className="flex items-center gap-2 mb-2">
                                             <Wallet className="w-5 h-5" />
-                                            <span className="text-sm opacity-80">累计本金</span>
+                                            <span className="text-sm opacity-80">持仓本金</span>
                                         </div>
-                                        <p className="text-2xl font-bold">{profitStats.totalPrincipal?.toLocaleString() || 0}</p>
+                                        <p className="text-2xl font-bold">¥{profitStats.holdingPrincipal?.toLocaleString() || 0}</p>
+                                        <p className="text-xs opacity-70 mt-1">已收回本金: ¥{profitStats.totalPrincipal?.toLocaleString() || 0}</p>
                                     </CardContent>
                                 </Card>
                                 <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
                                     <CardContent className="pt-4">
                                         <div className="flex items-center gap-2 mb-2">
                                             <TrendingUp className="w-5 h-5" />
-                                            <span className="text-sm opacity-80">累计收益</span>
+                                            <span className="text-sm opacity-80">预期收益</span>
                                         </div>
-                                        <p className="text-2xl font-bold">{profitStats.totalProfit?.toLocaleString() || 0}</p>
+                                        <p className="text-2xl font-bold">¥{profitStats.holdingExpectedProfit?.toLocaleString() || 0}</p>
+                                        <p className="text-xs opacity-70 mt-1">已到账收益: ¥{profitStats.totalProfit?.toLocaleString() || 0}</p>
                                     </CardContent>
                                 </Card>
                                 <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
@@ -3395,7 +3397,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             <Zap className="w-5 h-5" />
                                             <span className="text-sm opacity-80">已转能量值</span>
                                         </div>
-                                        <p className="text-2xl font-bold">{profitStats.converted?.toLocaleString() || 0}</p>
+                                        <p className="text-2xl font-bold">¥{profitStats.converted?.toLocaleString() || 0}</p>
                                     </CardContent>
                                 </Card>
                                 <Card className="bg-gradient-to-br from-amber-500 to-orange-600 text-white">
@@ -3404,7 +3406,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             <Coins className="w-5 h-5" />
                                             <span className="text-sm opacity-80">可转能量值</span>
                                         </div>
-                                        <p className="text-2xl font-bold">{profitStats.available?.toLocaleString() || 0}</p>
+                                        <p className="text-2xl font-bold">¥{profitStats.available?.toLocaleString() || 0}</p>
                                         {Number(profitStats.available) > 0 && (
                                             <Button
                                                 size="sm"
@@ -3418,16 +3420,6 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                 转为能量值
                                             </Button>
                                         )}
-                                    </CardContent>
-                                </Card>
-                                <Card className="bg-gradient-to-br from-cyan-500 to-teal-600 text-white">
-                                    <CardContent className="pt-4">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <Clock className="w-5 h-5" />
-                                            <span className="text-sm opacity-80">持仓预期收益</span>
-                                        </div>
-                                        <p className="text-2xl font-bold">{profitStats.holdingExpectedProfit?.toLocaleString() || 0}</p>
-                                        <p className="text-xs opacity-70 mt-1">持仓本金: {profitStats.holdingPrincipal?.toLocaleString() || 0}</p>
                                     </CardContent>
                                 </Card>
                             </div>
