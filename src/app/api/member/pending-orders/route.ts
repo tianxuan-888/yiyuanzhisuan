@@ -76,6 +76,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: pendingOrders,
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Pragma': 'no-cache',
+      },
     });
   } catch (error) {
     console.error('获取待审核订单异常:', error);

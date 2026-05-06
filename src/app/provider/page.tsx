@@ -412,7 +412,7 @@ export default function ProviderPage() {
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
         }
-        return fetch(url, { ...options, headers });
+        return fetch(url, { ...options, headers, cache: 'no-store' });
     };
 
     // 加载会员充值申请列表

@@ -311,7 +311,7 @@ export default function AdminPage() {
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
-    return fetch(url, { ...options, headers });
+    return fetch(url, { ...options, headers, cache: 'no-store' });
   };
 
   // 系统配置类型

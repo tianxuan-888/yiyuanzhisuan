@@ -127,7 +127,7 @@ export default function MemberPage() {
         const token = localStorage.getItem('token');
         const headers: Record<string, string> = { 'Content-Type': 'application/json', ...(options.headers as Record<string, string>) };
         if (token) headers['Authorization'] = `Bearer ${token}`;
-        return fetch(url, { ...options, headers });
+        return fetch(url, { ...options, headers, cache: 'no-store' });
     };
 
     const [stats, setStats] = useState<Stats>({

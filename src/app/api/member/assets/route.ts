@@ -187,7 +187,7 @@ export async function GET(request: NextRequest) {
         orders: orders,
         transactions: transactions,
       },
-    });
+    }, { headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' } });
   } catch (error) {
     console.error('获取用户资产失败:', error);
     return NextResponse.json(

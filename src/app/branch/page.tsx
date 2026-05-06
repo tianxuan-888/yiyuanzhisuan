@@ -116,7 +116,7 @@ export default function BranchPage() {
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
-    const response = await fetch(url, { ...options, headers });
+    const response = await fetch(url, { ...options, headers, cache: 'no-store' });
     return response;
   };
 
