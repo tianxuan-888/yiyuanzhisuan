@@ -50,12 +50,12 @@ export async function GET(request: NextRequest) {
     const memberIds = [...new Set((records || []).map(r => r.member_id))];
     const { data: members } = await supabase
       .from('users')
-      .select('id, username, phone')
+      .select('id, username, phone, unique_id')
       .in('id', memberIds);
 
-    const memberMap: Record<string, { username: string; phone: string }> = {};
+    const memberMap: Record<string, { username: string; phone: string; unique_id: string }> = {};
     (members || []).forEach(m => {
-      memberMap[m.id] = { username: m.username, phone: m.phone };
+      memberMap[m.id] = { username: m.username, phone: m.phone, unique_id: m.unique_id };
     });
 
     const requests = (records || []).map(r => ({
@@ -63,6 +63,7 @@ export async function GET(request: NextRequest) {
       memberId: r.member_id,
       memberName: memberMap[r.member_id]?.username || '未知',
       memberPhone: memberMap[r.member_id]?.phone || '未知',
+      uniqueId: memberMap[r.member_id]?.unique_id || '',
       amount: Number(r.amount),
       note: r.note || null,
       status: r.status || 'pending',

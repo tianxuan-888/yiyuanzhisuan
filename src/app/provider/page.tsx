@@ -3510,7 +3510,7 @@ export default function ProviderPage() {
                                                 <div className="flex gap-2 justify-end">
                                                     <Button size="sm" variant="destructive" onClick={() => {
                                                         setSelectedRechargeRequest(req);
-                                                        handleMemberRechargeAction(req.id, 'reject');
+                                                        setShowMemberRechargeDialog(true);
                                                     }}>拒绝</Button>
                                                     <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => {
                                                         setSelectedRechargeRequest(req);
