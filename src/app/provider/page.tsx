@@ -997,8 +997,9 @@ export default function ProviderPage() {
             });
             const data = await response.json();
             if (data.success) {
-                showMessage("success", data.message || "产品已下架");
-                refreshAll();
+                showMessage("success", data.message || "产品已下架，正在刷新...");
+                await refreshAll(500);
+                setTimeout(() => refreshAll(300), 1500);
             } else {
                 showMessage("error", data.error || "下架失败");
             }
@@ -1024,8 +1025,9 @@ export default function ProviderPage() {
             });
             const data = await response.json();
             if (data.success) {
-                showMessage("success", `产品"${productName}"已上架`);
-                refreshAll();
+                showMessage("success", `产品"${productName}"已上架，正在刷新...`);
+                await refreshAll(500);
+                setTimeout(() => refreshAll(300), 1500);
             } else {
                 showMessage("error", data.error || "上架失败");
             }
@@ -1061,9 +1063,10 @@ export default function ProviderPage() {
             });
             const data = await response.json();
             if (data.success) {
-                showMessage("success", data.message);
+                showMessage("success", data.message + "，正在刷新...");
                 setSelectedProductIds([]);
-                refreshAll();
+                await refreshAll(500);
+                setTimeout(() => refreshAll(300), 1500);
             } else {
                 showMessage("error", data.error || "删除失败");
             }
@@ -1099,9 +1102,10 @@ export default function ProviderPage() {
             });
             const data = await response.json();
             if (data.success) {
-                showMessage("success", `已上架${unlistedIds.length}个产品`);
                 setSelectedProductIds([]);
-                refreshAll();
+                showMessage("success", `已上架${unlistedIds.length}个产品，正在刷新...`);
+                await refreshAll(500);
+                setTimeout(() => refreshAll(300), 1500);
             } else {
                 showMessage("error", data.error || "上架失败");
             }
@@ -1137,9 +1141,11 @@ export default function ProviderPage() {
             });
             const data = await response.json();
             if (data.success) {
-                showMessage("success", `已下架${availableIds.length}个产品`);
                 setSelectedProductIds([]);
-                refreshAll();
+                showMessage("success", `已下架${availableIds.length}个产品，正在刷新...`);
+                await refreshAll(500);
+                // 二次刷新确保状态同步
+                setTimeout(() => refreshAll(300), 1500);
             } else {
                 showMessage("error", data.error || "下架失败");
             }
@@ -1167,8 +1173,9 @@ export default function ProviderPage() {
             const data = await response.json();
 
             if (data.success) {
-                showMessage("success", data.message || "上架成功");
-                refreshAll();
+                showMessage("success", (data.message || "上架成功") + "，正在刷新...");
+                await refreshAll(500);
+                setTimeout(() => refreshAll(300), 1500);
             } else {
                 showMessage("error", data.error || "上架失败");
             }
@@ -1533,9 +1540,9 @@ export default function ProviderPage() {
     }, []);
 
     // 全局刷新：并行加载所有数据，确保操作后实时更新
-    const refreshAll = useCallback(async () => {
-        // 短暂延迟确保数据库写入完成后再读取，避免 PostgREST 缓存返回旧数据
-        await new Promise(r => setTimeout(r, 300));
+    const refreshAll = useCallback(async (delay = 500) => {
+        // 延迟确保数据库写入完成后再读取，避免 PostgREST 缓存返回旧数据
+        await new Promise(r => setTimeout(r, delay));
         await Promise.allSettled([
             refreshUser(),
             loadData(),
