@@ -3,6 +3,7 @@ import { query } from '@/lib/pg-client';
 import { hashPassword } from '@/lib/password';
 import { getInviteCodeType } from '@/lib/invite-code';
 import { getVerifyCode, deleteVerifyCode } from '@/lib/verify-code';
+import { checkSmsVerifyCode, isAliyunSmsConfigured } from '@/lib/aliyun-sms';
 
 // 用户注册接口
 export async function POST(request: NextRequest) {
@@ -63,22 +64,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 验证验证码是否正确
-    const storedCode = await getVerifyCode(phone);
-    if (!storedCode || storedCode.code !== verify_code) {
-      return NextResponse.json(
-        { error: '验证码错误或已过期' },
-        { status: 400 }
-      );
-    }
-
-    // 检查验证码是否过期
-    if (storedCode.expiresAt < Date.now()) {
-      await deleteVerifyCode(phone);
-      return NextResponse.json(
-        { error: '验证码已过期，请重新获取' },
-        { status: 400 }
-      );
+    // 验证验证码：优先使用阿里云服务端校验，否则本地数据库比对
+    if (isAliyunSmsConfigured()) {
+      const checkResult = await checkSmsVerifyCode(phone, verify_code);
+      if (!checkResult.success) {
+        return NextResponse.json(
+          { error: checkResult.message || '验证码错误' },
+          { status: 400 }
+        );
+      }
+    } else {
+      const storedCode = await getVerifyCode(phone);
+      if (!storedCode || storedCode.code !== verify_code) {
+        return NextResponse.json(
+          { error: '验证码错误或已过期' },
+          { status: 400 }
+        );
+      }
+      if (storedCode.expiresAt < Date.now()) {
+        await deleteVerifyCode(phone);
+        return NextResponse.json(
+          { error: '验证码已过期，请重新获取' },
+          { status: 400 }
+        );
+      }
     }
 
     // 检查用户名是否已存在

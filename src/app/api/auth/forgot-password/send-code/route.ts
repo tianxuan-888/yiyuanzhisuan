@@ -48,14 +48,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 生成6位验证码
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // 使用 reset_ 前缀区分注册验证码，5分钟有效期
-    await setVerifyCode(`reset_${phone}`, code);
-
-    // 发送短信验证码
-    const smsResult = await sendSmsVerifyCode(phone, code);
+    // 发送短信验证码（重置密码场景用模板100003）
+    const smsResult = await sendSmsVerifyCode(phone, 'reset_password');
 
     if (!smsResult.success) {
       return NextResponse.json(
@@ -63,6 +57,12 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // 使用阿里云返回的验证码，或开发模式下自己生成的
+    const code = smsResult.code || Math.floor(100000 + Math.random() * 900000).toString();
+
+    // 使用 reset_ 前缀区分注册验证码，5分钟有效期
+    await setVerifyCode(`reset_${phone}`, code);
 
     const isDev = !isAliyunSmsConfigured();
 
