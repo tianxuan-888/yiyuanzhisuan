@@ -1512,6 +1512,13 @@ export default function ProviderPage() {
         }
     }, []);
 
+    // 初始加载待审核转账和提现数据
+    useEffect(() => {
+        if (user) {
+            loadWithdrawalData();
+        }
+    }, [user, loadWithdrawalData]);
+
     // 加载积分记录
     const loadPointsRecords = useCallback(async () => {
         try {
@@ -1549,11 +1556,12 @@ export default function ProviderPage() {
             loadRevenueRecords(),
             loadTransferRecords(),
             loadWithdrawRecords(),
+            loadWithdrawalData(),
             loadEnergyRequests(),
             loadPointsRecords(),
             loadConvertRecords(),
         ]);
-    }, [refreshUser, loadData, loadRevenueRecords, loadTransferRecords, loadWithdrawRecords, loadEnergyRequests, loadPointsRecords, loadConvertRecords]);
+    }, [refreshUser, loadData, loadRevenueRecords, loadTransferRecords, loadWithdrawRecords, loadWithdrawalData, loadEnergyRequests, loadPointsRecords, loadConvertRecords]);
 
     // 积分转能量值
     const handlePointsToEnergy = async () => {
@@ -2001,7 +2009,11 @@ export default function ProviderPage() {
                             </button>
 
                             <button
-                                onClick={() => setActiveTab("energy")}
+                                onClick={() => {
+                                    setActiveTab("energy");
+                                    loadTransferRecords();
+                                    loadWithdrawalData();
+                                }}
                                 className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "energy" ? "bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-200" : "text-gray-600 hover:bg-purple-50"}`}>
                                 <Zap className="w-4 h-4" />能量值管理
                             </button>
