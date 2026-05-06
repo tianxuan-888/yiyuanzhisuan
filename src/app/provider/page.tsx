@@ -57,6 +57,7 @@ import {
     ArrowUpRight,
     ArrowDownLeft,
     ArrowDownToLine,
+    ArrowUpFromLine,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -1010,16 +1011,16 @@ export default function ProviderPage() {
         const providerId = localStorage.getItem("userId");
         if (!providerId) return;
 
-        // 获取选中的未上架产品
-        const unlistedProducts = products.filter((p: any) => 
-            p.status === 'unlisted' && selectedProductIds.includes(p.id)
+        // 获取选中的未上架产品（含draft）
+        const deletableProducts = products.filter((p: any) => 
+            (p.status === 'unlisted' || p.status === 'draft') && selectedProductIds.includes(p.id)
         );
-        if (unlistedProducts.length === 0) {
+        if (deletableProducts.length === 0) {
             showMessage("error", "请选择要删除的未上架产品");
             return;
         }
 
-        if (!confirm(`确定删除${unlistedProducts.length}个产品？删除后额度将退回。`)) return;
+        if (!confirm(`确定删除${deletableProducts.length}个产品？删除后额度将退回。`)) return;
 
         try {
             const response = await authFetch("/api/provider/products/batch-status", {
@@ -1027,7 +1028,7 @@ export default function ProviderPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     providerId,
-                    productIds: unlistedProducts.map((p: any) => p.id),
+                    productIds: deletableProducts.map((p: any) => p.id),
                 }),
             });
             const data = await response.json();
@@ -1037,6 +1038,82 @@ export default function ProviderPage() {
                 refreshAll();
             } else {
                 showMessage("error", data.error || "删除失败");
+            }
+        } catch {
+            showMessage("error", "网络错误");
+        }
+    };
+
+    const handleBatchListProducts = async () => {
+        const providerId = localStorage.getItem("userId");
+        if (!providerId) return;
+
+        const unlistedIds = selectedProductIds.filter(id => {
+            const p = products.find((pp: any) => pp.id === id);
+            return p && (p.status === 'draft' || p.status === 'unlisted');
+        });
+        if (unlistedIds.length === 0) {
+            showMessage("error", "请选择要上架的未上架产品");
+            return;
+        }
+
+        if (!confirm(`确定上架${unlistedIds.length}个产品？`)) return;
+
+        try {
+            const response = await authFetch("/api/provider/products/batch-status", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    providerId,
+                    productIds: unlistedIds,
+                    status: "available",
+                }),
+            });
+            const data = await response.json();
+            if (data.success) {
+                showMessage("success", `已上架${unlistedIds.length}个产品`);
+                setSelectedProductIds([]);
+                refreshAll();
+            } else {
+                showMessage("error", data.error || "上架失败");
+            }
+        } catch {
+            showMessage("error", "网络错误");
+        }
+    };
+
+    const handleBatchUnlistProducts = async () => {
+        const providerId = localStorage.getItem("userId");
+        if (!providerId) return;
+
+        const availableIds = selectedProductIds.filter(id => {
+            const p = products.find((pp: any) => pp.id === id);
+            return p && p.status === 'available';
+        });
+        if (availableIds.length === 0) {
+            showMessage("error", "请选择要下架的已上架产品");
+            return;
+        }
+
+        if (!confirm(`确定下架${availableIds.length}个产品？下架后回到待上架列表。`)) return;
+
+        try {
+            const response = await authFetch("/api/provider/products/batch-status", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    providerId,
+                    productIds: availableIds,
+                    status: "unlisted",
+                }),
+            });
+            const data = await response.json();
+            if (data.success) {
+                showMessage("success", `已下架${availableIds.length}个产品`);
+                setSelectedProductIds([]);
+                refreshAll();
+            } else {
+                showMessage("error", data.error || "下架失败");
             }
         } catch {
             showMessage("error", "网络错误");
@@ -2507,6 +2584,21 @@ export default function ProviderPage() {
                                 <table className="w-full">
                                     <thead>
                                         <tr className="border-b bg-gray-50">
+                                            <th className="text-left py-3 px-4 w-10">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={products.length > 0 && products.filter(p => p.status === 'draft' || p.status === 'unlisted' || p.status === 'available').every(p => selectedProductIds.includes(p.id))}
+                                                    onChange={(e) => {
+                                                        const selectableIds = products.filter(p => p.status === 'draft' || p.status === 'unlisted' || p.status === 'available').map(p => p.id);
+                                                        if (e.target.checked) {
+                                                            setSelectedProductIds(selectableIds);
+                                                        } else {
+                                                            setSelectedProductIds([]);
+                                                        }
+                                                    }}
+                                                    className="w-4 h-4"
+                                                />
+                                            </th>
                                             <th className="text-left py-3 px-4">算力名称</th>
                                             <th className="text-left py-3 px-4">价格</th>
                                             <th className="text-left py-3 px-4">周期</th>
@@ -2520,25 +2612,25 @@ export default function ProviderPage() {
                                     <tbody>
                                         {products.map(product => <tr key={product.id} className="border-b hover:bg-gray-50">
                                             <td className="py-3 px-4">
-                                                <div className="flex items-center gap-2">
-                                                    {(product.status === 'draft' || product.status === 'unlisted') && (
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={selectedProductIds.includes(product.id)}
-                                                            onChange={(e) => {
-                                                                if (e.target.checked) {
-                                                                    setSelectedProductIds([...selectedProductIds, product.id]);
-                                                                } else {
-                                                                    setSelectedProductIds(selectedProductIds.filter(id => id !== product.id));
-                                                                }
-                                                            }}
-                                                            className="w-4 h-4"
-                                                        />
-                                                    )}
-                                                    <div>
-                                                        <p className="font-medium">{product.name}</p>
-                                                        <p className="text-sm text-gray-500">{product.code}</p>
-                                                    </div>
+                                                {(product.status === 'draft' || product.status === 'unlisted' || product.status === 'available') && (
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedProductIds.includes(product.id)}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) {
+                                                                setSelectedProductIds([...selectedProductIds, product.id]);
+                                                            } else {
+                                                                setSelectedProductIds(selectedProductIds.filter(id => id !== product.id));
+                                                            }
+                                                        }}
+                                                        className="w-4 h-4"
+                                                    />
+                                                )}
+                                            </td>
+                                            <td className="py-3 px-4">
+                                                <div>
+                                                    <p className="font-medium">{product.name}</p>
+                                                    <p className="text-sm text-gray-500">{product.code}</p>
                                                 </div>
                                             </td>
                                             <td className="py-3 px-4 text-green-600 font-medium">¥{(product.price || 0).toLocaleString()}
@@ -2608,15 +2700,33 @@ export default function ProviderPage() {
                                             </td>
                                         </tr>)}
                                         {products.length === 0 && <tr>
-                                            <td colSpan={8} className="py-8 text-center text-gray-500">暂无算力，请先使用额度生成算力
+                                            <td colSpan={9} className="py-8 text-center text-gray-500">暂无算力，请先使用额度生成算力
                                                                           </td>
                                         </tr>}
                                     </tbody>
                                 </table>
                                 {/* 批量操作栏 */}
                                 {selectedProductIds.length > 0 && (
-                                    <div className="flex items-center gap-3 p-3 bg-red-50 border-t">
-                                        <span className="text-sm text-red-700">已选 {selectedProductIds.length} 个未上架产品</span>
+                                    <div className="flex items-center gap-3 p-3 bg-blue-50 border-t">
+                                        <span className="text-sm text-blue-700">已选 {selectedProductIds.length} 个产品</span>
+                                        {selectedProductIds.some(id => products.find(p => p.id === id && (p.status === 'draft' || p.status === 'unlisted'))) && (
+                                            <Button
+                                                size="sm"
+                                                className="bg-green-600 hover:bg-green-700 text-white"
+                                                onClick={handleBatchListProducts}
+                                            >
+                                                <ArrowUpFromLine className="w-4 h-4 mr-1" />批量上架
+                                            </Button>
+                                        )}
+                                        {selectedProductIds.some(id => products.find(p => p.id === id && p.status === 'available')) && (
+                                            <Button
+                                                size="sm"
+                                                className="bg-orange-500 hover:bg-orange-600 text-white"
+                                                onClick={handleBatchUnlistProducts}
+                                            >
+                                                <ArrowDownToLine className="w-4 h-4 mr-1" />批量下架
+                                            </Button>
+                                        )}
                                         <Button
                                             size="sm"
                                             variant="destructive"
