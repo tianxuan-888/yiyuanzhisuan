@@ -1092,12 +1092,12 @@ export default function ProviderPage() {
 
         try {
             const response = await authFetch("/api/provider/products/batch-status", {
-                method: "PUT",
+                method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     providerId,
                     productIds: unlistedIds,
-                    status: "available",
+                    action: "list",
                 }),
             });
             const data = await response.json();
@@ -1131,12 +1131,12 @@ export default function ProviderPage() {
 
         try {
             const response = await authFetch("/api/provider/products/batch-status", {
-                method: "PUT",
+                method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     providerId,
                     productIds: availableIds,
-                    status: "unlisted",
+                    action: "unlist",
                 }),
             });
             const data = await response.json();
