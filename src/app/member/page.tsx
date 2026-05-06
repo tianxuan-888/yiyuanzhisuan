@@ -2632,7 +2632,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                         </div>
 
                         {}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
                             {products.map(product => {
                                 // 根据价格确定产品等级和颜色 (蓝色入门级、绿色进阶级、橙黄高端级)
                                 const getProductTier = (price: number) => {
@@ -2677,120 +2677,83 @@ const [copySuccess, setCopySuccess] = useState(false);
                                     };
                                 };
 
-                                // 根据GPU型号获取展示信息
-                                const getGPUDisplay = (productId: string) => {
-                                    // 从产品ID解析GPU信息
-                                    const id = productId.toLowerCase();
-                                    if (id.includes('rtx4090') || id.includes('nvidia')) {
-                                        return { vendor: 'nvidia', model: 'RTX 4090', fullName: 'NVIDIA RTX 4090', icon: 'GPU', desc: '最新一代旗舰显卡，16384 CUDA核心，24GB GDDR6X显存' };
-                                    }
-                                    if (id.includes('rtx3090')) {
-                                        return { vendor: 'nvidia', model: 'RTX 3090', fullName: 'NVIDIA RTX 3090', icon: 'GPU', desc: '旗舰级游戏显卡，10496 CUDA核心，24GB GDDR6X显存' };
-                                    }
-                                    if (id.includes('ascend910b') || id.includes('huawei')) {
-                                        return { vendor: 'huawei', model: '昇腾 910B', fullName: '华为昇腾 910B', icon: 'AI', desc: '华为旗舰AI芯片，2560 TOPS INT8算力，256GB HBM' };
-                                    }
-                                    if (id.includes('ascend910')) {
-                                        return { vendor: 'huawei', model: '昇腾 910', fullName: '华为昇腾 910', icon: 'AI', desc: '华为自研AI处理器，256 TOPS INT8算力' };
-                                    }
-                                    if (id.includes('ascend310')) {
-                                        return { vendor: 'huawei', model: '昇腾 310', fullName: '华为昇腾 310', icon: 'AI', desc: '高能效AI推理芯片，边缘计算理想选择' };
-                                    }
-                                    if (id.includes('mlu290') || id.includes('sugon')) {
-                                        return { vendor: 'sugon', model: '思元 290', fullName: '思元 MLU290', icon: 'MLU', desc: '国产高端AI训练芯片，512 TOPS FP16，128GB HBM2' };
-                                    }
-                                    if (id.includes('mlu270')) {
-                                        return { vendor: 'sugon', model: '思元 270', fullName: '思元 MLU270', icon: 'MLU', desc: '高性能AI推理芯片，128 TOPS INT8' };
-                                    }
-                                    // 默认根据价格分配
-                                    if (product.price <= 5000) {
-                                        return { vendor: 'nvidia', model: 'RTX A4000', fullName: 'NVIDIA RTX A4000', icon: 'GPU', desc: '专业级显卡，6144 CUDA核心，16GB GDDR6显存' };
-                                    }
-                                    if (product.price <= 30000) {
-                                        return { vendor: 'huawei', model: '昇腾 910', fullName: '华为昇腾 910', icon: 'AI', desc: '华为自研AI处理器，强大算力支持' };
-                                    }
-                                    return { vendor: 'sugon', model: '思元 290', fullName: '思元 MLU290', icon: 'MLU', desc: '国产高端AI训练芯片，超大规模并行计算' };
-                                };
-
                                 const tier = getProductTier(product.price);
-                                const gpuInfo = getGPUDisplay(product.id);
-                                const total_rate = product.total_rate || product.period === 3 ? 5 : 10;
-                                const profit_rate = product.profit_rate || product.period === 3 ? 2 : 5;
+                                const total_rate = product.total_rate || (product.period === 3 ? 5 : 10);
+                                const profit_rate = product.profit_rate || (product.period === 3 ? 2 : 5);
 
                                 return (
                                 <Card 
                                     key={product.id}
                                     className={`bg-gradient-to-br ${tier.bgGradient} border-slate-700 overflow-hidden hover:shadow-xl transition-all duration-300 group`}
                                 >
-                                    {/* 顶部GPU展示区域 */}
-                                    <div className="relative h-40 overflow-hidden">
+                                    {/* 顶部GPU展示区域 - 移动端紧凑 */}
+                                    <div className="relative h-24 md:h-36 overflow-hidden">
                                         {/* 渐变背景 */}
                                         <div className={`absolute inset-0 bg-gradient-to-br ${tier.headerBg}`}>
-                                            {/* 科技网格背景 */}
                                             <div className="absolute inset-0 opacity-10" style={{
                                                 backgroundImage: `linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px)`,
                                                 backgroundSize: '20px 20px'
                                             }} />
-                                            {/* 科技线条动画 */}
                                             <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
                                         </div>
 
                                         {/* GPU芯片图标 */}
                                         <div className="absolute inset-0 flex items-center justify-center">
-                                            <div className={`w-24 h-24 rounded-2xl bg-gradient-to-br ${tier.iconBg} border-2 ${tier.iconBorder} flex flex-col items-center justify-center backdrop-blur-sm shadow-2xl`}>
-                                                <span className={`text-2xl font-black ${tier.iconColor}`}>{gpuInfo.icon}</span>
-                                                <span className={`text-[10px] font-bold mt-1 ${tier.iconColor}`}>{gpuInfo.vendor.toUpperCase()}</span>
+                                            <div className={`w-14 h-14 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-gradient-to-br ${tier.iconBg} border-2 ${tier.iconBorder} flex flex-col items-center justify-center backdrop-blur-sm shadow-2xl`}>
+                                                <span className={`text-lg md:text-2xl font-black ${tier.iconColor}`}>GPU</span>
+                                                <span className={`text-[8px] md:text-[10px] font-bold mt-0.5 md:mt-1 ${tier.iconColor}`}>{product.period === 3 ? '3天' : '7天'}</span>
                                             </div>
                                         </div>
 
                                         {/* 等级标签 */}
-                                        <div className="absolute top-3 left-3">
-                                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${tier.badge} border backdrop-blur-sm`}>
+                                        <div className="absolute top-2 left-2 md:top-3 md:left-3">
+                                            <span className={`px-1.5 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-bold ${tier.badge} border backdrop-blur-sm`}>
                                                 {tier.name}
                                             </span>
                                         </div>
 
-                                        {/* 星级评级 */}
-                                        <div className="absolute top-3 right-3 flex gap-0.5">
+                                        {/* 星级评级 - 桌面端显示 */}
+                                        <div className="absolute top-3 right-3 gap-0.5 hidden md:flex">
                                             {[...Array(5)].map((_, i) => (
                                                 <Star key={i} className={`w-3.5 h-3.5 ${i < tier.stars ? 'text-yellow-400 fill-yellow-400' : 'text-white/30'}`} />
                                             ))}
                                         </div>
 
                                         {/* 产品编码 */}
-                                        <div className="absolute bottom-3 right-3">
-                                            <span className="px-2 py-0.5 bg-slate-900/80 rounded text-xs text-slate-300 font-mono backdrop-blur-sm">
-                                                {product.code || `GPU-${product.id.slice(0, 8).toUpperCase()}`}
+                                        <div className="absolute bottom-2 right-2 md:bottom-3 md:right-3">
+                                            <span className="px-1.5 py-0.5 bg-slate-900/80 rounded text-[9px] md:text-xs text-slate-300 font-mono backdrop-blur-sm">
+                                                {product.code || `GPU-${product.id.slice(0, 6).toUpperCase()}`}
                                             </span>
                                         </div>
                                     </div>
 
-                                    {/* 产品信息区域 */}
-                                    <CardContent className="p-5">
-                                        {/* GPU型号 */}
-                                        <div className="mb-3">
-                                            <h3 className="text-lg font-bold text-white group-hover:text-emerald-400 transition-colors flex items-center gap-2">
-                                                {gpuInfo.model}
-                                                <Badge variant="outline" className="text-xs border-slate-600 text-slate-400">
-                                                    {gpuInfo.vendor === 'nvidia' ? 'NVIDIA' : gpuInfo.vendor === 'huawei' ? '华为' : '思元'}
-                                                </Badge>
-                                            </h3>
-                                            <p className="text-xs text-slate-400 mt-1">{gpuInfo.desc}</p>
-                                        </div>
-
-                                        {/* 周期标签 */}
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <Badge variant="outline" className={`${tier.badge} border text-xs`}>
-                                                <Clock className="w-3 h-3 mr-1" />
-                                                {product.period}天周期
+                                    {/* 产品信息区域 - 移动端紧凑 */}
+                                    <CardContent className="p-2.5 md:p-5">
+                                        {/* 周期+收益标签 */}
+                                        <div className="flex items-center gap-1.5 mb-2 md:mb-3">
+                                            <Badge variant="outline" className={`${tier.badge} border text-[10px] md:text-xs px-1.5 md:px-2.5`}>
+                                                <Clock className="w-2.5 h-2.5 md:w-3 md:h-3 mr-0.5 md:mr-1" />
+                                                {product.period}天
                                             </Badge>
-                                            <Badge variant="outline" className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs">
-                                                到期{total_rate}%总收益
+                                            <Badge variant="outline" className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] md:text-xs px-1.5 md:px-2.5">
+                                                到期+{total_rate}%
                                             </Badge>
                                         </div>
 
-                                        {/* 核心参数 */}
-                                        <div className="grid grid-cols-2 gap-3 mb-4">
+                                        {/* 核心参数 - 移动端单行 */}
+                                        <div className="flex gap-2 mb-2 md:hidden">
+                                            <div className={`flex-1 p-2 rounded-lg border ${tier.color === 'blue' ? 'bg-blue-500/10 border-blue-500/30' : tier.color === 'green' ? 'bg-green-500/10 border-green-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
+                                                <p className={`text-base font-bold ${tier.color === 'blue' ? 'text-blue-400' : tier.color === 'green' ? 'text-green-400' : 'text-amber-400'}`}>+{total_rate}%</p>
+                                                <p className="text-[9px] text-slate-500">总收益</p>
+                                            </div>
+                                            <div className="flex-1 p-2 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                                                <p className="text-base font-bold text-emerald-400">{profit_rate}%</p>
+                                                <p className="text-[9px] text-slate-500">到手</p>
+                                            </div>
+                                        </div>
+
+                                        {/* 核心参数 - 桌面端双列 */}
+                                        <div className="hidden md:grid grid-cols-2 gap-3 mb-4">
                                             <div className={`p-3 rounded-xl border ${tier.color === 'blue' ? 'bg-blue-500/10 border-blue-500/30' : tier.color === 'green' ? 'bg-green-500/10 border-green-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
                                                 <p className="text-xs text-slate-400 mb-1">预期收益</p>
                                                 <p className={`text-xl font-bold ${tier.color === 'blue' ? 'text-blue-400' : tier.color === 'green' ? 'text-green-400' : 'text-amber-400'}`}>+{total_rate}%</p>
@@ -2803,35 +2766,36 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             </div>
                                         </div>
 
-                                        {/* 投资金额 */}
-                                        <div className={`flex items-center justify-between p-3 rounded-lg mb-4 border ${tier.color === 'blue' ? 'bg-blue-500/10 border-blue-500/30' : tier.color === 'green' ? 'bg-green-500/10 border-green-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
-                                            <span className="text-sm text-slate-400">购买金额</span>
-                                            <span className="text-xl font-bold text-white">¥{product.price.toLocaleString()}</span>
+                                        {/* 投资金额 - 移动端紧凑 */}
+                                        <div className={`flex items-center justify-between p-2 md:p-3 rounded-lg mb-2 md:mb-4 border ${tier.color === 'blue' ? 'bg-blue-500/10 border-blue-500/30' : tier.color === 'green' ? 'bg-green-500/10 border-green-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
+                                            <span className="text-[10px] md:text-sm text-slate-400">价格</span>
+                                            <span className="text-sm md:text-xl font-bold text-white">¥{product.price.toLocaleString()}</span>
                                         </div>
 
                                         {/* 产品状态显示 */}
                                         {product.status === 'sold' && (
-                                            <div className="mb-4 p-3 rounded-lg bg-red-500/20 border border-red-500/40 text-red-300 text-center">
-                                                <CheckCircle className="w-4 h-4 inline mr-1" />
+                                            <div className="mb-2 md:mb-4 p-2 md:p-3 rounded-lg bg-red-500/20 border border-red-500/40 text-red-300 text-center text-xs md:text-sm">
+                                                <CheckCircle className="w-3 h-3 md:w-4 md:h-4 inline mr-1" />
                                                 已售出
                                             </div>
                                         )}
                                         {product.status === 'pending_sell' && (
-                                            <div className="mb-4 p-3 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-center">
-                                                <Clock className="w-4 h-4 inline mr-1" />
-                                                已申购待确认
+                                            <div className="mb-2 md:mb-4 p-2 md:p-3 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-center text-xs md:text-sm">
+                                                <Clock className="w-3 h-3 md:w-4 md:h-4 inline mr-1" />
+                                                待确认
                                             </div>
                                         )}
                                         {product.status === 'available' && isProductPending(product.id) && (
-                                            <div className="mb-4 p-3 rounded-lg bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 text-center">
-                                                <Clock className="w-4 h-4 inline mr-1" />
-                                                您已申请购买此产品，等待审核中
+                                            <div className="mb-2 md:mb-4 p-2 md:p-3 rounded-lg bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 text-center text-xs md:text-sm">
+                                                <Clock className="w-3 h-3 md:w-4 md:h-4 inline mr-1" />
+                                                审核中
                                             </div>
                                         )}
 
                                         {/* 购买按钮 */}
                                         <Button
-                                            className={`w-full font-medium shadow-lg transition-all ${
+                                            size="sm"
+                                            className={`w-full font-medium shadow-lg transition-all text-xs md:text-sm h-8 md:h-10 ${
                                                 purchaseLimits?.limits?.canBuy === false || isProductPending(product.id) || product.status !== 'available'
                                                     ? 'bg-slate-600 hover:bg-slate-600 cursor-not-allowed opacity-50'
                                                     : `bg-gradient-to-r ${tier.btnGradient} text-white shadow-${tier.color === 'blue' ? 'blue' : tier.color === 'green' ? 'green' : 'amber'}-500/25`
@@ -2855,23 +2819,23 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             }}>
                                             {product.status === 'sold' ? (
                                                 <>
-                                                    <CheckCircle className="w-4 h-4 mr-2" />已售出
+                                                    <CheckCircle className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />已售出
                                                 </>
                                             ) : product.status === 'pending_sell' ? (
                                                 <>
-                                                    <Clock className="w-4 h-4 mr-2" />待确认
+                                                    <Clock className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />待确认
                                                 </>
                                             ) : purchaseLimits?.limits?.canBuy === false ? (
                                                 <>
-                                                    <Lock className="w-4 h-4 mr-2" />无法购买
+                                                    <Lock className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />无法购买
                                                 </>
                                             ) : isProductPending(product.id) ? (
                                                 <>
-                                                    <Clock className="w-4 h-4 mr-2" />等待审核
+                                                    <Clock className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />审核中
                                                 </>
                                             ) : (
                                                 <>
-                                                    <ShoppingCart className="w-4 h-4 mr-2" />立即购买
+                                                    <ShoppingCart className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />购买
                                                 </>
                                             )}
                                         </Button>
