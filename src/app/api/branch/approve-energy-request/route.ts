@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
+import { execute } from '@/lib/pg-client';
 
 // 分公司审核能量值申请
 export async function POST(request: NextRequest) {
@@ -68,19 +69,18 @@ export async function POST(request: NextRequest) {
     const providerId = description.providerId as string || requestRecord.user_id;
     const amount = description.requestedAmount as number || 0;
 
-    // 查询分公司能量值
-    const { data: branch, error: branchError } = await client
-      .from('users')
-      .select('id, username, energy_value')
-      .eq('id', branchId)
-      .maybeSingle();
-
-    if (branchError || !branch) {
-      return NextResponse.json({ success: false, error: '分公司不存在' }, { status: 404 });
-    }
-
     if (action === 'approve') {
-      // 审核通过：扣除分公司能量值，增加服务商能量值
+      // 查询分公司能量值
+      const { data: branch, error: branchError } = await client
+        .from('users')
+        .select('id, username, energy_value')
+        .eq('id', branchId)
+        .maybeSingle();
+
+      if (branchError || !branch) {
+        return NextResponse.json({ success: false, error: '分公司不存在' }, { status: 404 });
+      }
+
       const branchEnergy = parseFloat(branch.energy_value || '0');
       if (branchEnergy < amount) {
         return NextResponse.json({ success: false, error: '分公司能量值余额不足' }, { status: 400 });
@@ -97,32 +97,48 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: '服务商不存在' }, { status: 404 });
       }
 
-      // 扣除分公司能量值 - 白名单过滤
-      await client.from('users').update({
-        energy_value: branchEnergy - amount
-      }).eq('id', branchId);
-
-      // 增加服务商能量值 - 白名单过滤
       const providerEnergy = parseFloat(provider.energy_value || '0');
-      await client.from('users').update({
-        energy_value: providerEnergy + amount
-      }).eq('id', providerId);
 
-      // 更新申请状态 - 更新 energy_transactions 表
+      // 使用 SQL 直接更新，确保写入成功
+      // 扣除分公司能量值
+      await execute(
+        `UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2`,
+        [branchEnergy - amount, branchId]
+      );
+      console.log(`[approve-energy] 分公司 ${branchId} 能量值: ${branchEnergy} -> ${branchEnergy - amount}`);
+
+      // 增加服务商能量值
+      await execute(
+        `UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2`,
+        [providerEnergy + amount, providerId]
+      );
+      console.log(`[approve-energy] 服务商 ${providerId} 能量值: ${providerEnergy} -> ${providerEnergy + amount}`);
+
+      // 更新申请状态
       await client.from('energy_transactions').update({
         description: JSON.stringify({ ...description, status: 'approved', reviewed_at: new Date().toISOString() })
       }).eq('id', requestId);
 
+      // 记录能量值流转
+      await execute(
+        `INSERT INTO energy_transactions (user_id, type, amount, description, created_at) VALUES ($1, 'transfer_out', $2, $3, NOW())`,
+        [branchId, amount, JSON.stringify({ to_user_id: providerId, reason: '审核通过：服务商能量值申请' })]
+      );
+      await execute(
+        `INSERT INTO energy_transactions (user_id, type, amount, description, created_at) VALUES ($1, 'transfer_in', $2, $3, NOW())`,
+        [providerId, amount, JSON.stringify({ from_user_id: branchId, reason: '审核通过：服务商能量值申请' })]
+      );
+
       return NextResponse.json({
         success: true,
         message: '审核通过，能量值已发放',
-        data: { providerId, amount, branchEnergy: branchEnergy - amount }
+        data: { providerId, amount, branchEnergy: branchEnergy - amount, providerEnergy: providerEnergy + amount }
       });
     }
 
-    // 拒绝：更新申请状态 - 更新 energy_transactions 表
+    // 拒绝：更新申请状态
     await client.from('energy_transactions').update({
-      description: JSON.stringify({ ...description, status: 'rejected', reviewed_at: new Date().toISOString() })
+      description: JSON.stringify({ ...description, status: 'rejected', reviewed_at: new Date().toISOString(), note })
     }).eq('id', requestId);
 
     return NextResponse.json({ success: true, message: '已拒绝申请' });
@@ -162,15 +178,14 @@ export async function GET(request: NextRequest) {
     const providerIds = providers.map(p => p.id);
     const providerMap = new Map(providers.map(p => [p.id, p.username]));
 
-    // 查询这些服务商的能量值申请
-    let query = client
-      .from('transactions')
+    // 查询这些服务商的能量值申请 - 从 energy_transactions 表
+    const { data: requests, error } = await client
+      .from('energy_transactions')
       .select('*')
-      .eq('type', 'energy_request')
+      .eq('type', 'recharge')
       .in('user_id', providerIds)
-      .order('created_at', { ascending: false });
-
-    const { data: requests, error } = await query.limit(100);
+      .order('created_at', { ascending: false })
+      .limit(100);
 
     if (error) {
       throw new Error(`查询申请记录失败: ${error.message}`);
@@ -178,25 +193,28 @@ export async function GET(request: NextRequest) {
 
     // 解析并过滤申请记录
     let formattedRequests = (requests || []).map((req: any) => {
-      let description: Record<string, unknown> = {};
+      let desc: Record<string, unknown> = {};
       try {
         if (req.description) {
-          description = JSON.parse(req.description);
+          desc = JSON.parse(req.description);
         }
       } catch (e) {
-        description = {};
+        desc = {};
       }
       return {
         id: req.id,
         providerId: req.user_id,
         providerName: providerMap.get(req.user_id) || '未知',
-        amount: description.requestedAmount || req.amount,
-        note: description.note || '',
-        status: description.status || 'pending',
+        amount: desc.requestedAmount || req.amount,
+        note: desc.note || '',
+        status: desc.request_type === 'energy_request' ? (desc.status || 'pending') : 'unknown',
         created_at: req.created_at,
-        reviewed_at: description.reviewed_at || null,
+        reviewed_at: desc.reviewed_at || null,
       };
     });
+
+    // 只保留能量值申请
+    formattedRequests = formattedRequests.filter(r => r.status !== 'unknown');
 
     // 按状态过滤
     if (status && status !== 'all') {
