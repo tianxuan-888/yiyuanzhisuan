@@ -56,6 +56,7 @@ import {
     Cpu,
     ArrowUpRight,
     ArrowDownLeft,
+    ArrowDownToLine,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -969,6 +970,35 @@ export default function ProviderPage() {
                 refreshAll();
             } else {
                 showMessage("error", data.error || "删除失败");
+            }
+        } catch {
+            showMessage("error", "网络错误");
+        }
+    };
+
+    // 下架已上架产品
+    const handleUnlistProduct = async (productId: string, productName: string) => {
+        if (!confirm(`确定下架产品"${productName}"？下架后产品将回到待上架列表。`)) return;
+
+        const providerId = localStorage.getItem("userId");
+        if (!providerId) return;
+
+        try {
+            const response = await authFetch("/api/provider/products/batch-status", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    providerId,
+                    productIds: [productId],
+                    action: "unlist",
+                }),
+            });
+            const data = await response.json();
+            if (data.success) {
+                showMessage("success", data.message || "产品已下架");
+                refreshAll();
+            } else {
+                showMessage("error", data.error || "下架失败");
             }
         } catch {
             showMessage("error", "网络错误");
@@ -2553,16 +2583,28 @@ export default function ProviderPage() {
                                                 {product.created_at?.slice(0, 10)}
                                             </td>
                                             <td className="py-3 px-4">
-                                                {(product.status === 'draft' || product.status === 'unlisted') && (
-                                                    <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        className="text-red-600 hover:text-red-800"
-                                                        onClick={() => handleDeleteProduct(product.id, product.name)}
-                                                    >
-                                                        <Trash2 className="w-4 h-4 mr-1" />删除
-                                                    </Button>
-                                                )}
+                                                <div className="flex items-center gap-1">
+                                                    {(product.status === 'draft' || product.status === 'unlisted') && (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            className="text-red-600 hover:text-red-800"
+                                                            onClick={() => handleDeleteProduct(product.id, product.name)}
+                                                        >
+                                                            <Trash2 className="w-4 h-4 mr-1" />删除
+                                                        </Button>
+                                                    )}
+                                                    {product.status === 'available' && (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            className="text-orange-600 hover:text-orange-800"
+                                                            onClick={() => handleUnlistProduct(product.id, product.name)}
+                                                        >
+                                                            <ArrowDownToLine className="w-4 h-4 mr-1" />下架
+                                                        </Button>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>)}
                                         {products.length === 0 && <tr>
@@ -4477,7 +4519,7 @@ export default function ProviderPage() {
                                             <ul className="list-disc list-inside space-y-1 text-amber-700">
                                                 <li>产品生成后为未上架状态，需手动上架</li>
                                                 <li>未上架产品可删除，额度将退回</li>
-                                                <li>已上架产品不可删除</li>
+                                                <li>已上架未售出的产品可下架，下架后回到待上架列表</li>
                                             </ul>
                                         </div>
                                     </div>
