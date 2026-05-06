@@ -94,12 +94,20 @@ export async function POST(request: NextRequest) {
         await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [directReward, member.inviter_id]);
       }
 
-      // 3. 给上级服务商增加收益余额（10%）
+      // 3. 给上级服务商增加收益余额（10%）—— 无上级则归总公司
       const providerInfo = await queryOne('SELECT branch_id, parent_provider_id FROM providers WHERE user_id = $1', [order.provider_id]);
+      let actualParentProviderId = providerInfo?.parent_provider_id || null;
       if (providerInfo?.parent_provider_id && parentProviderShare > 0) {
         const parentProvider = await queryOne('SELECT user_id FROM providers WHERE id = $1', [providerInfo.parent_provider_id]);
         if (parentProvider?.user_id) {
           await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [parentProviderShare, parentProvider.user_id]);
+        }
+      } else if (parentProviderShare > 0) {
+        // 无上级服务商，10%归总公司
+        const adminUser = await queryOne("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
+        if (adminUser) {
+          await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [parentProviderShare, adminUser.id]);
+          actualParentProviderId = null;
         }
       }
 
@@ -117,22 +125,23 @@ export async function POST(request: NextRequest) {
       }
 
       // 记录收益分配明细
+      const finalCompanyShare = companyShare + (actualParentProviderId ? 0 : parentProviderShare);
       await client.from('provider_revenue_distribution').insert({
         order_id: orderId, product_id: product.id, provider_id: order.provider_id, member_id: order.user_id,
         market_fee: marketFee.toFixed(2), provider_share: providerShare.toFixed(2),
         direct_reward: directReward.toFixed(2), direct_reward_to: directRewardTo,
-        parent_provider_id: providerInfo?.parent_provider_id || null,
-        parent_provider_share: parentProviderShare.toFixed(2),
+        parent_provider_id: actualParentProviderId,
+        parent_provider_share: actualParentProviderId ? parentProviderShare.toFixed(2) : '0',
         branch_id: providerInfo?.branch_id || null, branch_share: branchShare.toFixed(2),
-        company_share: companyShare.toFixed(2), status: 'completed', created_at: new Date().toISOString(),
+        company_share: finalCompanyShare.toFixed(2), status: 'completed', created_at: new Date().toISOString(),
       });
     }
 
     // 创建用户产品记录
     const purchaseDate = new Date();
     const expireDate = new Date(purchaseDate.getTime() + product.period * 24 * 60 * 60 * 1000);
-    const profitRate = parseFloat(product.profit_rate) / 100;
-    const expectedProfit = price * profitRate;
+    const totalRate = parseFloat(product.total_rate) / 100;
+    const expectedProfit = price * totalRate;
 
     await client.from('user_products').insert({
       user_id: order.user_id, product_id: order.product_id,

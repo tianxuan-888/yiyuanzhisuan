@@ -112,14 +112,28 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // 3. 上级服务商10% → balance（没有上级则给当前服务商）
+        // 3. 上级服务商10% → balance（无上级则归总公司）
+        let parentProviderId: string | null = null;
         if (parentShare > 0) {
-          const { data: provUser } = await client.from('users').select('inviter_id').eq('id', providerId).maybeSingle();
-          const parentProviderId = provUser?.inviter_id || providerId;
-          const ppRow = await queryOne('SELECT balance FROM users WHERE id = $1', [parentProviderId]);
-          if (ppRow) {
-            const newPPBal = Math.round((parseFloat(String(ppRow.balance)) + parentShare) * 100) / 100;
-            await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newPPBal, parentProviderId]);
+          const { data: provData } = await client.from('providers').select('parent_provider_id').eq('user_id', providerId).maybeSingle();
+          parentProviderId = provData?.parent_provider_id || null;
+          
+          if (parentProviderId) {
+            const ppRow = await queryOne('SELECT balance FROM users WHERE id = $1', [parentProviderId]);
+            if (ppRow) {
+              const newPPBal = Math.round((parseFloat(String(ppRow.balance)) + parentShare) * 100) / 100;
+              await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newPPBal, parentProviderId]);
+            }
+          } else {
+            // 无上级服务商，10%归总公司
+            const { data: adminUser } = await client.from('users').select('id').eq('role', 'admin').limit(1).maybeSingle();
+            if (adminUser) {
+              const adRow = await queryOne('SELECT balance FROM users WHERE id = $1', [adminUser.id]);
+              if (adRow) {
+                const newAdBal = Math.round((parseFloat(String(adRow.balance)) + parentShare) * 100) / 100;
+                await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newAdBal, adminUser.id]);
+              }
+            }
           }
         }
 
@@ -161,7 +175,7 @@ export async function POST(request: NextRequest) {
           direct_reward: directReward,
           direct_reward_to: productUser.inviter_id,
           parent_provider_share: parentShare,
-          parent_provider_id: providerId,
+          parent_provider_id: parentProviderId || null,
           branch_share: branchShare,
           company_share: companyShare,
           status: 'completed',
