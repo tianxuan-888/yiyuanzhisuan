@@ -57,7 +57,8 @@ export async function GET(request: NextRequest) {
       const tp = tx.type;
       if (tp === 'recharge') {
         totalRecharge += amt;
-      } else if (['transfer_in', 'convert_from_balance', 'provider_share', 'direct_reward', 'branch_share', 'company_share', 'parent_provider_share', 'subordinate_split'].includes(tp)) {
+      } else if (['transfer_in', 'convert_from_balance'].includes(tp)) {
+        // 注意：provider_share/direct_reward/branch_share等是收益(balance)，不是能量值
         totalTransferIn += amt;
       } else if (tp === 'transfer_out') {
         totalTransferOut += amt;
@@ -78,7 +79,7 @@ export async function GET(request: NextRequest) {
 
     // 最近转入记录
     const recentTransferIn = (txData || [])
-      .filter((tx: any) => ['transfer_in', 'convert_from_balance', 'provider_share', 'direct_reward', 'branch_share', 'company_share'].includes(tx.type))
+      .filter((tx: any) => ['transfer_in', 'convert_from_balance'].includes(tx.type))
       .slice(0, 10)
       .map((tx: any) => ({
         id: tx.id,

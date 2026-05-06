@@ -3395,7 +3395,7 @@ export default function ProviderPage() {
                             </CardHeader>
                             <CardContent>
                                 {(() => {
-                                    const inTypes = ['transfer_in', 'provider_income', 'profit_share', 'recharge_in', 'create', 'quota_match', 'purchase', 'withdraw_freeze', 'withdraw', 'convert_from_balance', 'refund', 'income', 'reward', 'provider_share', 'direct_reward', 'parent_provider_share', 'branch_share', 'company_share', 'subordinate_split'];
+                                    const inTypes = ['transfer_in', 'provider_income', 'profit_share', 'recharge_in', 'create', 'quota_match', 'purchase', 'withdraw_freeze', 'withdraw', 'convert_from_balance', 'refund', 'income', 'reward', 'subordinate_split'];
                                     const outTypes = ['transfer_out', 'recharge', 'recharge_out', 'spend', 'burn', 'market_fee'];
                                     const inRecords = transferRecords.filter((r: any) => inTypes.includes(r.type));
                                     const outRecords = transferRecords.filter((r: any) => outTypes.includes(r.type));
@@ -3416,9 +3416,9 @@ export default function ProviderPage() {
                                             purchase: '购买', withdraw_freeze: '变现冻结', withdraw: '变现到账',
                                             burn: '销毁', convert_from_balance: '收益转入', refund: '退回',
                                             market_fee: '市场费', income: '收益', reward: '奖励',
-                                            provider_share: '服务商分成', direct_reward: '直推奖励',
-                                            parent_provider_share: '上级服务商分成', branch_share: '分公司分成',
-                                            company_share: '公司运营', subordinate_split: '下级分成',
+                                            provider_share: '服务商分成(收益)', direct_reward: '直推奖励(收益)',
+                                            parent_provider_share: '上级服务商分成(收益)', branch_share: '分公司分成(收益)',
+                                            company_share: '公司运营(收益)', subordinate_split: '下级分成',
                                         };
                                         return labels[type] || type;
                                     };
