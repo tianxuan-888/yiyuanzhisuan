@@ -125,13 +125,13 @@ export async function POST(request: NextRequest) {
               await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newPPBal, parentProviderId]);
             }
           } else {
-            // 无上级服务商，10%归总公司
-            const { data: adminUser } = await client.from('users').select('id').eq('role', 'admin').limit(1).maybeSingle();
-            if (adminUser) {
-              const adRow = await queryOne('SELECT balance FROM users WHERE id = $1', [adminUser.id]);
-              if (adRow) {
-                const newAdBal = Math.round((parseFloat(String(adRow.balance)) + parentShare) * 100) / 100;
-                await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newAdBal, adminUser.id]);
+            // 无上级服务商，10%归分公司（分公司承担了第一代服务商的培养职责）
+            const { data: provInfo } = await client.from('providers').select('branch_id').eq('user_id', providerId).maybeSingle();
+            if (provInfo?.branch_id) {
+              const brRow = await queryOne('SELECT balance FROM users WHERE id = $1', [provInfo.branch_id]);
+              if (brRow) {
+                const newBrBal = Math.round((parseFloat(String(brRow.balance)) + parentShare) * 100) / 100;
+                await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newBrBal, provInfo.branch_id]);
               }
             }
           }

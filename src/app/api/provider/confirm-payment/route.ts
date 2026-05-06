@@ -244,12 +244,11 @@ export async function POST(request: NextRequest) {
             await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [parentProviderShare, parentProvider.user_id]);
           }
         } else if (parentProviderShare > 0) {
-          // 无上级服务商，10%归总公司
-          const adminUser = await queryOne("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
-          if (adminUser) {
-            await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [parentProviderShare, adminUser.id]);
-            actualParentProviderId = null; // 标记为无上级，归公司
+          // 无上级服务商，10%归分公司（分公司承担了第一代服务商的培养职责）
+          if (providerInfo?.branch_id) {
+            await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [parentProviderShare, providerInfo.branch_id]);
           }
+          actualParentProviderId = null;
         }
 
         // 4. 给分公司增加收益余额（5%）
