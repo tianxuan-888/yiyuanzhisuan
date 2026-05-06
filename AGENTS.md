@@ -16,6 +16,7 @@
 - **图标**: Lucide React
 - **数据库**: Supabase (PostgreSQL)
 - **ORM**: Drizzle ORM
+- **短信服务**: 阿里云短信 (dysmsapi)
 - **服务端口**: 5000
 
 ## 数据库设计

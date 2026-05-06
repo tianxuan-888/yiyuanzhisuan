@@ -42,13 +42,13 @@ export async function POST(request: NextRequest) {
     }
 
     // 验证验证码
-    const storedCode = getVerifyCode(`reset_${phone}`);
+    const storedCode = await getVerifyCode(`reset_${phone}`);
     if (!storedCode || storedCode.code !== verifyCode) {
       return NextResponse.json({ error: '验证码错误或已过期' }, { status: 400 });
     }
 
     if (storedCode.expiresAt < Date.now()) {
-      deleteVerifyCode(`reset_${phone}`);
+      await deleteVerifyCode(`reset_${phone}`);
       return NextResponse.json({ error: '验证码已过期，请重新获取' }, { status: 400 });
     }
 
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     ]);
 
     // 删除已使用的验证码
-    deleteVerifyCode(`reset_${phone}`);
+    await deleteVerifyCode(`reset_${phone}`);
 
     return NextResponse.json({
       success: true,

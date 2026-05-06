@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 验证验证码是否正确
-    const storedCode = getVerifyCode(phone);
+    const storedCode = await getVerifyCode(phone);
     if (!storedCode || storedCode.code !== verify_code) {
       return NextResponse.json(
         { error: '验证码错误或已过期' },
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
 
     // 检查验证码是否过期
     if (storedCode.expiresAt < Date.now()) {
-      deleteVerifyCode(phone);
+      await deleteVerifyCode(phone);
       return NextResponse.json(
         { error: '验证码已过期，请重新获取' },
         { status: 400 }
@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
     const newUser = newUsers[0];
 
     // 验证成功后删除验证码
-    deleteVerifyCode(phone);
+    await deleteVerifyCode(phone);
 
     // 返回用户信息（不包含密码）
     const { password: _, ...userWithoutPassword } = newUser;

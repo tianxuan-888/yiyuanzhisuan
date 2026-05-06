@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { setVerifyCode, getVerifyCode, cleanExpiredCodes } from '@/lib/verify-code';
+import { sendSmsVerifyCode, isAliyunSmsConfigured } from '@/lib/aliyun-sms';
 
-// 发送验证码
+// 发送验证码（注册用）
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -45,11 +46,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 清理过期验证码
-    cleanExpiredCodes();
+    await cleanExpiredCodes();
 
     // 检查是否在60秒内重复发送
-    const existingCode = getVerifyCode(phone);
-    if (existingCode && existingCode.expiresAt > Date.now() + 54000) {
+    const existingCode = await getVerifyCode(phone);
+    if (existingCode && existingCode.expiresAt > Date.now() + 240000) {
       return NextResponse.json(
         { error: '请稍后再试发送验证码' },
         { status: 400 }
@@ -60,15 +61,24 @@ export async function POST(request: NextRequest) {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
 
     // 存储验证码（5分钟有效期）
-    setVerifyCode(phone, code);
+    await setVerifyCode(phone, code);
 
-    // TODO: 实际发送短信（这里模拟成功，返回验证码用于测试）
-    console.log(`[验证码] 手机号: ${phone}, 验证码: ${code}`);
+    // 发送短信验证码
+    const smsResult = await sendSmsVerifyCode(phone, code);
+
+    if (!smsResult.success) {
+      return NextResponse.json(
+        { error: smsResult.message },
+        { status: 500 }
+      );
+    }
+
+    const isDev = !isAliyunSmsConfigured();
 
     return NextResponse.json({
       success: true,
-      message: '验证码已发送',
-      devCode: code  // 测试环境返回验证码
+      message: isDev ? '验证码已发送（开发模式）' : '验证码已发送',
+      ...(isDev ? { devCode: code } : {}),  // 仅开发环境返回验证码
     });
   } catch (error) {
     console.error('发送验证码失败:', error);
