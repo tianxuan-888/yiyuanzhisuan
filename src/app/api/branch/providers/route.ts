@@ -74,8 +74,8 @@ export async function GET(request: NextRequest) {
       return {
         id: user.id,
         username: user.username || '',
-        energy_value: parseInt(user.energy_value || '0'),
-        balance: parseInt(user.balance || '0'),
+        energy_value: parseFloat(user.energy_value || '0'),
+        balance: parseFloat(user.balance || '0'),
         // 优先从 providers 表获取额度
         quota: providerQuota?.quota || account?.balance || allocation?.quota_amount || 0,
         used_quota: providerQuota?.used_quota || (account ? account.total_out : 0) || allocation?.used_amount || 0,

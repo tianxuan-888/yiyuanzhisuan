@@ -59,28 +59,22 @@ export async function POST(request: NextRequest) {
       throw new Error(`检查服务商状态失败: ${existingError.message}`);
     }
 
+    // 白名单过滤 - 使用execute(SQL)确保写入
+    const { execute } = await import('@/lib/pg-client');
+    
     // 如果providers记录已存在，更新额度
     if (existingProvider) {
       const currentUsedQuota = parseFloat(existingProvider.used_quota || '0');
       const newUsedQuota = initialQuota >= currentUsedQuota ? 0 : currentUsedQuota;
       
-      // 白名单过滤
-      const { error: updateProviderError } = await client
-        .from('providers')
-        .update({ 
-          quota: initialQuota,
-          branch_id: branchId,
-          used_quota: newUsedQuota,
-        })
-        .eq('user_id', memberId);
-
-      if (updateProviderError) {
-        throw new Error(`更新服务商额度失败: ${updateProviderError.message}`);
-      }
+      await execute(
+        `UPDATE providers SET quota = $1, branch_id = $2, used_quota = $3 WHERE user_id = $4`,
+        [initialQuota, branchId, newUsedQuota, memberId]
+      );
 
       // 如果用户角色不是provider，也更新角色
       if (member.role !== 'provider') {
-        await client.from('users').update({ role: 'provider' }).eq('id', memberId);
+        await execute(`UPDATE users SET role = 'provider' WHERE id = $1`, [memberId]);
       }
 
       return NextResponse.json({
@@ -99,7 +93,7 @@ export async function POST(request: NextRequest) {
     });
 
     // 更新用户角色为服务商
-    await client.from('users').update({ role: 'provider' }).eq('id', memberId);
+    await execute(`UPDATE users SET role = 'provider' WHERE id = $1`, [memberId]);
 
     return NextResponse.json({
       success: true,

@@ -57,19 +57,12 @@ export async function POST(request: NextRequest) {
     const currentPoints = parseFloat(String(user.points)) || 0;
     const newPoints = currentPoints + pointsAmount;
 
-    // 1. 更新 users 表：扣减余额、增加积分
-    const { error: updErr } = await supabase
-      .from('users')
-      .update({
-        balance: newBalance.toFixed(2),
-        points: newPoints.toFixed(2),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', userId);
-
-    if (updErr) {
-      return NextResponse.json({ error: '更新用户信息失败: ' + updErr.message }, { status: 500 });
-    }
+    // 1. 更新 users 表：扣减余额、增加积分（使用execute(SQL)防止静默失败）
+    const { execute } = await import('@/lib/pg-client');
+    await execute(
+      `UPDATE users SET balance = $1, points = $2, updated_at = NOW() WHERE id = $3`,
+      [newBalance.toFixed(2), newPoints.toFixed(2), userId]
+    );
 
     // 2. 增加能量值（双表同步 + 流水）
     const addResult = await addEnergy(userId, energyAmount, 'convert_from_balance', {

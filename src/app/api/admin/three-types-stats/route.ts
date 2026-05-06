@@ -30,20 +30,20 @@ export async function GET(request: NextRequest) {
       );
       
       roleStats.forEach(r => {
-        if (r.role === 'admin') userStats.byRole.admin = parseInt(r.count);
-        else if (r.role === 'branch') userStats.byRole.branch = parseInt(r.count);
-        else if (r.role === 'provider') userStats.byRole.provider = parseInt(r.count);
-        else if (r.role === 'member') userStats.byRole.member = parseInt(r.count);
+        if (r.role === 'admin') userStats.byRole.admin = parseFloat(r.count);
+        else if (r.role === 'branch') userStats.byRole.branch = parseFloat(r.count);
+        else if (r.role === 'provider') userStats.byRole.provider = parseFloat(r.count);
+        else if (r.role === 'member') userStats.byRole.member = parseFloat(r.count);
       });
       
-      userStats.totalUsers = roleStats.reduce((sum, r) => sum + parseInt(r.count), 0);
+      userStats.totalUsers = roleStats.reduce((sum, r) => sum + parseFloat(r.count), 0);
 
       // 绑定关系统计
       const providerCount = await query(`SELECT COUNT(*)::text as count FROM providers`);
-      userStats.bindingRelations.totalProviders = parseInt(providerCount[0]?.count || '0');
+      userStats.bindingRelations.totalProviders = parseFloat(providerCount[0]?.count || '0');
 
       const memberCount = await query(`SELECT COUNT(*)::text as count FROM users WHERE role = 'member'`);
-      userStats.bindingRelations.totalMembers = parseInt(memberCount[0]?.count || '0');
+      userStats.bindingRelations.totalMembers = parseFloat(memberCount[0]?.count || '0');
 
       if (userStats.bindingRelations.totalProviders > 0) {
         userStats.bindingRelations.avgMembersPerProvider = 
@@ -92,8 +92,8 @@ export async function GET(request: NextRequest) {
         `SELECT total_quota, used_quota FROM company_quota LIMIT 1`
       );
       if (companyQuotaData.length > 0) {
-        quotaStats.companyQuota.totalQuota = parseInt(companyQuotaData[0]?.total_quota || '0');
-        quotaStats.companyQuota.usedQuota = parseInt(companyQuotaData[0]?.used_quota || '0');
+        quotaStats.companyQuota.totalQuota = parseFloat(companyQuotaData[0]?.total_quota || '0');
+        quotaStats.companyQuota.usedQuota = parseFloat(companyQuotaData[0]?.used_quota || '0');
         quotaStats.companyQuota.availableQuota = 
           quotaStats.companyQuota.totalQuota - quotaStats.companyQuota.usedQuota;
       }
@@ -111,10 +111,10 @@ export async function GET(request: NextRequest) {
       allocationStats.forEach(a => {
         if (a.provider_id === null || a.provider_id === '') {
           // 总公司分配给分公司
-          quotaStats.allocations.toBranches += parseInt(a.quota_amount || '0');
+          quotaStats.allocations.toBranches += parseFloat(a.quota_amount || '0');
         } else {
           // 分公司分配给服务商
-          quotaStats.allocations.toProviders += parseInt(a.quota_amount || '0');
+          quotaStats.allocations.toProviders += parseFloat(a.quota_amount || '0');
         }
       });
       quotaStats.allocations.totalAllocated = 
@@ -125,8 +125,8 @@ export async function GET(request: NextRequest) {
         `SELECT quota, used_quota FROM providers`
       );
       providerQuotaData.forEach(p => {
-        quotaStats.providerQuota.total += parseInt(p.quota || '0');
-        quotaStats.providerQuota.used += parseInt(p.used_quota || '0');
+        quotaStats.providerQuota.total += parseFloat(p.quota || '0');
+        quotaStats.providerQuota.used += parseFloat(p.used_quota || '0');
       });
       quotaStats.providerQuota.available = 
         quotaStats.providerQuota.total - quotaStats.providerQuota.used;
@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
           quotaStats.products.available += 1;
         } else if (p.status === 'sold') {
           quotaStats.products.sold += 1;
-          quotaStats.products.totalSalesAmount += parseInt(p.price || '0');
+          quotaStats.products.totalSalesAmount += parseFloat(p.price || '0');
         }
       });
 
@@ -153,8 +153,8 @@ export async function GET(request: NextRequest) {
          FROM user_products WHERE status IN ('holding', 'pending_sell')`
       );
       if (holdingStats.length > 0) {
-        quotaStats.userHoldings.totalHoldings = parseInt(holdingStats[0]?.total || '0');
-        quotaStats.userHoldings.totalMembers = parseInt(holdingStats[0]?.member_count || '0');
+        quotaStats.userHoldings.totalHoldings = parseFloat(holdingStats[0]?.total || '0');
+        quotaStats.userHoldings.totalMembers = parseFloat(holdingStats[0]?.member_count || '0');
         if (quotaStats.userHoldings.totalMembers > 0) {
           quotaStats.userHoldings.avgHoldingsPerMember = 
             quotaStats.userHoldings.totalHoldings / quotaStats.userHoldings.totalMembers;
@@ -208,7 +208,7 @@ export async function GET(request: NextRequest) {
       );
       
       energyHoldings.forEach(h => {
-        const balance = parseInt(h.balance || '0');
+        const balance = parseFloat(h.balance || '0');
         if (h.role === 'admin') energyStats.holdings.admin = balance;
         else if (h.role === 'branch') energyStats.holdings.branch += balance;
         else if (h.role === 'provider') energyStats.holdings.provider += balance;
@@ -225,7 +225,7 @@ export async function GET(request: NextRequest) {
       );
       
       sourceStats.forEach(s => {
-        const amount = parseInt(s.total || '0');
+        const amount = parseFloat(s.total || '0');
         if (s.type === 'create') energyStats.sources.create = amount;
         else if (s.type === 'quota_match') energyStats.sources.quotaMatch = amount;
         else if (s.type === 'purchase') energyStats.sources.purchase = amount;
@@ -242,7 +242,7 @@ export async function GET(request: NextRequest) {
       );
       
       consumptionStats.forEach(c => {
-        const amount = parseInt(c.total || '0');
+        const amount = parseFloat(c.total || '0');
         if (c.type === 'transfer_out') energyStats.consumption.transferOut = amount;
         else if (c.type === 'withdraw') energyStats.consumption.withdraw = amount;
         else if (c.type === 'burn') energyStats.consumption.burn = amount;
@@ -264,14 +264,14 @@ export async function GET(request: NextRequest) {
         const actualAmt = parseFloat(w.actual_amount || '0');
         
         if (w.status === 'pending') {
-          energyStats.withdraw.pendingCount = parseInt(w.count || '0');
+          energyStats.withdraw.pendingCount = parseFloat(w.count || '0');
           energyStats.withdraw.pendingAmount = amt;
         } else if (w.status === 'approved') {
           energyStats.withdraw.approvedAmount = actualAmt;  // 实际发放
           energyStats.withdraw.totalBurn = amt;             // 销毁 = 申请金额
           energyStats.withdraw.totalFee = amt - actualAmt;  // 手续费 = 申请 - 实发
         }
-        energyStats.withdraw.totalRequests += parseInt(w.count || '0');
+        energyStats.withdraw.totalRequests += parseFloat(w.count || '0');
       });
     }
 
