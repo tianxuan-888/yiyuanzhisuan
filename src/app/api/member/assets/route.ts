@@ -120,12 +120,30 @@ export async function GET(request: NextRequest) {
     // 已取消的产品
     const cancelledProducts = enrichedUserProducts.filter(p => p.status === 'cancelled');
     
-    // 累计总收益 = 所有产品的预期收益总和（排除已取消的）
-    const totalProfit = enrichedUserProducts
-      .filter(p => p.status !== 'cancelled')
-      .reduce((sum, p) => sum + parseFloat(p.expected_profit || '0'), 0);
-    // 现有收益 = 持有中产品的预期收益（可转为能量值）
-    const availableProfit = holdingProducts.reduce((sum, p) => sum + parseFloat(p.expected_profit || '0'), 0);
+    // 从 member_revenue 获取已到账收益（卖出后实际入账的收益）
+    let realizedProfit = 0; // 已到账收益总额
+    let realizedPrincipal = 0; // 已收回本金
+    let convertedProfit = 0; // 已转为能量值的收益
+    try {
+      const { data: revenueRecords } = await client
+        .from('member_revenue')
+        .select('profit_amount, principal_amount, converted')
+        .eq('user_id', userId);
+      if (revenueRecords && revenueRecords.length > 0) {
+        for (const r of revenueRecords) {
+          realizedProfit += parseNumeric(r.profit_amount);
+          realizedPrincipal += parseNumeric(r.principal_amount);
+          convertedProfit += parseNumeric(r.converted);
+        }
+      }
+    } catch (e) {
+      console.error('获取已到账收益失败:', e);
+    }
+
+    // 持仓预期收益 = 持有中产品的预期收益
+    const holdingExpectedProfit = holdingProducts.reduce((sum, p) => sum + parseFloat(p.expected_profit || '0'), 0);
+    // 剩余可转收益 = 已到账收益 - 已转为能量值的收益
+    const availableProfit = realizedProfit - convertedProfit;
 
     // 优先从 energy_accounts 表获取能量值余额
     let energyValue = parseNumeric(user.energy_value);
@@ -155,8 +173,11 @@ export async function GET(request: NextRequest) {
           points: parseNumeric(user.points),
           total_holding: holdingProducts.reduce((sum, p) => sum + parseFloat(p.purchase_price), 0),
           pending_holding: pendingConfirmProducts.reduce((sum, p) => sum + parseFloat(p.purchase_price), 0),
-          total_profit: totalProfit,
+          total_profit: realizedProfit,
           available_profit: availableProfit,
+          holding_expected_profit: holdingExpectedProfit,
+          realized_principal: realizedPrincipal,
+          converted_profit: convertedProfit,
           holding_count: holdingProducts.length,
           pending_confirm_count: pendingConfirmProducts.length,
           sold_count: enrichedUserProducts.filter(p => p.status === 'sold').length,

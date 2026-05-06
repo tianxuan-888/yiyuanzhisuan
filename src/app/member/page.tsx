@@ -1796,13 +1796,13 @@ const [copySuccess, setCopySuccess] = useState(false);
                         <CardContent className="pt-4">
                             <div className="flex items-center gap-2">
                                 <TrendingUp className="w-5 h-5 mobile-icon" />
-                                <span className="opacity-80 text-sm mobile-label">累计收益</span>
+                                <span className="opacity-80 text-sm mobile-label">已到账收益</span>
                             </div>
                             <p className="text-2xl font-bold mt-2 mobile-num">¥{stats.total_profit?.toLocaleString() || 0}</p>
                             <div className="mt-2 pt-2 border-t border-white/20">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-xs opacity-70">可转能量值</p>
+                                        <p className="text-xs opacity-70">剩余可转收益</p>
                                         <p className="text-lg font-semibold">¥{stats.available_profit?.toLocaleString() || 0}</p>
                                     </div>
                                     <Button
