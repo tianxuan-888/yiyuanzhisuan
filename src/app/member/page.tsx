@@ -393,7 +393,10 @@ const [copySuccess, setCopySuccess] = useState(false);
             }
 
             if (referralData.success && referralData.data) {
+                console.log('[member] referralStats:', JSON.stringify(referralData.data));
                 setReferralStats(referralData.data);
+            } else {
+                console.log('[member] referralStats failed:', JSON.stringify(referralData));
             }
 
             if (energyRecordsData.success && energyRecordsData.data) {

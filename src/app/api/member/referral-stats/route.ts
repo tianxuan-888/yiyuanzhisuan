@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ success: false, error: '缺少userId' }, { status: 400 });
         }
 
+        console.log('[referral-stats] userId:', userId);
         const supabase = getSupabaseClient();
 
         // 查询直推人员：inviter_id = 当前用户
@@ -18,6 +19,8 @@ export async function GET(request: NextRequest) {
             .select('id, username, phone, unique_id, role, energy_value, balance, created_at')
             .eq('inviter_id', userId)
             .order('created_at', { ascending: false });
+
+        console.log('[referral-stats] directRefs count:', directRefs?.length, 'error:', refError?.message);
 
         if (refError) {
             console.error('查询直推人员失败:', refError);
