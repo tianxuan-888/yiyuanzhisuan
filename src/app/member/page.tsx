@@ -204,12 +204,8 @@ export default function MemberPage() {
         directCount: 0,
         totalInvest: 0,
         totalReward: 0,
+        members: [] as { id: string; username: string; phone: string; uniqueId: string; role: string; energyValue: number; balance: number; createdAt: string }[],
     });
-    interface ReferralStats {
-    directCount: number;
-    totalInvest: number;
-    totalReward: number;
-}
 
 interface EnergyRecord {
     id: string;
@@ -2250,6 +2246,41 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             </CardContent>
                                         </Card>
                                     </div>
+
+                                    {/* 直推人员列表 */}
+                                    {referralStats.members.length > 0 && (
+                                        <Card>
+                                            <CardHeader>
+                                                <CardTitle className="flex items-center gap-2">
+                                                    <Users className="w-5 h-5 text-blue-500" />
+                                                    我的直推人员 ({referralStats.directCount}人)
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className="space-y-2">
+                                                    {referralStats.members.map((member) => (
+                                                        <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center">
+                                                                    <User className="w-4 h-4 text-blue-600" />
+                                                                </div>
+                                                                <div>
+                                                                    <p className="font-medium text-sm">{member.username} <span className="text-xs text-gray-400">[{member.uniqueId}]</span></p>
+                                                                    <p className="text-xs text-gray-500">{member.phone}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <Badge variant="secondary" className="text-xs">
+                                                                    {member.role === 'provider' ? '服务商' : '会员'}
+                                                                </Badge>
+                                                                <p className="text-xs text-gray-400 mt-1">{new Date(member.createdAt).toLocaleDateString()}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    )}
 
                                     {/* 邀请规则 */}
                                     <Card>
