@@ -3762,6 +3762,11 @@ export default function ProviderPage() {
                                                                         {record.source === 'distribution' && record.product_name && (
                                                                             <p className="text-sm font-medium">{record.product_name}</p>
                                                                         )}
+                                                                        {record.source === 'distribution' && record.product_price > 0 && (
+                                                                            <p className="text-xs text-muted-foreground">
+                                                                                产品价格: ¥{Number(record.product_price).toLocaleString()}
+                                                                            </p>
+                                                                        )}
                                                                         {record.source === 'distribution' && record.member_name && (
                                                                             <p className="text-xs text-muted-foreground">
                                                                                 会员: {record.member_name} {record.member_phone || ''}

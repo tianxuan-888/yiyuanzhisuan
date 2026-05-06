@@ -161,25 +161,25 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // 记录分配明细
-        await client.from('provider_revenue_distribution').insert({
-          id: crypto.randomUUID(),
-          order_id: userProduct.order_id || null,
-          product_id: userProduct.product_id,
-          provider_id: providerId,
-          member_id: userProduct.user_id,
-          member_inviter_id: productUser.inviter_id,
-          product_price: purchasePrice,
-          market_fee: marketFee,
-          provider_share: providerShare,
-          direct_reward: directReward,
-          direct_reward_to: productUser.inviter_id,
-          parent_provider_share: parentShare,
-          parent_provider_id: parentProviderId || null,
-          branch_share: branchShare,
-          company_share: companyShare,
-          status: 'completed',
-        });
+        // 记录分配明细（使用 execute(SQL) 避免 REST API insert 静默失败）
+        const distId = crypto.randomUUID();
+        const provBranchInfo = await queryOne('SELECT branch_id FROM providers WHERE user_id = $1', [providerId]);
+        const branchId = provBranchInfo?.branch_id || null;
+        await execute(
+          `INSERT INTO provider_revenue_distribution 
+            (id, order_id, product_id, provider_id, member_id, member_inviter_id, product_price,
+             market_fee, provider_share, direct_reward, direct_reward_to,
+             parent_provider_id, parent_provider_share, branch_id, branch_share, company_share, status, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW())`,
+          [
+            distId, userProduct.order_id || null, userProduct.product_id,
+            providerId, userProduct.user_id, productUser.inviter_id || null,
+            purchasePrice, marketFee, providerShare, directReward,
+            productUser.inviter_id || null,
+            parentProviderId || null, parentShare,
+            branchId, branchShare, companyShare, 'completed',
+          ]
+        );
       }
 
       // 记录会员收益明细

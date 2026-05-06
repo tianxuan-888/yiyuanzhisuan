@@ -137,25 +137,25 @@ export async function POST(request: NextRequest) {
       }
       distributionResult.company = companyShare;
 
-      // 记录分配明细
-      await client.from('provider_revenue_distribution').insert({
-        id: crypto.randomUUID(),
-        order_id: orderId,
-        product_id: userProduct.product_id,
-        provider_id: provId,
-        member_id: userId,
-        member_inviter_id: inviterId,
-        product_price: purchasePrice,
-        market_fee: marketFee,
-        provider_share: providerShare,
-        direct_reward: directReward,
-        direct_reward_to: inviterId,
-        parent_provider_share: parentShare,
-        parent_provider_id: parentProviderId || null,
-        branch_share: branchShare,
-        company_share: companyShare,
-        status: 'completed',
-      });
+      // 记录分配明细（使用 execute(SQL) 避免 REST API insert 静默失败）
+      const distId = crypto.randomUUID();
+      const provBranchInfo = await queryOne('SELECT branch_id FROM providers WHERE user_id = $1', [provId]);
+      const branchId = provBranchInfo?.branch_id || null;
+      await execute(
+        `INSERT INTO provider_revenue_distribution 
+          (id, order_id, product_id, provider_id, member_id, member_inviter_id, product_price,
+           market_fee, provider_share, direct_reward, direct_reward_to,
+           parent_provider_id, parent_provider_share, branch_id, branch_share, company_share, status, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW())`,
+        [
+          distId, orderId, userProduct.product_id,
+          provId, userId, inviterId || null,
+          purchasePrice, marketFee, providerShare, directReward,
+          inviterId || null,
+          parentProviderId || null, parentShare,
+          branchId, branchShare, companyShare, 'completed',
+        ]
+      );
     }
 
     // 记录会员交易流水

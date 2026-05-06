@@ -123,17 +123,26 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 记录收益分配明细
+      // 记录收益分配明细（使用 execute(SQL) 避免 REST API insert 静默失败）
       const finalCompanyShare = companyShare + (actualParentProviderId ? 0 : parentProviderShare);
-      await client.from('provider_revenue_distribution').insert({
-        order_id: orderId, product_id: product.id, provider_id: order.provider_id, member_id: order.user_id,
-        market_fee: marketFee.toFixed(2), provider_share: providerShare.toFixed(2),
-        direct_reward: directReward.toFixed(2), direct_reward_to: directRewardTo,
-        parent_provider_id: actualParentProviderId,
-        parent_provider_share: actualParentProviderId ? parentProviderShare.toFixed(2) : '0',
-        branch_id: providerInfo?.branch_id || null, branch_share: branchShare.toFixed(2),
-        company_share: finalCompanyShare.toFixed(2), status: 'completed', created_at: new Date().toISOString(),
-      });
+      const branchId = providerInfo?.branch_id || null;
+      const distId = crypto.randomUUID();
+      await execute(
+        `INSERT INTO provider_revenue_distribution 
+          (id, order_id, product_id, provider_id, member_id, member_inviter_id, product_price,
+           market_fee, provider_share, direct_reward, direct_reward_to,
+           parent_provider_id, parent_provider_share, branch_id, branch_share, company_share, status, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW())`,
+        [
+          distId, orderId, product.id, order.provider_id, order.user_id, member?.inviter_id || null, price,
+          marketFee.toFixed(2), providerShare.toFixed(2),
+          directReward.toFixed(2), directRewardTo,
+          actualParentProviderId || null,
+          actualParentProviderId ? parentProviderShare.toFixed(2) : '0',
+          branchId, branchShare.toFixed(2),
+          finalCompanyShare.toFixed(2), 'completed',
+        ]
+      );
     }
 
     // 创建用户产品记录
