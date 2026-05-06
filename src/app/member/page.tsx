@@ -1768,15 +1768,15 @@ const [copySuccess, setCopySuccess] = useState(false);
                             <div className="flex gap-2 mt-3">
                                 <Button
                                     size="sm"
-                                    variant="outline"
-                                    className="text-white border-white/30 hover:bg-white/20"
+                                    variant="ghost"
+                                    className="text-white hover:bg-white/20 border border-white/40"
                                     onClick={() => setShowRechargeDialog(true)}>
                                     充值
                                 </Button>
                                 <Button
                                     size="sm"
-                                    variant="outline"
-                                    className="text-white border-white/30 hover:bg-white/20"
+                                    variant="ghost"
+                                    className="text-white hover:bg-white/20 border border-white/40"
                                     onClick={() => setShowTransferDialog(true)}>
                                     转账
                                 </Button>
