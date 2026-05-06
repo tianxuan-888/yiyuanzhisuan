@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { getSupabaseUrl, getSupabaseAnonKey } from '@/lib/env';
+import { getSupabaseUrl, getSupabaseServiceRoleKey } from '@/lib/env';
 
-// 总公司收益管理 - 使用用户自己的 Supabase 数据库
+// 总公司收益管理 - 使用用户自己的 Supabase 数据库（service role key 绕过 RLS）
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
     const subType = url.searchParams.get('subType') || 'overview';
 
     const supabaseUrl = getSupabaseUrl();
-    const supabaseAnonKey = getSupabaseAnonKey();
-    if (!supabaseUrl || !supabaseAnonKey) {
+    const supabaseServiceKey = getSupabaseServiceRoleKey();
+    if (!supabaseUrl || !supabaseServiceKey) {
       return NextResponse.json({ error: 'Supabase 环境变量未配置' }, { status: 500 });
     }
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     if (subType === 'overview') {
       return await getIncomeOverview(supabase);
@@ -41,124 +41,173 @@ export async function GET(request: NextRequest) {
 }
 
 async function getIncomeOverview(supabase: any) {
-  // 1. 从 user_products 统计市场费和销售
+  // 1. 从 provider_revenue_distribution 读取真实分配数据
+  const { data: distributions } = await supabase
+    .from('provider_revenue_distribution')
+    .select('market_fee, provider_share, direct_reward, parent_provider_share, branch_share, company_share, product_price, created_at, status')
+    .eq('status', 'completed');
+
+  const allDistributions = distributions || [];
+
+  // 汇总各方真实收益
+  let totalMarketFee = 0;
+  let totalProviderShare = 0;
+  let totalDirectReward = 0;
+  let totalParentProviderShare = 0;
+  let totalBranchShare = 0;
+  let totalCompanyShare = 0;
+  let totalProductPrice = 0;
+
+  allDistributions.forEach((d: any) => {
+    totalMarketFee += parseFloat(d.market_fee) || 0;
+    totalProviderShare += parseFloat(d.provider_share) || 0;
+    totalDirectReward += parseFloat(d.direct_reward) || 0;
+    totalParentProviderShare += parseFloat(d.parent_provider_share) || 0;
+    totalBranchShare += parseFloat(d.branch_share) || 0;
+    totalCompanyShare += parseFloat(d.company_share) || 0;
+    totalProductPrice += parseFloat(d.product_price) || 0;
+  });
+
+  // 今日数据
+  const today = new Date().toISOString().split('T')[0];
+  const todayDistributions = allDistributions.filter((d: any) => d.created_at?.startsWith(today));
+  let todayMarketFee = 0;
+  let todayProductPrice = 0;
+  todayDistributions.forEach((d: any) => {
+    todayMarketFee += parseFloat(d.market_fee) || 0;
+    todayProductPrice += parseFloat(d.product_price) || 0;
+  });
+
+  // 2. 从 orders 表获取订单统计
+  const { data: completedOrders } = await supabase
+    .from('orders')
+    .select('id, amount, status, created_at')
+    .eq('status', 'completed');
+
+  const totalOrders = (completedOrders || []).length;
+  const todayOrders = (completedOrders || []).filter((o: any) => o.created_at?.startsWith(today)).length;
+
+  // 3. 从 user_products 获取持仓统计（总销售额 = 所有已购买产品的purchase_price之和）
   const { data: userProducts } = await supabase
     .from('user_products')
     .select('market_fee, purchase_price, purchase_date, status')
     .in('status', ['holding', 'sold']);
 
   const allProducts = userProducts || [];
-  const totalMarketFee = allProducts.reduce((sum: number, p: any) => sum + (parseFloat(p.market_fee) || 0), 0);
   const totalSales = allProducts.reduce((sum: number, p: any) => sum + (parseFloat(p.purchase_price) || 0), 0);
-  const totalOrders = allProducts.length;
-
-  // 今日数据
-  const today = new Date().toISOString().split('T')[0];
   const todayProducts = allProducts.filter((p: any) => p.purchase_date?.startsWith(today));
-  const todayMarketFee = todayProducts.reduce((sum: number, p: any) => sum + (parseFloat(p.market_fee) || 0), 0);
   const todaySales = todayProducts.reduce((sum: number, p: any) => sum + (parseFloat(p.purchase_price) || 0), 0);
-  const todayOrders = todayProducts.length;
 
-  // 2. 按分配比例计算各方收益
-  const providerShare = Math.floor(totalMarketFee * 0.70);
-  const branchShare = Math.floor(totalMarketFee * 0.05);
-  const companyShare = Math.floor(totalMarketFee * 0.05);
-  const directRewardShare = Math.floor(totalMarketFee * 0.10);
-  const parentProviderShare = Math.floor(totalMarketFee * 0.10);
+  // 4. 收益趋势（最近7天，从 provider_revenue_distribution 按日汇总）
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const trendMap: Record<string, { orders: number; sales: number; marketFee: number; providerShare: number; branchShare: number }> = {};
 
-  // 3. 从 energy_transactions 获取各角色能量值
-  const { data: energyTxns } = await supabase
-    .from('energy_transactions')
-    .select('user_id, amount, users:user_id(role)')
+  // 初始化最近7天的日期
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+    const dateStr = d.toISOString().split('T')[0];
+    trendMap[dateStr] = { orders: 0, sales: 0, marketFee: 0, providerShare: 0, branchShare: 0 };
+  }
+
+  // 从分配记录按日汇总
+  const recentDistributions = allDistributions.filter((d: any) => d.created_at >= sevenDaysAgo);
+  recentDistributions.forEach((d: any) => {
+    const date = d.created_at?.substring(0, 10) || '';
+    if (trendMap[date]) {
+      trendMap[date].marketFee += parseFloat(d.market_fee) || 0;
+      trendMap[date].providerShare += parseFloat(d.provider_share) || 0;
+      trendMap[date].branchShare += parseFloat(d.branch_share) || 0;
+      trendMap[date].orders++;
+      trendMap[date].sales += parseFloat(d.product_price) || 0;
+    }
+  });
+
+  const trend = Object.entries(trendMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, v]) => ({ date, ...v }));
+
+  // 5. 服务商收益排行 TOP5（从 provider_revenue_distribution 汇总）
+  const { data: providerDistRaw } = await supabase
+    .from('provider_revenue_distribution')
+    .select('provider_id, provider_share, market_fee')
     .eq('status', 'completed');
 
-  const energyByRole: Record<string, number> = {};
-  (energyTxns || []).forEach((t: any) => {
-    const role = t.users?.role || 'unknown';
-    energyByRole[role] = (energyByRole[role] || 0) + (parseFloat(t.amount) || 0);
+  const provRevenueMap: Record<string, { providerId: string; totalRevenue: number; totalMarketFee: number }> = {};
+  (providerDistRaw || []).forEach((d: any) => {
+    const key = d.provider_id;
+    if (!provRevenueMap[key]) provRevenueMap[key] = { providerId: d.provider_id, totalRevenue: 0, totalMarketFee: 0 };
+    provRevenueMap[key].totalRevenue += parseFloat(d.provider_share) || 0;
+    provRevenueMap[key].totalMarketFee += parseFloat(d.market_fee) || 0;
   });
 
-  // 4. 收益趋势（最近7天）
-  const { data: trendProducts } = await supabase
-    .from('user_products')
-    .select('purchase_date, purchase_price, market_fee')
-    .in('status', ['holding', 'sold'])
-    .gte('purchase_date', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-    .order('purchase_date', { ascending: true });
+  // 获取服务商用户名（provider_id 存的是 providers.user_id）
+  const providerRanking = [];
+  const sortedProviders = Object.values(provRevenueMap).sort((a: any, b: any) => b.totalRevenue - a.totalRevenue).slice(0, 5);
+  for (const p of sortedProviders) {
+    // 通过 providers.user_id 查找 providers.id，再找 users.username
+    const { data: provUser } = await supabase
+      .from('users')
+      .select('username')
+      .eq('id', p.providerId)
+      .single();
+    const username = provUser?.username || '未知服务商';
+    providerRanking.push({
+      id: p.providerId,
+      username,
+      totalRevenue: Math.round(p.totalRevenue * 100) / 100,
+      totalMarketFee: Math.round(p.totalMarketFee * 100) / 100,
+    });
+  }
 
-  // 按日汇总
-  const trendMap: Record<string, { orders: number; sales: number; marketFee: number }> = {};
-  (trendProducts || []).forEach((p: any) => {
-    const date = p.purchase_date?.substring(0, 10) || '';
-    if (!trendMap[date]) trendMap[date] = { orders: 0, sales: 0, marketFee: 0 };
-    trendMap[date].orders++;
-    trendMap[date].sales += parseFloat(p.purchase_price) || 0;
-    trendMap[date].marketFee += parseFloat(p.market_fee) || 0;
+  // 6. 分公司收益（从 provider_revenue_distribution 汇总 branch_share）
+  const { data: branchDistRaw } = await supabase
+    .from('provider_revenue_distribution')
+    .select('branch_id, branch_share')
+    .eq('status', 'completed');
+
+  const branchRevenueMap: Record<string, { branchId: string; totalRevenue: number }> = {};
+  (branchDistRaw || []).forEach((d: any) => {
+    const key = d.branch_id;
+    if (!key) return;
+    if (!branchRevenueMap[key]) branchRevenueMap[key] = { branchId: d.branch_id, totalRevenue: 0 };
+    branchRevenueMap[key].totalRevenue += parseFloat(d.branch_share) || 0;
   });
-  const trend = Object.entries(trendMap).map(([date, v]) => ({ date, ...v }));
 
-  // 5. 服务商能量值排行 TOP5
-  const { data: providerRankRaw } = await supabase
-    .from('energy_transactions')
-    .select('user_id, amount, users:user_id(id, username)')
-    .eq('status', 'completed')
-    .in('type', ['provider_share', 'direct_reward', 'market_share', 'recharge', 'transfer_in', 'quota_match']);
-
-  const providerMap: Record<string, { id: string; username: string; totalEnergy: number; txCount: number }> = {};
-  (providerRankRaw || []).forEach((t: any) => {
-    if (t.users?.username) {
-      const key = t.user_id;
-      if (!providerMap[key]) providerMap[key] = { id: t.users.id || t.user_id, username: t.users.username, totalEnergy: 0, txCount: 0 };
-      providerMap[key].totalEnergy += parseFloat(t.amount) || 0;
-      providerMap[key].txCount++;
-    }
-  });
-  const providerRanking = Object.values(providerMap)
-    .sort((a, b) => b.totalEnergy - a.totalEnergy)
-    .slice(0, 5);
-
-  // 6. 分公司能量值
-  const { data: branchRankRaw } = await supabase
-    .from('energy_transactions')
-    .select('user_id, amount, users:user_id(id, username)')
-    .eq('status', 'completed')
-    .in('type', ['branch_share', 'quota_match', 'transfer_in']);
-
-  const branchMap: Record<string, { id: string; username: string; totalEnergy: number }> = {};
-  (branchRankRaw || []).forEach((t: any) => {
-    if (t.users?.username) {
-      const key = t.user_id;
-      if (!branchMap[key]) branchMap[key] = { id: t.users.id || t.user_id, username: t.users.username, totalEnergy: 0 };
-      branchMap[key].totalEnergy += parseFloat(t.amount) || 0;
-    }
-  });
-  const branchRevenue = Object.values(branchMap).sort((a, b) => b.totalEnergy - a.totalEnergy);
+  const branchRevenue = [];
+  for (const b of Object.values(branchRevenueMap)) {
+    const { data: u } = await supabase.from('users').select('username').eq('id', b.branchId).single();
+    branchRevenue.push({
+      id: b.branchId,
+      username: u?.username || '未知分公司',
+      totalRevenue: Math.round(b.totalRevenue * 100) / 100,
+    });
+  }
+  branchRevenue.sort((a: any, b: any) => b.totalRevenue - a.totalRevenue);
 
   return NextResponse.json({
     success: true,
     data: {
       summary: {
-        totalIncome: totalMarketFee,
-        todayIncome: todayMarketFee,
+        totalIncome: Math.round(totalMarketFee * 100) / 100,
+        todayIncome: Math.round(todayMarketFee * 100) / 100,
         pendingSettlement: 0,
-        distributed: totalMarketFee,
+        distributed: Math.round(totalMarketFee * 100) / 100,
         totalOrders,
         todayOrders,
         totalSales,
         todaySales,
       },
       shareBreakdown: {
-        provider: { amount: providerShare, rate: '70%' },
-        directReward: { amount: directRewardShare, rate: '10%' },
-        parentProvider: { amount: parentProviderShare, rate: '10%' },
-        branch: { amount: branchShare, rate: '5%' },
-        company: { amount: companyShare, rate: '5%' },
+        provider: { amount: Math.round(totalProviderShare * 100) / 100, rate: '70%' },
+        directReward: { amount: Math.round(totalDirectReward * 100) / 100, rate: '10%' },
+        parentProvider: { amount: Math.round(totalParentProviderShare * 100) / 100, rate: '10%' },
+        branch: { amount: Math.round(totalBranchShare * 100) / 100, rate: '5%' },
+        company: { amount: Math.round(totalCompanyShare * 100) / 100, rate: '5%' },
       },
       todayBreakdown: {
-        providerShare: Math.floor(todayMarketFee * 0.70),
-        companyShare: Math.floor(todayMarketFee * 0.05),
+        providerShare: Math.round(todayDistributions.reduce((s: number, d: any) => s + (parseFloat(d.provider_share) || 0), 0) * 100) / 100,
+        companyShare: Math.round(todayDistributions.reduce((s: number, d: any) => s + (parseFloat(d.company_share) || 0), 0) * 100) / 100,
       },
-      energyByRole,
       providerRanking,
       branchRevenue,
       trend,

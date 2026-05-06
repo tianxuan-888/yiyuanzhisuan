@@ -244,6 +244,13 @@ export default function AdminPage() {
     totalSales: 0,
     todaySales: 0,
   });
+  const [shareBreakdown, setShareBreakdown] = useState<any>({
+    provider: { amount: 0, rate: '70%' },
+    directReward: { amount: 0, rate: '10%' },
+    parentProvider: { amount: 0, rate: '10%' },
+    branch: { amount: 0, rate: '5%' },
+    company: { amount: 0, rate: '5%' },
+  });
   const [incomeRecords, setIncomeRecords] = useState<any[]>([]);
   const [providerIncome, setProviderIncome] = useState<any[]>([]);
   const [memberIncome, setMemberIncome] = useState<any[]>([]);
@@ -647,6 +654,10 @@ export default function AdminPage() {
             totalSales: data.data.summary.totalSales || 0,
             todaySales: data.data.summary.todaySales || 0,
           });
+          // 更新真实分配数据
+          if (data.data.shareBreakdown) {
+            setShareBreakdown(data.data.shareBreakdown);
+          }
           // 更新收益趋势图表
           if (data.data.trend?.length > 0) {
             setChartData(data.data.trend.map((t: any) => ({
@@ -3180,36 +3191,36 @@ export default function AdminPage() {
             </Card>
           </div>
 
-          {/* 市场费分配比例卡片 */}
+          {/* 市场费分配比例卡片 - 使用真实分配数据 */}
           <div className="grid grid-cols-5 gap-2 md:gap-3">
             <Card className="mobile-compact-card text-center">
               <CardContent className="p-3">
-                <div className="text-xs text-gray-500 mobile-label">服务商 70%</div>
-                <div className="text-lg font-bold text-purple-600 mobile-num">¥{Math.floor(incomeStats.totalIncome * 0.70).toLocaleString()}</div>
+                <div className="text-xs text-gray-500 mobile-label">服务商 {shareBreakdown.provider.rate}</div>
+                <div className="text-lg font-bold text-purple-600 mobile-num">¥{shareBreakdown.provider.amount.toLocaleString()}</div>
               </CardContent>
             </Card>
             <Card className="mobile-compact-card text-center">
               <CardContent className="p-3">
-                <div className="text-xs text-gray-500 mobile-label">直推奖励 10%</div>
-                <div className="text-lg font-bold text-pink-600 mobile-num">¥{Math.floor(incomeStats.totalIncome * 0.10).toLocaleString()}</div>
+                <div className="text-xs text-gray-500 mobile-label">直推奖励 {shareBreakdown.directReward.rate}</div>
+                <div className="text-lg font-bold text-pink-600 mobile-num">¥{shareBreakdown.directReward.amount.toLocaleString()}</div>
               </CardContent>
             </Card>
             <Card className="mobile-compact-card text-center">
               <CardContent className="p-3">
-                <div className="text-xs text-gray-500 mobile-label">上级服务商 10%</div>
-                <div className="text-lg font-bold text-indigo-600 mobile-num">¥{Math.floor(incomeStats.totalIncome * 0.10).toLocaleString()}</div>
+                <div className="text-xs text-gray-500 mobile-label">上级服务商 {shareBreakdown.parentProvider.rate}</div>
+                <div className="text-lg font-bold text-indigo-600 mobile-num">¥{shareBreakdown.parentProvider.amount.toLocaleString()}</div>
               </CardContent>
             </Card>
             <Card className="mobile-compact-card text-center">
               <CardContent className="p-3">
-                <div className="text-xs text-gray-500 mobile-label">分公司 5%</div>
-                <div className="text-lg font-bold text-teal-600 mobile-num">¥{Math.floor(incomeStats.totalIncome * 0.05).toLocaleString()}</div>
+                <div className="text-xs text-gray-500 mobile-label">分公司 {shareBreakdown.branch.rate}</div>
+                <div className="text-lg font-bold text-teal-600 mobile-num">¥{shareBreakdown.branch.amount.toLocaleString()}</div>
               </CardContent>
             </Card>
             <Card className="mobile-compact-card text-center">
               <CardContent className="p-3">
-                <div className="text-xs text-gray-500 mobile-label">公司运营 5%</div>
-                <div className="text-lg font-bold text-emerald-600 mobile-num">¥{Math.floor(incomeStats.totalIncome * 0.05).toLocaleString()}</div>
+                <div className="text-xs text-gray-500 mobile-label">公司运营 {shareBreakdown.company.rate}</div>
+                <div className="text-lg font-bold text-emerald-600 mobile-num">¥{shareBreakdown.company.amount.toLocaleString()}</div>
               </CardContent>
             </Card>
           </div>
@@ -3225,7 +3236,7 @@ export default function AdminPage() {
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
-                    <YAxis tickFormatter={(value) => `${(value / 10000).toFixed(0)}万`} />
+                    <YAxis tickFormatter={(value) => value >= 10000 ? `${(value / 10000).toFixed(0)}万` : `${value}`} />
                     <Tooltip formatter={(value: number) => `¥${value.toLocaleString()}`} />
                     <Legend />
                     <Line type="monotone" dataKey="收益金额" stroke="#8b5cf6" strokeWidth={2} name="收益金额" />
@@ -3247,11 +3258,11 @@ export default function AdminPage() {
                     <PieChart>
                       <Pie
                         data={[
-                          { name: '服务商 70%', value: Math.max(incomeStats.totalIncome * 0.70, 1), color: '#8b5cf6' },
-                          { name: '直推奖励 10%', value: Math.max(incomeStats.totalIncome * 0.10, 1), color: '#ec4899' },
-                          { name: '上级服务商 10%', value: Math.max(incomeStats.totalIncome * 0.10, 1), color: '#6366f1' },
-                          { name: '分公司 5%', value: Math.max(incomeStats.totalIncome * 0.05, 1), color: '#14b8a6' },
-                          { name: '公司运营 5%', value: Math.max(incomeStats.totalIncome * 0.05, 1), color: '#10b981' },
+                          { name: `服务商 ${shareBreakdown.provider.rate}`, value: Math.max(shareBreakdown.provider.amount, 1), color: '#8b5cf6' },
+                          { name: `直推奖励 ${shareBreakdown.directReward.rate}`, value: Math.max(shareBreakdown.directReward.amount, 1), color: '#ec4899' },
+                          { name: `上级服务商 ${shareBreakdown.parentProvider.rate}`, value: Math.max(shareBreakdown.parentProvider.amount, 1), color: '#6366f1' },
+                          { name: `分公司 ${shareBreakdown.branch.rate}`, value: Math.max(shareBreakdown.branch.amount, 1), color: '#14b8a6' },
+                          { name: `公司运营 ${shareBreakdown.company.rate}`, value: Math.max(shareBreakdown.company.amount, 1), color: '#10b981' },
                         ]}
                         cx="50%"
                         cy="50%"
