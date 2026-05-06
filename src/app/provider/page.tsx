@@ -255,6 +255,7 @@ export default function ProviderPage() {
 
     const [activeTab, setActiveTab] = useState<string>("overview");
     const [powerSubTab, setPowerSubTab] = useState<string>("quota");
+    const [productListTab, setProductListTab] = useState<string>("available");
     const [salesRecords, setSalesRecords] = useState<any[]>([]);
     const [salesStats, setSalesStats] = useState<any>({ total: 0, available: 0, sold: 0, pending: 0, totalAmount: 0 });
     const [salesFilter, setSalesFilter] = useState<string>("all");
@@ -1000,6 +1001,33 @@ export default function ProviderPage() {
                 refreshAll();
             } else {
                 showMessage("error", data.error || "下架失败");
+            }
+        } catch {
+            showMessage("error", "网络错误");
+        }
+    };
+
+    // 单个上架产品
+    const handleListProduct = async (productId: string, productName: string) => {
+        const providerId = localStorage.getItem("userId");
+        if (!providerId) return;
+
+        try {
+            const response = await authFetch("/api/provider/products/batch-status", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    providerId,
+                    productIds: [productId],
+                    status: "available",
+                }),
+            });
+            const data = await response.json();
+            if (data.success) {
+                showMessage("success", `产品"${productName}"已上架`);
+                refreshAll();
+            } else {
+                showMessage("error", data.error || "上架失败");
             }
         } catch {
             showMessage("error", "网络错误");
@@ -2558,192 +2586,279 @@ export default function ProviderPage() {
                     </div>}
                     {powerSubTab === "products" && <Card>
                         <CardHeader>
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between flex-wrap gap-3">
                                 <CardTitle>我的算力</CardTitle>
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-3 flex-wrap">
                                     <div className="flex items-center gap-4 text-sm">
                                         <span className="text-gray-500">产品总数：<span className="text-purple-600 font-bold">{products.length}</span></span>
                                         <span className="text-gray-500">产品总额：<span className="text-green-600 font-bold">¥{products.reduce((sum, p) => sum + (p.price || 0), 0).toLocaleString()}</span></span>
                                     </div>
-                                    <div className="flex gap-2">
-                                    {stats.pending_count > 0 && <Button
-                                        onClick={handleListAllProducts}
-                                        className="bg-green-600"
-                                        disabled={submitting}>
-                                        <CheckCircle className="w-4 h-4 mr-2" />一键上架全部
-                                                              </Button>}
-                                    <Button variant="outline" onClick={loadData}>
-                                        <RefreshCw className="w-4 h-4 mr-2" />刷新
+                                    <Button variant="outline" size="sm" onClick={loadData}>
+                                        <RefreshCw className="w-4 h-4 mr-1" />刷新
                                     </Button>
-                                    </div>
                                 </div>
+                            </div>
+                            {/* 产品分区Tab */}
+                            <div className="flex items-center gap-2 mt-3 border-b pb-2">
+                                {[
+                                    { key: 'available', label: '已上架', count: products.filter((p: any) => p.status === 'available').length, color: 'green' },
+                                    { key: 'unlisted', label: '未上架', count: products.filter((p: any) => p.status === 'draft' || p.status === 'unlisted').length, color: 'orange' },
+                                    { key: 'sold', label: '已出售', count: products.filter((p: any) => p.status === 'sold' || p.status === 'pending_sell' || p.status === 'pending_confirm').length, color: 'blue' },
+                                ].map(tab => (
+                                    <button
+                                        key={tab.key}
+                                        onClick={() => { setProductListTab(tab.key); setSelectedProductIds([]); }}
+                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                                            productListTab === tab.key
+                                                ? tab.color === 'green' ? 'bg-green-600 text-white shadow-md'
+                                                  : tab.color === 'orange' ? 'bg-orange-500 text-white shadow-md'
+                                                  : 'bg-blue-600 text-white shadow-md'
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        {tab.label}
+                                        <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs ${
+                                            productListTab === tab.key ? 'bg-white/30' : 'bg-gray-200'
+                                        }`}>{tab.count}</span>
+                                    </button>
+                                ))}
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="border-b bg-gray-50">
-                                            <th className="text-left py-3 px-4 w-10">
+                            {/* 已上架产品 */}
+                            {productListTab === 'available' && (() => {
+                                const availableProducts = products.filter((p: any) => p.status === 'available');
+                                return (
+                                    <div className="overflow-x-auto">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center gap-3">
                                                 <input
                                                     type="checkbox"
-                                                    checked={products.length > 0 && products.filter(p => p.status === 'draft' || p.status === 'unlisted' || p.status === 'available').every(p => selectedProductIds.includes(p.id))}
+                                                    checked={availableProducts.length > 0 && availableProducts.every((p: any) => selectedProductIds.includes(p.id))}
                                                     onChange={(e) => {
-                                                        const selectableIds = products.filter(p => p.status === 'draft' || p.status === 'unlisted' || p.status === 'available').map(p => p.id);
                                                         if (e.target.checked) {
-                                                            setSelectedProductIds(selectableIds);
+                                                            setSelectedProductIds(availableProducts.map((p: any) => p.id));
                                                         } else {
                                                             setSelectedProductIds([]);
                                                         }
                                                     }}
                                                     className="w-4 h-4"
                                                 />
-                                            </th>
-                                            <th className="text-left py-3 px-4">算力名称</th>
-                                            <th className="text-left py-3 px-4">价格</th>
-                                            <th className="text-left py-3 px-4">周期</th>
-                                            <th className="text-left py-3 px-4">时间锁</th>
-                                            <th className="text-left py-3 px-4">收益率</th>
-                                            <th className="text-left py-3 px-4">状态</th>
-                                            <th className="text-left py-3 px-4">创建时间</th>
-                                            <th className="text-left py-3 px-4">操作</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {products.map(product => <tr key={product.id} className="border-b hover:bg-gray-50">
-                                            <td className="py-3 px-4">
-                                                {(product.status === 'draft' || product.status === 'unlisted' || product.status === 'available') && (
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedProductIds.includes(product.id)}
-                                                        onChange={(e) => {
-                                                            if (e.target.checked) {
-                                                                setSelectedProductIds([...selectedProductIds, product.id]);
-                                                            } else {
-                                                                setSelectedProductIds(selectedProductIds.filter(id => id !== product.id));
-                                                            }
-                                                        }}
-                                                        className="w-4 h-4"
-                                                    />
-                                                )}
-                                            </td>
-                                            <td className="py-3 px-4">
-                                                <div>
-                                                    <p className="font-medium">{product.name}</p>
-                                                    <p className="text-sm text-gray-500">{product.code}</p>
-                                                </div>
-                                            </td>
-                                            <td className="py-3 px-4 text-green-600 font-medium">¥{(product.price || 0).toLocaleString()}
-                                            </td>
-                                            <td className="py-3 px-4">{product.period}天</td>
-                                            <td className="py-3 px-4">
-                                                <Badge variant="outline" className={product.period === 3 ? "text-orange-600 border-orange-300" : "text-red-600 border-red-300"}>
-                                                    {product.period * 24}小时
-                                                </Badge>
-                                            </td>
-                                            <td className="py-3 px-4">
-                                                <div className="text-sm">
-                                                    <span className="text-green-600">总{product.total_rate}%</span>
-                                                    <span className="text-gray-400 mx-1">|</span>
-                                                    <span className="text-blue-600">会员{product.profit_rate}%</span>
-                                                </div>
-                                            </td>
-                                            <td className="py-3 px-4">
-                                                <Badge
-                                                    className={
-                                                        product.status === "draft" || product.status === "unlisted" ? "bg-orange-100 text-orange-700" :
-                                                        product.status === "available" ? "bg-green-100 text-green-700" :
-                                                        product.status === "sold" ? "bg-blue-100 text-blue-700" :
-                                                        product.status === "pending_sell" ? "bg-purple-100 text-purple-700" :
-                                                        "bg-gray-100 text-gray-700"
-                                                    }>
-                                                    {product.status === "unlisted" ? "未上架" :
-                                                     product.status === "available" ? "已上架" :
-                                                     product.status === "sold" ? "已出售" :
-                                                     product.status === "pending_sell" ? "待流转" :
-                                                     "闲置中"}
-                                                </Badge>
-                                                {(product.status === "sold" || product.status === "pending_sell") && product.holder && (
-                                                    <div className="text-xs text-gray-500 mt-1">
-                                                        {product.status === "sold" ? "持有" : "申购人"}: {product.holder.username}
-                                                        {product.holder.unique_id && <span className="text-gray-400"> [{product.holder.unique_id}]</span>}
-                                                        {product.holder.phone && <span className="text-gray-400"> ({product.holder.phone.slice(0,3)}****{product.holder.phone.slice(-4)})</span>}
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="py-3 px-4 text-sm text-gray-500">
-                                                {product.created_at?.slice(0, 10)}
-                                            </td>
-                                            <td className="py-3 px-4">
-                                                <div className="flex items-center gap-1">
-                                                    {(product.status === 'draft' || product.status === 'unlisted') && (
-                                                        <Button
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            className="text-red-600 hover:text-red-800"
-                                                            onClick={() => handleDeleteProduct(product.id, product.name)}
-                                                        >
-                                                            <Trash2 className="w-4 h-4 mr-1" />删除
-                                                        </Button>
-                                                    )}
-                                                    {product.status === 'available' && (
-                                                        <Button
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            className="text-orange-600 hover:text-orange-800"
-                                                            onClick={() => handleUnlistProduct(product.id, product.name)}
-                                                        >
-                                                            <ArrowDownToLine className="w-4 h-4 mr-1" />下架
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>)}
-                                        {products.length === 0 && <tr>
-                                            <td colSpan={9} className="py-8 text-center text-gray-500">暂无算力，请先使用额度生成算力
-                                                                          </td>
-                                        </tr>}
-                                    </tbody>
-                                </table>
-                                {/* 批量操作栏 */}
-                                {selectedProductIds.length > 0 && (
-                                    <div className="flex items-center gap-3 p-3 bg-blue-50 border-t">
-                                        <span className="text-sm text-blue-700">已选 {selectedProductIds.length} 个产品</span>
-                                        {selectedProductIds.some(id => products.find(p => p.id === id && (p.status === 'draft' || p.status === 'unlisted'))) && (
-                                            <Button
-                                                size="sm"
-                                                className="bg-green-600 hover:bg-green-700 text-white"
-                                                onClick={handleBatchListProducts}
-                                            >
-                                                <ArrowUpFromLine className="w-4 h-4 mr-1" />批量上架
-                                            </Button>
+                                                <span className="text-sm text-gray-500">全选</span>
+                                                {availableProducts.length > 0 && <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={handleListAllProducts} disabled={submitting}><CheckCircle className="w-4 h-4 mr-1" />一键上架全部</Button>}
+                                            </div>
+                                            <span className="text-sm text-gray-500">共 {availableProducts.length} 件，总额 ¥{availableProducts.reduce((s: number, p: any) => s + (p.price || 0), 0).toLocaleString()}</span>
+                                        </div>
+                                        <table className="w-full">
+                                            <thead>
+                                                <tr className="border-b bg-gray-50">
+                                                    <th className="text-left py-3 px-4 w-10"></th>
+                                                    <th className="text-left py-3 px-4">算力名称</th>
+                                                    <th className="text-left py-3 px-4">价格</th>
+                                                    <th className="text-left py-3 px-4">周期</th>
+                                                    <th className="text-left py-3 px-4">收益率</th>
+                                                    <th className="text-left py-3 px-4">创建时间</th>
+                                                    <th className="text-left py-3 px-4">操作</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {availableProducts.map((product: any) => (
+                                                    <tr key={product.id} className="border-b hover:bg-gray-50">
+                                                        <td className="py-3 px-4">
+                                                            <input type="checkbox" checked={selectedProductIds.includes(product.id)} onChange={(e) => {
+                                                                if (e.target.checked) setSelectedProductIds([...selectedProductIds, product.id]);
+                                                                else setSelectedProductIds(selectedProductIds.filter(id => id !== product.id));
+                                                            }} className="w-4 h-4" />
+                                                        </td>
+                                                        <td className="py-3 px-4">
+                                                            <div><p className="font-medium">{product.name}</p><p className="text-sm text-gray-500">{product.code}</p></div>
+                                                        </td>
+                                                        <td className="py-3 px-4 text-green-600 font-medium">¥{(product.price || 0).toLocaleString()}</td>
+                                                        <td className="py-3 px-4">{product.period}天</td>
+                                                        <td className="py-3 px-4">
+                                                            <div className="text-sm">
+                                                                <span className="text-green-600">总{product.total_rate}%</span>
+                                                                <span className="text-gray-400 mx-1">|</span>
+                                                                <span className="text-blue-600">会员{product.profit_rate}%</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-3 px-4 text-sm text-gray-500">{product.created_at?.slice(0, 10)}</td>
+                                                        <td className="py-3 px-4">
+                                                            <Button size="sm" variant="ghost" className="text-orange-600 hover:text-orange-800" onClick={() => handleUnlistProduct(product.id, product.name)}>
+                                                                <ArrowDownToLine className="w-4 h-4 mr-1" />下架
+                                                            </Button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {availableProducts.length === 0 && <tr><td colSpan={7} className="py-8 text-center text-gray-500">暂无已上架产品</td></tr>}
+                                            </tbody>
+                                        </table>
+                                        {selectedProductIds.length > 0 && availableProducts.some((p: any) => selectedProductIds.includes(p.id)) && (
+                                            <div className="flex items-center gap-3 p-3 bg-blue-50 border-t mt-2">
+                                                <span className="text-sm text-blue-700">已选 {selectedProductIds.filter(id => availableProducts.some((p: any) => p.id === id)).length} 个产品</span>
+                                                <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={handleBatchUnlistProducts}>
+                                                    <ArrowDownToLine className="w-4 h-4 mr-1" />批量下架
+                                                </Button>
+                                                <Button size="sm" variant="outline" onClick={() => setSelectedProductIds([])}>取消选择</Button>
+                                            </div>
                                         )}
-                                        {selectedProductIds.some(id => products.find(p => p.id === id && p.status === 'available')) && (
-                                            <Button
-                                                size="sm"
-                                                className="bg-orange-500 hover:bg-orange-600 text-white"
-                                                onClick={handleBatchUnlistProducts}
-                                            >
-                                                <ArrowDownToLine className="w-4 h-4 mr-1" />批量下架
-                                            </Button>
-                                        )}
-                                        <Button
-                                            size="sm"
-                                            variant="destructive"
-                                            onClick={handleBatchDeleteProducts}
-                                        >
-                                            <Trash2 className="w-4 h-4 mr-1" />批量删除
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => setSelectedProductIds([])}
-                                        >
-                                            取消选择
-                                        </Button>
                                     </div>
-                                )}
-                            </div>
+                                );
+                            })()}
+
+                            {/* 未上架产品 */}
+                            {productListTab === 'unlisted' && (() => {
+                                const unlistedProducts = products.filter((p: any) => p.status === 'draft' || p.status === 'unlisted');
+                                return (
+                                    <div className="overflow-x-auto">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center gap-3">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={unlistedProducts.length > 0 && unlistedProducts.every((p: any) => selectedProductIds.includes(p.id))}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            setSelectedProductIds(unlistedProducts.map((p: any) => p.id));
+                                                        } else {
+                                                            setSelectedProductIds([]);
+                                                        }
+                                                    }}
+                                                    className="w-4 h-4"
+                                                />
+                                                <span className="text-sm text-gray-500">全选</span>
+                                            </div>
+                                            <span className="text-sm text-gray-500">共 {unlistedProducts.length} 件，总额 ¥{unlistedProducts.reduce((s: number, p: any) => s + (p.price || 0), 0).toLocaleString()}</span>
+                                        </div>
+                                        <table className="w-full">
+                                            <thead>
+                                                <tr className="border-b bg-gray-50">
+                                                    <th className="text-left py-3 px-4 w-10"></th>
+                                                    <th className="text-left py-3 px-4">算力名称</th>
+                                                    <th className="text-left py-3 px-4">价格</th>
+                                                    <th className="text-left py-3 px-4">周期</th>
+                                                    <th className="text-left py-3 px-4">收益率</th>
+                                                    <th className="text-left py-3 px-4">创建时间</th>
+                                                    <th className="text-left py-3 px-4">操作</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {unlistedProducts.map((product: any) => (
+                                                    <tr key={product.id} className="border-b hover:bg-gray-50">
+                                                        <td className="py-3 px-4">
+                                                            <input type="checkbox" checked={selectedProductIds.includes(product.id)} onChange={(e) => {
+                                                                if (e.target.checked) setSelectedProductIds([...selectedProductIds, product.id]);
+                                                                else setSelectedProductIds(selectedProductIds.filter(id => id !== product.id));
+                                                            }} className="w-4 h-4" />
+                                                        </td>
+                                                        <td className="py-3 px-4">
+                                                            <div><p className="font-medium">{product.name}</p><p className="text-sm text-gray-500">{product.code}</p></div>
+                                                        </td>
+                                                        <td className="py-3 px-4 text-green-600 font-medium">¥{(product.price || 0).toLocaleString()}</td>
+                                                        <td className="py-3 px-4">{product.period}天</td>
+                                                        <td className="py-3 px-4">
+                                                            <div className="text-sm">
+                                                                <span className="text-green-600">总{product.total_rate}%</span>
+                                                                <span className="text-gray-400 mx-1">|</span>
+                                                                <span className="text-blue-600">会员{product.profit_rate}%</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-3 px-4 text-sm text-gray-500">{product.created_at?.slice(0, 10)}</td>
+                                                        <td className="py-3 px-4">
+                                                            <div className="flex items-center gap-1">
+                                                                <Button size="sm" variant="ghost" className="text-green-600 hover:text-green-800" onClick={() => handleListProduct(product.id, product.name)}>
+                                                                    <ArrowUpFromLine className="w-4 h-4 mr-1" />上架
+                                                                </Button>
+                                                                <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-800" onClick={() => handleDeleteProduct(product.id, product.name)}>
+                                                                    <Trash2 className="w-4 h-4 mr-1" />删除
+                                                                </Button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {unlistedProducts.length === 0 && <tr><td colSpan={7} className="py-8 text-center text-gray-500">暂无未上架产品</td></tr>}
+                                            </tbody>
+                                        </table>
+                                        {selectedProductIds.length > 0 && unlistedProducts.some((p: any) => selectedProductIds.includes(p.id)) && (
+                                            <div className="flex items-center gap-3 p-3 bg-blue-50 border-t mt-2">
+                                                <span className="text-sm text-blue-700">已选 {selectedProductIds.filter(id => unlistedProducts.some((p: any) => p.id === id)).length} 个产品</span>
+                                                <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={handleBatchListProducts}>
+                                                    <ArrowUpFromLine className="w-4 h-4 mr-1" />批量上架
+                                                </Button>
+                                                <Button size="sm" variant="destructive" onClick={handleBatchDeleteProducts}>
+                                                    <Trash2 className="w-4 h-4 mr-1" />批量删除
+                                                </Button>
+                                                <Button size="sm" variant="outline" onClick={() => setSelectedProductIds([])}>取消选择</Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+
+                            {/* 已出售产品 */}
+                            {productListTab === 'sold' && (() => {
+                                const soldProducts = products.filter((p: any) => p.status === 'sold' || p.status === 'pending_sell' || p.status === 'pending_confirm');
+                                return (
+                                    <div className="overflow-x-auto">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <span className="text-sm text-gray-500">共 {soldProducts.length} 件，总额 ¥{soldProducts.reduce((s: number, p: any) => s + (p.price || 0), 0).toLocaleString()}</span>
+                                        </div>
+                                        <table className="w-full">
+                                            <thead>
+                                                <tr className="border-b bg-gray-50">
+                                                    <th className="text-left py-3 px-4">算力名称</th>
+                                                    <th className="text-left py-3 px-4">价格</th>
+                                                    <th className="text-left py-3 px-4">周期</th>
+                                                    <th className="text-left py-3 px-4">收益率</th>
+                                                    <th className="text-left py-3 px-4">状态</th>
+                                                    <th className="text-left py-3 px-4">持有人</th>
+                                                    <th className="text-left py-3 px-4">创建时间</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {soldProducts.map((product: any) => (
+                                                    <tr key={product.id} className="border-b hover:bg-gray-50">
+                                                        <td className="py-3 px-4">
+                                                            <div><p className="font-medium">{product.name}</p><p className="text-sm text-gray-500">{product.code}</p></div>
+                                                        </td>
+                                                        <td className="py-3 px-4 text-green-600 font-medium">¥{(product.price || 0).toLocaleString()}</td>
+                                                        <td className="py-3 px-4">{product.period}天</td>
+                                                        <td className="py-3 px-4">
+                                                            <div className="text-sm">
+                                                                <span className="text-green-600">总{product.total_rate}%</span>
+                                                                <span className="text-gray-400 mx-1">|</span>
+                                                                <span className="text-blue-600">会员{product.profit_rate}%</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-3 px-4">
+                                                            <Badge className={
+                                                                product.status === "sold" ? "bg-blue-100 text-blue-700" :
+                                                                product.status === "pending_sell" ? "bg-purple-100 text-purple-700" :
+                                                                product.status === "pending_confirm" ? "bg-yellow-100 text-yellow-700" :
+                                                                "bg-gray-100 text-gray-700"
+                                                            }>
+                                                                {product.status === "sold" ? "已出售" :
+                                                                 product.status === "pending_sell" ? "待流转" :
+                                                                 product.status === "pending_confirm" ? "待确认" : "已出售"}
+                                                            </Badge>
+                                                        </td>
+                                                        <td className="py-3 px-4">
+                                                            {product.holder ? (
+                                                                <div className="text-sm">
+                                                                    <p className="font-medium">{product.holder.username}</p>
+                                                                    {product.holder.unique_id && <p className="text-xs text-gray-400">[{product.holder.unique_id}]</p>}
+                                                                    {product.holder.phone && <p className="text-xs text-gray-400">{product.holder.phone.slice(0,3)}****{product.holder.phone.slice(-4)}</p>}
+                                                                </div>
+                                                            ) : <span className="text-gray-400">-</span>}
+                                                        </td>
+                                                        <td className="py-3 px-4 text-sm text-gray-500">{product.created_at?.slice(0, 10)}</td>
+                                                    </tr>
+                                                ))}
+                                                {soldProducts.length === 0 && <tr><td colSpan={7} className="py-8 text-center text-gray-500">暂无已出售产品</td></tr>}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                );
+                            })()}
                         </CardContent>
                     </Card>}
 
