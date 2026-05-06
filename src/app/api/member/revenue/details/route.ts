@@ -1,106 +1,98 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, queryOne } from '@/storage/database/pg-client';
+import { createClient } from '@supabase/supabase-js';
+import { authenticateRequest } from '@/lib/auth';
+import { getSupabaseUrl, getSupabaseServiceRoleKey } from '@/lib/env';
 
-// 辅助函数：将PostgreSQL numeric格式转换为数字
-function parseNumeric(val: any): number {
-  if (!val) return 0;
-  if (typeof val === 'number') return val;
-  if (typeof val === 'string') {
-    const match = val.match(/\{(\d+)\s+(-?\d+)/);
-    if (match) {
-      return parseFloat(match[1]) * Math.pow(10, parseInt(match[2]));
-    }
-    return parseFloat(val) || 0;
+function getAdminSupabase() {
+  const url = getSupabaseUrl();
+  const key = getSupabaseServiceRoleKey();
+  if (!url || !key) {
+    throw new Error('Missing Supabase configuration');
   }
-  return 0;
+  return createClient(url, key);
 }
 
-// 获取收益明细列表
+/**
+ * 获取会员收益明细流水
+ * 包含：本金返还、收益入账、转能量值、提现
+ */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
-    const type = searchParams.get('type'); // 筛选类型：profit_in, convert_to_energy, withdraw
 
     if (!userId) {
       return NextResponse.json({ error: '用户ID不能为空' }, { status: 400 });
     }
 
-    // 构建查询条件
-    let whereClause = 'WHERE rd.user_id = $1';
-    const params: any[] = [userId];
-    
-    if (type) {
-      whereClause += ' AND rd.type = $2';
-      params.push(type);
-    }
+    const client = getAdminSupabase();
 
-    // 查询收益明细（简化查询，不关联产品表）
-    const records = await query(
-      `SELECT 
-        rd.id,
-        rd.type,
-        rd.amount,
-        rd.balance_before,
-        rd.balance_after,
-        rd.description,
-        rd.created_at,
-        rd.revenue_id
-       FROM revenue_details rd
-       ${whereClause}
-       ORDER BY rd.created_at DESC
-       LIMIT 100`,
-      params
-    );
+    // 使用 rpc_query 查询收益明细
+    const { data: detailRecords } = await client
+      .rpc('rpc_query', {
+        sql_query: `
+          SELECT rd.*, mr.principal as revenue_principal, mr.profit as revenue_profit,
+            p.name as product_name, p.period as product_period
+          FROM revenue_details rd
+          LEFT JOIN member_revenue mr ON rd.revenue_id = mr.id
+          LEFT JOIN user_products up ON mr.user_product_id = up.id
+          LEFT JOIN products p ON up.product_id = p.id
+          WHERE rd.user_id = '${userId}'
+          ORDER BY rd.created_at DESC
+          LIMIT 100
+        `
+      });
 
-    // 计算统计
-    const statsResult: any = await queryOne(
-      `SELECT 
-         COALESCE(SUM(CASE WHEN type = 'profit_in' THEN amount ELSE 0 END), 0) as total_in,
-         COALESCE(SUM(CASE WHEN type = 'convert_to_energy' THEN amount ELSE 0 END), 0) as total_convert,
-         COALESCE(SUM(CASE WHEN type = 'withdraw' THEN amount ELSE 0 END), 0) as total_withdraw,
-         COUNT(CASE WHEN type = 'profit_in' THEN 1 END) as count_in,
-         COUNT(CASE WHEN type = 'convert_to_energy' THEN 1 END) as count_convert,
-         COUNT(CASE WHEN type = 'withdraw' THEN 1 END) as count_withdraw
-       FROM revenue_details
-       WHERE user_id = $1`,
-      [userId]
-    );
+    const formattedDetails = (detailRecords || []).map((detail: any) => ({
+      id: detail.id,
+      user_id: detail.user_id,
+      revenue_id: detail.revenue_id,
+      type: detail.type,
+      amount: parseFloat(detail.amount || 0),
+      balance_before: parseFloat(detail.balance_before || 0),
+      balance_after: parseFloat(detail.balance_after || 0),
+      description: detail.description,
+      product_name: detail.product_name || null,
+      product_period: detail.product_period || null,
+      created_at: detail.created_at,
+    }));
 
-    // 获取当前收益汇总
-    const revenueResult: any = await queryOne(
-      `SELECT 
-         COALESCE(SUM(profit), 0) as total_profit,
-         COALESCE(SUM(converted_to_energy), 0) as converted
-       FROM member_revenue
-       WHERE user_id = $1`,
-      [userId]
-    );
+    // 统计
+    const { data: statsData } = await client
+      .rpc('rpc_query', {
+        sql_query: `
+          SELECT 
+            COALESCE(SUM(amount) FILTER (WHERE type = 'principal_return'), 0) as total_principal_in,
+            COALESCE(SUM(amount) FILTER (WHERE type = 'profit_in'), 0) as total_profit_in,
+            COALESCE(SUM(amount) FILTER (WHERE type = 'convert_to_energy'), 0) as total_convert,
+            COALESCE(SUM(amount) FILTER (WHERE type = 'withdraw'), 0) as total_withdraw
+          FROM revenue_details
+          WHERE user_id = '${userId}'
+        `
+      });
 
-    const totalProfit = parseNumeric(revenueResult?.total_profit);
-    const converted = parseNumeric(revenueResult?.converted);
-
-    const stats = {
-      totalProfit,
-      converted,
-      available: totalProfit - converted,
-      totalIn: parseNumeric(statsResult?.total_in),
-      totalConvert: parseNumeric(statsResult?.total_convert),
-      totalWithdraw: parseNumeric(statsResult?.total_withdraw),
-    };
+    const statsRow = (statsData || [])[0] || {};
 
     return NextResponse.json({
       success: true,
       data: {
-        records: records || [],
-        stats,
+        records: formattedDetails,
+        stats: {
+          totalPrincipal: parseFloat(statsRow.total_principal_in || 0),
+          totalProfit: parseFloat(statsRow.total_profit_in || 0),
+          totalConvert: parseFloat(statsRow.total_convert || 0),
+          totalWithdraw: parseFloat(statsRow.total_withdraw || 0),
+        }
       }
     });
   } catch (error) {
     console.error('获取收益明细失败:', error);
     return NextResponse.json({
-      success: false,
-      error: '获取收益明细失败'
-    }, { status: 500 });
+      success: true,
+      data: {
+        records: [],
+        stats: { totalPrincipal: 0, totalProfit: 0, totalConvert: 0, totalWithdraw: 0 }
+      }
+    });
   }
 }

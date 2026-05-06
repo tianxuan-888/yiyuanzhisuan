@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { createClient } from '@supabase/supabase-js';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
+import { getSupabaseUrl, getSupabaseServiceRoleKey } from '@/lib/env';
+
+// 获取管理员 Supabase 客户端（绕过 RLS）
+function getAdminSupabase() {
+  const url = getSupabaseUrl();
+  const key = getSupabaseServiceRoleKey();
+  if (!url || !key) {
+    throw new Error('Missing Supabase configuration');
+  }
+  return createClient(url, key);
+}
 
 // 审核会员卖出申请
 export async function POST(request: NextRequest) {
@@ -31,7 +42,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const client = getSupabaseClient();
+    const client = getAdminSupabase();
 
     // 查询用户产品
     const { data: userProduct, error: productError } = await client
@@ -77,6 +88,17 @@ export async function POST(request: NextRequest) {
       const expectedProfit = parseFloat(userProduct.expected_profit);
       const totalReturn = purchasePrice + expectedProfit;
 
+      // 查询产品信息（用于收益记录描述）
+      const { data: productInfo } = await client
+        .from('products')
+        .select('id, name, code, period, total_rate, profit_rate')
+        .eq('id', userProduct.product_id)
+        .maybeSingle();
+
+      const productName = productInfo?.name || '未知产品';
+      const productPeriod = productInfo?.period || 0;
+      const profitRate = productInfo?.profit_rate || 0;
+
       // 更新产品状态为已卖出
       const { error: updateError } = await client
         .from('user_products')
@@ -101,7 +123,58 @@ export async function POST(request: NextRequest) {
         .update({ balance: newBalance, updated_at: new Date().toISOString() })
         .eq('id', userProduct.user_id);
 
-      // 记录交易
+      // ========== 记录会员收益到 member_revenue 表 ==========
+      const revenueId = crypto.randomUUID();
+      await client
+        .from('member_revenue')
+        .insert({
+          id: revenueId,
+          user_id: userProduct.user_id,
+          order_id: userProduct.order_id || null,
+          user_product_id: userProductId,
+          principal: purchasePrice,
+          profit: expectedProfit,
+          total_amount: totalReturn,
+          converted_to_energy: 0,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+
+      // ========== 写入收益明细流水 revenue_details ==========
+      // 1. 本金入账
+      await client
+        .from('revenue_details')
+        .insert({
+          id: crypto.randomUUID(),
+          user_id: userProduct.user_id,
+          revenue_id: revenueId,
+          type: 'principal_in',
+          amount: purchasePrice,
+          balance_before: currentBalance,
+          balance_after: currentBalance + purchasePrice,
+          description: `卖出${productPeriod}天产品「${productName}」本金返还`,
+          related_id: userProduct.product_id,
+          created_at: new Date().toISOString(),
+        });
+
+      // 2. 收益入账
+      await client
+        .from('revenue_details')
+        .insert({
+          id: crypto.randomUUID(),
+          user_id: userProduct.user_id,
+          revenue_id: revenueId,
+          type: 'profit_in',
+          amount: expectedProfit,
+          balance_before: currentBalance + purchasePrice,
+          balance_after: newBalance,
+          description: `持有${productPeriod}天产品「${productName}」到期收益（收益率${profitRate}%）`,
+          related_id: userProduct.product_id,
+          created_at: new Date().toISOString(),
+        });
+
+      // 记录交易流水
       await client
         .from('transactions')
         .insert({
@@ -111,7 +184,7 @@ export async function POST(request: NextRequest) {
           amount: totalReturn,
           balance_before: currentBalance,
           balance_after: newBalance,
-          description: `卖出产品收益`,
+          description: `卖出${productPeriod}天产品「${productName}」，本金¥${purchasePrice}+收益¥${expectedProfit}`,
           created_at: new Date().toISOString(),
         });
 
@@ -121,6 +194,8 @@ export async function POST(request: NextRequest) {
         data: {
           status: 'sold',
           total_return: totalReturn,
+          principal: purchasePrice,
+          profit: expectedProfit,
         },
       });
     } else {

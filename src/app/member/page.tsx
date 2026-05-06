@@ -45,6 +45,7 @@ import {
     EyeOff,
     Banknote,
     ArrowRightLeft,
+    Info,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -275,7 +276,7 @@ const [copySuccess, setCopySuccess] = useState(false);
     // 收益明细相关状态
     const [profitDetails, setProfitDetails] = useState<any[]>([]);
     const [profitDetailsStats, setProfitDetailsStats] = useState<any>({});
-    const [profitDetailFilter, setProfitDetailFilter] = useState<'all' | 'profit_in' | 'convert_to_energy' | 'withdraw'>('all');
+    const [profitDetailFilter, setProfitDetailFilter] = useState<'all' | 'principal_return' | 'principal_in' | 'profit_in' | 'convert_to_energy' | 'withdraw'>('all');
 
     // 购买限制相关状态
     const [purchaseLimits, setPurchaseLimits] = useState<any>(null);
@@ -455,11 +456,14 @@ const [copySuccess, setCopySuccess] = useState(false);
             const data = await response.json();
             if (data.success) {
                 setProfitRecords(data.data?.records || []);
-                setProfitStats(data.data?.stats || {
-                    totalPrincipal: 0,
-                    totalProfit: 0,
-                    converted: 0,
-                    available: 0,
+                const stats = data.data?.stats || {};
+                setProfitStats({
+                    totalPrincipal: stats.totalPrincipal || 0,
+                    totalProfit: stats.totalProfit || 0,
+                    converted: stats.converted || 0,
+                    available: stats.available || 0,
+                    holdingExpectedProfit: stats.holdingExpectedProfit || 0,
+                    holdingPrincipal: stats.holdingPrincipal || 0,
                 });
             }
             
@@ -3351,8 +3355,22 @@ const [copySuccess, setCopySuccess] = useState(false);
                     {/* 我的收益 Tab */}
                     {activeTab === "profit" && (
                         <div className="space-y-3 md:space-y-6">
+                            {/* 收益来源说明 */}
+                            <Card className="bg-slate-800/50 border-slate-700">
+                                <CardContent className="pt-4">
+                                    <div className="flex items-start gap-3">
+                                        <Info className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+                                        <div className="text-sm text-gray-400 space-y-1">
+                                            <p className="text-gray-300 font-medium">会员收益来源</p>
+                                            <p>会员收益来自持有GPU算力产品期间产生的回报，按产品周期收益率计算（3天5%、7天10%、15天20%、30天44%、90天120%）。</p>
+                                            <p className="text-gray-500">与服务商/分公司不同：服务商分公司收益来自市场业务（市场费分成），会员收益来自产品持有时长产生的回报。</p>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
                             {/* 收益统计卡片 */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                                 <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
                                     <CardContent className="pt-4">
                                         <div className="flex items-center gap-2 mb-2">
@@ -3402,9 +3420,19 @@ const [copySuccess, setCopySuccess] = useState(false);
                                         )}
                                     </CardContent>
                                 </Card>
+                                <Card className="bg-gradient-to-br from-cyan-500 to-teal-600 text-white">
+                                    <CardContent className="pt-4">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Clock className="w-5 h-5" />
+                                            <span className="text-sm opacity-80">持仓预期收益</span>
+                                        </div>
+                                        <p className="text-2xl font-bold">{profitStats.holdingExpectedProfit?.toLocaleString() || 0}</p>
+                                        <p className="text-xs opacity-70 mt-1">持仓本金: {profitStats.holdingPrincipal?.toLocaleString() || 0}</p>
+                                    </CardContent>
+                                </Card>
                             </div>
 
-                            {/* 收益说明 */}
+                            {/* 卖出入账说明 */}
                             <Card className="bg-slate-800/50 border-slate-700">
                                 <CardContent className="pt-4">
                                     <p className="text-sm text-gray-400 text-center">
@@ -3427,20 +3455,24 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             {profitRecords.map((record: any) => (
                                                 <div key={record.id} className="border rounded-lg p-4 bg-slate-50">
                                                     <div className="flex justify-between items-start">
-                                                        <div>
-                                                            <p className="font-medium">
-                                                                本金: ¥{Number(record.principal || 0).toLocaleString()} | 
-                                                                收益: ¥{Number(record.profit || 0).toLocaleString()}
+                                                        <div className="flex-1">
+                                                            <p className="font-medium text-gray-800">
+                                                                {record.productName || record.product_name || '产品'}
                                                             </p>
-                                                            <p className="text-sm text-gray-500">
-                                                                总计: ¥{Number(record.total_amount || 0).toLocaleString()}
-                                                            </p>
-                                                            <p className="text-xs text-gray-400 mt-1">
-                                                                {new Date(record.createdAt || record.created_at).toLocaleString('zh-CN')}
-                                                            </p>
+                                                            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-gray-500">
+                                                                <span>本金: ¥{Number(record.principal || 0).toLocaleString()}</span>
+                                                                <span>收益: <span className="text-green-600 font-medium">¥{Number(record.profit || 0).toLocaleString()}</span></span>
+                                                                <span>到账: ¥{Number(record.total_amount || 0).toLocaleString()}</span>
+                                                            </div>
+                                                            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-gray-400">
+                                                                {record.productPeriod && <span>{record.productPeriod}天周期</span>}
+                                                                {record.profitRate && <span>收益率{record.profitRate}%</span>}
+                                                                {record.holdingDays && <span>持有{record.holdingDays}天</span>}
+                                                                <span>{new Date(record.createdAt || record.created_at).toLocaleString('zh-CN')}</span>
+                                                            </div>
                                                         </div>
                                                         <Badge variant={record.status === 'pending' ? 'secondary' : 'default'}>
-                                                            {record.status === 'pending' ? '待处理' : record.status === 'converted' ? '已转能量值' : '已提现'}
+                                                            {record.status === 'pending' ? '待处理' : record.status === 'converted' ? '已转能量值' : record.status === 'withdrawn' ? '已提现' : record.status}
                                                         </Badge>
                                                     </div>
                                                     {Number(record.converted_to_energy) > 0 && (
@@ -3455,7 +3487,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                         <div className="text-center py-8 text-gray-500">
                                             <TrendingUp className="w-12 h-12 mx-auto mb-3 opacity-50" />
                                             <p>暂无收益记录</p>
-                                            <p className="text-sm mt-1">购买产品到期后将获得收益</p>
+                                            <p className="text-sm mt-1">产品到期卖出后收益将在此记录</p>
                                         </div>
                                     )}
                                 </CardContent>
@@ -3478,6 +3510,13 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             onClick={() => setProfitDetailFilter('all')}
                                         >
                                             全部
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant={profitDetailFilter === 'principal_return' ? "default" : "outline"}
+                                            onClick={() => setProfitDetailFilter('principal_return')}
+                                        >
+                                            本金返还
                                         </Button>
                                         <Button
                                             size="sm"
@@ -3504,10 +3543,14 @@ const [copySuccess, setCopySuccess] = useState(false);
 
                                     {/* 收益明细统计 */}
                                     {profitDetailsStats && (
-                                        <div className="grid grid-cols-3 gap-2 mb-4">
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                                            <div className="bg-blue-50 rounded-lg p-2 text-center">
+                                                <p className="text-xs text-blue-600">本金返还</p>
+                                                <p className="font-bold text-blue-600">{Number(profitDetailsStats.totalPrincipal || 0).toLocaleString()}</p>
+                                            </div>
                                             <div className="bg-green-50 rounded-lg p-2 text-center">
-                                                <p className="text-xs text-green-600">累计入账</p>
-                                                <p className="font-bold text-green-600">{Number(profitDetailsStats.totalIn || 0).toLocaleString()}</p>
+                                                <p className="text-xs text-green-600">收益入账</p>
+                                                <p className="font-bold text-green-600">{Number(profitDetailsStats.totalProfit || 0).toLocaleString()}</p>
                                             </div>
                                             <div className="bg-purple-50 rounded-lg p-2 text-center">
                                                 <p className="text-xs text-purple-600">转能量值</p>
@@ -3529,27 +3572,33 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                         <div className="flex justify-between items-start">
                                                             <div>
                                                                 <p className="font-medium flex items-center gap-2">
+                                                                    {detail.type === 'principal_return' && <ArrowDownCircle className="w-4 h-4 text-blue-500" />}
                                                                     {detail.type === 'profit_in' && <ArrowDownCircle className="w-4 h-4 text-green-500" />}
                                                                     {detail.type === 'convert_to_energy' && <Zap className="w-4 h-4 text-purple-500" />}
                                                                     {detail.type === 'withdraw' && <ArrowUpCircle className="w-4 h-4 text-amber-500" />}
-                                                                    {detail.type === 'profit_in' ? '收益入账' : 
+                                                                    {detail.type === 'principal_return' ? '本金返还' : 
+                                                                     detail.type === 'profit_in' ? '收益入账' : 
                                                                      detail.type === 'convert_to_energy' ? '转为能量值' : 
                                                                      detail.type === 'withdraw' ? '收益提现' : detail.type}
                                                                 </p>
-                                                                <p className="text-sm text-gray-500">
-                                                                    余额: {Number(detail.balance_after || 0).toLocaleString()}
-                                                                </p>
+                                                                {detail.description && (
+                                                                    <p className="text-xs text-gray-500 mt-0.5">{detail.description}</p>
+                                                                )}
                                                                 <p className="text-xs text-gray-400 mt-1">
                                                                     {new Date(detail.createdAt || detail.created_at).toLocaleString('zh-CN')}
                                                                 </p>
                                                             </div>
                                                             <div className="text-right">
-                                                                <p className={`font-bold ${detail.type === 'profit_in' ? 'text-green-600' : 'text-purple-600'}`}>
-                                                                    {detail.type === 'profit_in' ? '+' : '-'}
+                                                                <p className={`font-bold ${
+                                                                    detail.type === 'principal_return' ? 'text-blue-600' : 
+                                                                    detail.type === 'profit_in' ? 'text-green-600' : 
+                                                                    'text-purple-600'
+                                                                }`}>
+                                                                    {(detail.type === 'principal_return' || detail.type === 'profit_in') ? '+' : '-'}
                                                                     {Number(detail.amount || 0).toLocaleString()}
                                                                 </p>
-                                                                {detail.description && (
-                                                                    <p className="text-xs text-gray-400 mt-1">{detail.description}</p>
+                                                                {detail.balance_after != null && (
+                                                                    <p className="text-xs text-gray-400">余额: {Number(detail.balance_after).toLocaleString()}</p>
                                                                 )}
                                                             </div>
                                                         </div>
@@ -3560,7 +3609,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                         <div className="text-center py-8 text-gray-500">
                                             <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
                                             <p>暂无收益明细</p>
-                                            <p className="text-sm mt-1">收益变动将在这里记录</p>
+                                            <p className="text-sm mt-1">产品到期卖出后收益变动将在这里记录</p>
                                         </div>
                                     )}
                                 </CardContent>

@@ -1,143 +1,145 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, queryOne } from '@/storage/database/pg-client';
-import { verifyToken } from '@/lib/auth';
-import { randomUUID } from 'crypto';
+import { createClient } from '@supabase/supabase-js';
+import { authenticateRequest } from '@/lib/auth';
+import { getSupabaseUrl, getSupabaseServiceRoleKey } from '@/lib/env';
 
-function authenticateRequest(request: NextRequest) {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return null;
+// 获取管理员 Supabase 客户端（绕过 RLS）
+function getAdminSupabase() {
+  const url = getSupabaseUrl();
+  const key = getSupabaseServiceRoleKey();
+  if (!url || !key) {
+    throw new Error('Missing Supabase configuration');
   }
-  const token = authHeader.substring(7);
-  return verifyToken(token);
+  return createClient(url, key);
 }
 
-// 获取会员收益记录
+/**
+ * 获取会员收益记录
+ * 
+ * 会员收益逻辑：
+ * - 收益来源：持有产品期间按周期收益率产生（3天5%、7天10%等）
+ * - 入账时机：产品到期卖出时，本金+收益进入收益账户
+ * - 与服务商/分公司不同：服务商分公司收益来自市场业务，会员收益来自产品持有时长
+ */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId') || '00000000-0000-0000-0000-000000000020';
+    const userId = searchParams.get('userId');
 
-    // 查询收益记录
-    let records: any[] = [];
-    let simpleRecords: any[] = [];
-    
-    try {
-      records = await query(
-        `SELECT mr.*, up.product_name, up.product_code, up.period
-         FROM (
-           SELECT 
-             mr.*,
-             p.name as product_name,
-             p.code as product_code,
-             p.period as product_period
-           FROM member_revenue mr
-           LEFT JOIN user_products up_mr ON mr.user_product_id = up_mr.id
-           LEFT JOIN products p ON up_mr.product_id = p.id
-           WHERE mr.user_id = $1
-         ) mr
-         LEFT JOIN user_products up ON mr.user_product_id = up.id
-         LEFT JOIN products p ON up.product_id = p.id
-         ORDER BY mr.created_at DESC
-         LIMIT 50`,
-        [userId]
-      );
-
-      // 简化查询
-      simpleRecords = await query(
-        `SELECT * FROM member_revenue WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50`,
-        [userId]
-      );
-    } catch (e) {
-      console.error('查询收益记录失败:', e);
+    if (!userId) {
+      return NextResponse.json({ error: '用户ID不能为空' }, { status: 400 });
     }
 
-    // 计算统计
-    let totalPrincipal = 0;
-    let totalProfit = 0;
-    let converted = 0;
-    let available = 0;
-    
-    try {
-      // 从 member_revenue 表获取历史统计
-      const totalResult: any = await query(
-        `SELECT 
-           COALESCE(SUM(principal), 0) as total_principal,
-           COALESCE(SUM(profit), 0) as total_profit,
-           COALESCE(SUM(converted_to_energy), 0) as converted
-         FROM member_revenue
-         WHERE user_id = $1`,
-        [userId]
-      );
+    const client = getAdminSupabase();
 
-      totalPrincipal = parseFloat(totalResult?.[0]?.total_principal || '0');
-      totalProfit = parseFloat(totalResult?.[0]?.total_profit || '0');
-      converted = parseFloat(totalResult?.[0]?.converted || '0');
-      
-      // 从 user_products 表获取当前可转能量值（持有中产品的预期收益）
-      const availableResult: any = await query(
-        `SELECT COALESCE(SUM(expected_profit), 0) as available
-         FROM user_products
-         WHERE user_id = $1 AND status = 'holding'`,
-        [userId]
-      );
-      available = parseFloat(availableResult?.[0]?.available || '0');
-    } catch (e) {
-      console.error('查询统计失败:', e);
+    // ========== 1. 获取收益记录（使用 rpc_query 关联查询）==========
+    const { data: revenueRecords } = await client
+      .rpc('rpc_query', {
+        sql_query: `
+          SELECT mr.*, 
+            p.name as product_name, p.code as product_code, p.period as product_period,
+            p.total_rate, p.profit_rate, p.market_rate
+          FROM member_revenue mr
+          LEFT JOIN user_products up ON mr.user_product_id = up.id
+          LEFT JOIN products p ON up.product_id = p.id
+          WHERE mr.user_id = '${userId}'
+          ORDER BY mr.created_at DESC
+          LIMIT 50
+        `
+      });
+
+    const formattedRecords = (revenueRecords || []).map((record: any) => ({
+      id: record.id,
+      user_id: record.user_id,
+      order_id: record.order_id,
+      user_product_id: record.user_product_id,
+      principal: parseFloat(record.principal || 0),
+      profit: parseFloat(record.profit || 0),
+      total_amount: parseFloat(record.total_amount || 0),
+      converted_to_energy: parseFloat(record.converted_to_energy || 0),
+      status: record.status,
+      // 产品信息
+      product_name: record.product_name || '未知产品',
+      product_code: record.product_code || '',
+      product_period: record.product_period || 0,
+      total_rate: record.total_rate || 0,
+      profit_rate: record.profit_rate || 0,
+      market_rate: record.market_rate || 0,
+      holding_days: record.holding_days || 0,
+      created_at: record.created_at,
+      updated_at: record.updated_at,
+    }));
+
+    // ========== 2. 统计汇总（已卖出产生的收益统计）==========
+    const { data: revenueStats } = await client
+      .rpc('rpc_query', {
+        sql_query: `
+          SELECT 
+            COALESCE(SUM(principal), 0) as total_principal,
+            COALESCE(SUM(profit), 0) as total_profit,
+            COALESCE(SUM(converted_to_energy), 0) as total_converted
+          FROM member_revenue
+          WHERE user_id = '${userId}'
+        `
+      });
+
+    const statsRow = (revenueStats || [])[0] || {};
+    const totalPrincipal = parseFloat(statsRow.total_principal || 0);
+    const totalProfit = parseFloat(statsRow.total_profit || 0);
+    const converted = parseFloat(statsRow.total_converted || 0);
+    const available = totalProfit - converted;
+
+    // ========== 3. 当前持有中产品的预期收益（持仓中未卖出）==========
+    // 使用分开的查询避免 enum 类型转换问题
+    // 使用 Supabase REST API 直接查询
+    const holdingResult = await client
+      .from('user_products')
+      .select('expected_profit, purchase_price')
+      .eq('user_id', userId)
+      .eq('status', 'holding');
+
+    // 再查 pending_confirm
+    let pendingData: any[] = [];
+    try {
+      const { data: pd } = await client
+        .from('user_products')
+        .select('expected_profit, purchase_price')
+        .eq('user_id', userId)
+        .eq('status', 'pending_confirm');
+      pendingData = pd || [];
+    } catch {
+      // schema cache 可能不识别 pending_confirm，忽略
     }
-    
-    // 如果有真实数据，使用真实数据
-    let displayRecords = simpleRecords || [];
-    let displayStats = {
-      totalPrincipal,
-      totalProfit,
-      converted,
-      available, // 现在从 user_products 表获取
+
+    const allHoldings = [...(holdingResult.data || []), ...pendingData];
+    let holdingExpectedProfit = 0;
+    let holdingPrincipal = 0;
+    if (allHoldings.length > 0) {
+      holdingExpectedProfit = allHoldings.reduce((sum: number, r: any) => sum + (parseFloat(r.expected_profit) || 0), 0);
+      holdingPrincipal = allHoldings.reduce((sum: number, r: any) => sum + (parseFloat(r.purchase_price) || 0), 0);
+    }
+
+    // ========== 4. 收益说明 ==========
+    const revenueDescription = {
+      source: '产品持有收益',
+      description: '会员通过持有GPU算力产品，按周期收益率获得收益。3天产品5%、7天产品10%、15天产品20%、30天产品44%、90天产品120%。',
+      timing: '产品到期卖出时，本金和收益进入收益账户',
+      difference: '与服务商/分公司收益不同：服务商分公司收益来自市场业务（市场费分成），会员收益来自产品持有时长产生的回报',
     };
-    
-    // 只有当没有真实数据时才使用演示数据
-    if (totalProfit === 0 && totalPrincipal === 0) {
-      // 从 user_products 表获取当前可转能量值作为默认值
-      try {
-        const availableResult: any = await query(
-          `SELECT COALESCE(SUM(expected_profit), 0) as available
-           FROM user_products
-           WHERE user_id = $1 AND status = 'holding'`,
-          [userId]
-        );
-        available = parseFloat(availableResult?.[0]?.available || '0');
-      } catch (e) {
-        console.error('查询可用收益失败:', e);
-      }
-      
-      // 如果有可用收益，使用真实数据
-      if (available > 0) {
-        displayStats.available = available;
-      } else {
-        // 否则使用演示数据
-        const mockRecords = [
-          {
-            id: 'demo-1',
-            user_id: userId,
-            principal: 10000,
-            profit: 500,
-            total_amount: 10500,
-            converted_to_energy: 0,
-            status: 'pending',
-            created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-            description: 'GPU算力7天产品收益',
-          },
-        ];
-        displayRecords = mockRecords;
-        displayStats.available = 500;
-      }
-    }
 
     return NextResponse.json({
       success: true,
       data: {
-        records: displayRecords,
-        stats: displayStats,
+        records: formattedRecords,
+        stats: {
+          totalPrincipal,
+          totalProfit,
+          converted,
+          available,
+          holdingExpectedProfit,
+          holdingPrincipal,
+        },
+        description: revenueDescription,
       }
     });
   } catch (error) {
@@ -146,18 +148,22 @@ export async function GET(request: NextRequest) {
       success: true,
       data: {
         records: [],
-        stats: { totalPrincipal: 0, totalProfit: 0, converted: 0, available: 0 }
+        stats: { totalPrincipal: 0, totalProfit: 0, converted: 0, available: 0, holdingExpectedProfit: 0, holdingPrincipal: 0 },
+        description: null,
       }
     });
   }
 }
 
-// 会员收益转能量值
+/**
+ * 会员收益转能量值
+ * 将已入账的收益转为能量值（1:1）
+ */
 export async function POST(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);
     if (!authUser) {
-      return NextResponse.json({ error: '无权限' }, { status: 403 });
+      return NextResponse.json({ error: '未登录，请先登录' }, { status: 401 });
     }
 
     const body = await request.json();
@@ -169,80 +175,122 @@ export async function POST(request: NextRequest) {
 
     const convertAmount = Number(amount);
     const userId = authUser.userId;
+    const client = getAdminSupabase();
 
-    // 计算可转换的收益
-    const totalResult: any = await queryOne(
-      `SELECT 
-         COALESCE(SUM(profit), 0) as total_profit,
-         COALESCE(SUM(converted_to_energy), 0) as converted
-       FROM member_revenue
-       WHERE user_id = $1 AND status = 'pending'`,
-      [userId]
-    );
+    // 查询可转换的收益
+    const { data: revenueRecords } = await client
+      .from('member_revenue')
+      .select('id, profit, converted_to_energy, status')
+      .eq('user_id', userId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true });
 
-    const totalProfit = parseFloat(totalResult?.total_profit || '0');
-    const converted = parseFloat(totalResult?.converted || '0');
-    const available = totalProfit - converted;
+    let totalAvailable = 0;
+    (revenueRecords || []).forEach((row: any) => {
+      totalAvailable += parseFloat(row.profit || 0) - parseFloat(row.converted_to_energy || 0);
+    });
 
-    if (convertAmount > available) {
+    if (convertAmount > totalAvailable) {
       return NextResponse.json({
         success: false,
-        error: `可转换收益不足，当前可转换 ${available.toFixed(2)} 元`
+        error: `可转换收益不足，当前可转换 ${totalAvailable.toFixed(2)} 元`
       }, { status: 400 });
     }
 
-    // 获取当前能量值余额
-    const balanceResult: any = await queryOne(
-      'SELECT balance FROM energy_accounts WHERE user_id = $1',
-      [userId]
-    );
-    const currentBalance = balanceResult ? Number(balanceResult.balance) || 0 : 0;
+    // 按顺序扣减收益记录的转换额度
+    let remaining = convertAmount;
+    for (const record of (revenueRecords || [])) {
+      if (remaining <= 0) break;
+      const recordProfit = parseFloat(record.profit || 0);
+      const recordConverted = parseFloat(record.converted_to_energy || 0);
+      const recordAvailable = recordProfit - recordConverted;
 
-    // 更新能量值账户 (1:1 转换)
-    const newBalance = currentBalance + convertAmount;
-    await query(
-      `INSERT INTO energy_accounts (id, user_id, balance, total_in, total_out, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-       ON CONFLICT (user_id) DO UPDATE SET 
-         balance = $3,
-         total_in = energy_accounts.total_in + $4,
-         updated_at = NOW()`,
-      [randomUUID(), userId, newBalance, convertAmount, 0]
-    );
+      if (recordAvailable <= 0) continue;
 
-    // 更新收益记录
-    await query(
-      `UPDATE member_revenue 
-       SET converted_to_energy = converted_to_energy + $1,
-           updated_at = NOW()
-       WHERE user_id = $2 AND status = 'pending'
-       ORDER BY created_at ASC
-       LIMIT 1`,
-      [convertAmount, userId]
-    );
+      const deductAmount = Math.min(remaining, recordAvailable);
+      const newConverted = recordConverted + deductAmount;
+
+      await client
+        .from('member_revenue')
+        .update({
+          converted_to_energy: newConverted,
+          status: newConverted >= recordProfit ? 'converted' : 'pending',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', record.id);
+
+      remaining -= deductAmount;
+    }
+
+    // 更新用户能量值
+    const { data: userData } = await client
+      .from('users')
+      .select('energy_value')
+      .eq('id', userId)
+      .single();
+
+    const currentEnergy = parseFloat(userData?.energy_value || 0);
+    const newEnergy = currentEnergy + convertAmount;
+
+    await client
+      .from('users')
+      .update({ energy_value: newEnergy, updated_at: new Date().toISOString() })
+      .eq('id', userId);
+
+    // 更新能量值账户
+    const { data: energyAccount } = await client
+      .from('energy_accounts')
+      .select('balance, total_in')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (energyAccount) {
+      await client
+        .from('energy_accounts')
+        .update({
+          balance: parseFloat(energyAccount.balance || 0) + convertAmount,
+          total_in: parseFloat(energyAccount.total_in || 0) + convertAmount,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId);
+    }
+
+    // 写入收益明细流水
+    await client
+      .from('revenue_details')
+      .insert({
+        id: crypto.randomUUID(),
+        user_id: userId,
+        revenue_id: null,
+        type: 'convert_to_energy',
+        amount: convertAmount,
+        balance_before: currentEnergy,
+        balance_after: newEnergy,
+        description: `收益转为能量值`,
+        created_at: new Date().toISOString(),
+      });
 
     // 记录能量值交易
-    await query(
-      `INSERT INTO transactions (id, user_id, order_id, type, amount, balance_before, balance_after, description, status, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'completed', NOW())`,
-      [
-        randomUUID(),
-        userId,
-        null,
-        'profit_convert',
-        convertAmount,
-        currentBalance,
-        newBalance,
-        `产品收益转为能量值`
-      ]
-    );
+    await client
+      .from('energy_transactions')
+      .insert({
+        id: crypto.randomUUID(),
+        user_id: userId,
+        type: 'profit_convert',
+        amount: convertAmount,
+        from_user_id: null,
+        to_user_id: null,
+        status: 'completed',
+        description: `产品收益转为能量值`,
+        created_at: new Date().toISOString(),
+      });
 
     return NextResponse.json({
       success: true,
       message: '收益已转为能量值',
       data: {
         convertAmount,
-        newBalance,
+        newEnergy,
       }
     });
   } catch (error) {
