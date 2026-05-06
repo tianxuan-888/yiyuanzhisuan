@@ -88,27 +88,18 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: '请输入真实姓名' }, { status: 400 });
       }
 
-      // 1. 冻结会员能量值（扣减，如果审核拒绝会退还）
+      // 1. 冻结会员能量值（扣减，如果审核拒绝会退还，status设为pending等待审核）
       const deductResult = await deductEnergy(from_user_id, transferAmount, 'transfer_out', {
         toUserId: to_user_id,
         note: '能量值转账（待服务商审核）',
+        status: 'pending',
       });
 
       if (!deductResult.success) {
         return NextResponse.json({ error: '冻结能量值失败: ' + deductResult.error }, { status: 500 });
       }
 
-      // 2. 更新流水状态为 pending（等待审核）
-      await supabase
-        .from('energy_transactions')
-        .update({ status: 'pending' })
-        .eq('user_id', from_user_id)
-        .eq('type', 'transfer_out')
-        .eq('status', 'completed')
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      // 3. 创建审核记录
+      // 2. 创建审核记录
       const now = new Date().toISOString();
       const { data: wdRecord, error: wdErr } = await supabase
         .from('energy_withdraw_requests')

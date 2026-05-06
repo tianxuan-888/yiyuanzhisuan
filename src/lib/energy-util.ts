@@ -111,6 +111,7 @@ export async function addEnergy(
     toUserId?: string;
     note?: string;
     relatedId?: string;
+    status?: string;  // 默认 'completed'，特殊场景可传其他状态
   }
 ): Promise<{ success: boolean; newBalance: number; error?: string }> {
   if (amount <= 0) {
@@ -150,8 +151,8 @@ export async function addEnergy(
     // 4. 记录 energy_transactions 流水（含变动前后余额）
     await execute(
       `INSERT INTO energy_transactions (id, user_id, type, amount, from_user_id, to_user_id, status, note, energy_before, energy_after, created_at) 
-       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, 'completed', $6, $7, $8, NOW())`,
-      [userId, type, amount, options?.fromUserId || null, options?.toUserId || userId, options?.note || null, currentBalance, newBalance]
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+      [userId, type, amount, options?.fromUserId || null, options?.toUserId || userId, options?.status || 'completed', options?.note || null, currentBalance, newBalance]
     );
     
     console.log(`[energy-util] addEnergy: ${userId} +${amount} (${type}) => ${newBalance}`);
@@ -178,6 +179,7 @@ export async function deductEnergy(
     toUserId?: string;
     note?: string;
     relatedId?: string;
+    status?: string;  // 默认 'completed'，转账场景可传 'pending'
   }
 ): Promise<{ success: boolean; newBalance: number; error?: string }> {
   if (amount <= 0) {
@@ -224,8 +226,8 @@ export async function deductEnergy(
     // 4. 记录 energy_transactions 流水（含变动前后余额）
     await execute(
       `INSERT INTO energy_transactions (id, user_id, type, amount, from_user_id, to_user_id, status, note, energy_before, energy_after, created_at) 
-       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, 'completed', $6, $7, $8, NOW())`,
-      [userId, type, amount, options?.fromUserId || userId, options?.toUserId || null, options?.note || null, currentBalance, newBalance]
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+      [userId, type, amount, options?.fromUserId || userId, options?.toUserId || null, options?.status || 'completed', options?.note || null, currentBalance, newBalance]
     );
     
     console.log(`[energy-util] deductEnergy: ${userId} -${amount} (${type}) => ${newBalance}`);

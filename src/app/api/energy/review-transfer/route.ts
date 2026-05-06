@@ -71,29 +71,23 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: '退还能量值失败: ' + refundResult.error }, { status: 500 });
       }
 
-      // 2. 更新申请状态
-      const { error: updateErr } = await supabase
-        .from('energy_withdraw_requests')
-        .update({
-          status: 'rejected',
-          reviewed_by: providerId || user.userId,
-          reviewed_at: new Date().toISOString(),
-          review_note: reviewNote || '服务商拒绝',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', requestId);
+      // 2. 更新申请状态（用execute SQL避免REST API静默失败）
+      const { error: updateErr } = await supabase.rpc('rpc_execute', {
+        sql_query: `UPDATE energy_withdraw_requests SET status = 'rejected', reviewed_by = '${providerId || user.userId}', reviewed_at = NOW(), review_note = '${(reviewNote || '服务商拒绝').replace(/'/g, "''")}', updated_at = NOW() WHERE id = '${requestId}'`
+      });
 
       if (updateErr) {
         console.error('[review-transfer] 更新拒绝状态失败:', updateErr.message);
       }
 
-      // 3. 更新之前的 pending 流水为 cancelled
-      await supabase
-        .from('energy_transactions')
-        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-        .eq('user_id', fromUserId)
-        .eq('type', 'transfer_out')
-        .eq('status', 'pending');
+      // 3. 更新会员的 pending 流水为 cancelled（用execute SQL）
+      const { error: txCancelErr } = await supabase.rpc('rpc_execute', {
+        sql_query: `UPDATE energy_transactions SET status = 'cancelled', note = '能量值转账被拒绝' WHERE user_id = '${fromUserId}' AND type = 'transfer_out' AND status = 'pending'`
+      });
+
+      if (txCancelErr) {
+        console.error('[review-transfer] 更新流水cancelled失败:', txCancelErr.message);
+      }
 
       return NextResponse.json({
         success: true,
@@ -113,33 +107,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '服务商增加能量值失败: ' + addResult.error }, { status: 500 });
     }
 
-    // 2. 更新申请状态
-    const { error: updateErr } = await supabase
-      .from('energy_withdraw_requests')
-      .update({
-        status: 'approved',
-        reviewed_by: providerId || user.userId,
-        reviewed_at: new Date().toISOString(),
-        review_note: reviewNote || '服务商审核通过',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', requestId);
+    // 2. 更新申请状态（用execute SQL避免REST API静默失败）
+    const { error: updateErr } = await supabase.rpc('rpc_execute', {
+      sql_query: `UPDATE energy_withdraw_requests SET status = 'approved', reviewed_by = '${providerId || user.userId}', reviewed_at = NOW(), review_note = '${(reviewNote || '服务商审核通过').replace(/'/g, "''")}', updated_at = NOW() WHERE id = '${requestId}'`
+    });
 
     if (updateErr) {
       console.error('[review-transfer] 更新批准状态失败:', updateErr.message);
     }
 
-    // 3. 更新会员的 pending 流水为 completed
-    await supabase
-      .from('energy_transactions')
-      .update({
-        status: 'completed',
-        note: '能量值转账给服务商（已审核通过）',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('user_id', fromUserId)
-      .eq('type', 'transfer_out')
-      .eq('status', 'pending');
+    // 3. 更新会员的 pending 流水为 completed（用execute SQL）
+    const { error: txCompleteErr } = await supabase.rpc('rpc_execute', {
+      sql_query: `UPDATE energy_transactions SET status = 'completed', note = '能量值转账给服务商（已审核通过）' WHERE user_id = '${fromUserId}' AND type = 'transfer_out' AND status = 'pending'`
+    });
+
+    if (txCompleteErr) {
+      console.error('[review-transfer] 更新流水completed失败:', txCompleteErr.message);
+    }
 
     return NextResponse.json({
       success: true,
