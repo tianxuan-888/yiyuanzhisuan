@@ -530,17 +530,21 @@ const [copySuccess, setCopySuccess] = useState(false);
         }
     }, [profileSubTab, chainData, loadChainData]);
 
-    // 轮询：当有待审核持仓时，每5秒自动刷新
+    // 轮询：当有任意待审核状态时，每5秒自动刷新
     useEffect(() => {
         const hasPendingConfirm = userProducts.some(up => up.status === 'pending_confirm');
-        if (!hasPendingConfirm) return;
+        const hasPendingOrders = pendingOrders.length > 0;
+        const hasPendingRecharge = pendingRechargeCount > 0;
+        const hasPendingTransfer = energyRecords.some((r: any) => r.type === 'transfer_out' && r.status === 'pending');
+
+        if (!hasPendingConfirm && !hasPendingOrders && !hasPendingRecharge && !hasPendingTransfer) return;
 
         const interval = setInterval(() => {
             loadData();
         }, 5000);
 
         return () => clearInterval(interval);
-    }, [userProducts, loadData]);
+    }, [userProducts, pendingOrders, pendingRechargeCount, energyRecords, loadData]);
 
     // 加载收款信息
     const loadPaymentInfo = async () => {

@@ -1519,6 +1519,24 @@ export default function ProviderPage() {
         }
     }, [user, loadWithdrawalData]);
 
+    // 轮询：当有任意待审核状态时，每5秒自动刷新
+    useEffect(() => {
+        const hasPendingBuy = pendingBuyOrders.length > 0;
+        const hasPendingTransfer = pendingTransfers.length > 0;
+        const hasPendingRepurchase = pendingRepurchases.length > 0;
+        const hasPendingTransferReq = pendingTransferRequests.length > 0;
+        const hasPendingWithdrawal = pendingWithdrawals.length > 0;
+
+        if (!hasPendingBuy && !hasPendingTransfer && !hasPendingRepurchase && !hasPendingTransferReq && !hasPendingWithdrawal) return;
+
+        const interval = setInterval(() => {
+            loadPendingBuyOrders();
+            loadWithdrawalData();
+        }, 5000);
+
+        return () => clearInterval(interval);
+    }, [pendingBuyOrders, pendingTransfers, pendingRepurchases, pendingTransferRequests, pendingWithdrawals, loadPendingBuyOrders, loadWithdrawalData]);
+
     // 加载积分记录
     const loadPointsRecords = useCallback(async () => {
         try {
