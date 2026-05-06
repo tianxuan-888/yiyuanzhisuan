@@ -684,6 +684,8 @@ const [copySuccess, setCopySuccess] = useState(false);
             return;
         }
 
+        // 确认购买时才标记为提交中，防止重复点击
+        setSubmittingProductIds(prev => new Set(prev).add(selectedProduct.id));
         setSubmitting(true);
 
         try {
@@ -736,6 +738,12 @@ const [copySuccess, setCopySuccess] = useState(false);
                 }
 
                 setSelectedProduct(null);
+                // 购买成功后从submittingProductIds移除（已加入pendingOrders）
+                setSubmittingProductIds(prev => {
+                    const next = new Set(prev);
+                    if (selectedProduct) next.delete(selectedProduct.id);
+                    return next;
+                });
                 refreshAll();
             } else {
                 // 如果购买失败，从submittingProductIds移除
@@ -1259,14 +1267,6 @@ const [copySuccess, setCopySuccess] = useState(false);
                     </div>}
                     <DialogFooter>
                         <Button variant="outline" onClick={() => {
-                            // 取消时移除提交状态
-                            if (selectedProduct) {
-                                setSubmittingProductIds(prev => {
-                                    const next = new Set(prev);
-                                    next.delete(selectedProduct.id);
-                                    return next;
-                                });
-                            }
                             setShowPurchaseDialog(false);
                         }}>取消</Button>
                         <Button
@@ -2850,8 +2850,6 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                     showMessage("success", "该产品正在等待审核，请稍后再试");
                                                     return;
                                                 }
-                                                // 立即标记为提交中，防止重复点击
-                                                setSubmittingProductIds(prev => new Set(prev).add(product.id));
                                                 setSelectedProduct(product);
                                                 setShowPurchaseDialog(true);
                                             }}>
