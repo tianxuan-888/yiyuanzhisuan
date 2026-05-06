@@ -3,10 +3,9 @@ import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 import { execute, queryOne } from '@/lib/pg-client';
 
-// 服务商确认收款接口
+// 服务商确认收款接口（旧流程兼容）
 export async function POST(request: NextRequest) {
   try {
-    // 鉴权：仅管理员和服务商可操作
     const user = authenticateRequest(request);
     if (!user || !authorizeRole(user, ['admin', 'provider'])) {
       return NextResponse.json({ error: '无权操作' }, { status: 403 });
@@ -15,12 +14,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { orderId } = body;
 
-    // 参数验证
     if (!orderId) {
       return NextResponse.json({ error: '订单ID不能为空' }, { status: 400 });
     }
 
-    // 验证操作者权限：必须是管理员或该订单的服务商
     if (user.role !== 'admin' && user.role !== 'provider') {
       return NextResponse.json({ error: '无权操作' }, { status: 403 });
     }
@@ -34,25 +31,14 @@ export async function POST(request: NextRequest) {
       .eq('id', orderId)
       .maybeSingle();
 
-    if (orderError) {
-      throw new Error(`查询订单失败: ${orderError.message}`);
-    }
+    if (orderError) throw new Error(`查询订单失败: ${orderError.message}`);
+    if (!order) return NextResponse.json({ error: '订单不存在' }, { status: 404 });
+    if (order.status !== 'pending') return NextResponse.json({ error: '订单状态不正确' }, { status: 400 });
 
-    if (!order) {
-      return NextResponse.json({ error: '订单不存在' }, { status: 404 });
-    }
-
-    // 验证订单状态
-    if (order.status !== 'pending') {
-      return NextResponse.json({ error: '订单状态不正确' }, { status: 400 });
-    }
-
-    // 验证服务商（确保是本人的订单）
     if (user.role === 'provider' && order.provider_id !== user.userId) {
       return NextResponse.json({ error: '无权操作此订单' }, { status: 403 });
     }
 
-    // 获取订单中的能量值费用（如果之前已记录）
     const energyCost = order.energy_cost || 0;
 
     // 查询产品信息
@@ -62,107 +48,103 @@ export async function POST(request: NextRequest) {
       .eq('id', order.product_id)
       .maybeSingle();
 
-    if (productError) {
-      throw new Error(`查询产品失败: ${productError.message}`);
-    }
-
-    if (!product) {
-      return NextResponse.json({ error: '产品不存在' }, { status: 404 });
-    }
-
-    // 计算到期日期、预期收益、市场费用
-    const purchaseDate = new Date();
-    const expireDate = new Date(purchaseDate);
-    expireDate.setDate(expireDate.getDate() + product.period);
+    if (productError) throw new Error(`查询产品失败: ${productError.message}`);
+    if (!product) return NextResponse.json({ error: '产品不存在' }, { status: 404 });
 
     const price = parseFloat(product.price);
-    const totalRate = parseFloat(product.total_rate) / 100;
     const marketRate = parseFloat(product.market_rate) / 100;
-
-    const expectedProfit = price * totalRate;
     const marketFee = price * marketRate;
-
-    // 使用白名单过滤字段
-    const allowedUpdates: Record<string, unknown> = {
-      status: 'completed',
-      paid_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
 
     // 更新订单状态
     const { error: updateError } = await client
       .from('orders')
-      .update(allowedUpdates)
+      .update({ status: 'completed', paid_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq('id', orderId)
-      .eq('status', 'pending'); // 乐观锁
+      .eq('status', 'pending');
 
-    if (updateError) {
-      throw new Error(`更新订单失败: ${updateError.message}`);
-    }
+    if (updateError) throw new Error(`更新订单失败: ${updateError.message}`);
 
-    // ========== 扣除会员能量值（审核通过时才扣除）==========
+    // ========== 扣除会员能量值（旧流程：审核时才扣除）==========
     if (energyCost > 0) {
-      // 使用 SQL 直接更新，确保写入成功
-      const memberRow = await queryOne('SELECT energy_value FROM users WHERE id = $1', [order.user_id]);
-      if (memberRow) {
-        const newBalance = (parseFloat(String(memberRow.energy_value)) || 0) - energyCost;
-        await execute('UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2', [newBalance, order.user_id]);
+      await execute('UPDATE users SET energy_value = COALESCE(energy_value, 0) - $1, updated_at = NOW() WHERE id = $2', [energyCost, order.user_id]);
+      await execute('UPDATE energy_accounts SET balance = balance - $1, total_out = total_out + $1 WHERE user_id = $2', [energyCost, order.user_id]);
 
-        await client.from('energy_transactions').insert({
-          id: crypto.randomUUID(), user_id: order.user_id, type: 'market_transfer', amount: energyCost,
-          from_user_id: order.provider_id, status: 'completed',
-          description: `购买产品 ${product.name} 支付市场费`, created_at: new Date().toISOString(),
-        });
+      await client.from('energy_transactions').insert({
+        id: crypto.randomUUID(), user_id: order.user_id, type: 'spend', amount: energyCost,
+        note: `购买产品 ${product.name} 支付市场费(${(marketRate * 100).toFixed(1)}%)`, created_at: new Date().toISOString(),
+      });
+
+      // ========== 收益分配（市场费→各角色balance收益）==========
+      const providerShare = Math.round(energyCost * 0.70 * 100) / 100;
+      const directReward = Math.round(energyCost * 0.10 * 100) / 100;
+      const parentProviderShare = Math.round(energyCost * 0.10 * 100) / 100;
+      const branchShare = Math.round(energyCost * 0.05 * 100) / 100;
+      const companyShare = Math.round(energyCost * 0.05 * 100) / 100;
+
+      // 1. 给服务商增加收益余额（70%）
+      if (order.provider_id && providerShare > 0) {
+        await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [providerShare, order.provider_id]);
       }
 
-      // ========== 发放市场分润给服务商 ==========
-      const providerShare = energyCost * 0.70;
-      const companyShare = energyCost * 0.05;
+      // 2. 给直推人增加收益余额（10%）
+      const member = await queryOne('SELECT id, inviter_id FROM users WHERE id = $1', [order.user_id]);
+      let directRewardTo = null;
+      if (member?.inviter_id && directReward > 0) {
+        directRewardTo = member.inviter_id;
+        await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [directReward, member.inviter_id]);
+      }
 
-      // 给服务商增加能量值
-      if (order.provider_id) {
-        const providerRow = await queryOne('SELECT energy_value FROM users WHERE id = $1', [order.provider_id]);
-        if (providerRow) {
-          const newProvBalance = (parseFloat(String(providerRow.energy_value)) || 0) + providerShare;
-          await execute('UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2', [newProvBalance, order.provider_id]);
-
-          await client.from('energy_transactions').insert({
-            id: crypto.randomUUID(), user_id: order.provider_id, type: 'market_share', amount: providerShare,
-            from_user_id: order.user_id, status: 'completed',
-            description: '会员购买产品市场分润（70%）', created_at: new Date().toISOString(),
-          });
+      // 3. 给上级服务商增加收益余额（10%）
+      const providerInfo = await queryOne('SELECT branch_id, parent_provider_id FROM providers WHERE user_id = $1', [order.provider_id]);
+      if (providerInfo?.parent_provider_id && parentProviderShare > 0) {
+        const parentProvider = await queryOne('SELECT user_id FROM providers WHERE id = $1', [providerInfo.parent_provider_id]);
+        if (parentProvider?.user_id) {
+          await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [parentProviderShare, parentProvider.user_id]);
         }
       }
+
+      // 4. 给分公司增加收益余额（5%）
+      if (providerInfo?.branch_id && branchShare > 0) {
+        await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [branchShare, providerInfo.branch_id]);
+      }
+
+      // 5. 给总公司增加收益余额（5%）
+      if (companyShare > 0) {
+        const adminUser = await queryOne("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
+        if (adminUser) {
+          await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [companyShare, adminUser.id]);
+        }
+      }
+
+      // 记录收益分配明细
+      await client.from('provider_revenue_distribution').insert({
+        order_id: orderId, product_id: product.id, provider_id: order.provider_id, member_id: order.user_id,
+        market_fee: marketFee.toFixed(2), provider_share: providerShare.toFixed(2),
+        direct_reward: directReward.toFixed(2), direct_reward_to: directRewardTo,
+        parent_provider_id: providerInfo?.parent_provider_id || null,
+        parent_provider_share: parentProviderShare.toFixed(2),
+        branch_id: providerInfo?.branch_id || null, branch_share: branchShare.toFixed(2),
+        company_share: companyShare.toFixed(2), status: 'completed', created_at: new Date().toISOString(),
+      });
     }
 
     // 创建用户产品记录
-    const { error: createUserProductError } = await client
-      .from('user_products')
-      .insert({
-        user_id: order.user_id,
-        product_id: order.product_id,
-        purchase_price: price,
-        purchase_date: purchaseDate.toISOString(),
-        expire_date: expireDate.toISOString(),
-        expected_profit: expectedProfit,
-        market_fee: marketFee,
-        status: 'holding'
-      });
+    const purchaseDate = new Date();
+    const expireDate = new Date(purchaseDate.getTime() + product.period * 24 * 60 * 60 * 1000);
+    const profitRate = parseFloat(product.profit_rate) / 100;
+    const expectedProfit = price * profitRate;
 
-    if (createUserProductError) {
-      throw new Error(`创建用户产品失败: ${createUserProductError.message}`);
-    }
+    await client.from('user_products').insert({
+      user_id: order.user_id, product_id: order.product_id,
+      purchase_price: price, purchase_date: purchaseDate.toISOString(),
+      expire_date: expireDate.toISOString(), expected_profit: expectedProfit.toFixed(2),
+      market_fee: marketFee.toFixed(2), status: 'holding',
+    });
 
     // 更新产品状态
-    await client
-      .from('products')
-      .update({ status: 'sold', updated_at: new Date().toISOString() })
-      .eq('id', order.product_id);
+    await client.from('products').update({ status: 'sold', updated_at: new Date().toISOString() }).eq('id', order.product_id);
 
-    return NextResponse.json({
-      success: true,
-      message: '收款确认成功，产品已发放'
-    });
+    return NextResponse.json({ success: true, message: '收款确认成功，产品已发放' });
   } catch (error) {
     console.error('确认收款失败:', error);
     return NextResponse.json({ success: false, error: '服务器错误' }, { status: 500 });
