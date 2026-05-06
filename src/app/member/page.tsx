@@ -2814,22 +2814,12 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             <div className="mb-4 p-3 rounded-lg bg-red-500/20 border border-red-500/40 text-red-300 text-center">
                                                 <CheckCircle className="w-4 h-4 inline mr-1" />
                                                 已售出
-                                                {(product as any).holder && (
-                                                    <span className="text-xs ml-1">
-                                                        (持有人: {(product as any).holder.username})
-                                                    </span>
-                                                )}
                                             </div>
                                         )}
                                         {product.status === 'pending_sell' && (
                                             <div className="mb-4 p-3 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-center">
                                                 <Clock className="w-4 h-4 inline mr-1" />
                                                 已申购待确认
-                                                {(product as any).holder && (
-                                                    <span className="text-xs ml-1">
-                                                        (申购人: {(product as any).holder.username})
-                                                    </span>
-                                                )}
                                             </div>
                                         )}
                                         {product.status === 'available' && isProductPending(product.id) && (

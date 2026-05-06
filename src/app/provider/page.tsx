@@ -2522,9 +2522,9 @@ export default function ProviderPage() {
                                                      product.status === "pending_sell" ? "待流转" :
                                                      "闲置中"}
                                                 </Badge>
-                                                {product.status === "sold" && product.holder && (
+                                                {(product.status === "sold" || product.status === "pending_sell") && product.holder && (
                                                     <div className="text-xs text-gray-500 mt-1">
-                                                        持有: {product.holder.username}
+                                                        {product.status === "sold" ? "持有" : "申购人"}: {product.holder.username}
                                                         {product.holder.unique_id && <span className="text-gray-400"> [{product.holder.unique_id}]</span>}
                                                         {product.holder.phone && <span className="text-gray-400"> ({product.holder.phone.slice(0,3)}****{product.holder.phone.slice(-4)})</span>}
                                                     </div>
