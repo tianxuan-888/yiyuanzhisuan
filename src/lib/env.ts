@@ -1,16 +1,19 @@
 /**
  * 统一环境变量读取
- * 兼容多种命名格式：COZE_ 前缀 / NEXT_PUBLIC_ 前缀 / 无前缀
+ * 兼容多种命名格式：NEXT_PUBLIC_ 前缀 / COZE_ 前缀 / 无前缀
  * 
- * 优先级：COZE_ 前缀 > NEXT_PUBLIC_ 前缀 > 无前缀
+ * 优先级：NEXT_PUBLIC_ 前缀 > 无前缀 > COZE_ 前缀
+ * 
+ * 重要：NEXT_PUBLIC_ 是项目自己配置的数据库，COZE_ 是平台注入的默认数据库，
+ * 项目必须使用自己的数据库，不能回退到平台的。
  */
 
 // Supabase URL
 export function getSupabaseUrl(): string {
   return (
-    process.env.COZE_SUPABASE_URL ||
     process.env.NEXT_PUBLIC_SUPABASE_URL ||
     process.env.SUPABASE_URL ||
+    process.env.COZE_SUPABASE_URL ||
     ''
   );
 }
@@ -18,10 +21,10 @@ export function getSupabaseUrl(): string {
 // Supabase Anon Key
 export function getSupabaseAnonKey(): string {
   return (
-    process.env.COZE_SUPABASE_ANON_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
     process.env.SUPABASE_ANON_KEY ||
     process.env.SUPABASE_PUBLISHABLE_KEY ||
+    process.env.COZE_SUPABASE_ANON_KEY ||
     ''
   );
 }
@@ -29,8 +32,9 @@ export function getSupabaseAnonKey(): string {
 // Supabase Service Role Key
 export function getSupabaseServiceRoleKey(): string {
   return (
-    process.env.COZE_SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SERVICE_KEY ||
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.COZE_SUPABASE_SERVICE_ROLE_KEY ||
     process.env.SUPABASE_JWT_SECRET ||
     ''
   );
