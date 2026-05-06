@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getSupabaseUrl, getSupabaseAnonKey } from '@/lib/env';
 
-// 总公司收益管理 - 使用 Supabase JS Client 直接查询真实数据
+// 总公司收益管理 - 使用用户自己的 Supabase 数据库
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
     const subType = url.searchParams.get('subType') || 'overview';
 
-    const supabase = createClient(
-      process.env.COZE_SUPABASE_URL!,
-      process.env.COZE_SUPABASE_ANON_KEY!
-    );
+    const supabaseUrl = getSupabaseUrl();
+    const supabaseAnonKey = getSupabaseAnonKey();
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return NextResponse.json({ error: 'Supabase 环境变量未配置' }, { status: 500 });
+    }
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
     if (subType === 'overview') {
       return await getIncomeOverview(supabase);

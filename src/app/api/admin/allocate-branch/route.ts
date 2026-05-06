@@ -71,8 +71,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 临时调试：打印使用的 Supabase URL
-    console.log(`[ALLOCATE-DEBUG] NEXT_PUBLIC_SUPABASE_URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0,30)}, COZE_SUPABASE_URL: ${process.env.COZE_SUPABASE_URL?.substring(0,30)}, SUPABASE_URL: ${process.env.SUPABASE_URL?.substring(0,30)}`);
+    // 调试：打印使用的 Supabase URL
+    console.log(`[ALLOCATE-DEBUG] NEXT_PUBLIC_SUPABASE_URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0,30)}, SUPABASE_URL: ${process.env.SUPABASE_URL?.substring(0,30)}`);
 
     // 计算赠送的能量值（20%给分公司）
     const bonusEnergy = allocateAmount * 0.2;

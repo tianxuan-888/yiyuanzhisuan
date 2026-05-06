@@ -6,7 +6,7 @@ const supabaseUrl = getSupabaseUrl();
 const supabaseAnonKey = getSupabaseAnonKey();
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('FATAL: Supabase 环境变量未设置（支持 COZE_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_URL / SUPABASE_URL）');
+  console.error('FATAL: Supabase 环境变量未设置（需要 NEXT_PUBLIC_SUPABASE_URL / SUPABASE_URL）');
 }
 
 // 创建 Supabase 客户端（延迟初始化，避免启动时崩溃）

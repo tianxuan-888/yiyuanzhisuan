@@ -8,10 +8,10 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// 优先使用用户自己的 Supabase（NEXT_PUBLIC_SUPABASE_URL / SUPABASE_URL）
-// Coze 平台的 COZE_SUPABASE_URL 可能指向不同的数据库实例
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || process.env.COZE_SUPABASE_URL || '';
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.COZE_SUPABASE_SERVICE_ROLE_KEY || '';
+// 只使用用户自己的 Supabase 数据库（NEXT_PUBLIC_SUPABASE_URL / SUPABASE_URL）
+// 绝不回退到 COZE_SUPABASE_URL（那是 Coze 平台内置数据库，不是用户的）
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.error('[supabase-client] Missing SUPABASE_URL or SUPABASE_SERVICE_KEY');
