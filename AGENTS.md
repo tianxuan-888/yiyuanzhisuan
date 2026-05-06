@@ -1421,3 +1421,56 @@ pnpm run start
 - UI/UX 设计稿
 - API 接口文档
 - 数据库设计文档
+
+---
+
+## 关键规则（必须遵守）
+
+### 1. 数据库连接 - 绝对禁止使用 Coze 内置数据库
+
+**只使用用户自己的 Supabase 数据库**：`swowspzwukyayyyhzmrj.supabase.co`
+
+- 代码中所有数据库连接只读 `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_URL` + `SUPABASE_SERVICE_KEY`
+- **绝对禁止**回退到 `COZE_SUPABASE_URL`（那是 Coze 平台内置数据库，不是用户的）
+- `exec_sql` 工具连接的是 Coze 内置数据库，**禁止用于数据操作**
+- 数据查询和修改只能通过 REST API（`createClient` + 用户 Supabase URL/KEY）
+
+### 2. 市场费分配是收益（balance），不是能量值（energy_value）
+
+会员购买产品时用**能量值**支付市场费，但分配给各角色后变为**收益**：
+- 服务商 70% → `balance`（不是 energy_value）
+- 直推人 10% → `balance`
+- 上级服务商 10% → `balance`
+- 分公司 5% → `balance`
+- 总公司 5% → `balance`
+- 市场费分配**不写入 energy_transactions**（那不是能量值流转）
+
+### 3. 产品费率从数据库读取，禁止硬编码
+
+- 能量值扣费比例：从产品记录的 `market_rate` 字段读取
+- 收益比例：从产品记录的 `profit_rate` 字段读取
+- 持仓时间锁：`period * 24` 小时（1天=24h, 3天=72h, 7天=168h）
+- **禁止**在代码中硬编码 `period → rate` 映射表
+
+### 4. Supabase REST API update() 可能静默失败
+
+`client.from('users').update({energy_value: ...})` 可能返回 204 但不实际写入数据。
+- 所有关键数据更新（energy_value, balance, points 等）必须用 `execute(SQL)` 直接 SQL 执行
+- `addEnergy` / `deductEnergy` 函数已改为 `execute(SQL)` 实现
+
+### 5. 用户ID在不同数据库中不同
+
+同一用户在 Coze 数据库和用户 Supabase 数据库中的 ID 不同。例如：
+- 小熊饼干：Coze DB `bb614e8e-...`，用户 DB `00000000-0000-0000-0000-000000000101`
+- 所有业务操作必须用用户 Supabase 数据库中的 ID
+
+### 6. 历史修复记录
+
+| 问题 | 修复 |
+|------|------|
+| 购买1天产品能量值按5%扣（硬编码） | 改为读取产品 market_rate（1.4%） |
+| 1天产品时间锁72小时 | 改为 period*24（1天=24小时） |
+| 市场费分配写入 energy_value | 改为写入 balance（收益） |
+| COZE_SUPABASE 回退逻辑 | 完全移除，只连用户数据库 |
+| Supabase REST API update 静默失败 | 改为 execute(SQL) 直接执行 |
+| 批量下架触发上架功能 | POST + action 参数替代 PUT |
