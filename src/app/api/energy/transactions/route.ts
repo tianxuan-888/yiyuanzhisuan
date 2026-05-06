@@ -37,12 +37,16 @@ export async function GET(request: NextRequest) {
       [userId]
     );
 
-    const stats = {
+    const stats: Record<string, number> = {
       totalTransferIn: 0,
       totalTransferOut: 0,
       totalRecharge: 0,
       totalSpend: 0,
       totalProfitShare: 0,
+      totalConvertFromBalance: 0,
+      totalIncome: 0,
+      totalReward: 0,
+      totalSubordinateSplit: 0,
       transferInCount: 0,
       transferOutCount: 0,
     };
@@ -64,11 +68,24 @@ export async function GET(request: NextRequest) {
           stats.totalRecharge += amount > 0 ? amount : 0;
           break;
         case 'spend':
+        case 'market_fee':
           stats.totalSpend += Math.abs(amount);
           break;
         case 'profit_share':
         case 'provider_income':
           stats.totalProfitShare += amount;
+          break;
+        case 'convert_from_balance':
+          stats.totalConvertFromBalance += amount;
+          break;
+        case 'income':
+          stats.totalIncome += amount;
+          break;
+        case 'reward':
+          stats.totalReward += amount;
+          break;
+        case 'subordinate_split':
+          stats.totalSubordinateSplit += amount;
           break;
       }
     });
@@ -77,6 +94,10 @@ export async function GET(request: NextRequest) {
       success: true,
       data: transactions,
       stats,
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      },
     });
   } catch (error) {
     console.error('获取能量值流水记录失败:', error);

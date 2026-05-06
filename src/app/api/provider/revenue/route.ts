@@ -90,13 +90,15 @@ export async function GET(request: NextRequest) {
           pss.id::text,
           'subordinate' as source,
           pss.split_amount::float as amount,
-          pss.transaction_amount::float,
-          pss.split_rate::float,
+          pss.order_amount::float,
+          pss.split_ratio::float as split_rate,
           sp.username as subordinate_name,
           sp.phone as subordinate_phone,
+          pss.subordinate_count,
+          pss.product_name,
           pss.created_at
         FROM provider_subordinate_split pss
-        LEFT JOIN users sp ON sp.id::text = pss.subordinate_provider_id::text
+        LEFT JOIN users sp ON sp.id::text = pss.provider_id::text
         WHERE pss.upper_provider_id::text = $1
         ORDER BY pss.created_at DESC
         LIMIT 50

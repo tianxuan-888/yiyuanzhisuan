@@ -28,6 +28,10 @@ export async function GET(
     return NextResponse.json({
       success: true,
       data: userWithoutPassword,
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      },
     });
   } catch (error) {
     console.error('获取用户信息失败:', error);

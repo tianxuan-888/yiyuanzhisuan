@@ -3404,7 +3404,7 @@ export default function ProviderPage() {
                                     else if (energyFilter === 'out') filtered = outRecords.map((r: any) => ({...r, _direction: 'out'}));
                                     else filtered = [...inRecords.map((r: any) => ({...r, _direction: 'in'})), ...outRecords.map((r: any) => ({...r, _direction: 'out'}))].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-                                    const totalIn = (transferStats?.totalTransferIn || 0) + (transferStats?.totalRecharge || 0) + (transferStats?.totalProfitShare || 0) + (transferStats?.totalConvertFromBalance || 0);
+                                    const totalIn = (transferStats?.totalTransferIn || 0) + (transferStats?.totalRecharge || 0) + (transferStats?.totalProfitShare || 0) + (transferStats?.totalConvertFromBalance || 0) + (transferStats?.totalIncome || 0) + (transferStats?.totalReward || 0) + (transferStats?.totalSubordinateSplit || 0);
                                     const totalOut = (transferStats?.totalTransferOut || 0) + (transferStats?.totalSpend || 0);
 
                                     const getTypeLabel = (type: string) => {
