@@ -3355,20 +3355,6 @@ const [copySuccess, setCopySuccess] = useState(false);
                     {/* 我的收益 Tab */}
                     {activeTab === "profit" && (
                         <div className="space-y-3 md:space-y-6">
-                            {/* 收益来源说明 */}
-                            <Card className="bg-slate-800/50 border-slate-700">
-                                <CardContent className="pt-4">
-                                    <div className="flex items-start gap-3">
-                                        <Info className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
-                                        <div className="text-sm text-gray-400 space-y-1">
-                                            <p className="text-gray-300 font-medium">会员收益来源</p>
-                                            <p>会员收益来自持有GPU算力产品期间产生的回报，按产品周期收益率计算（3天5%、7天10%、15天20%、30天44%、90天120%）。</p>
-                                            <p className="text-gray-500">与服务商/分公司不同：服务商分公司收益来自市场业务（市场费分成），会员收益来自产品持有时长产生的回报。</p>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
                             {/* 收益统计卡片 */}
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
