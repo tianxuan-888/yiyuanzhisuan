@@ -189,8 +189,8 @@ export async function POST(request: NextRequest) {
     const userProductId = crypto.randomUUID();
     const purchaseDate = new Date();
     const expireDate = new Date(purchaseDate.getTime() + product.period * 24 * 60 * 60 * 1000);
-    const profitRate = parseNumeric(product.profit_rate) / 100;
-    const memberActualProfit = Math.floor(productPrice * profitRate);
+    const totalRate = parseNumeric(product.total_rate) / 100;
+    const memberActualProfit = Math.floor(productPrice * totalRate);
 
     await query(
       `INSERT INTO user_products (id, user_id, product_id, purchase_price, purchase_date, expire_date, status, expected_profit, market_fee, created_at, updated_at)

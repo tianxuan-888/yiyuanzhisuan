@@ -823,10 +823,10 @@ const [copySuccess, setCopySuccess] = useState(false);
     };
 
     const calculateProfit = (product: Product) => {
-        // 使用产品的 profit_rate 计算会员实际到手收益，不使用硬编码
-        const profitRate = product.profit_rate || 0;
-        if (!profitRate) return 0;
-        return Math.floor(product.price * profitRate / 100);
+        // 预期收益使用 total_rate，因为会员已预付市场费，到期后总收益全部归会员
+        const totalRate = product.total_rate || 0;
+        if (!totalRate) return 0;
+        return Math.floor(product.price * totalRate / 100);
     };
 
     const calculateMarketFee = (product: Product) => {
