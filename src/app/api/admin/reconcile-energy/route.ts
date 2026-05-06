@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase-client';
+import { execute, queryOne } from '@/lib/pg-client';
 
 // 对账API：根据 energy_transactions 流水重新计算所有用户的正确余额
 // 并修复 users.energy_value 和 energy_accounts 的不一致
@@ -64,47 +65,35 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      // 修复 users.energy_value
+      // 修复 users.energy_value - 使用 SQL 直接执行
       if (needFixUser) {
-        const { error: updErr } = await supabase
-          .from('users')
-          .update({ energy_value: expectedBalance, updated_at: new Date().toISOString() })
-          .eq('id', user.id);
-        if (updErr) {
+        try {
+          await execute('UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2', [expectedBalance, user.id]);
+        } catch (updErr: any) {
           results.push({ username: user.username, role: user.role, status: 'fix_failed', error: updErr.message });
           continue;
         }
       }
 
-      // 修复 energy_accounts
+      // 修复 energy_accounts - 使用 SQL 直接执行
       if (needFixAcc) {
         if (acc) {
-          const { error: updErr } = await supabase
-            .from('energy_accounts')
-            .update({
-              balance: expectedBalance,
-              total_in: calc.totalIn,
-              total_out: calc.totalOut,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('user_id', user.id);
-          if (updErr) {
+          try {
+            await execute(
+              'UPDATE energy_accounts SET balance = $1, total_in = $2, total_out = $3, updated_at = NOW() WHERE user_id = $4',
+              [expectedBalance, calc.totalIn, calc.totalOut, user.id]
+            );
+          } catch (updErr: any) {
             results.push({ username: user.username, role: user.role, status: 'fix_acc_failed', error: updErr.message });
             continue;
           }
         } else {
-          const { error: insErr } = await supabase
-            .from('energy_accounts')
-            .insert({
-              id: crypto.randomUUID(),
-              user_id: user.id,
-              balance: expectedBalance,
-              total_in: calc.totalIn,
-              total_out: calc.totalOut,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            });
-          if (insErr) {
+          try {
+            await execute(
+              'INSERT INTO energy_accounts (id, user_id, balance, total_in, total_out, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())',
+              [crypto.randomUUID(), user.id, expectedBalance, calc.totalIn, calc.totalOut]
+            );
+          } catch (insErr: any) {
             results.push({ username: user.username, role: user.role, status: 'create_acc_failed', error: insErr.message });
             continue;
           }

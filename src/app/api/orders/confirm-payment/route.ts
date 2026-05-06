@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
+import { execute, queryOne } from '@/lib/pg-client';
 
 // 服务商确认收款接口
 export async function POST(request: NextRequest) {
@@ -101,85 +102,36 @@ export async function POST(request: NextRequest) {
 
     // ========== 扣除会员能量值（审核通过时才扣除）==========
     if (energyCost > 0) {
-      // 扣除用户能量值
-      try {
-        await client.rpc('decrement_energy', {
-          p_user_id: order.user_id,
-          p_amount: energyCost
+      // 使用 SQL 直接更新，确保写入成功
+      const memberRow = await queryOne('SELECT energy_value FROM users WHERE id = $1', [order.user_id]);
+      if (memberRow) {
+        const newBalance = (parseFloat(String(memberRow.energy_value)) || 0) - energyCost;
+        await execute('UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2', [newBalance, order.user_id]);
+
+        await client.from('energy_transactions').insert({
+          id: crypto.randomUUID(), user_id: order.user_id, type: 'market_transfer', amount: energyCost,
+          from_user_id: order.provider_id, status: 'completed',
+          description: `购买产品 ${product.name} 支付市场费`, created_at: new Date().toISOString(),
         });
-      } catch {
-        // 如果存储过程调用失败，直接更新
-        const { data: userData } = await client
-          .from('users')
-          .select('energy_value')
-          .eq('id', order.user_id)
-          .single();
-        
-        if (userData) {
-          const newBalance = (parseFloat(userData.energy_value) || 0) - energyCost;
-          await client
-            .from('users')
-            .update({ energy_value: newBalance, updated_at: new Date().toISOString() })
-            .eq('id', order.user_id);
-        }
       }
 
-      // 记录能量值消耗到 transactions 表
-      await client
-        .from('energy_transactions')
-        .insert({
-          id: crypto.randomUUID(),
-          user_id: order.user_id,
-          type: 'market_transfer',
-          amount: energyCost,
-          from_user_id: order.provider_id,
-          status: 'completed',
-          description: `购买产品 ${product.name} 支付市场费`,
-          created_at: new Date().toISOString()
-        });
-
       // ========== 发放市场分润给服务商 ==========
-      // 服务商获得70%，公司运营获得5%
       const providerShare = energyCost * 0.70;
       const companyShare = energyCost * 0.05;
 
       // 给服务商增加能量值
       if (order.provider_id) {
-        try {
-          await client.rpc('increment_energy', {
-            p_user_id: order.provider_id,
-            p_amount: providerShare
-          });
-        } catch {
-          // 如果存储过程调用失败，直接更新
-          const { data: providerData } = await client
-            .from('users')
-            .select('energy_value')
-            .eq('id', order.provider_id)
-            .single();
-          
-          if (providerData) {
-            const newBalance = (parseFloat(providerData.energy_value) || 0) + providerShare;
-            await client
-              .from('users')
-              .update({ energy_value: newBalance, updated_at: new Date().toISOString() })
-              .eq('id', order.provider_id);
-          }
-        }
+        const providerRow = await queryOne('SELECT energy_value FROM users WHERE id = $1', [order.provider_id]);
+        if (providerRow) {
+          const newProvBalance = (parseFloat(String(providerRow.energy_value)) || 0) + providerShare;
+          await execute('UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2', [newProvBalance, order.provider_id]);
 
-        // 记录服务商收入
-        await client
-          .from('energy_transactions')
-          .insert({
-            id: crypto.randomUUID(),
-            user_id: order.provider_id,
-            type: 'market_share',
-            amount: providerShare,
-            from_user_id: order.user_id,
-            status: 'completed',
-            description: `会员购买产品市场分润（70%）`,
-            created_at: new Date().toISOString()
+          await client.from('energy_transactions').insert({
+            id: crypto.randomUUID(), user_id: order.provider_id, type: 'market_share', amount: providerShare,
+            from_user_id: order.user_id, status: 'completed',
+            description: '会员购买产品市场分润（70%）', created_at: new Date().toISOString(),
           });
+        }
       }
     }
 

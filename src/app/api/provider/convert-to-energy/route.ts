@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabase } from '@/lib/supabase-client';
 import { authenticateRequest } from '@/lib/auth';
 import { addEnergy } from '@/lib/energy-util';
+import { execute, queryOne } from '@/lib/pg-client';
 
 // 服务商收益转能量值（5%变积分，95%变能量值）
 export async function POST(request: NextRequest) {
@@ -35,16 +35,10 @@ export async function POST(request: NextRequest) {
     const pointsAmount = Math.round(convertAmount * 0.05 * 100) / 100;
     const energyAmount = convertAmount - pointsAmount;
 
-    const supabase = getSupabase();
-
     // 读取当前用户信息
-    const { data: user, error: userErr } = await supabase
-      .from('users')
-      .select('id, username, balance, energy_value, points')
-      .eq('id', userId)
-      .single();
+    const user = await queryOne('SELECT id, username, balance, energy_value, points FROM users WHERE id = $1', [userId]);
 
-    if (userErr || !user) {
+    if (!user) {
       return NextResponse.json({ error: '用户不存在' }, { status: 404 });
     }
 
@@ -57,19 +51,11 @@ export async function POST(request: NextRequest) {
     const currentPoints = parseFloat(String(user.points)) || 0;
     const newPoints = currentPoints + pointsAmount;
 
-    // 1. 更新 users 表：扣减余额、增加积分
-    const { error: updErr } = await supabase
-      .from('users')
-      .update({
-        balance: newBalance.toFixed(2),
-        points: newPoints.toFixed(2),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', userId);
-
-    if (updErr) {
-      return NextResponse.json({ error: '更新用户信息失败: ' + updErr.message }, { status: 500 });
-    }
+    // 1. 更新 users 表：扣减余额、增加积分（使用SQL直接执行）
+    await execute(
+      'UPDATE users SET balance = $1, points = $2, updated_at = NOW() WHERE id = $3',
+      [newBalance.toFixed(2), newPoints.toFixed(2), userId]
+    );
 
     // 2. 增加能量值（双表同步 + 流水）
     const addResult = await addEnergy(userId, energyAmount, 'convert_from_balance', {
@@ -81,15 +67,10 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. 记录积分流水
-    await supabase.from('points_records').insert({
-      id: crypto.randomUUID(),
-      user_id: userId,
-      type: 'convert',
-      amount: pointsAmount.toFixed(2),
-      balance_after: newPoints.toFixed(2),
-      note: `收益转能量值产生积分5%: ${pointsAmount}元`,
-      created_at: new Date().toISOString(),
-    });
+    await execute(
+      `INSERT INTO points_records (id, user_id, type, amount, balance_after, note, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+      [crypto.randomUUID(), userId, 'convert', pointsAmount.toFixed(2), newPoints.toFixed(2), `收益转能量值产生积分5%: ${pointsAmount}元`]
+    );
 
     return NextResponse.json({
       success: true,

@@ -4,35 +4,30 @@
  * 所有能量值相关的数据库操作必须通过此工具执行，
  * 确保 users.energy_value 和 energy_accounts 双表同步 + energy_transactions 流水记录。
  * 
- * 不使用 rpc_execute（有参数替换bug），而是直接用 Supabase JS Client 操作，
- * 保证数据一致性和可靠性。
+ * 使用 execute(SQL) 直接SQL执行，绕过 Supabase REST API 的潜在静默失败问题。
  */
 
-import { getSupabase } from './supabase-client';
+import { execute, queryOne } from './pg-client';
 
 /**
  * 获取用户当前能量值余额（优先从 energy_accounts 读取，兜底从 users 读取）
  */
 export async function getEnergyBalance(userId: string): Promise<number> {
-  const supabase = getSupabase();
-  
   // 1. 从 energy_accounts 读取
-  const { data: account } = await supabase
-    .from('energy_accounts')
-    .select('balance')
-    .eq('user_id', userId)
-    .single();
+  const account = await queryOne<{ balance: number }>(
+    'SELECT balance FROM energy_accounts WHERE user_id = $1',
+    [userId]
+  );
   
   if (account && Number(account.balance) !== 0) {
     return Number(account.balance);
   }
   
   // 2. 兜底从 users.energy_value 读取
-  const { data: user } = await supabase
-    .from('users')
-    .select('energy_value')
-    .eq('id', userId)
-    .single();
+  const user = await queryOne<{ energy_value: number }>(
+    'SELECT energy_value FROM users WHERE id = $1',
+    [userId]
+  );
   
   const balance = Number(user?.energy_value || 0);
   
@@ -48,44 +43,26 @@ export async function getEnergyBalance(userId: string): Promise<number> {
  * 同步 energy_accounts 与 users.energy_value
  */
 async function syncEnergyAccounts(userId: string, balance: number): Promise<void> {
-  const supabase = getSupabase();
-  
-  const { data: existing } = await supabase
-    .from('energy_accounts')
-    .select('id, total_in, total_out')
-    .eq('user_id', userId)
-    .single();
-  
-  const now = new Date().toISOString();
+  const existing = await queryOne<{ id: string; total_in: number; total_out: number }>(
+    'SELECT id, total_in, total_out FROM energy_accounts WHERE user_id = $1',
+    [userId]
+  );
   
   if (existing) {
     const totalIn = Number(existing.total_in) || 0;
     const totalOut = Number(existing.total_out) || 0;
-    // 保持 total_in/total_out 不变，只修正 balance
-    // 但如果 balance 与 total_in - total_out 不一致，需要修正 total_in
     const calcBalance = totalIn - totalOut;
     const newTotalIn = calcBalance !== balance ? totalIn + (balance - calcBalance) : totalIn;
     
-    await supabase
-      .from('energy_accounts')
-      .update({
-        balance,
-        total_in: newTotalIn,
-        updated_at: now,
-      })
-      .eq('user_id', userId);
+    await execute(
+      'UPDATE energy_accounts SET balance = $1, total_in = $2, updated_at = NOW() WHERE user_id = $3',
+      [balance, newTotalIn, userId]
+    );
   } else {
-    await supabase
-      .from('energy_accounts')
-      .insert({
-        id: crypto.randomUUID(),
-        user_id: userId,
-        balance,
-        total_in: balance,
-        total_out: 0,
-        created_at: now,
-        updated_at: now,
-      });
+    await execute(
+      'INSERT INTO energy_accounts (id, user_id, balance, total_in, total_out, created_at, updated_at) VALUES (gen_random_uuid(), $1, $2, $2, 0, NOW(), NOW())',
+      [userId, balance]
+    );
   }
 }
 
@@ -118,23 +95,12 @@ export type EnergyChangeType =
   | 'parent_provider_share' // 上级服务商分成
   | 'branch_share'     // 分公司分成
   | 'company_share'    // 公司运营分成
-  | 'subordinate_split' // 下级服务商分成
-  | 'provider_share'   // 服务商分成
-  | 'direct_reward'    // 直推奖励
-  | 'parent_provider_share' // 上级服务商分成
-  | 'branch_share'     // 分公司分成
-  | 'company_share'    // 公司运营分成
   | 'subordinate_split';  // 下级分成
 
 /**
  * 增加用户能量值
  * 同时更新 users.energy_value + energy_accounts + energy_transactions
- * 
- * @param userId 用户ID
- * @param amount 增加金额（正数）
- * @param type 变动类型
- * @param options 可选参数
- * @returns 更新后的余额
+ * 使用 SQL 直接执行确保写入成功
  */
 export async function addEnergy(
   userId: string,
@@ -144,95 +110,49 @@ export async function addEnergy(
     fromUserId?: string;
     toUserId?: string;
     note?: string;
-    relatedId?: string;  // 关联ID（订单ID等）
+    relatedId?: string;
   }
 ): Promise<{ success: boolean; newBalance: number; error?: string }> {
   if (amount <= 0) {
     return { success: false, newBalance: 0, error: '增加金额必须大于0' };
   }
   
-  const supabase = getSupabase();
-  const now = new Date().toISOString();
-  
   try {
     // 1. 获取当前余额
     const currentBalance = await getEnergyBalance(userId);
     const newBalance = currentBalance + amount;
     
-    // 2. 更新 users.energy_value
-    const { error: userErr } = await supabase
-      .from('users')
-      .update({ energy_value: newBalance, updated_at: now })
-      .eq('id', userId);
-    
-    if (userErr) {
-      console.error('[energy-util] addEnergy: 更新users失败', userErr.message);
-      return { success: false, newBalance: currentBalance, error: '更新用户能量值失败: ' + userErr.message };
-    }
+    // 2. 更新 users.energy_value（SQL直接执行）
+    await execute(
+      'UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2',
+      [newBalance, userId]
+    );
     
     // 3. 更新 energy_accounts
-    const { data: existingAccount } = await supabase
-      .from('energy_accounts')
-      .select('id, total_in, total_out')
-      .eq('user_id', userId)
-      .single();
+    const existingAccount = await queryOne<{ id: string; total_in: number; total_out: number }>(
+      'SELECT id, total_in, total_out FROM energy_accounts WHERE user_id = $1',
+      [userId]
+    );
     
     if (existingAccount) {
       const newTotalIn = (Number(existingAccount.total_in) || 0) + amount;
-      const { error: accErr } = await supabase
-        .from('energy_accounts')
-        .update({
-          balance: newBalance,
-          total_in: newTotalIn,
-          updated_at: now,
-        })
-        .eq('user_id', userId);
-      
-      if (accErr) {
-        console.error('[energy-util] addEnergy: 更新energy_accounts失败', accErr.message);
-        // 回滚 users.energy_value
-        await supabase.from('users').update({ energy_value: currentBalance }).eq('id', userId);
-        return { success: false, newBalance: currentBalance, error: '更新能量账户失败: ' + accErr.message };
-      }
+      await execute(
+        'UPDATE energy_accounts SET balance = $1, total_in = $2, updated_at = NOW() WHERE user_id = $3',
+        [newBalance, newTotalIn, userId]
+      );
     } else {
-      const { error: accErr } = await supabase
-        .from('energy_accounts')
-        .insert({
-          id: crypto.randomUUID(),
-          user_id: userId,
-          balance: newBalance,
-          total_in: amount,
-          total_out: 0,
-          created_at: now,
-          updated_at: now,
-        });
-      
-      if (accErr) {
-        console.error('[energy-util] addEnergy: 创建energy_accounts失败', accErr.message);
-        await supabase.from('users').update({ energy_value: currentBalance }).eq('id', userId);
-        return { success: false, newBalance: currentBalance, error: '创建能量账户失败: ' + accErr.message };
-      }
+      await execute(
+        'INSERT INTO energy_accounts (id, user_id, balance, total_in, total_out, created_at, updated_at) VALUES (gen_random_uuid(), $1, $2, $3, 0, NOW(), NOW())',
+        [userId, newBalance, amount]
+      );
     }
     
     // 4. 记录 energy_transactions 流水
-    const { error: txErr } = await supabase
-      .from('energy_transactions')
-      .insert({
-        id: crypto.randomUUID(),
-        user_id: userId,
-        type,
-        amount,
-        from_user_id: options?.fromUserId || null,
-        to_user_id: options?.toUserId || userId,
-        status: 'completed',
-        note: options?.note || null,
-        created_at: now,
-      });
-    
-    if (txErr) {
-      console.error('[energy-util] addEnergy: 记录流水失败', txErr.message);
-      // 不回滚，流水记录失败不影响业务
-    }
+    await execute(
+      `INSERT INTO energy_transactions (id, user_id, type, amount, from_user_id, to_user_id, status, note, created_at) 
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, 'completed', $6, NOW())`,
+      [userId, type, amount, options?.fromUserId || null, options?.toUserId || userId, options?.note || null]
+    );
     
     console.log(`[energy-util] addEnergy: ${userId} +${amount} (${type}) => ${newBalance}`);
     return { success: true, newBalance };
@@ -247,12 +167,7 @@ export async function addEnergy(
 /**
  * 扣减用户能量值
  * 同时更新 users.energy_value + energy_accounts + energy_transactions
- * 
- * @param userId 用户ID
- * @param amount 扣减金额（正数）
- * @param type 变动类型
- * @param options 可选参数
- * @returns 更新后的余额
+ * 使用 SQL 直接执行确保写入成功
  */
 export async function deductEnergy(
   userId: string,
@@ -269,9 +184,6 @@ export async function deductEnergy(
     return { success: false, newBalance: 0, error: '扣减金额必须大于0' };
   }
   
-  const supabase = getSupabase();
-  const now = new Date().toISOString();
-  
   try {
     // 1. 获取当前余额
     const currentBalance = await getEnergyBalance(userId);
@@ -282,81 +194,39 @@ export async function deductEnergy(
     
     const newBalance = currentBalance - amount;
     
-    // 2. 更新 users.energy_value
-    const { error: userErr } = await supabase
-      .from('users')
-      .update({ energy_value: newBalance, updated_at: now })
-      .eq('id', userId);
-    
-    if (userErr) {
-      console.error('[energy-util] deductEnergy: 更新users失败', userErr.message);
-      return { success: false, newBalance: currentBalance, error: '更新用户能量值失败: ' + userErr.message };
-    }
+    // 2. 更新 users.energy_value（SQL直接执行）
+    await execute(
+      'UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2',
+      [newBalance, userId]
+    );
     
     // 3. 更新 energy_accounts
-    const { data: existingAccount } = await supabase
-      .from('energy_accounts')
-      .select('id, total_in, total_out')
-      .eq('user_id', userId)
-      .single();
+    const existingAccount = await queryOne<{ id: string; total_in: number; total_out: number }>(
+      'SELECT id, total_in, total_out FROM energy_accounts WHERE user_id = $1',
+      [userId]
+    );
     
     if (existingAccount) {
       const newTotalOut = (Number(existingAccount.total_out) || 0) + amount;
-      const { error: accErr } = await supabase
-        .from('energy_accounts')
-        .update({
-          balance: newBalance,
-          total_out: newTotalOut,
-          updated_at: now,
-        })
-        .eq('user_id', userId);
-      
-      if (accErr) {
-        console.error('[energy-util] deductEnergy: 更新energy_accounts失败', accErr.message);
-        await supabase.from('users').update({ energy_value: currentBalance }).eq('id', userId);
-        return { success: false, newBalance: currentBalance, error: '更新能量账户失败: ' + accErr.message };
-      }
+      await execute(
+        'UPDATE energy_accounts SET balance = $1, total_out = $2, updated_at = NOW() WHERE user_id = $3',
+        [newBalance, newTotalOut, userId]
+      );
     } else {
       // 不应该存在有余额但没有 energy_accounts 记录的情况
       console.error('[energy-util] deductEnergy: 用户没有energy_accounts记录但余额>0，数据异常');
-      // 创建记录
-      const { error: accErr } = await supabase
-        .from('energy_accounts')
-        .insert({
-          id: crypto.randomUUID(),
-          user_id: userId,
-          balance: newBalance,
-          total_in: currentBalance,
-          total_out: amount,
-          created_at: now,
-          updated_at: now,
-        });
-      
-      if (accErr) {
-        console.error('[energy-util] deductEnergy: 创建energy_accounts失败', accErr.message);
-        await supabase.from('users').update({ energy_value: currentBalance }).eq('id', userId);
-        return { success: false, newBalance: currentBalance, error: '创建能量账户失败: ' + accErr.message };
-      }
+      await execute(
+        'INSERT INTO energy_accounts (id, user_id, balance, total_in, total_out, created_at, updated_at) VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW(), NOW())',
+        [userId, newBalance, currentBalance, amount]
+      );
     }
     
     // 4. 记录 energy_transactions 流水
-    const { error: txErr } = await supabase
-      .from('energy_transactions')
-      .insert({
-        id: crypto.randomUUID(),
-        user_id: userId,
-        type,
-        amount,
-        from_user_id: options?.fromUserId || userId,
-        to_user_id: options?.toUserId || null,
-        status: 'completed',
-        note: options?.note || null,
-        created_at: now,
-      });
-    
-    if (txErr) {
-      console.error('[energy-util] deductEnergy: 记录流水失败', txErr.message);
-    }
+    await execute(
+      `INSERT INTO energy_transactions (id, user_id, type, amount, from_user_id, to_user_id, status, note, created_at) 
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, 'completed', $6, NOW())`,
+      [userId, type, amount, options?.fromUserId || userId, options?.toUserId || null, options?.note || null]
+    );
     
     console.log(`[energy-util] deductEnergy: ${userId} -${amount} (${type}) => ${newBalance}`);
     return { success: true, newBalance };
@@ -371,19 +241,14 @@ export async function deductEnergy(
 /**
  * 能量值转账（从A扣减，给B增加）
  * 原子操作：确保双方数据一致
- * 
- * @param fromUserId 转出方
- * @param toUserId 转入方
- * @param amount 金额
- * @param options 可选参数
  */
 export async function transferEnergy(
   fromUserId: string,
   toUserId: string,
   amount: number,
   options?: {
-    fromType?: EnergyChangeType;  // 转出方记录类型，默认 'transfer_out'
-    toType?: EnergyChangeType;    // 转入方记录类型，默认 'transfer_in'
+    fromType?: EnergyChangeType;
+    toType?: EnergyChangeType;
     note?: string;
   }
 ): Promise<{ success: boolean; fromNewBalance: number; toNewBalance: number; error?: string }> {
@@ -456,26 +321,24 @@ export async function reconcileEnergy(): Promise<{
     fixed: boolean;
   }>;
 }> {
-  const supabase = getSupabase();
-  
   // 1. 获取所有用户
-  const { data: users } = await supabase
-    .from('users')
-    .select('id, username, role, energy_value')
-    .order('created_at');
+  const users = await queryOne<any[]>(
+    'SELECT id, username, role, energy_value FROM users ORDER BY created_at',
+    []
+  );
   
-  if (!users) return { total: 0, fixed: 0, details: [] };
+  if (!users || !Array.isArray(users)) return { total: 0, fixed: 0, details: [] };
   
   // 2. 获取所有 energy_transactions
-  const { data: allTx } = await supabase
-    .from('energy_transactions')
-    .select('*')
-    .order('created_at', { ascending: true });
+  const allTx = await queryOne<any[]>(
+    'SELECT * FROM energy_transactions ORDER BY created_at ASC',
+    []
+  );
   
   // 3. 按 user_id 分组计算
   const userCalc: Record<string, { totalIn: number; totalOut: number }> = {};
-  if (allTx) {
-    allTx.forEach(tx => {
+  if (allTx && Array.isArray(allTx)) {
+    allTx.forEach((tx: any) => {
       const uid = tx.user_id;
       if (!userCalc[uid]) userCalc[uid] = { totalIn: 0, totalOut: 0 };
       const amt = Number(tx.amount);
@@ -486,12 +349,13 @@ export async function reconcileEnergy(): Promise<{
   }
   
   // 4. 获取所有 energy_accounts
-  const { data: accounts } = await supabase
-    .from('energy_accounts')
-    .select('*');
+  const accounts = await queryOne<any[]>(
+    'SELECT * FROM energy_accounts',
+    []
+  );
   
   const accMap: Record<string, any> = {};
-  if (accounts) accounts.forEach((a: any) => { accMap[a.user_id] = a; });
+  if (accounts && Array.isArray(accounts)) accounts.forEach((a: any) => { accMap[a.user_id] = a; });
   
   // 5. 验证并修复
   const details: Array<{
@@ -509,7 +373,6 @@ export async function reconcileEnergy(): Promise<{
   
   for (const user of users) {
     const calc = userCalc[user.id] || { totalIn: 0, totalOut: 0 };
-    // 注意：如果用户没有 transaction 记录，不修改其值（可能是初始分配未记录流水）
     const hasTransactions = !!userCalc[user.id];
     const expectedFromTx = calc.totalIn - calc.totalOut;
     
@@ -517,15 +380,12 @@ export async function reconcileEnergy(): Promise<{
     const currentEv = Number(user.energy_value);
     const currentBalance = acc ? Number(acc.balance) : 0;
     
-    // 如果有流水记录，以流水为准
-    // 如果没有流水记录，以 users.energy_value 为准
     let targetEv = currentEv;
     let targetBalance = currentEv;
     let targetTotalIn = acc ? Number(acc.total_in) : currentEv;
     let targetTotalOut = acc ? Number(acc.total_out) : 0;
     
     if (hasTransactions) {
-      // 有流水：以流水计算为准
       targetEv = expectedFromTx;
       targetBalance = expectedFromTx;
       targetTotalIn = calc.totalIn;
@@ -536,31 +396,23 @@ export async function reconcileEnergy(): Promise<{
       (acc && (Number(acc.total_in) !== targetTotalIn || Number(acc.total_out) !== targetTotalOut));
     
     if (needsFix) {
-      const now = new Date().toISOString();
-      
-      // 修复 users.energy_value
       if (currentEv !== targetEv) {
-        await supabase.from('users').update({ energy_value: targetEv, updated_at: now }).eq('id', user.id);
+        await execute(
+          'UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2',
+          [targetEv, user.id]
+        );
       }
       
-      // 修复 energy_accounts
       if (acc) {
-        await supabase.from('energy_accounts').update({
-          balance: targetBalance,
-          total_in: targetTotalIn,
-          total_out: targetTotalOut,
-          updated_at: now,
-        }).eq('user_id', user.id);
+        await execute(
+          'UPDATE energy_accounts SET balance = $1, total_in = $2, total_out = $3, updated_at = NOW() WHERE user_id = $4',
+          [targetBalance, targetTotalIn, targetTotalOut, user.id]
+        );
       } else if (targetBalance !== 0) {
-        await supabase.from('energy_accounts').insert({
-          id: crypto.randomUUID(),
-          user_id: user.id,
-          balance: targetBalance,
-          total_in: targetTotalIn,
-          total_out: targetTotalOut,
-          created_at: now,
-          updated_at: now,
-        });
+        await execute(
+          'INSERT INTO energy_accounts (id, user_id, balance, total_in, total_out, created_at, updated_at) VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW(), NOW())',
+          [user.id, targetBalance, targetTotalIn, targetTotalOut]
+        );
       }
       
       fixedCount++;

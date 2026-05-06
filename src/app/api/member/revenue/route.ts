@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { authenticateRequest } from '@/lib/auth';
 import { getSupabaseUrl, getSupabaseServiceRoleKey } from '@/lib/env';
+import { execute, queryOne } from '@/lib/pg-client';
 
 // 获取管理员 Supabase 客户端（绕过 RLS）
 function getAdminSupabase() {
@@ -222,37 +223,20 @@ export async function POST(request: NextRequest) {
       remaining -= deductAmount;
     }
 
-    // 更新用户能量值
-    const { data: userData } = await client
-      .from('users')
-      .select('energy_value')
-      .eq('id', userId)
-      .single();
-
-    const currentEnergy = parseFloat(userData?.energy_value || 0);
+    // 更新用户能量值 - 使用 SQL 直接更新确保写入成功
+    const userRow = await queryOne('SELECT energy_value FROM users WHERE id = $1', [userId]);
+    const currentEnergy = parseFloat(String(userRow?.energy_value)) || 0;
     const newEnergy = currentEnergy + convertAmount;
 
-    await client
-      .from('users')
-      .update({ energy_value: newEnergy, updated_at: new Date().toISOString() })
-      .eq('id', userId);
+    await execute('UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2', [newEnergy, userId]);
 
-    // 更新能量值账户
-    const { data: energyAccount } = await client
-      .from('energy_accounts')
-      .select('balance, total_in')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (energyAccount) {
-      await client
-        .from('energy_accounts')
-        .update({
-          balance: parseFloat(energyAccount.balance || 0) + convertAmount,
-          total_in: parseFloat(energyAccount.total_in || 0) + convertAmount,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', userId);
+    // 更新能量值账户 - 使用 SQL 直接更新
+    const accRow = await queryOne('SELECT balance, total_in FROM energy_accounts WHERE user_id = $1', [userId]);
+    if (accRow) {
+      await execute(
+        'UPDATE energy_accounts SET balance = $1, total_in = $2, updated_at = NOW() WHERE user_id = $3',
+        [(parseFloat(String(accRow.balance)) || 0) + convertAmount, (parseFloat(String(accRow.total_in)) || 0) + convertAmount, userId]
+      );
     }
 
     // 写入收益明细流水

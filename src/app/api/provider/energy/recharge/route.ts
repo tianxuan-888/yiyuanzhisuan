@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { authenticateRequest } from '@/lib/auth';
+import { execute, queryOne } from '@/lib/pg-client';
 
 /**
  * 服务商给会员充值能量值
  * POST /api/provider/energy/recharge
  */
 export async function POST(request: NextRequest) {
-  const client = getSupabaseClient();
-  
   try {
     const user = authenticateRequest(request);
     if (!user || user.role !== 'provider') {
@@ -27,14 +26,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '请输入正确的充值金额' }, { status: 400 });
     }
 
-    // 验证服务商余额
-    const { data: provider, error: providerError } = await client
-      .from('users')
-      .select('id, username, energy_value')
-      .eq('id', providerId)
-      .single();
+    // 验证服务商余额 - 使用SQL查询
+    const provider = await queryOne(
+      `SELECT id, username, energy_value FROM users WHERE id = $1`,
+      [providerId]
+    );
 
-    if (providerError || !provider) {
+    if (!provider) {
       return NextResponse.json({ error: '服务商不存在' }, { status: 404 });
     }
 
@@ -44,97 +42,71 @@ export async function POST(request: NextRequest) {
     }
 
     // 验证会员存在
-    const { data: member, error: memberError } = await client
-      .from('users')
-      .select('id, username')
-      .eq('id', memberId)
-      .eq('role', 'member')
-      .single();
+    const member = await queryOne(
+      `SELECT id, username FROM users WHERE id = $1 AND role = 'member'`,
+      [memberId]
+    );
 
-    if (memberError || !member) {
+    if (!member) {
       return NextResponse.json({ error: '会员不存在' }, { status: 404 });
     }
 
-    // 执行充值（原子操作）
+    // 执行充值（使用SQL直接更新，确保写入成功）
     const newProviderBalance = currentProviderBalance - amount;
-    
+
     // 扣除服务商能量值
-    await client
-      .from('users')
-      .update({ energy_value: newProviderBalance })
-      .eq('id', providerId);
+    await execute(
+      `UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2`,
+      [newProviderBalance, providerId]
+    );
+
+    // 更新服务商 energy_accounts
+    await execute(
+      `UPDATE energy_accounts SET balance = balance - $1, total_out = total_out + $1, updated_at = NOW() WHERE user_id = $2`,
+      [amount, providerId]
+    );
 
     // 增加会员能量值
-    const { data: memberEa } = await client
-      .from('energy_accounts')
-      .select('balance')
-      .eq('user_id', memberId)
-      .single();
-    
-    const newMemberBalance = (parseFloat(memberEa?.balance) || 0) + amount;
-    
-    if (memberEa) {
-      await client
-        .from('energy_accounts')
-        .update({ 
-          balance: newMemberBalance,
-          total_in: newMemberBalance,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', memberId);
-    } else {
-      await client
-        .from('energy_accounts')
-        .insert({
-          id: crypto.randomUUID(),
-          user_id: memberId,
-          balance: amount,
-          total_in: amount,
-          total_out: 0,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        });
-    }
+    await execute(
+      `UPDATE users SET energy_value = energy_value + $1, updated_at = NOW() WHERE id = $2`,
+      [amount, memberId]
+    );
 
-    // 同时更新会员users表的energy_value
-    try {
-      await client
-        .from('users')
-        .update({ energy_value: newMemberBalance })
-        .eq('id', memberId);
-    } catch (e) {
-      console.error('Update member energy error:', e);
+    // 更新会员 energy_accounts
+    const memberAccount = await queryOne(
+      `SELECT user_id FROM energy_accounts WHERE user_id = $1`,
+      [memberId]
+    );
+
+    if (memberAccount) {
+      await execute(
+        `UPDATE energy_accounts SET balance = balance + $1, total_in = total_in + $1, updated_at = NOW() WHERE user_id = $2`,
+        [amount, memberId]
+      );
+    } else {
+      await execute(
+        `INSERT INTO energy_accounts (id, user_id, balance, total_in, total_out, created_at, updated_at) VALUES (gen_random_uuid(), $1, $2, $2, 0, NOW(), NOW())`,
+        [memberId, amount]
+      );
     }
 
     // 记录服务商支出
-    await client
-      .from('energy_transactions')
-      .insert({
-        id: crypto.randomUUID(),
-        user_id: providerId,
-        type: 'transfer_out',
-        amount: amount,
-        from_user_id: providerId,
-        to_user_id: memberId,
-        note: note || '给会员充值能量值',
-        status: 'completed',
-        created_at: new Date().toISOString()
-      });
+    await execute(
+      `INSERT INTO energy_transactions (id, user_id, type, amount, from_user_id, to_user_id, note, status, created_at) VALUES (gen_random_uuid(), $1, 'transfer_out', $2, $1, $3, $4, 'completed', NOW())`,
+      [providerId, amount, memberId, note || '给会员充值能量值']
+    );
 
     // 记录会员收入
-    await client
-      .from('energy_transactions')
-      .insert({
-        id: crypto.randomUUID(),
-        user_id: memberId,
-        type: 'recharge',
-        amount: amount,
-        from_user_id: providerId,
-        to_user_id: memberId,
-        note: note || '服务商充值',
-        status: 'completed',
-        created_at: new Date().toISOString()
-      });
+    await execute(
+      `INSERT INTO energy_transactions (id, user_id, type, amount, from_user_id, to_user_id, note, status, created_at) VALUES (gen_random_uuid(), $1, 'recharge', $2, $3, $1, $4, 'completed', NOW())`,
+      [memberId, amount, providerId, note || '服务商充值']
+    );
+
+    // 更新充值申请状态
+    await execute(
+      `UPDATE energy_recharge_records SET status = 'approved', updated_at = NOW() WHERE member_id = $1 AND status = 'pending' AND amount = $2 ORDER BY created_at DESC LIMIT 1`,
+      [memberId, amount]
+    ).catch(() => {/* 可能没有对应的充值申请记录 */});
 
     return NextResponse.json({
       success: true,
@@ -142,7 +114,6 @@ export async function POST(request: NextRequest) {
       data: {
         amount,
         memberName: member.username,
-        memberBalance: newMemberBalance,
         providerEnergy: newProviderBalance,
       }
     });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
+import { execute, queryOne } from '@/lib/pg-client';
 
 // 确认打款
 export async function POST(request: NextRequest) {
@@ -59,20 +60,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'reject') {
-      // 拒绝：返还余额给用户
-      const { data: user } = await client
-        .from('users')
-        .select('balance')
-        .eq('id', withdrawal.user_id)
-        .maybeSingle();
-
-      const currentBalance = parseFloat(user?.balance || '0');
+      // 拒绝：返还余额给用户 - 使用 SQL 直接更新
+      const userRow = await queryOne('SELECT balance FROM users WHERE id = $1', [withdrawal.user_id]);
+      const currentBalance = parseFloat(String(userRow?.balance)) || 0;
       const newBalance = currentBalance + withdrawal.amount;
-
-      await client
-        .from('users')
-        .update({ balance: newBalance })
-        .eq('id', withdrawal.user_id);
+      await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newBalance, withdrawal.user_id]);
 
       // 更新提现状态
       await client

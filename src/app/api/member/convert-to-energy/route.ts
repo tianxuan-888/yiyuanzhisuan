@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase-client';
 import { authenticateRequest } from '@/lib/auth';
 import { addEnergy, getEnergyBalance } from '@/lib/energy-util';
+import { execute, queryOne } from '@/lib/pg-client';
 
 // 收益转能量值（5%变积分，95%变能量值）
 export async function POST(request: NextRequest) {
@@ -53,16 +54,8 @@ export async function POST(request: NextRequest) {
     const newBalance = (currentBalance - convertAmount).toFixed(2);
     const newPoints = ((parseFloat(user.points) || 0) + pointsAmount).toFixed(2);
 
-    // 1. 更新用户余额和积分（能量值由 addEnergy 更新）
-    const { error: updateUserErr } = await supabase
-      .from('users')
-      .update({ balance: newBalance, points: newPoints, updated_at: new Date().toISOString() })
-      .eq('id', userId);
-
-    if (updateUserErr) {
-      console.error('[convert-to-energy] 更新用户余额失败:', updateUserErr.message);
-      return NextResponse.json({ error: '更新用户余额失败' }, { status: 500 });
-    }
+    // 1. 更新用户余额和积分（能量值由 addEnergy 更新）- 使用 SQL 直接执行
+    await execute('UPDATE users SET balance = $1, points = $2, updated_at = NOW() WHERE id = $3', [newBalance, newPoints, userId]);
 
     // 2. 使用 addEnergy 增加能量值（自动同步 users + energy_accounts + 流水）
     const addResult = await addEnergy(userId, energyAmount, 'convert_from_balance', {
@@ -70,11 +63,8 @@ export async function POST(request: NextRequest) {
     });
 
     if (!addResult.success) {
-      // 回滚用户余额
-      await supabase
-        .from('users')
-        .update({ balance: currentBalance.toFixed(2), points: user.points, updated_at: new Date().toISOString() })
-        .eq('id', userId);
+      // 回滚用户余额 - 使用 SQL 直接执行
+      await execute('UPDATE users SET balance = $1, points = $2, updated_at = NOW() WHERE id = $3', [currentBalance.toFixed(2), user.points, userId]);
       return NextResponse.json({ error: '转换能量值失败: ' + addResult.error }, { status: 500 });
     }
 

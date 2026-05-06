@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { authenticateRequest } from '@/lib/auth';
+import { execute } from '@/lib/pg-client';
 
 // 提现申请
 export async function POST(request: NextRequest) {
@@ -64,18 +65,9 @@ export async function POST(request: NextRequest) {
       .eq('role', 'provider')
       .maybeSingle();
 
-    // 白名单过滤更新字段
-    const safeUserUpdate = { balance: userBalance - amount };
-
-    // 扣除余额
-    const { error: updateBalanceError } = await client
-      .from('users')
-      .update(safeUserUpdate)
-      .eq('id', userId);
-
-    if (updateBalanceError) {
-      throw new Error(`扣除余额失败: ${updateBalanceError.message}`);
-    }
+    // 扣除余额 - 使用 SQL 直接更新
+    const newBalance = userBalance - amount;
+    await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newBalance, userId]);
 
     // 创建提现记录 - 白名单过滤
     const { data: withdrawal, error: createError } = await client
@@ -90,7 +82,7 @@ export async function POST(request: NextRequest) {
 
     if (createError) {
       // 回滚余额
-      await client.from('users').update({ balance: userBalance }).eq('id', userId);
+      await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [userBalance, userId]);
       throw new Error(`创建提现记录失败: ${createError.message}`);
     }
 

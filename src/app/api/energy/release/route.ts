@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
-
-// 生成 UUID
-const generateUUID = () => crypto.randomUUID();
+import { execute, queryOne } from '@/lib/pg-client';
 
 // 能量值下发（总公司 → 分公司 → 服务商）
 export async function POST(request: NextRequest) {
@@ -27,16 +24,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '无权操作' }, { status: 403 });
     }
 
-    const client = getSupabaseClient();
-
     // 查询转出方用户信息
-    const { data: fromUser, error: fromError } = await client
-      .from('users')
-      .select('id, username, role, energy_value')
-      .eq('id', fromUserId)
-      .maybeSingle();
+    const fromUser = await queryOne(
+      `SELECT id, username, role, energy_value FROM users WHERE id = $1`,
+      [fromUserId]
+    );
 
-    if (fromError || !fromUser) {
+    if (!fromUser) {
       return NextResponse.json({ success: false, error: '转出方用户不存在' }, { status: 404 });
     }
 
@@ -46,13 +40,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 查询接收方用户信息
-    const { data: toUser, error: toError } = await client
-      .from('users')
-      .select('id, username, role, energy_value')
-      .eq('id', toUserId)
-      .maybeSingle();
+    const toUser = await queryOne(
+      `SELECT id, username, role, energy_value FROM users WHERE id = $1`,
+      [toUserId]
+    );
 
-    if (toError || !toUser) {
+    if (!toUser) {
       return NextResponse.json({ success: false, error: '接收方用户不存在' }, { status: 404 });
     }
 
@@ -66,54 +59,43 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const now = new Date().toISOString();
-    const transactionId = generateUUID();
+    const toEnergy = parseFloat(toUser.energy_value || '0');
 
-    // 白名单过滤更新字段
-    const fromUpdate = { energy_value: fromEnergy - amount };
-    const toUpdate = { energy_value: parseFloat(toUser.energy_value || '0') + amount };
-
-    // 扣除转出方能量值
-    const { error: updateFromError } = await client
-      .from('users')
-      .update(fromUpdate)
-      .eq('id', fromUserId);
-
-    if (updateFromError) {
-      throw new Error(`扣除能量值失败: ${updateFromError.message}`);
-    }
+    // 扣除转出方能量值（使用SQL直接更新）
+    await execute(
+      `UPDATE users SET energy_value = energy_value - $1, updated_at = NOW() WHERE id = $2`,
+      [amount, fromUserId]
+    );
 
     // 增加接收方能量值
-    const { error: updateToError } = await client
-      .from('users')
-      .update(toUpdate)
-      .eq('id', toUserId);
+    await execute(
+      `UPDATE users SET energy_value = energy_value + $1, updated_at = NOW() WHERE id = $2`,
+      [amount, toUserId]
+    );
 
-    if (updateToError) {
-      // 回滚
-      await client.from('users').update({ energy_value: fromEnergy }).eq('id', fromUserId);
-      throw new Error(`增加能量值失败: ${updateToError.message}`);
-    }
+    // 更新 energy_accounts
+    await execute(
+      `UPDATE energy_accounts SET balance = balance - $1, total_out = total_out + $1, updated_at = NOW() WHERE user_id = $2`,
+      [amount, fromUserId]
+    ).catch(() => {/* 可能没有账户记录 */});
+
+    await execute(
+      `UPDATE energy_accounts SET balance = balance + $1, total_in = total_in + $1, updated_at = NOW() WHERE user_id = $2`,
+      [amount, toUserId]
+    ).catch(() => {/* 可能没有账户记录 */});
 
     // 记录流水
-    await client.from('energy_transactions').insert({
-      id: transactionId,
-      type: 'release',
-      amount: amount,
-      from_user_id: fromUserId,
-      to_user_id: toUserId,
-      note: note || '能量值下发',
-      status: 'completed',
-      created_at: now
-    });
+    await execute(
+      `INSERT INTO energy_transactions (id, type, amount, from_user_id, to_user_id, note, status, created_at) VALUES (gen_random_uuid(), 'release', $1, $2, $3, $4, 'completed', NOW())`,
+      [amount, fromUserId, toUserId, note || '能量值下发']
+    );
 
     return NextResponse.json({
       success: true,
       message: '能量值下发成功',
       data: {
-        transactionId,
         fromEnergy: fromEnergy - amount,
-        toEnergy: parseFloat(toUser.energy_value || '0') + amount,
+        toEnergy: toEnergy + amount,
         amount
       }
     });

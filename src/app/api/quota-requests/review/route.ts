@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
+import { execute, queryOne } from '@/lib/pg-client';
 
 // 审核额度申请
 export async function POST(request: NextRequest) {
@@ -183,18 +184,11 @@ export async function POST(request: NextRequest) {
               to_user_id: quotaRequest.requester_id,
             });
 
-          // 同步更新 users 表的 energy_value
-          const { data: userRow } = await client
-            .from('users')
-            .select('energy_value')
-            .eq('id', quotaRequest.requester_id)
-            .single();
-
+          // 同步更新 users 表的 energy_value - 使用 SQL 直接执行
+          const userRow = await queryOne('SELECT energy_value FROM users WHERE id = $1', [quotaRequest.requester_id]);
           if (userRow) {
-            await client
-              .from('users')
-              .update({ energy_value: (userRow.energy_value || 0) + energyAmount })
-              .eq('id', quotaRequest.requester_id);
+            const currentEv = parseFloat(String(userRow.energy_value)) || 0;
+            await execute('UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2', [currentEv + energyAmount, quotaRequest.requester_id]);
           }
         } catch (energyError) {
           console.error('更新分公司能量值失败:', energyError);

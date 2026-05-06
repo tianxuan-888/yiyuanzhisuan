@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
+import { execute, queryOne } from '@/lib/pg-client';
 
 // 审批服务商向分公司申请的能量值
 export async function POST(request: NextRequest) {
@@ -138,27 +139,17 @@ export async function POST(request: NextRequest) {
           });
       }
       
-      // 3. 给服务商增加能量值
+      // 3. 给服务商增加能量值 - 使用 SQL 直接更新
       if (providerId && amount > 0) {
-        // 查询服务商能量值账户
-        const { data: ea } = await client
-          .from('energy_accounts')
-          .select('balance, total_in')
-          .eq('user_id', providerId)
-          .single();
+        const ea = await queryOne('SELECT balance, total_in FROM energy_accounts WHERE user_id = $1', [providerId]);
         
-        const newBalance = (ea?.balance || 0) + amount;
-        const newTotalIn = (ea?.total_in || 0) + amount;
+        const newBalance = (parseFloat(String(ea?.balance)) || 0) + amount;
+        const newTotalIn = (parseFloat(String(ea?.total_in)) || 0) + amount;
         
         if (ea) {
-          await client
-            .from('energy_accounts')
-            .update({ balance: newBalance, total_in: newTotalIn })
-            .eq('user_id', providerId);
+          await execute('UPDATE energy_accounts SET balance = $1, total_in = $2, updated_at = NOW() WHERE user_id = $3', [newBalance, newTotalIn, providerId]);
         } else {
-          await client
-            .from('energy_accounts')
-            .insert({ user_id: providerId, balance: amount, total_in: amount });
+          await execute('INSERT INTO energy_accounts (id, user_id, balance, total_in, total_out, created_at, updated_at) VALUES ($1, $2, $3, $4, 0, NOW(), NOW())', [crypto.randomUUID(), providerId, amount, amount]);
         }
 
         // 4. 记录服务商收入流水

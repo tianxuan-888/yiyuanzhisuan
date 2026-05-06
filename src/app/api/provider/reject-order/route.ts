@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseUrl, getSupabaseServiceRoleKey } from '@/lib/env';
+import { execute, queryOne } from '@/lib/pg-client';
 
 // 获取管理员 Supabase 客户端（绕过 RLS）
 function getAdminSupabase() {
@@ -100,21 +101,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 3. 退还会员能量值（购买时已扣除的 market_fee）
+    // 3. 退还会员能量值（购买时已扣除的 market_fee）- 使用 SQL 直接更新
     if (order.energy_cost && order.energy_cost > 0) {
-      // 直接更新 users 表的 energy_value
-      const { data: memberData } = await client
-        .from('users')
-        .select('energy_value')
-        .eq('id', order.user_id)
-        .single();
-
-      if (memberData) {
-        const newBalance = (parseFloat(memberData.energy_value) || 0) + order.energy_cost;
-        await client
-          .from('users')
-          .update({ energy_value: newBalance })
-          .eq('id', order.user_id);
+      const memberRow = await queryOne('SELECT energy_value FROM users WHERE id = $1', [order.user_id]);
+      if (memberRow) {
+        const newBalance = (parseFloat(String(memberRow.energy_value)) || 0) + order.energy_cost;
+        await execute('UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2', [newBalance, order.user_id]);
 
         // 记录能量值退还流水
         await client
@@ -127,30 +119,17 @@ export async function POST(request: NextRequest) {
             from_user_id: null,
             to_user_id: null,
             status: 'completed',
-            description: `订单被拒绝，退还市场费能量值`,
+            description: '订单被拒绝，退还市场费能量值',
             created_at: new Date().toISOString(),
           });
       }
 
       // 同时更新 energy_accounts
       try {
-        const { data: energyAccount } = await client
-          .from('energy_accounts')
-          .select('balance, total_out')
-          .eq('user_id', order.user_id)
-          .single();
-
-        if (energyAccount) {
-          const newAcctBalance = (parseFloat(energyAccount.balance) || 0) + order.energy_cost;
-          const newTotalOut = Math.max(0, (parseFloat(energyAccount.total_out) || 0) - order.energy_cost);
-          await client
-            .from('energy_accounts')
-            .update({
-              balance: newAcctBalance,
-              total_out: newTotalOut,
-            })
-            .eq('user_id', order.user_id);
-        }
+        await execute(
+          'UPDATE energy_accounts SET balance = balance + $1, total_out = GREATEST(0, total_out - $1), updated_at = NOW() WHERE user_id = $2',
+          [order.energy_cost, order.user_id]
+        );
       } catch (e) {
         console.log('更新 energy_accounts 失败，跳过:', e);
       }

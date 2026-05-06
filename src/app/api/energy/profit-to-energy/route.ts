@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { authenticateRequest } from '@/lib/auth';
+import { execute, queryOne } from '@/lib/pg-client';
 
 // 收益转能量值
 export async function POST(request: NextRequest) {
@@ -30,19 +31,15 @@ export async function POST(request: NextRequest) {
 
     const client = getSupabaseClient();
 
-    // 查询用户信息
-    const { data: userData, error: userError } = await client
-      .from('users')
-      .select('id, username, balance, energy_value')
-      .eq('id', userId)
-      .maybeSingle();
+    // 使用 SQL 直接查询用户信息
+    const userData = await queryOne('SELECT id, username, balance, energy_value FROM users WHERE id = $1', [userId]);
 
-    if (userError || !userData) {
+    if (!userData) {
       return NextResponse.json({ error: '用户不存在' }, { status: 404 });
     }
 
     // 检查余额是否足够
-    const userBalance = parseFloat(userData.balance || '0');
+    const userBalance = parseFloat(String(userData.balance)) || 0;
     if (userBalance < amount) {
       return NextResponse.json({
         success: false,
@@ -51,31 +48,11 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 白名单过滤
+    // 使用 SQL 直接更新余额和能量值（原子操作，确保写入成功）
     const newBalance = userBalance - amount;
-    const newEnergy = parseFloat(userData.energy_value || '0') + amount;
+    const newEnergy = (parseFloat(String(userData.energy_value)) || 0) + amount;
 
-    // 扣除余额
-    const { error: updateBalanceError } = await client
-      .from('users')
-      .update({ balance: newBalance })
-      .eq('id', userId);
-
-    if (updateBalanceError) {
-      throw new Error(`扣除余额失败: ${updateBalanceError.message}`);
-    }
-
-    // 增加能量值
-    const { error: updateEnergyError } = await client
-      .from('users')
-      .update({ energy_value: newEnergy })
-      .eq('id', userId);
-
-    if (updateEnergyError) {
-      // 回滚余额
-      await client.from('users').update({ balance: userBalance }).eq('id', userId);
-      throw new Error(`增加能量值失败: ${updateEnergyError.message}`);
-    }
+    await execute('UPDATE users SET balance = $1, energy_value = $2, updated_at = NOW() WHERE id = $3', [newBalance, newEnergy, userId]);
 
     // 记录交易
     await client.from('transactions').insert({

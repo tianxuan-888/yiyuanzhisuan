@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { authenticateRequest } from '@/lib/auth';
+import { execute, queryOne } from '@/lib/pg-client';
 
 // 确认卖出收益（会员确认收款后执行收益分配）
 export async function POST(request: NextRequest) {
@@ -18,10 +19,7 @@ export async function POST(request: NextRequest) {
     const { orderId } = body;
 
     if (!orderId) {
-      return NextResponse.json(
-        { error: '缺少必要参数' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
     }
 
     const client = getSupabaseClient();
@@ -38,24 +36,15 @@ export async function POST(request: NextRequest) {
     }
 
     if (!order) {
-      return NextResponse.json(
-        { error: '订单不存在' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: '订单不存在' }, { status: 404 });
     }
 
     if (order.order_type !== 'sell') {
-      return NextResponse.json(
-        { error: '非卖出订单' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: '非卖出订单' }, { status: 400 });
     }
 
     if (order.status !== 'awaiting_payment') {
-      return NextResponse.json(
-        { error: '订单状态不允许确认' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: '订单状态不允许确认' }, { status: 400 });
     }
 
     // 查询用户产品信息
@@ -111,19 +100,13 @@ export async function POST(request: NextRequest) {
       throw new Error(`查询用户失败: ${userError?.message || '用户不存在'}`);
     }
 
-    // 增加用户余额和积分
+    // 使用 SQL 直接更新用户余额和积分，确保写入成功
     const currentBalance = parseFloat(user.balance || '0');
     const currentPoints = parseFloat(user.points || '0');
     const newBalance = currentBalance + cashAmount;
     const newPoints = currentPoints + pointsAmount;
 
-    await client
-      .from('users')
-      .update({
-        balance: newBalance,
-        points: newPoints,
-      })
-      .eq('id', userId);
+    await execute('UPDATE users SET balance = $1, points = $2, updated_at = NOW() WHERE id = $3', [newBalance, newPoints, userId]);
 
     // 更新订单状态
     await client
@@ -157,53 +140,38 @@ export async function POST(request: NextRequest) {
     const parentProviderEnergy = Math.floor(marketFee * parentProviderRatio);
     const branchEnergy = Math.floor(marketFee * branchRatio);
 
-    // 分配能量值给服务商
+    // 分配能量值给服务商 - 使用 SQL 直接更新
     if (user.provider_id) {
-      const { data: provider } = await client
-        .from('users')
-        .select('energy_value')
-        .eq('id', user.provider_id)
-        .maybeSingle();
+      const providerRow = await queryOne('SELECT energy_value FROM users WHERE id = $1', [user.provider_id]);
+      if (providerRow) {
+        const providerCurrentEnergy = parseFloat(String(providerRow.energy_value)) || 0;
+        const newProvEnergy = providerCurrentEnergy + providerEnergy;
+        await execute('UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2', [newProvEnergy, user.provider_id]);
 
-      if (provider) {
-        const providerCurrentEnergy = parseFloat(provider.energy_value || '0');
-        await client
-          .from('users')
-          .update({ energy_value: providerCurrentEnergy + providerEnergy })
-          .eq('id', user.provider_id);
-
-        // 记录服务商能量值交易
         await client.from('energy_transactions').insert({
           user_id: user.provider_id,
           type: 'sell_product',
           amount: providerEnergy,
-          balance: providerCurrentEnergy + providerEnergy,
+          balance: newProvEnergy,
           related_user_id: userId,
           description: `会员 ${user.username} 卖出产品，获得能量值分成 ${providerEnergy}`,
         });
       }
     }
 
-    // 分配能量值给直推
+    // 分配能量值给直推 - 使用 SQL 直接更新
     if (user.inviter_id) {
-      const { data: inviter } = await client
-        .from('users')
-        .select('energy_value')
-        .eq('id', user.inviter_id)
-        .maybeSingle();
-
-      if (inviter) {
-        const inviterCurrentEnergy = parseFloat(inviter.energy_value || '0');
-        await client
-          .from('users')
-          .update({ energy_value: inviterCurrentEnergy + directEnergy })
-          .eq('id', user.inviter_id);
+      const inviterRow = await queryOne('SELECT energy_value FROM users WHERE id = $1', [user.inviter_id]);
+      if (inviterRow) {
+        const inviterCurrentEnergy = parseFloat(String(inviterRow.energy_value)) || 0;
+        const newInviterEnergy = inviterCurrentEnergy + directEnergy;
+        await execute('UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2', [newInviterEnergy, user.inviter_id]);
 
         await client.from('energy_transactions').insert({
           user_id: user.inviter_id,
           type: 'sell_product',
           amount: directEnergy,
-          balance: inviterCurrentEnergy + directEnergy,
+          balance: newInviterEnergy,
           related_user_id: userId,
           description: `直推奖励：会员 ${user.username} 卖出产品，获得能量值 ${directEnergy}`,
         });

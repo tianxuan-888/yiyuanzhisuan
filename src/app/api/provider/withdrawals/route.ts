@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
+import { execute, queryOne } from '@/lib/pg-client';
 
 // 获取提现申请列表
 export async function GET(request: NextRequest) {
@@ -135,16 +136,11 @@ export async function POST(request: NextRequest) {
     };
 
     if (action === 'reject') {
-      const { data: userData } = await client
-        .from('users')
-        .select('balance')
-        .eq('id', withdrawalAny.user_id)
-        .maybeSingle();
-
-      const currentBalance = parseFloat(String((userData as any)?.balance || '0'));
+      const userRow = await queryOne('SELECT balance FROM users WHERE id = $1', [withdrawalAny.user_id]);
+      const currentBalance = parseFloat(String(userRow?.balance)) || 0;
       const newBalance = currentBalance + withdrawalAny.amount;
 
-      await client.from('users').update({ balance: newBalance }).eq('id', withdrawalAny.user_id);
+      await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newBalance, withdrawalAny.user_id]);
       await client.from('withdrawals').update({ ...baseUpdate, status: 'rejected' }).eq('id', withdrawalId);
 
       return NextResponse.json({ success: true, message: '已拒绝提现申请' });

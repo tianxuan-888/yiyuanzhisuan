@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 import { getSupabaseUrl, getSupabaseServiceRoleKey } from '@/lib/env';
+import { execute } from '@/lib/pg-client';
 
 // 获取管理员 Supabase 客户端（绕过 RLS）
 function getAdminSupabase() {
@@ -114,14 +115,11 @@ export async function POST(request: NextRequest) {
         throw new Error(`更新产品状态失败: ${updateError.message}`);
       }
 
-      // 增加用户余额
+      // 增加用户余额 - 使用 SQL 直接执行
       const currentBalance = parseFloat(productUser.balance);
       const newBalance = currentBalance + totalReturn;
 
-      await client
-        .from('users')
-        .update({ balance: newBalance, updated_at: new Date().toISOString() })
-        .eq('id', userProduct.user_id);
+      await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newBalance, userProduct.user_id]);
 
       // ========== 记录会员收益到 member_revenue 表 ==========
       const revenueId = crypto.randomUUID();

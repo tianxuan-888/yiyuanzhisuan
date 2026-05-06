@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 import { getSupabaseUrl, getSupabaseServiceRoleKey } from '@/lib/env';
+import { execute, queryOne } from '@/lib/pg-client';
 
 // 获取管理员 Supabase 客户端（绕过 RLS）
 function getAdminSupabase() {
@@ -139,7 +140,6 @@ export async function POST(request: NextRequest) {
 
       // ========== 更新已有的 user_products 记录（pending_confirm → holding）==========
       if (order.user_product_id) {
-        // 新流程：购买时已创建 user_products(pending_confirm)
         const { data: updatedUP, error: updateUPError } = await client
           .from('user_products')
           .update({
@@ -208,7 +208,7 @@ export async function POST(request: NextRequest) {
         throw new Error(`更新产品状态失败: ${updateProductError.message}`);
       }
 
-      // ========== 能量值分配（购买时已扣除会员能量值，此处只做收益分配）==========
+      // ========== 能量值分配（使用SQL直接执行，确保写入成功）==========
       if (marketFee > 0) {
         const providerShare = marketFee * 0.70;
         const directReward = marketFee * 0.10;
@@ -218,242 +218,117 @@ export async function POST(request: NextRequest) {
 
         // 1. 给服务商增加能量值（70%）
         if (providerShare > 0) {
-          const { data: providerData } = await client
-            .from('users')
-            .select('energy_value')
-            .eq('id', providerId)
-            .single();
-          
-          if (providerData) {
-            const newProviderBalance = (parseFloat(providerData.energy_value) || 0) + providerShare;
-            await client
-              .from('users')
-              .update({ energy_value: newProviderBalance })
-              .eq('id', providerId);
-            
-            await client
-              .from('energy_transactions')
-              .insert({
-                id: crypto.randomUUID(),
-                user_id: providerId,
-                type: 'market_share',
-                amount: providerShare,
-                from_user_id: order.user_id,
-                to_user_id: null,
-                status: 'completed',
-                description: `会员购买产品市场分润（70%）`,
-                created_at: new Date().toISOString(),
-              });
+          const providerUser = await queryOne('SELECT energy_value FROM users WHERE id = $1', [providerId]);
+          if (providerUser) {
+            const newProviderBalance = (parseFloat(String(providerUser.energy_value)) || 0) + providerShare;
+            await execute('UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2', [newProviderBalance, providerId]);
+            await client.from('energy_transactions').insert({
+              id: crypto.randomUUID(), user_id: providerId, type: 'market_share', amount: providerShare,
+              from_user_id: order.user_id, to_user_id: null, status: 'completed',
+              description: '会员购买产品市场分润（70%）', created_at: new Date().toISOString(),
+            });
           }
         }
 
         // 2. 给直推人奖励（10%）
-        const { data: member } = await client
-          .from('users')
-          .select('id, inviter_id, provider_id')
-          .eq('id', order.user_id)
-          .maybeSingle();
-
+        const member = await queryOne('SELECT id, inviter_id, provider_id FROM users WHERE id = $1', [order.user_id]);
         let directRewardTo = null;
         if (member?.inviter_id) {
-          const { data: inviter } = await client
-            .from('users')
-            .select('id')
-            .eq('id', member.inviter_id)
-            .maybeSingle();
+          const inviter = await queryOne('SELECT id FROM users WHERE id = $1', [member.inviter_id]);
           if (inviter) {
             directRewardTo = inviter.id;
             if (directReward > 0) {
-              const { data: inviterData } = await client
-                .from('users')
-                .select('energy_value')
-                .eq('id', inviter.id)
-                .single();
-              if (inviterData) {
-                const newInviterBalance = (parseFloat(inviterData.energy_value) || 0) + directReward;
-                await client
-                  .from('users')
-                  .update({ energy_value: newInviterBalance })
-                  .eq('id', inviter.id);
-                
-                await client
-                  .from('energy_transactions')
-                  .insert({
-                    id: crypto.randomUUID(),
-                    user_id: inviter.id,
-                    type: 'direct_reward',
-                    amount: directReward,
-                    from_user_id: order.user_id,
-                    status: 'completed',
-                    description: `直推奖励（10%）`,
-                    created_at: new Date().toISOString(),
-                  });
+              const inviterUser = await queryOne('SELECT energy_value FROM users WHERE id = $1', [inviter.id]);
+              if (inviterUser) {
+                const newInviterBalance = (parseFloat(String(inviterUser.energy_value)) || 0) + directReward;
+                await execute('UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2', [newInviterBalance, inviter.id]);
+                await client.from('energy_transactions').insert({
+                  id: crypto.randomUUID(), user_id: inviter.id, type: 'direct_reward', amount: directReward,
+                  from_user_id: order.user_id, status: 'completed',
+                  description: '直推奖励（10%）', created_at: new Date().toISOString(),
+                });
               }
             }
           }
         }
 
         // 3. 给上级服务商分成（10%）
-        const { data: providerInfo } = await client
-          .from('providers')
-          .select('branch_id, parent_provider_id')
-          .eq('user_id', providerId)
-          .maybeSingle();
+        const providerInfo = await queryOne('SELECT branch_id, parent_provider_id FROM providers WHERE user_id = $1', [providerId]);
 
         if (providerInfo?.parent_provider_id && parentProviderShare > 0) {
-          // parent_provider_id 存的是 providers 表的 id，需要找到对应的 user_id
-          const { data: parentProvider } = await client
-            .from('providers')
-            .select('user_id')
-            .eq('id', providerInfo.parent_provider_id)
-            .maybeSingle();
-          
+          const parentProvider = await queryOne('SELECT user_id FROM providers WHERE id = $1', [providerInfo.parent_provider_id]);
           if (parentProvider?.user_id) {
-            const { data: parentData } = await client
-              .from('users')
-              .select('energy_value')
-              .eq('id', parentProvider.user_id)
-              .single();
-            if (parentData) {
-              const newParentBalance = (parseFloat(parentData.energy_value) || 0) + parentProviderShare;
-              await client
-                .from('users')
-                .update({ energy_value: newParentBalance })
-                .eq('id', parentProvider.user_id);
-              
-              await client
-                .from('energy_transactions')
-                .insert({
-                  id: crypto.randomUUID(),
-                  user_id: parentProvider.user_id,
-                  type: 'subordinate_share',
-                  amount: parentProviderShare,
-                  from_user_id: order.user_id,
-                  status: 'completed',
-                  description: `下级服务商市场分润（10%）`,
-                  created_at: new Date().toISOString(),
-                });
+            const parentUser = await queryOne('SELECT energy_value FROM users WHERE id = $1', [parentProvider.user_id]);
+            if (parentUser) {
+              const newParentBalance = (parseFloat(String(parentUser.energy_value)) || 0) + parentProviderShare;
+              await execute('UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2', [newParentBalance, parentProvider.user_id]);
+              await client.from('energy_transactions').insert({
+                id: crypto.randomUUID(), user_id: parentProvider.user_id, type: 'subordinate_share', amount: parentProviderShare,
+                from_user_id: order.user_id, status: 'completed',
+                description: '下级服务商市场分润（10%）', created_at: new Date().toISOString(),
+              });
             }
           }
         }
 
         // 4. 给分公司分成（5%）
         if (providerInfo?.branch_id && branchShare > 0) {
-          const { data: branchData } = await client
-            .from('users')
-            .select('energy_value')
-            .eq('id', providerInfo.branch_id)
-            .single();
-          if (branchData) {
-            const newBranchBalance = (parseFloat(branchData.energy_value) || 0) + branchShare;
-            await client
-              .from('users')
-              .update({ energy_value: newBranchBalance })
-              .eq('id', providerInfo.branch_id);
-            
-            await client
-              .from('energy_transactions')
-              .insert({
-                id: crypto.randomUUID(),
-                user_id: providerInfo.branch_id,
-                type: 'branch_share',
-                amount: branchShare,
-                from_user_id: order.user_id,
-                status: 'completed',
-                description: `分公司市场分润（5%）`,
-                created_at: new Date().toISOString(),
-              });
+          const branchUser = await queryOne('SELECT energy_value FROM users WHERE id = $1', [providerInfo.branch_id]);
+          if (branchUser) {
+            const newBranchBalance = (parseFloat(String(branchUser.energy_value)) || 0) + branchShare;
+            await execute('UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2', [newBranchBalance, providerInfo.branch_id]);
+            await client.from('energy_transactions').insert({
+              id: crypto.randomUUID(), user_id: providerInfo.branch_id, type: 'branch_share', amount: branchShare,
+              from_user_id: order.user_id, status: 'completed',
+              description: '分公司市场分润（5%）', created_at: new Date().toISOString(),
+            });
           }
         }
 
         // 5. 给总公司运营分成（5%）
         if (companyShare > 0) {
-          const { data: adminData } = await client
-            .from('users')
-            .select('id, energy_value')
-            .eq('role', 'admin')
-            .limit(1)
-            .single();
-          if (adminData) {
-            const newAdminBalance = (parseFloat(adminData.energy_value) || 0) + companyShare;
-            await client
-              .from('users')
-              .update({ energy_value: newAdminBalance })
-              .eq('id', adminData.id);
-            
-            await client
-              .from('energy_transactions')
-              .insert({
-                id: crypto.randomUUID(),
-                user_id: adminData.id,
-                type: 'company_share',
-                amount: companyShare,
-                from_user_id: order.user_id,
-                status: 'completed',
-                description: `公司运营分润（5%）`,
-                created_at: new Date().toISOString(),
-              });
+          const adminUser = await queryOne("SELECT id, energy_value FROM users WHERE role = 'admin' LIMIT 1");
+          if (adminUser) {
+            const newAdminBalance = (parseFloat(String(adminUser.energy_value)) || 0) + companyShare;
+            await execute('UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2', [newAdminBalance, adminUser.id]);
+            await client.from('energy_transactions').insert({
+              id: crypto.randomUUID(), user_id: adminUser.id, type: 'company_share', amount: companyShare,
+              from_user_id: order.user_id, status: 'completed',
+              description: '公司运营分润（5%）', created_at: new Date().toISOString(),
+            });
           }
         }
 
-        // 记录收益分配到 provider_revenue_distribution 表
-        await client
-          .from('provider_revenue_distribution')
-          .insert({
-            order_id: orderId,
-            product_id: product.id,
-            provider_id: providerId,
-            member_id: order.user_id,
-            market_fee: marketFee.toFixed(2),
-            provider_share: providerShare.toFixed(2),
-            direct_reward: directReward.toFixed(2),
-            direct_reward_to: directRewardTo,
-            parent_provider_id: providerInfo?.parent_provider_id || null,
-            parent_provider_share: parentProviderShare.toFixed(2),
-            branch_id: providerInfo?.branch_id || null,
-            branch_share: branchShare.toFixed(2),
-            company_share: companyShare.toFixed(2),
-            status: 'completed',
-            created_at: new Date().toISOString(),
-          });
+        // 记录收益分配
+        await client.from('provider_revenue_distribution').insert({
+          order_id: orderId, product_id: product.id, provider_id: providerId, member_id: order.user_id,
+          market_fee: marketFee.toFixed(2), provider_share: providerShare.toFixed(2),
+          direct_reward: directReward.toFixed(2), direct_reward_to: directRewardTo,
+          parent_provider_id: providerInfo?.parent_provider_id || null,
+          parent_provider_share: parentProviderShare.toFixed(2),
+          branch_id: providerInfo?.branch_id || null, branch_share: branchShare.toFixed(2),
+          company_share: companyShare.toFixed(2), status: 'completed', created_at: new Date().toISOString(),
+        });
       }
 
       // 发送通知给会员
-      await client
-        .from('notifications')
-        .insert({
-          receiver_id: order.user_id,
-          receiver_role: 'member',
-          sender_id: providerId,
-          sender_name: '系统通知',
-          type: 'buy_confirmed',
-          title: '购买申请已确认',
-          content: `您购买的产品 ${productName} 已分配成功`,
-          amount: price,
-          related_id: userProduct?.id,
-        });
+      await client.from('notifications').insert({
+        receiver_id: order.user_id, receiver_role: 'member', sender_id: providerId,
+        sender_name: '系统通知', type: 'buy_confirmed', title: '购买申请已确认',
+        content: `您购买的产品 ${productName} 已分配成功`, amount: price, related_id: userProduct?.id,
+      });
     }
 
     // 最后更新订单状态为已完成
-    await client
-      .from('orders') 
-      .update({ 
-        status: 'completed',
-        user_product_id: userProduct?.id || order.user_product_id || null,
-        payment_confirmed: true,
-        payment_confirmed_at: new Date().toISOString(),
-        payment_confirmed_by: providerId,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', orderId);
+    await client.from('orders').update({ 
+      status: 'completed', user_product_id: userProduct?.id || order.user_product_id || null,
+      payment_confirmed: true, payment_confirmed_at: new Date().toISOString(),
+      payment_confirmed_by: providerId, updated_at: new Date().toISOString(),
+    }).eq('id', orderId);
 
     return NextResponse.json({
       success: true,
-      data: {
-        order,
-        userProduct,
-        message: '收款已确认，产品分配成功',
-      },
+      data: { order, userProduct, message: '收款已确认，产品分配成功' },
     });
   } catch (error) {
     console.error('确认收款失败:', error);
