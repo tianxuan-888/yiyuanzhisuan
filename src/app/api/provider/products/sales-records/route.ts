@@ -13,9 +13,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const pageSize = parseInt(searchParams.get('pageSize') || '20');
-    const status = searchParams.get('status'); // available, sold, all
+    const status = searchParams.get('status'); // available, sold, pending, all
 
-    // 获取服务商ID
+    // 获取服务商的 user_id（products.provider_id 存的是 users.id）
     const providerResult = await query(
       `SELECT id, user_id FROM providers WHERE user_id = $1 LIMIT 1`,
       [authUser.userId]
@@ -30,24 +30,29 @@ export async function GET(request: NextRequest) {
             total: 0,
             available: 0,
             sold: 0,
+            pending: 0,
             totalAmount: 0
           }
         }
       });
     }
 
-    const providerId = providerResult[0].id;
+    // products.provider_id 存的是 users.id
+    const providerUserId = providerResult[0].user_id;
 
     // 构建查询条件
     let whereClause = 'WHERE p.provider_id = $1';
-    const params: any[] = [providerId];
+    const params: any[] = [providerUserId];
 
     if (status === 'available') {
       whereClause += ' AND p.status = $2';
       params.push('available');
     } else if (status === 'sold') {
+      whereClause += ' AND p.status IN ($2, $3)';
+      params.push('sold', 'pending_sell');
+    } else if (status === 'pending') {
       whereClause += ' AND p.status = $2';
-      params.push('sold');
+      params.push('pending_sell');
     }
 
     // 获取产品销售记录（包含当前持有人信息）
@@ -83,13 +88,24 @@ export async function GET(request: NextRequest) {
         up.expected_profit,
         holder.id as holder_id,
         holder.username as holder_name,
-        holder.phone as holder_phone
+        holder.phone as holder_phone,
+        holder.unique_id as holder_unique_id
       FROM products p
-      LEFT JOIN orders o ON o.product_id = p.id AND o.order_type = 'buy' AND o.status = 'completed'
-      LEFT JOIN user_products up ON up.product_id = p.id AND up.status = 'holding'
+      LEFT JOIN LATERAL (
+        SELECT o.* FROM orders o 
+        WHERE o.product_id = p.id AND o.order_type = 'buy' 
+        ORDER BY o.created_at DESC LIMIT 1
+      ) o ON true
+      LEFT JOIN LATERAL (
+        SELECT up.*, u.id as holder_uid, u.username as holder_uname, u.phone as holder_phone, u.unique_id as holder_uid2
+        FROM user_products up
+        JOIN users u ON up.user_id = u.id
+        WHERE up.product_id = p.id AND up.status IN ('holding', 'pending_confirm')
+        ORDER BY up.created_at DESC LIMIT 1
+      ) up ON true
       LEFT JOIN users holder ON up.user_id = holder.id
       ${whereClause}
-      ORDER BY p.updated_at DESC
+      ORDER BY p.updated_at DESC NULLS LAST
       LIMIT $${limitIndex} OFFSET $${offsetIndex}
     `;
 
@@ -102,23 +118,24 @@ export async function GET(request: NextRequest) {
         COUNT(*) as total,
         COUNT(*) FILTER (WHERE p.status = 'available') as available,
         COUNT(*) FILTER (WHERE p.status = 'sold') as sold,
-        COALESCE(SUM(p.price) FILTER (WHERE p.status = 'sold'), 0) as total_sold_amount
+        COUNT(*) FILTER (WHERE p.status = 'pending_sell') as pending,
+        COALESCE(SUM(p.price) FILTER (WHERE p.status IN ('sold', 'pending_sell')), 0) as total_sold_amount
       FROM products p
       WHERE p.provider_id = $1
     `;
-    const statsResult = await query(statsSql, [providerId]);
-    const stats = statsResult[0] || { total: 0, available: 0, sold: 0, total_sold_amount: 0 };
+    const statsResult = await query(statsSql, [providerUserId]);
+    const stats = statsResult[0] || { total: 0, available: 0, sold: 0, pending: 0, total_sold_amount: 0 };
 
     // 获取总数
     const countSql = `SELECT COUNT(*) as total FROM products p ${whereClause}`;
-    const countParams = params.slice(0, status ? 2 : 1);
+    const countParams = params.slice(0, status ? (status === 'sold' ? 3 : 2) : 1);
     const countResult = await query(countSql, countParams);
     const total = parseInt(countResult[0]?.total || '0');
 
     return NextResponse.json({
       success: true,
       data: {
-        records: records.map(r => ({
+        records: records.map((r: any) => ({
           productId: r.product_id,
           name: r.name,
           code: r.code,
@@ -141,6 +158,7 @@ export async function GET(request: NextRequest) {
             id: r.holder_id,
             name: r.holder_name,
             phone: r.holder_phone,
+            uniqueId: r.holder_unique_id,
             holdingStatus: r.holding_status,
             purchasePrice: r.purchase_price,
             purchaseDate: r.purchase_date,
@@ -152,6 +170,7 @@ export async function GET(request: NextRequest) {
           total: parseInt(stats.total),
           available: parseInt(stats.available),
           sold: parseInt(stats.sold),
+          pending: parseInt(stats.pending || '0'),
           totalAmount: parseFloat(stats.total_sold_amount)
         },
         pagination: {

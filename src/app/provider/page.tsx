@@ -254,7 +254,7 @@ export default function ProviderPage() {
     const [activeTab, setActiveTab] = useState<string>("overview");
     const [powerSubTab, setPowerSubTab] = useState<string>("quota");
     const [salesRecords, setSalesRecords] = useState<any[]>([]);
-    const [salesStats, setSalesStats] = useState<any>({ total: 0, available: 0, sold: 0, totalAmount: 0 });
+    const [salesStats, setSalesStats] = useState<any>({ total: 0, available: 0, sold: 0, pending: 0, totalAmount: 0 });
     const [salesFilter, setSalesFilter] = useState<string>("all");
     const [selectedAllocation, setSelectedAllocation] = useState<string>("");
 
@@ -455,7 +455,7 @@ export default function ProviderPage() {
             const data = await response.json();
             if (data.success) {
                 setSalesRecords(data.data?.records || []);
-                setSalesStats(data.data?.stats || { total: 0, available: 0, sold: 0, totalAmount: 0 });
+                setSalesStats(data.data?.stats || { total: 0, available: 0, sold: 0, pending: 0, totalAmount: 0 });
             }
         } catch (error) {
             console.error('加载销售记录失败:', error);
@@ -2577,7 +2577,7 @@ export default function ProviderPage() {
                     {/* 销售记录 */}
                     {powerSubTab === "sales" && <div className="space-y-3 md:space-y-6">
                         {/* 统计卡片 */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                             <Card className="bg-gradient-to-br from-purple-500 to-fuchsia-600 text-white">
                                 <CardContent className="pt-4">
                                     <div className="flex items-center gap-2 mb-2">
@@ -2596,6 +2596,15 @@ export default function ProviderPage() {
                                     <p className="text-2xl font-bold">{salesStats.sold || 0}</p>
                                 </CardContent>
                             </Card>
+                            <Card className="bg-gradient-to-br from-amber-500 to-orange-600 text-white">
+                                <CardContent className="pt-4">
+                                    <div className="flex items-center gap-2">
+                                        <Clock className="w-5 h-5" />
+                                        <span className="text-sm opacity-80">待确认</span>
+                                    </div>
+                                    <p className="text-2xl font-bold">{salesStats.pending || 0}</p>
+                                </CardContent>
+                            </Card>
                             <Card className="bg-gradient-to-br from-blue-500 to-cyan-600 text-white">
                                 <CardContent className="pt-4">
                                     <div className="flex items-center gap-2 mb-2">
@@ -2605,10 +2614,10 @@ export default function ProviderPage() {
                                     <p className="text-2xl font-bold">{salesStats.available || 0}</p>
                                 </CardContent>
                             </Card>
-                            <Card className="bg-gradient-to-br from-amber-500 to-orange-600 text-white">
+                            <Card className="bg-gradient-to-br from-rose-500 to-pink-600 text-white">
                                 <CardContent className="pt-4">
                                     <div className="flex items-center gap-2 mb-2">
-                                        <DollarSign className="w-5 h-5" />
+                                        <TrendingUp className="w-5 h-5" />
                                         <span className="text-sm opacity-80">销售总额</span>
                                     </div>
                                     <p className="text-2xl font-bold">¥{(salesStats.totalAmount || 0).toLocaleString()}</p>
@@ -2632,6 +2641,7 @@ export default function ProviderPage() {
                                             <option value="all">全部状态</option>
                                             <option value="available">在售</option>
                                             <option value="sold">已售出</option>
+                                            <option value="pending">待确认</option>
                                         </select>
                                         <Button variant="outline" onClick={() => loadSalesRecords()}>
                                             <RefreshCw className="w-4 h-4 mr-2" />刷新
@@ -2670,10 +2680,12 @@ export default function ProviderPage() {
                                                         <Badge className={
                                                             record.productStatus === "available" ? "bg-green-100 text-green-700" :
                                                             record.productStatus === "sold" ? "bg-blue-100 text-blue-700" :
+                                                            record.productStatus === "pending_sell" ? "bg-amber-100 text-amber-700" :
                                                             "bg-gray-100 text-gray-700"
                                                         }>
                                                             {record.productStatus === "available" ? "在售" :
-                                                             record.productStatus === "sold" ? "已售出" : "其他"}
+                                                             record.productStatus === "sold" ? "已售出" :
+                                                             record.productStatus === "pending_sell" ? "待确认" : "其他"}
                                                         </Badge>
                                                     </td>
                                                     <td className="py-3 px-4">
