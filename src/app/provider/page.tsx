@@ -307,6 +307,10 @@ export default function ProviderPage() {
     });
 
 
+    // 收益转能量值记录
+    const [convertRecords, setConvertRecords] = useState<any[]>([]);
+    const [convertStats, setConvertStats] = useState<any>({ totalConverted: 0, totalEnergy: 0, totalPoints: 0, count: 0 });
+
     // 额度申请相关状态
     const [showQuotaRequestDialog, setShowQuotaRequestDialog] = useState(false);
     const [quotaRequestAmount, setQuotaRequestAmount] = useState("");
@@ -1380,6 +1384,19 @@ export default function ProviderPage() {
         }
     }, []);
 
+    const loadConvertRecords = useCallback(async () => {
+        try {
+            const response = await authFetch(`/api/provider/convert-records`);
+            const data = await response.json();
+            if (data.success && data.data) {
+                setConvertRecords(data.data.records || []);
+                setConvertStats(data.data.stats || { totalConverted: 0, totalEnergy: 0, totalPoints: 0, count: 0 });
+            }
+        } catch (error) {
+            console.error("加载转换记录失败:", error);
+        }
+    }, []);
+
     // 全局刷新：并行加载所有数据，确保操作后实时更新
     const refreshAll = useCallback(async () => {
         // 短暂延迟确保数据库写入完成后再读取，避免 PostgREST 缓存返回旧数据
@@ -1392,8 +1409,9 @@ export default function ProviderPage() {
             loadWithdrawRecords(),
             loadEnergyRequests(),
             loadPointsRecords(),
+            loadConvertRecords(),
         ]);
-    }, [refreshUser, loadData, loadRevenueRecords, loadTransferRecords, loadWithdrawRecords, loadEnergyRequests, loadPointsRecords]);
+    }, [refreshUser, loadData, loadRevenueRecords, loadTransferRecords, loadWithdrawRecords, loadEnergyRequests, loadPointsRecords, loadConvertRecords]);
 
     // 积分转能量值
     const handlePointsToEnergy = async () => {
@@ -1849,6 +1867,7 @@ export default function ProviderPage() {
                                 onClick={() => {
                                     setActiveTab("revenue");
                                     loadRevenueRecords();
+                                    loadConvertRecords();
                                     loadWithdrawalData();
                                 }}
                                 className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "revenue" ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg shadow-green-200" : "text-gray-600 hover:bg-green-50"}`}>
@@ -3314,6 +3333,12 @@ export default function ProviderPage() {
                                 >
                                     <Wallet className="w-4 h-4 inline mr-1" />提现
                                 </button>
+                                <button
+                                    onClick={() => setRevenueSubTab("convert")}
+                                    className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-all ${revenueSubTab === "convert" ? "bg-blue-600 text-white shadow" : "text-muted-foreground hover:text-foreground"}`}
+                                >
+                                    <Zap className="w-4 h-4 inline mr-1" />转能量值
+                                </button>
                             </div>
 
                             {/* 子Tab内容：市场收益记录（只含市场业务收益，不含能量值进出） */}
@@ -3497,6 +3522,102 @@ export default function ProviderPage() {
                                                 <li>最低提现金额: ¥50</li>
                                                 <li>提现手续费: 5%（沉淀到总公司）</li>
                                                 <li>服务商提现到分公司，分公司审核后线下打款</li>
+                                            </ul>
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                            )}
+
+                            {/* 子Tab内容：收益转能量值记录 */}
+                            {revenueSubTab === "convert" && (
+                                <div className="space-y-4">
+                                    {/* 转换统计 */}
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <Card className="bg-gradient-to-br from-blue-500 to-cyan-600 text-white">
+                                            <CardContent className="p-3 md:p-4">
+                                                <p className="text-xs opacity-80">累计转换金额</p>
+                                                <p className="text-lg md:text-xl font-bold">¥{Number(convertStats.totalConverted || 0).toLocaleString()}</p>
+                                                <p className="text-[10px] opacity-70">{convertStats.count || 0} 次</p>
+                                            </CardContent>
+                                        </Card>
+                                        <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
+                                            <CardContent className="p-3 md:p-4">
+                                                <p className="text-xs opacity-80">转入能量值</p>
+                                                <p className="text-lg md:text-xl font-bold">{Number(convertStats.totalEnergy || 0).toLocaleString()}</p>
+                                                <p className="text-[10px] opacity-70">95%</p>
+                                            </CardContent>
+                                        </Card>
+                                        <Card className="bg-gradient-to-br from-amber-500 to-orange-500 text-white">
+                                            <CardContent className="p-3 md:p-4">
+                                                <p className="text-xs opacity-80">转入积分</p>
+                                                <p className="text-lg md:text-xl font-bold">{Number(convertStats.totalPoints || 0).toLocaleString()}</p>
+                                                <p className="text-[10px] opacity-70">5%</p>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+
+                                    {/* 转换记录列表 */}
+                                    <Card>
+                                        <CardHeader className="pb-3">
+                                            <CardTitle className="text-sm flex items-center gap-2">
+                                                <History className="w-4 h-4" />
+                                                转换明细
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            {convertRecords.length > 0 ? (
+                                                <div className="space-y-2">
+                                                    {convertRecords.map((record: any) => (
+                                                        <div key={record.id} className="border rounded-lg p-3 bg-blue-50">
+                                                            <div className="flex justify-between items-start mb-2">
+                                                                <div>
+                                                                    <div className="flex items-center gap-2 mb-1">
+                                                                        <Badge className="bg-blue-100 text-blue-700">收益转能量值</Badge>
+                                                                    </div>
+                                                                    <p className="text-xs text-muted-foreground">
+                                                                        {new Date(record.createdAt).toLocaleString('zh-CN')}
+                                                                    </p>
+                                                                </div>
+                                                                <div className="text-right">
+                                                                    <p className="text-lg font-bold text-blue-600">
+                                                                        ¥{Number(record.totalAmount || 0).toLocaleString()}
+                                                                    </p>
+                                                                    <p className="text-xs text-muted-foreground">转换金额</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-blue-200">
+                                                                <div className="text-center p-2 bg-green-50 rounded">
+                                                                    <p className="text-xs text-green-600">→ 能量值</p>
+                                                                    <p className="text-sm font-bold text-green-700">{Number(record.energyAmount || 0).toLocaleString()}</p>
+                                                                    <p className="text-[10px] text-muted-foreground">余额: {record.energyAfter?.toLocaleString() || '-'}</p>
+                                                                </div>
+                                                                <div className="text-center p-2 bg-amber-50 rounded">
+                                                                    <p className="text-xs text-amber-600">→ 积分</p>
+                                                                    <p className="text-sm font-bold text-amber-700">{Number(record.pointsAmount || 0).toLocaleString()}</p>
+                                                                    <p className="text-[10px] text-muted-foreground">余额: {record.pointsAfter?.toLocaleString() || '-'}</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-6 text-muted-foreground">
+                                                    <Zap className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                                    <p className="text-sm">暂无转换记录</p>
+                                                    <p className="text-xs mt-1">收益转能量值后，记录将在这里显示</p>
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* 转换说明 */}
+                                    <Card className="bg-blue-50 border-blue-200">
+                                        <CardContent className="p-3 text-xs text-blue-700">
+                                            <p className="font-medium mb-1">转换规则</p>
+                                            <ul className="list-disc list-inside space-y-0.5">
+                                                <li>收益余额转为能量值：95% → 能量值，5% → 积分</li>
+                                                <li>最低转换金额: ¥10</li>
+                                                <li>转换后能量值可用于会员市场费支付</li>
                                             </ul>
                                         </CardContent>
                                     </Card>
