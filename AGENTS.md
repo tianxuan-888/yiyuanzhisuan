@@ -1471,6 +1471,10 @@ pnpm run start
 | 购买1天产品能量值按5%扣（硬编码） | 改为读取产品 market_rate（1.4%） |
 | 1天产品时间锁72小时 | 改为 period*24（1天=24小时） |
 | 市场费分配写入 energy_value | 改为写入 balance（收益） |
+| 卖出/审核卖出的市场费也写入 energy_value | 同上改为 balance |
+| 能量值统计/展示中混入市场分润类型 | 移除，市场分润归入收益 |
+| 7笔已完成订单缺少 provider_revenue_distribution | 补写7条分配记录 |
 | COZE_SUPABASE 回退逻辑 | 完全移除，只连用户数据库 |
 | Supabase REST API update 静默失败 | 改为 execute(SQL) 直接执行 |
 | 批量下架触发上架功能 | POST + action 参数替代 PUT |
+| exec_sql 工具连的是 Coze 数据库 | 数据操作只用 REST API 连用户数据库 |
