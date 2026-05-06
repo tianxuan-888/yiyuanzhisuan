@@ -3475,6 +3475,60 @@ export default function ProviderPage() {
                             </CardContent>
                         </Card>
 
+                        {/* 待审核充值申请 */}
+                        <Card>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-sm flex items-center gap-2">
+                                    <Zap className="w-4 h-4 text-green-500" />
+                                    待审核充值申请
+                                    {memberRechargeRequests.filter((r: any) => r.status === 'pending').length > 0 && (
+                                        <Badge className="bg-green-500 text-white text-xs">{memberRechargeRequests.filter((r: any) => r.status === 'pending').length}</Badge>
+                                    )}
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {memberRechargeRequests.filter((r: any) => r.status === 'pending').length > 0 ? (
+                                    <div className="space-y-2">
+                                        {memberRechargeRequests.filter((r: any) => r.status === 'pending').map((req: any) => (
+                                            <div key={req.id} className="border rounded-lg p-3 bg-green-50">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div>
+                                                        <p className="font-medium text-sm">{req.memberName || '会员'}</p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {req.memberPhone || '未填写'}
+                                                            {req.uniqueId && <span className="ml-1 text-green-600">[{req.uniqueId}]</span>}
+                                                        </p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-lg font-bold text-green-600">+{req.amount} 能量值</p>
+                                                        <p className="text-xs text-muted-foreground">{req.createdAt ? new Date(req.createdAt).toLocaleString() : ''}</p>
+                                                    </div>
+                                                </div>
+                                                {req.note && (
+                                                    <p className="text-xs text-muted-foreground mb-2">备注：{req.note}</p>
+                                                )}
+                                                <div className="flex gap-2 justify-end">
+                                                    <Button size="sm" variant="destructive" onClick={() => {
+                                                        setSelectedRechargeRequest(req);
+                                                        handleMemberRechargeAction(req.id, 'reject');
+                                                    }}>拒绝</Button>
+                                                    <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => {
+                                                        setSelectedRechargeRequest(req);
+                                                        setShowMemberRechargeDialog(true);
+                                                    }}>确认充值</Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-4 text-muted-foreground">
+                                        <Zap className="w-6 h-6 mx-auto mb-2 opacity-50" />
+                                        <p className="text-sm">暂无待审核充值申请</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
                         {/* 待审核转账申请 */}
                         <Card>
                             <CardHeader className="pb-3">
