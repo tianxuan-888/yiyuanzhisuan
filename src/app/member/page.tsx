@@ -511,6 +511,8 @@ const [copySuccess, setCopySuccess] = useState(false);
 
     // 全量并行刷新：用户信息 + 业务数据
     const refreshAll = useCallback(async () => {
+        // 短暂延迟确保数据库写入完成后再读取，避免 PostgREST 缓存返回旧数据
+        await new Promise(r => setTimeout(r, 300));
         await Promise.allSettled([
             refreshUser(),
             loadData(),

@@ -1382,6 +1382,8 @@ export default function ProviderPage() {
 
     // 全局刷新：并行加载所有数据，确保操作后实时更新
     const refreshAll = useCallback(async () => {
+        // 短暂延迟确保数据库写入完成后再读取，避免 PostgREST 缓存返回旧数据
+        await new Promise(r => setTimeout(r, 300));
         await Promise.allSettled([
             refreshUser(),
             loadData(),
@@ -3100,8 +3102,8 @@ export default function ProviderPage() {
                             </CardHeader>
                             <CardContent>
                                 {(() => {
-                                    const inTypes = ['transfer_in', 'provider_income', 'profit_share', 'recharge_in', 'create', 'quota_match', 'purchase', 'withdraw_freeze', 'withdraw'];
-                                    const outTypes = ['transfer_out', 'recharge', 'recharge_out', 'spend', 'burn'];
+                                    const inTypes = ['transfer_in', 'provider_income', 'profit_share', 'recharge_in', 'create', 'quota_match', 'purchase', 'withdraw_freeze', 'withdraw', 'convert_from_balance', 'refund', 'income', 'reward', 'provider_share', 'direct_reward', 'parent_provider_share', 'branch_share', 'company_share', 'subordinate_split'];
+                                    const outTypes = ['transfer_out', 'recharge', 'recharge_out', 'spend', 'burn', 'market_fee'];
                                     const inRecords = transferRecords.filter((r: any) => inTypes.includes(r.type));
                                     const outRecords = transferRecords.filter((r: any) => outTypes.includes(r.type));
                                     let filtered: any[] = [];
@@ -3109,7 +3111,7 @@ export default function ProviderPage() {
                                     else if (energyFilter === 'out') filtered = outRecords.map((r: any) => ({...r, _direction: 'out'}));
                                     else filtered = [...inRecords.map((r: any) => ({...r, _direction: 'in'})), ...outRecords.map((r: any) => ({...r, _direction: 'out'}))].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-                                    const totalIn = (transferStats?.totalTransferIn || 0) + (transferStats?.totalRecharge || 0) + (transferStats?.totalProfitShare || 0);
+                                    const totalIn = (transferStats?.totalTransferIn || 0) + (transferStats?.totalRecharge || 0) + (transferStats?.totalProfitShare || 0) + (transferStats?.totalConvertFromBalance || 0);
                                     const totalOut = (transferStats?.totalTransferOut || 0) + (transferStats?.totalSpend || 0);
 
                                     const getTypeLabel = (type: string) => {
@@ -3119,7 +3121,11 @@ export default function ProviderPage() {
                                             provider_income: '市场费收益', profit_share: '分成收益',
                                             spend: '消费', create: '系统创建', quota_match: '额度匹配',
                                             purchase: '购买', withdraw_freeze: '变现冻结', withdraw: '变现到账',
-                                            burn: '销毁',
+                                            burn: '销毁', convert_from_balance: '收益转入', refund: '退回',
+                                            market_fee: '市场费', income: '收益', reward: '奖励',
+                                            provider_share: '服务商分成', direct_reward: '直推奖励',
+                                            parent_provider_share: '上级服务商分成', branch_share: '分公司分成',
+                                            company_share: '公司运营', subordinate_split: '下级分成',
                                         };
                                         return labels[type] || type;
                                     };
