@@ -530,6 +530,18 @@ const [copySuccess, setCopySuccess] = useState(false);
         }
     }, [profileSubTab, chainData, loadChainData]);
 
+    // 轮询：当有待审核持仓时，每5秒自动刷新
+    useEffect(() => {
+        const hasPendingConfirm = userProducts.some(up => up.status === 'pending_confirm');
+        if (!hasPendingConfirm) return;
+
+        const interval = setInterval(() => {
+            loadData();
+        }, 5000);
+
+        return () => clearInterval(interval);
+    }, [userProducts, loadData]);
+
     // 加载收款信息
     const loadPaymentInfo = async () => {
         try {
