@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
         paramIndex++;
       }
     } else if (memberId) {
-      // 如果是会员查询，只显示该会员服务商的产品
+      // 如果是会员查询，显示该会员服务商的所有可见产品
       const memberResult = await query<{ provider_id: string }>(
         `SELECT provider_id FROM users WHERE id = $1`,
         [memberId]
@@ -40,8 +40,8 @@ export async function GET(request: NextRequest) {
         params.push(memberResult[0].provider_id);
         paramIndex++;
       }
-      // 会员只能看到已上架的产品
-      conditions.push(`status = 'available'`);
+      // 会员可见：可购买(available)、已申购待确认(pending_sell)、已售出(sold)
+      conditions.push(`status IN ('available', 'pending_sell', 'sold')`);
     } else {
       // 其他查询：只显示已上架的可用产品
       if (status && status !== 'all') {
@@ -69,21 +69,21 @@ export async function GET(request: NextRequest) {
       profit_rate: parseFloat(p.profit_rate).toFixed(2),
     }));
 
-    // 为已出售产品关联持有会员信息
-    const soldProductIds = formattedProducts
-      .filter((p: any) => p.status === 'sold')
+    // 为已出售/待确认产品关联持有会员信息
+    const nonAvailableProductIds = formattedProducts
+      .filter((p: any) => p.status === 'sold' || p.status === 'pending_sell')
       .map((p: any) => p.id);
 
-    let holderMap: Record<string, { userId: string; username: string; phone: string; uniqueId: string }> = {};
+    let holderMap: Record<string, { userId: string; username: string; phone: string; uniqueId: string; status: string }> = {};
 
-    if (soldProductIds.length > 0) {
+    if (nonAvailableProductIds.length > 0) {
       // 查询 user_products 关联表获取持有会员
       const userProducts = await query(
-        `SELECT up.product_id, up.user_id, u.username, u.phone, u.unique_id
+        `SELECT up.product_id, up.user_id, up.status as holding_status, u.username, u.phone, u.unique_id
          FROM user_products up
          JOIN users u ON up.user_id = u.id
-         WHERE up.product_id = ANY($1) AND up.status IN ('holding', 'pending_sell')`,
-        [soldProductIds]
+         WHERE up.product_id = ANY($1) AND up.status IN ('holding', 'pending_sell', 'pending_confirm')`,
+        [nonAvailableProductIds]
       );
 
       for (const up of userProducts) {
@@ -92,6 +92,7 @@ export async function GET(request: NextRequest) {
           username: up.username || '',
           phone: up.phone || '',
           uniqueId: up.unique_id || '',
+          status: up.holding_status || '',
         };
       }
     }

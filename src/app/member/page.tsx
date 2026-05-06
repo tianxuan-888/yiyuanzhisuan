@@ -302,7 +302,7 @@ const [copySuccess, setCopySuccess] = useState(false);
         try {
             // 使用 Promise.allSettled 避免单个失败导致全部失败
             const results = await Promise.allSettled([
-                authFetch(`/api/products?status=available&memberId=${userId}`),
+                authFetch(`/api/products?memberId=${userId}`),
                 authFetch(`/api/member/assets?userId=${userId}`),
                 authFetch(`/api/notifications?userId=${userId}`),
                 authFetch(`/api/member/referral-stats?userId=${userId}`),
@@ -2803,28 +2803,49 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             <span className="text-xl font-bold text-white">¥{product.price.toLocaleString()}</span>
                                         </div>
 
-                                        {/* 待审核状态提示 */}
-                                        {(() => {
-                                            if (isProductPending(product.id)) {
-                                                return (
-                                                    <div className="mb-4 p-3 rounded-lg bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 text-center">
-                                                        <Clock className="w-4 h-4 inline mr-1" />
-                                                        您已申请购买此产品，等待审核中
-                                                    </div>
-                                                );
-                                            }
-                                            return null;
-                                        })()}
+                                        {/* 产品状态显示 */}
+                                        {product.status === 'sold' && (
+                                            <div className="mb-4 p-3 rounded-lg bg-red-500/20 border border-red-500/40 text-red-300 text-center">
+                                                <CheckCircle className="w-4 h-4 inline mr-1" />
+                                                已售出
+                                                {(product as any).holder && (
+                                                    <span className="text-xs ml-1">
+                                                        (持有人: {(product as any).holder.username})
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+                                        {product.status === 'pending_sell' && (
+                                            <div className="mb-4 p-3 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-center">
+                                                <Clock className="w-4 h-4 inline mr-1" />
+                                                已申购待确认
+                                                {(product as any).holder && (
+                                                    <span className="text-xs ml-1">
+                                                        (申购人: {(product as any).holder.username})
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+                                        {product.status === 'available' && isProductPending(product.id) && (
+                                            <div className="mb-4 p-3 rounded-lg bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 text-center">
+                                                <Clock className="w-4 h-4 inline mr-1" />
+                                                您已申请购买此产品，等待审核中
+                                            </div>
+                                        )}
 
                                         {/* 购买按钮 */}
                                         <Button
                                             className={`w-full font-medium shadow-lg transition-all ${
-                                                purchaseLimits?.limits?.canBuy === false || isProductPending(product.id)
+                                                purchaseLimits?.limits?.canBuy === false || isProductPending(product.id) || product.status !== 'available'
                                                     ? 'bg-slate-600 hover:bg-slate-600 cursor-not-allowed opacity-50'
                                                     : `bg-gradient-to-r ${tier.btnGradient} text-white shadow-${tier.color === 'blue' ? 'blue' : tier.color === 'green' ? 'green' : 'amber'}-500/25`
                                             }`}
-                                            disabled={purchaseLimits?.limits?.canBuy === false || isProductPending(product.id)}
+                                            disabled={purchaseLimits?.limits?.canBuy === false || isProductPending(product.id) || product.status !== 'available'}
                                             onClick={() => {
+                                                if (product.status !== 'available') {
+                                                    showMessage("error", product.status === 'pending_sell' ? "该产品已被申购，等待确认中" : "该产品已售出");
+                                                    return;
+                                                }
                                                 if (purchaseLimits?.limits?.canBuy === false) {
                                                     showMessage("error", purchaseLimits?.limits?.limitMessage || "当前无法购买");
                                                     return;
@@ -2838,7 +2859,15 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                 setSelectedProduct(product);
                                                 setShowPurchaseDialog(true);
                                             }}>
-                                            {purchaseLimits?.limits?.canBuy === false ? (
+                                            {product.status === 'sold' ? (
+                                                <>
+                                                    <CheckCircle className="w-4 h-4 mr-2" />已售出
+                                                </>
+                                            ) : product.status === 'pending_sell' ? (
+                                                <>
+                                                    <Clock className="w-4 h-4 mr-2" />待确认
+                                                </>
+                                            ) : purchaseLimits?.limits?.canBuy === false ? (
                                                 <>
                                                     <Lock className="w-4 h-4 mr-2" />无法购买
                                                 </>
@@ -2895,138 +2924,163 @@ const [copySuccess, setCopySuccess] = useState(false);
                         <CardContent>
                             <div className="overflow-x-auto">
                                 {(() => {
+                                    // 分为待确认和持有中两组
+                                    const pendingProducts = userProducts.filter(up => up.status === 'pending_confirm');
+                                    const activeProducts = userProducts.filter(up => up.status === 'holding' || up.status === 'pending_sell' || up.status === 'sold');
+                                    
                                     // 按产品周期分组
-                                    const groupedProducts = userProducts.reduce((acc, up) => {
-                                        const period = up.products?.period || 0;
-                                        if (!acc[period]) acc[period] = [];
-                                        acc[period].push(up);
-                                        return acc;
-                                    }, {} as Record<number, typeof userProducts>);
+                                    const groupByPeriod = (products: typeof userProducts) => {
+                                        return products.reduce((acc, up) => {
+                                            const period = up.products?.period || 0;
+                                            if (!acc[period]) acc[period] = [];
+                                            acc[period].push(up);
+                                            return acc;
+                                        }, {} as Record<number, typeof userProducts>);
+                                    };
                                     
-                                    // 按周期排序（3天在前，7天在后）
-                                    const sortedPeriods = Object.keys(groupedProducts)
-                                        .map(Number)
-                                        .sort((a, b) => a - b);
-                                    
-                                    return sortedPeriods.map(period => (
-                                        <div key={period} className="mb-6">
-                                            {/* 分组标题 */}
-                                            <div className="flex items-center gap-3 mb-3">
-                                                <h3 className="font-bold text-lg">
-                                                    {period}天算力套餐
-                                                </h3>
-                                                <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200">
-                                                    {groupedProducts[period].length} 个
-                                                </Badge>
-                                            </div>
-                                            
-                                            {/* 分组内的产品列表 */}
-                                            <table className="w-full">
-                                                <thead>
-                                                    <tr className="border-b bg-gray-50">
-                                                        <th className="text-left py-3 px-4">购买时间</th>
-                                                        <th className="text-left py-3 px-4">算力</th>
-                                                        <th className="text-left py-3 px-4">购买价格</th>
-                                                        <th className="text-left py-3 px-4">预期收益</th>
-                                                        <th className="text-left py-3 px-4">市场费</th>
-                                                        <th className="text-left py-3 px-4">可卖出</th>
-                                                        <th className="text-left py-3 px-4">状态</th>
-                                                        <th className="text-left py-3 px-4">操作</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {groupedProducts[period].map(up => {
-                                                        // 计算持仓时间和可卖出时间（按产品周期）
-                                                        const purchaseDate = new Date(up.purchase_date);
-                                                        const now = new Date();
-                                                        const holdHours = (now.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60);
-                                                        
-                                                        // 根据产品周期计算最低持仓时间
-                                                        const periodHours: Record<number, number> = {
-                                                            3: 72,   // 3天 = 72小时
-                                                            7: 168,  // 7天 = 168小时
-                                                            15: 360, // 15天 = 360小时
-                                                            30: 720, // 30天 = 720小时
-                                                            90: 2160 // 90天 = 2160小时
-                                                        };
-                                                        const minHoldHours = periodHours[period] || 72;
-                                                        const canSell = holdHours >= minHoldHours;
-                                                        const remainingHours = Math.max(0, minHoldHours - holdHours);
-                                                        
-                                                        // 格式化购买时间
-                                                        const formatPurchaseTime = (date: Date) => {
-                                                            const year = date.getFullYear();
-                                                            const month = String(date.getMonth() + 1).padStart(2, '0');
-                                                            const day = String(date.getDate()).padStart(2, '0');
-                                                            const hours = String(date.getHours()).padStart(2, '0');
-                                                            const minutes = String(date.getMinutes()).padStart(2, '0');
-                                                            return `${year}-${month}-${day} ${hours}:${minutes}`;
-                                                        };
-                                                        
-                                                        return <tr key={up.id} className="border-b hover:bg-gray-50">
-                                                        <td className="py-3 px-4 text-gray-600 text-sm">
-                                                            {formatPurchaseTime(purchaseDate)}
-                                                        </td>
-                                                        <td className="py-3 px-4">
-                                                            <div>
-                                                                <p className="font-medium">{up.products?.name || "-"}</p>
-                                                                <p className="text-sm text-gray-500">{up.products?.code}</p>
-                                                            </div>
-                                                        </td>
-                                                        <td className="py-3 px-4 text-green-600 font-medium">¥{up.purchase_price.toLocaleString()}
-                                                        </td>
-                                                        <td className="py-3 px-4 text-blue-600">+¥{up.expected_profit.toLocaleString()}
-                                                        </td>
-                                                        <td className="py-3 px-4 text-orange-600">
-                                                            {up.market_fee || 0}能量值
-                                                        </td>
-                                                        <td className="py-3 px-4">
-                                                            {up.status === "holding" && (
-                                                                canSell ? (
-                                                                    <Badge className="bg-green-100 text-green-700">
-                                                                        已解锁
+                                    const renderProductTable = (products: typeof userProducts, showPendingConfirm: boolean) => {
+                                        const groupedProducts = groupByPeriod(products);
+                                        const sortedPeriods = Object.keys(groupedProducts).map(Number).sort((a, b) => a - b);
+                                        
+                                        return sortedPeriods.map(period => (
+                                            <div key={period} className="mb-6">
+                                                <div className="flex items-center gap-3 mb-3">
+                                                    <h3 className="font-bold text-lg">
+                                                        {period}天算力套餐
+                                                    </h3>
+                                                    <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200">
+                                                        {groupedProducts[period].length} 个
+                                                    </Badge>
+                                                </div>
+                                                <table className="w-full">
+                                                    <thead>
+                                                        <tr className="border-b bg-gray-50">
+                                                            <th className="text-left py-3 px-4">购买时间</th>
+                                                            <th className="text-left py-3 px-4">算力</th>
+                                                            <th className="text-left py-3 px-4">购买价格</th>
+                                                            <th className="text-left py-3 px-4">预期收益</th>
+                                                            <th className="text-left py-3 px-4">市场费</th>
+                                                            <th className="text-left py-3 px-4">可卖出</th>
+                                                            <th className="text-left py-3 px-4">状态</th>
+                                                            <th className="text-left py-3 px-4">操作</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {groupedProducts[period].map(up => {
+                                                            const purchaseDate = new Date(up.purchase_date);
+                                                            const now = new Date();
+                                                            const holdHours = (now.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60);
+                                                            const periodHours: Record<number, number> = {
+                                                                3: 72, 7: 168, 15: 360, 30: 720, 90: 2160
+                                                            };
+                                                            const minHoldHours = periodHours[period] || 72;
+                                                            const canSell = holdHours >= minHoldHours;
+                                                            const remainingHours = Math.max(0, minHoldHours - holdHours);
+                                                            
+                                                            const formatPurchaseTime = (date: Date) => {
+                                                                const year = date.getFullYear();
+                                                                const month = String(date.getMonth() + 1).padStart(2, '0');
+                                                                const day = String(date.getDate()).padStart(2, '0');
+                                                                const hours = String(date.getHours()).padStart(2, '0');
+                                                                const minutes = String(date.getMinutes()).padStart(2, '0');
+                                                                return `${year}-${month}-${day} ${hours}:${minutes}`;
+                                                            };
+                                                            
+                                                            return <tr key={up.id} className="border-b hover:bg-gray-50">
+                                                            <td className="py-3 px-4 text-gray-600 text-sm">
+                                                                {formatPurchaseTime(purchaseDate)}
+                                                            </td>
+                                                            <td className="py-3 px-4">
+                                                                <div>
+                                                                    <p className="font-medium">{up.products?.name || "-"}</p>
+                                                                    <p className="text-sm text-gray-500">{up.products?.code}</p>
+                                                                </div>
+                                                            </td>
+                                                            <td className="py-3 px-4 text-green-600 font-medium">¥{up.purchase_price.toLocaleString()}
+                                                            </td>
+                                                            <td className="py-3 px-4 text-blue-600">+¥{up.expected_profit.toLocaleString()}
+                                                            </td>
+                                                            <td className="py-3 px-4 text-orange-600">
+                                                                {up.market_fee || 0}能量值
+                                                            </td>
+                                                            <td className="py-3 px-4">
+                                                                {up.status === "pending_confirm" ? (
+                                                                    <Badge className="bg-yellow-100 text-yellow-700">
+                                                                        <Clock className="w-3 h-3 mr-1" />
+                                                                        待确认
                                                                     </Badge>
-                                                                ) : (
-                                                                    <div className="text-center">
+                                                                ) : up.status === "holding" && (
+                                                                    canSell ? (
+                                                                        <Badge className="bg-green-100 text-green-700">已解锁</Badge>
+                                                                    ) : (
                                                                         <Badge className="bg-red-100 text-red-700">
                                                                             <Lock className="w-3 h-3 mr-1" />
                                                                             {Math.floor(remainingHours)}小时{Math.floor((remainingHours % 1) * 60)}分
                                                                         </Badge>
-                                                                    </div>
-                                                                )
-                                                            )}
-                                                        </td>
-                                                        <td className="py-3 px-4">
-                                                            <Badge
-                                                                className={up.status === "holding" ? "bg-blue-100 text-blue-700" : up.status === "pending_sell" ? "bg-yellow-100 text-yellow-700" : up.status === "sold" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}>
-                                                                {up.status === "holding" ? "持有中" : up.status === "pending_sell" ? "待审核" : up.status === "sold" ? "已卖出" : up.status}
-                                                            </Badge>
-                                                        </td>
-                                                        <td className="py-3 px-4">
-                                                            {up.status === "holding" && canSell && <Button
-                                                                size="sm"
-                                                                variant="outline"
-                                                                onClick={() => {
-                                                                    setSelectedUserProduct(up);
-                                                                    setShowSellDialog(true);
-                                                                }}>卖出
-                                                            </Button>}
-                                                            {up.status === "holding" && !canSell && <Button
-                                                                size="sm"
-                                                                variant="outline"
-                                                                disabled
-                                                                className="opacity-50"
-                                                            >锁定中
-                                                            </Button>}
-                                                            {up.status === "pending_sell" && <span className="text-sm text-gray-500">审核中</span>}
-                                                        </td>
-                                                    </tr>})}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    ));
+                                                                    )
+                                                                )}
+                                                            </td>
+                                                            <td className="py-3 px-4">
+                                                                <Badge
+                                                                    className={
+                                                                        up.status === "pending_confirm" ? "bg-amber-100 text-amber-700" :
+                                                                        up.status === "holding" ? "bg-blue-100 text-blue-700" : 
+                                                                        up.status === "pending_sell" ? "bg-yellow-100 text-yellow-700" : 
+                                                                        up.status === "sold" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
+                                                                    }>
+                                                                    {up.status === "pending_confirm" ? "已申购待确认" : 
+                                                                     up.status === "holding" ? "持有中" : 
+                                                                     up.status === "pending_sell" ? "待审核" : 
+                                                                     up.status === "sold" ? "已卖出" : up.status}
+                                                                </Badge>
+                                                            </td>
+                                                            <td className="py-3 px-4">
+                                                                {up.status === "pending_confirm" && (
+                                                                    <span className="text-sm text-amber-600">等待服务商确认</span>
+                                                                )}
+                                                                {up.status === "holding" && canSell && <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    onClick={() => {
+                                                                        setSelectedUserProduct(up);
+                                                                        setShowSellDialog(true);
+                                                                    }}>卖出
+                                                                </Button>}
+                                                                {up.status === "holding" && !canSell && <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    disabled
+                                                                    className="opacity-50"
+                                                                >锁定中
+                                                                </Button>}
+                                                                {up.status === "pending_sell" && <span className="text-sm text-gray-500">审核中</span>}
+                                                            </td>
+                                                        </tr>})}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        ));
+                                    };
+                                    
+                                    return (
+                                        <>
+                                            {/* 待确认区块 */}
+                                            {pendingProducts.length > 0 && (
+                                                <div className="mb-6">
+                                                    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-amber-200">
+                                                        <AlertCircle className="w-5 h-5 text-amber-600" />
+                                                        <h3 className="font-bold text-amber-700">已申购待确认 ({pendingProducts.length})</h3>
+                                                        <span className="text-sm text-amber-500">等待服务商确认收款后正式持有</span>
+                                                    </div>
+                                                    {renderProductTable(pendingProducts, true)}
+                                                </div>
+                                            )}
+                                            {/* 持有中区块 */}
+                                            {activeProducts.length > 0 && renderProductTable(activeProducts, false)}
+                                        </>
+                                    );
                                 })()}
-                                {userProducts.length === 0 && <div className="py-8 text-center text-gray-500">暂无持仓，请先购买算力</div>}
+                                {userProducts.filter(up => up.status !== 'cancelled').length === 0 && <div className="py-8 text-center text-gray-500">暂无持仓，请先购买算力</div>}
                             </div>
                         </CardContent>
                     </Card>}

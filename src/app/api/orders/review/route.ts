@@ -1,26 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne, execute } from '@/lib/pg-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
-import { getSupabase } from '@/lib/supabase-client';
 import { addEnergy, deductEnergy, transferEnergy } from '@/lib/energy-util';
 import { randomUUID } from 'crypto';
 
-// 允许更新的字段白名单
-const ALLOWED_ORDER_STATUS = new Set(['pending', 'paid', 'completed', 'cancelled', 'awaiting_payment']);
-
 // 能量值分配比例（总计100%）
 const REVENUE_SHARE_RATIOS = {
-  provider: 0.70,      // 服务商 70%
-  directReward: 0.10,   // 直推奖励 10%
-  parentProvider: 0.10, // 上级服务商 10%
-  branch: 0.05,        // 分公司 5%
-  company: 0.05,        // 公司运营 5%
+  provider: 0.70,
+  directReward: 0.10,
+  parentProvider: 0.10,
+  branch: 0.05,
+  company: 0.05,
 };
 
-// 下级分成比例（基于交易额）
 const SUBORDINATE_SPLIT_RATIOS = {
-  oneProvider: 0.003,  // 培养1个服务商：下级交易额 0.3%
-  threePlusProviders: 0.005, // 培养≥3个服务商：所有下级交易额 0.5%
+  oneProvider: 0.003,
+  threePlusProviders: 0.005,
 };
 
 // 记录服务商收益分配
@@ -59,25 +54,17 @@ async function calculateSubordinateSplit(
   productPrice: number,
   productName: string
 ): Promise<{ splitAmount: number; splitRatio: number; subordinateCount: number }> {
-  // 查找该服务商培养的下级服务商数量
-  // 方式1：通过 providers.parent_provider_id 查找（如果列存在）
-  // 方式2：通过 users 表查找 role='provider' 且 provider_id 指向当前服务商的用户
   let subordinateCount = 0;
   
   try {
-    // 先尝试用 providers.parent_provider_id 查询
     const subProviders: any[] = await query(
       'SELECT COUNT(*) as count FROM providers WHERE parent_provider_id = $1',
       [providerId]
     );
     subordinateCount = parseInt(subProviders?.[0]?.count || '0');
   } catch {
-    // 如果 parent_provider_id 列不存在，回退到 users 表查询
     try {
-      // 获取当前服务商的 user_id
-      // 注意：providerId 可能是 users.id（从 product.provider_id 传入），需要兼容两种情况
       let providerUserId = providerId;
-      // 先尝试按 providers.id 查找
       const providerById: any = await queryOne(
         'SELECT user_id FROM providers WHERE id = $1',
         [providerId]
@@ -85,7 +72,6 @@ async function calculateSubordinateSplit(
       if (providerById?.user_id) {
         providerUserId = providerById.user_id;
       } else {
-        // 如果按 providers.id 找不到，说明传入的是 users.id，直接使用
         const providerByUserId: any = await queryOne(
           'SELECT user_id FROM providers WHERE user_id = $1',
           [providerId]
@@ -95,7 +81,6 @@ async function calculateSubordinateSplit(
         }
       }
       if (providerUserId) {
-        // 查找 role='provider' 且 provider_id 指向当前服务商的用户（这些是下级服务商）
         const subUsers: any[] = await query(
           "SELECT COUNT(*) as count FROM users WHERE role = 'provider' AND provider_id = $1",
           [providerUserId]
@@ -122,7 +107,6 @@ async function calculateSubordinateSplit(
   return { splitAmount, splitRatio, subordinateCount };
 }
 
-// 记录下级分成收益
 async function recordSubordinateSplit(
   orderId: string,
   providerId: string,
@@ -136,7 +120,6 @@ async function recordSubordinateSplit(
   if (splitAmount <= 0) return;
   
   try {
-    // 使用 addEnergy 发放能量值给上级服务商
     const result = await addEnergy(
       upperProviderUserId,
       splitAmount,
@@ -148,7 +131,6 @@ async function recordSubordinateSplit(
       console.error('下级分成能量值发放失败:', result.error);
     }
     
-    // 记录到服务商收益分配表
     await query(
       `INSERT INTO provider_subordinate_split 
        (id, order_id, provider_id, upper_provider_id, product_name, order_amount, split_ratio, split_amount, subordinate_count, created_at)
@@ -157,13 +139,11 @@ async function recordSubordinateSplit(
     );
   } catch (error) {
     console.error('记录下级分成失败:', error);
-    // 不抛出异常，不影响主流程
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // 鉴权：仅管理员和服务商可审核
     const user = authenticateRequest(request);
     if (!user || !authorizeRole(user, ['admin', 'provider'])) {
       return NextResponse.json({ error: '无权操作' }, { status: 403 });
@@ -180,7 +160,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: '无效的审核动作' }, { status: 400 });
     }
 
-    // 获取订单信息
     const order = await queryOne(
       'SELECT * FROM orders WHERE id = $1',
       [orderId]
@@ -194,7 +173,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: '订单状态不是待审核' }, { status: 400 });
     }
 
-    // 审核人必须是服务商或管理员
     const reviewer: any = await queryOne(
       'SELECT id, username, role, provider_id, branch_id FROM users WHERE id = $1',
       [reviewerId]
@@ -205,98 +183,103 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'reject') {
-      // 拒绝订单
+      // ========== 拒绝订单 ==========
       await query(
         `UPDATE orders SET status = 'cancelled', reviewed_by = $1, reviewed_at = NOW(), review_note = $2 WHERE id = $3`,
         [reviewerId, note || '审核拒绝', orderId]
       );
 
-      // 恢复用户产品状态
+      // 更新 user_products 为 cancelled
       if (order.user_product_id) {
         await query(
-          "UPDATE user_products SET status = 'holding' WHERE id = $1",
+          "UPDATE user_products SET status = 'cancelled', updated_at = NOW() WHERE id = $1",
           [order.user_product_id]
         );
       }
 
-      return NextResponse.json({ success: true, message: '订单已拒绝' });
+      // 产品恢复为 available
+      if (order.product_id) {
+        await query(
+          "UPDATE products SET status = 'available', updated_at = NOW() WHERE id = $1",
+          [order.product_id]
+        );
+      }
+
+      // 退还能量值（购买时已扣除的市场费）
+      const energyCost = Number(order.energy_cost) || 0;
+      if (energyCost > 0 && order.user_id) {
+        await addEnergy(
+          order.user_id,
+          energyCost,
+          'refund',
+          { note: `购买被拒绝，退还市场费 ${energyCost}` }
+        );
+      }
+
+      // 通知会员
+      if (order.user_id) {
+        await query(
+          `INSERT INTO notifications (id, receiver_id, receiver_role, sender_id, sender_name, type, title, content, created_at)
+           VALUES ($1, $2, 'member', $3, $4, 'order_rejected', '购买申请被拒绝', $5, NOW())`,
+          [
+            randomUUID(), order.user_id, reviewerId, reviewer.username || '服务商',
+            `您购买的产品申请已被拒绝${note ? '，原因: ' + note : ''}，已退还 ${energyCost} 能量值`
+          ]
+        );
+      }
+
+      return NextResponse.json({ success: true, message: '订单已拒绝，能量值已退还' });
     }
 
-    // 批准订单 - 根据订单类型处理
+    // ========== 批准订单 ==========
     if (order.order_type === 'buy') {
-      // 购买订单审核通过
-      // 1. 获取产品信息计算市场费
       const product: any = await queryOne(
         'SELECT * FROM products WHERE id = $1',
         [order.product_id]
       );
 
-      // 计算市场费 = 价格 × market_rate / 100
-      const marketRate = Number(product?.market_rate) || (product?.period === 3 ? 3 : 5);
-      const marketFee = Math.floor(Number(product?.price) * marketRate / 100);
+      // 市场费已在购买时扣除，这里直接使用订单中记录的 energy_cost
+      const marketFee = Number(order.energy_cost) || 0;
 
-      // 2. 获取会员信息（用于查找邀请人、上级服务商等）
+      // 获取会员信息
       const member: any = await queryOne(
         'SELECT * FROM users WHERE id = $1',
         [order.user_id]
       );
 
-      // 3. 获取服务商信息
-      // 注意：product.provider_id 存的是用户ID（users.id），不是providers表的主键id
+      // 获取服务商信息
       const providerRecord: any = await queryOne(
         'SELECT * FROM providers WHERE user_id = $1',
         [product?.provider_id]
       );
 
-      // 4. 查找直推奖励接收者（会员的邀请人）
-      // 规则：直推奖励10%给邀请人
-      // - 如果邀请人就是服务商，直推奖励直接加到服务商分成中（不单独发放）
-      // - 如果邀请人不是服务商（比如是其他会员），则单独发放给邀请人
+      // 直推奖励
       let directRewardTo: string | null = null;
       let directRewardAmount = Math.floor(marketFee * REVENUE_SHARE_RATIOS.directReward);
       const inviterIsProvider = member?.inviter_id && member.inviter_id === providerRecord?.user_id;
       
       if (member?.inviter_id && !inviterIsProvider) {
-        // 邀请人不是当前服务商，单独发放直推奖励给邀请人
         directRewardTo = member.inviter_id;
       }
-      // 如果邀请人就是服务商（inviterIsProvider=true），直推奖励不单独发放，直接加到服务商分成
 
-      // 5. 查找上级服务商
+      // 上级服务商
       let parentProviderId: string | null = null;
       if (providerRecord?.parent_provider_id) {
         parentProviderId = providerRecord.parent_provider_id;
       }
 
-      // 6. 获取分公司ID
+      // 分公司ID
       const branchId = providerRecord?.branch_id || member?.branch_id;
 
-      // 7. 使用 deductEnergy 扣除会员能量值（市场费）
-      const memberEnergyResult = await deductEnergy(
-        order.user_id,
-        marketFee,
-        'market_fee',
-        { note: `购买产品 ${product?.name || '产品'} 支付市场费` }
-      );
-
-      if (!memberEnergyResult.success) {
-        return NextResponse.json({
-          success: false,
-          error: `会员能量值不足，需要 ${marketFee} 能量值，当前余额 ${memberEnergyResult.newBalance}`
-        }, { status: 400 });
-      }
-
-      // 8. 按比例分配能量值给各方
+      // ===== 按比例分配能量值 =====
       const baseProviderShare = Math.floor(marketFee * REVENUE_SHARE_RATIOS.provider);
-      // 如果邀请人就是服务商，直推奖励加到服务商分成中
       const providerShare = inviterIsProvider ? baseProviderShare + directRewardAmount : baseProviderShare;
       const parentProviderShare = Math.floor(marketFee * REVENUE_SHARE_RATIOS.parentProvider);
       const branchShare = Math.floor(marketFee * REVENUE_SHARE_RATIOS.branch);
-      // 没有上级服务商时，上级服务商的10%归总公司运营（而非分公司）
       const companyBaseShare = Math.floor(marketFee * REVENUE_SHARE_RATIOS.company);
       const companyShare = parentProviderId ? companyBaseShare : companyBaseShare + parentProviderShare;
 
-      // 8.1 给服务商增加能量值
+      // 给服务商增加能量值
       if (providerRecord?.user_id) {
         await addEnergy(
           providerRecord.user_id,
@@ -308,7 +291,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 8.2 给直推奖励
+      // 直推奖励
       if (directRewardTo && directRewardAmount > 0) {
         await addEnergy(
           directRewardTo,
@@ -318,7 +301,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 8.3 给上级服务商
+      // 上级服务商
       if (parentProviderId) {
         const parentProvider: any = await queryOne(
           'SELECT user_id FROM providers WHERE id = $1',
@@ -334,7 +317,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 8.4 给分公司
+      // 分公司
       if (branchId) {
         const branchUser: any = await queryOne(
           'SELECT id FROM users WHERE id = $1 AND role = $2',
@@ -350,7 +333,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 8.5 给公司运营
+      // 公司运营
       const adminUser: any = await queryOne(
         "SELECT id FROM users WHERE role = 'admin' LIMIT 1",
         []
@@ -367,7 +350,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 8.6 记录现金收益：分公司市场费分润 + 总公司运营费
+      // 记录现金收益
       if (branchId) {
         let branchRevenueTotal = 0;
         await execute(
@@ -391,7 +374,6 @@ export async function POST(request: NextRequest) {
           }
         }
       }
-      // 总公司运营
       if (companyShare > 0) {
         const companyNote = parentProviderId 
           ? `公司运营收益5% (订单: ${orderId})`
@@ -403,7 +385,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 8.7 记录服务商收益分配
+      // 记录服务商收益分配
       await recordProviderRevenueDistribution(
         orderId,
         product?.provider_id,
@@ -421,7 +403,7 @@ export async function POST(request: NextRequest) {
         companyShare
       );
 
-      // 8.8 计算并发放下级分成
+      // 计算并发放下级分成
       const subordinateSplit = await calculateSubordinateSplit(
         product?.provider_id,
         Number(product?.price),
@@ -447,21 +429,41 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 9. 更新订单状态为已完成
+      // 更新订单状态
       await query(
         `UPDATE orders SET status = 'completed', reviewed_by = $1, reviewed_at = NOW() WHERE id = $2`,
         [reviewerId, orderId]
       );
 
-      // 10. 更新产品状态为已售出
+      // 更新 user_products 状态为 holding
+      if (order.user_product_id) {
+        await query(
+          "UPDATE user_products SET status = 'holding', updated_at = NOW() WHERE id = $1",
+          [order.user_product_id]
+        );
+      }
+
+      // 更新产品状态为已售出
       await query(
-        `UPDATE products SET status = 'sold' WHERE id = $1`,
+        `UPDATE products SET status = 'sold', updated_at = NOW() WHERE id = $1`,
         [order.product_id]
       );
 
+      // 通知会员
+      if (order.user_id) {
+        await query(
+          `INSERT INTO notifications (id, receiver_id, receiver_role, sender_id, sender_name, type, title, content, created_at)
+           VALUES ($1, $2, 'member', $3, $4, 'order_approved', '购买申请已通过', $5, NOW())`,
+          [
+            randomUUID(), order.user_id, reviewerId, reviewer.username || '服务商',
+            `您购买的产品已确认，产品已转入您的持仓`
+          ]
+        );
+      }
+
       return NextResponse.json({
         success: true,
-        message: '审核通过，能量值已分配',
+        message: '审核通过，产品已转入会员持仓',
         data: {
           marketFee,
           distribution: {
@@ -477,7 +479,6 @@ export async function POST(request: NextRequest) {
       });
 
     } else if (order.order_type === 'sell') {
-      // 卖出订单：转为待付款
       await query(
         `UPDATE orders SET status = 'awaiting_payment', reviewed_by = $1, reviewed_at = NOW() WHERE id = $2`,
         [reviewerId, orderId]

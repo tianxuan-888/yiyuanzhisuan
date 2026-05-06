@@ -115,9 +115,15 @@ export async function GET(request: NextRequest) {
     const allProducts = enrichedUserProducts;
     // 持有中的产品
     const holdingProducts = enrichedUserProducts.filter(p => p.status === 'holding');
+    // 待确认的产品
+    const pendingConfirmProducts = enrichedUserProducts.filter(p => p.status === 'pending_confirm');
+    // 已取消的产品
+    const cancelledProducts = enrichedUserProducts.filter(p => p.status === 'cancelled');
     
-    // 累计总收益 = 所有产品的预期收益总和
-    const totalProfit = allProducts.reduce((sum, p) => sum + parseFloat(p.expected_profit || '0'), 0);
+    // 累计总收益 = 所有产品的预期收益总和（排除已取消的）
+    const totalProfit = enrichedUserProducts
+      .filter(p => p.status !== 'cancelled')
+      .reduce((sum, p) => sum + parseFloat(p.expected_profit || '0'), 0);
     // 现有收益 = 持有中产品的预期收益（可转为能量值）
     const availableProfit = holdingProducts.reduce((sum, p) => sum + parseFloat(p.expected_profit || '0'), 0);
 
@@ -148,10 +154,13 @@ export async function GET(request: NextRequest) {
           balance: parseNumeric(user.balance),
           points: parseNumeric(user.points),
           total_holding: holdingProducts.reduce((sum, p) => sum + parseFloat(p.purchase_price), 0),
-          total_profit: totalProfit,       // 累计总收益
-          available_profit: availableProfit, // 现有收益（可转能量值）
+          pending_holding: pendingConfirmProducts.reduce((sum, p) => sum + parseFloat(p.purchase_price), 0),
+          total_profit: totalProfit,
+          available_profit: availableProfit,
           holding_count: holdingProducts.length,
-          sold_count: allProducts.length - holdingProducts.length,
+          pending_confirm_count: pendingConfirmProducts.length,
+          sold_count: enrichedUserProducts.filter(p => p.status === 'sold').length,
+          cancelled_count: cancelledProducts.length,
         },
         products: enrichedUserProducts,
         orders: orders,
