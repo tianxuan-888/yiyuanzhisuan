@@ -67,15 +67,8 @@ export async function POST(request: NextRequest) {
     // 获取产品周期
     const period = product?.period || 7;
     
-    // 根据产品周期计算最低持仓时间
-    const periodHours: Record<number, number> = {
-      3: 72,   // 3天 = 72小时
-      7: 168,  // 7天 = 168小时
-      15: 360, // 15天 = 360小时
-      30: 720, // 30天 = 720小时
-      90: 2160 // 90天 = 2160小时
-    };
-    const minHoldHours = periodHours[product?.period] || 72; // 默认72小时
+    // 根据产品周期计算最低持仓时间：周期天数 × 24小时
+    const minHoldHours = period * 24;
     
     const purchaseTime = new Date(userProduct.purchase_date);
     const now = new Date();

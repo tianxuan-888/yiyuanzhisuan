@@ -2964,10 +2964,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                             const purchaseDate = new Date(up.purchase_date);
                                                             const now = new Date();
                                                             const holdHours = (now.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60);
-                                                            const periodHours: Record<number, number> = {
-                                                                3: 72, 7: 168, 15: 360, 30: 720, 90: 2160
-                                                            };
-                                                            const minHoldHours = periodHours[period] || 72;
+                                                            const minHoldHours = period * 24;
                                                             const canSell = holdHours >= minHoldHours;
                                                             const remainingHours = Math.max(0, minHoldHours - holdHours);
                                                             
