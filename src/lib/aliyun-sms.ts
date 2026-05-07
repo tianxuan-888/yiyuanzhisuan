@@ -23,10 +23,12 @@ function getEnvConfig() {
 // 按场景选择不同模板CODE
 function getTemplateCode(scene: string): string {
   const config = getEnvConfig();
+  // 号码认证服务预置模板100001用于注册和找回密码
+  // 模板100003可能不存在或变量格式不同，统一使用100001
   const map: Record<string, string> = {
     register: config.templateCode,
-    reset_password: config.templateCodeReset,
-    forgot_password: config.templateCodeReset,
+    reset_password: config.templateCode,
+    forgot_password: config.templateCode,
     default: config.templateCode,
   };
   return map[scene] || map['default'] || '';
@@ -86,7 +88,9 @@ export async function sendSmsVerifyCode(phone: string, scene: string = 'register
       phoneNumber: phone,
       signName: config.signName,
       templateCode: templateCode,
-      templateParam: JSON.stringify({ code: '##code##' }),  // ##code## 由阿里云自动生成验证码；赠送模板只有${code}变量，不传min
+      // 预置模板有两个变量：${code} 和 ${min}
+      // ##code## 由阿里云自动生成验证码，min 为有效期（分钟）
+      templateParam: JSON.stringify({ code: '##code##', min: '5' }),
       codeType: 1,          // 纯数字验证码
       codeLength: 6,        // 6位验证码
       returnVerifyCode: true,   // 返回验证码用于存入数据库
