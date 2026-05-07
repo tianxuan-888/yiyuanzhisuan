@@ -3163,65 +3163,173 @@ export default function AdminPage() {
       {/* 收益总览内容 */}
       {incomeTab === 'overview' && (
         <>
-          {/* 第一行：4个彩色统计卡片 */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-            <div className="bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl p-4 md:p-5 text-white shadow-lg">
-              <div className="text-sm opacity-80">市场费总额</div>
-              <div className="text-2xl md:text-3xl font-bold mt-2">¥{incomeStats.totalIncome.toLocaleString()}</div>
-            </div>
-            <div className="bg-gradient-to-br from-green-500 to-green-700 rounded-xl p-4 md:p-5 text-white shadow-lg">
-              <div className="text-sm opacity-80">今日市场费</div>
-              <div className="text-2xl md:text-3xl font-bold mt-2">¥{incomeStats.todayIncome.toLocaleString()}</div>
-            </div>
-            <div className="bg-gradient-to-br from-orange-500 to-orange-700 rounded-xl p-4 md:p-5 text-white shadow-lg">
-              <div className="text-sm opacity-80">总订单数</div>
-              <div className="text-2xl md:text-3xl font-bold mt-2">{incomeStats.totalOrders || 0}</div>
-            </div>
-            <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl p-4 md:p-5 text-white shadow-lg">
-              <div className="text-sm opacity-80">总销售额</div>
-              <div className="text-2xl md:text-3xl font-bold mt-2">¥{(incomeStats.totalSales || 0).toLocaleString()}</div>
-            </div>
+          {/* 统计卡片 - 市场费总额 + 今日 + 订单数 + 销售额 */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+            <Card className="mobile-compact-card bg-gradient-to-br from-purple-500 to-purple-700 text-white">
+              <CardContent className="p-4">
+                <div className="text-sm opacity-80 mobile-label">市场费总额</div>
+                <div className="text-3xl font-bold mt-1 mobile-num">¥{incomeStats.totalIncome.toLocaleString()}</div>
+              </CardContent>
+            </Card>
+            <Card className="mobile-compact-card bg-gradient-to-br from-green-500 to-green-700 text-white">
+              <CardContent className="p-4">
+                <div className="text-sm opacity-80 mobile-label">今日市场费</div>
+                <div className="text-3xl font-bold mt-1 mobile-num">¥{incomeStats.todayIncome.toLocaleString()}</div>
+              </CardContent>
+            </Card>
+            <Card className="mobile-compact-card bg-gradient-to-br from-orange-500 to-orange-700 text-white">
+              <CardContent className="p-4">
+                <div className="text-sm opacity-80 mobile-label">总订单数</div>
+                <div className="text-3xl font-bold mt-1 mobile-num">{incomeStats.totalOrders || 0}</div>
+              </CardContent>
+            </Card>
+            <Card className="mobile-compact-card bg-gradient-to-br from-blue-500 to-blue-700 text-white">
+              <CardContent className="p-4">
+                <div className="text-sm opacity-80 mobile-label">总销售额</div>
+                <div className="text-3xl font-bold mt-1 mobile-num">¥{(incomeStats.totalSales || 0).toLocaleString()}</div>
+              </CardContent>
+            </Card>
           </div>
 
-          {/* 第二行：5个白色分配比例卡片 */}
+          {/* 市场费分配比例卡片 - 使用真实分配数据 */}
           <div className="grid grid-cols-5 gap-2 md:gap-3">
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 text-center shadow-sm border border-gray-100 dark:border-gray-700">
-              <div className="text-xs text-gray-500 dark:text-gray-400">服务商 {shareBreakdown.provider.rate}</div>
-              <div className="text-base md:text-lg font-bold text-purple-600 mt-1">¥{shareBreakdown.provider.amount.toLocaleString()}</div>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 text-center shadow-sm border border-gray-100 dark:border-gray-700">
-              <div className="text-xs text-gray-500 dark:text-gray-400">直推奖励 {shareBreakdown.directReward.rate}</div>
-              <div className="text-base md:text-lg font-bold text-pink-600 mt-1">¥{shareBreakdown.directReward.amount.toLocaleString()}</div>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 text-center shadow-sm border border-gray-100 dark:border-gray-700">
-              <div className="text-xs text-gray-500 dark:text-gray-400">上级服务商 {shareBreakdown.parentProvider.rate}</div>
-              <div className="text-base md:text-lg font-bold text-indigo-600 mt-1">¥{shareBreakdown.parentProvider.amount.toLocaleString()}</div>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 text-center shadow-sm border border-gray-100 dark:border-gray-700">
-              <div className="text-xs text-gray-500 dark:text-gray-400">分公司 {shareBreakdown.branch.rate}</div>
-              <div className="text-base md:text-lg font-bold text-teal-600 mt-1">¥{shareBreakdown.branch.amount.toLocaleString()}</div>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 text-center shadow-sm border border-gray-100 dark:border-gray-700">
-              <div className="text-xs text-gray-500 dark:text-gray-400">公司运营 {shareBreakdown.company.rate}</div>
-              <div className="text-base md:text-lg font-bold text-emerald-600 mt-1">¥{shareBreakdown.company.amount.toLocaleString()}</div>
-            </div>
+            <Card className="mobile-compact-card text-center">
+              <CardContent className="p-3">
+                <div className="text-xs text-gray-500 mobile-label">服务商 {shareBreakdown.provider.rate}</div>
+                <div className="text-lg font-bold text-purple-600 mobile-num">¥{shareBreakdown.provider.amount.toLocaleString()}</div>
+              </CardContent>
+            </Card>
+            <Card className="mobile-compact-card text-center">
+              <CardContent className="p-3">
+                <div className="text-xs text-gray-500 mobile-label">直推奖励 {shareBreakdown.directReward.rate}</div>
+                <div className="text-lg font-bold text-pink-600 mobile-num">¥{shareBreakdown.directReward.amount.toLocaleString()}</div>
+              </CardContent>
+            </Card>
+            <Card className="mobile-compact-card text-center">
+              <CardContent className="p-3">
+                <div className="text-xs text-gray-500 mobile-label">上级服务商 {shareBreakdown.parentProvider.rate}</div>
+                <div className="text-lg font-bold text-indigo-600 mobile-num">¥{shareBreakdown.parentProvider.amount.toLocaleString()}</div>
+              </CardContent>
+            </Card>
+            <Card className="mobile-compact-card text-center">
+              <CardContent className="p-3">
+                <div className="text-xs text-gray-500 mobile-label">分公司 {shareBreakdown.branch.rate}</div>
+                <div className="text-lg font-bold text-teal-600 mobile-num">¥{shareBreakdown.branch.amount.toLocaleString()}</div>
+              </CardContent>
+            </Card>
+            <Card className="mobile-compact-card text-center">
+              <CardContent className="p-3">
+                <div className="text-xs text-gray-500 mobile-label">公司运营 {shareBreakdown.company.rate}</div>
+                <div className="text-lg font-bold text-emerald-600 mobile-num">¥{shareBreakdown.company.amount.toLocaleString()}</div>
+              </CardContent>
+            </Card>
           </div>
 
-          {/* 收益趋势折线图 - 通栏 */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-            <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-4">收益趋势</h3>
-            <div className="h-72 md:h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={incomeStats.incomeTrend?.length ? incomeStats.incomeTrend : chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="#9ca3af" />
-                  <YAxis tickFormatter={(value: number) => value >= 10000 ? `${(value / 10000).toFixed(0)}万` : `${value}`} tick={{ fontSize: 12 }} stroke="#9ca3af" />
-                  <Tooltip formatter={(value: number) => `¥${value.toLocaleString()}`} />
-                  <Legend />
-                  <Line type="monotone" dataKey="收益金额" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 4, fill: '#8b5cf6' }} activeDot={{ r: 6 }} name="收益金额" />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+          {/* 收益趋势图表 */}
+          <Card>
+            <CardHeader>
+              <CardTitle>收益趋势</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis tickFormatter={(value) => value >= 10000 ? `${(value / 10000).toFixed(0)}万` : `${value}`} />
+                    <Tooltip formatter={(value: number) => `¥${value.toLocaleString()}`} />
+                    <Legend />
+                    <Line type="monotone" dataKey="收益金额" stroke="#8b5cf6" strokeWidth={2} name="收益金额" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 收益来源分布 - 市场费分配比例 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>市场费分配比例</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: `服务商 ${shareBreakdown.provider.rate}`, value: Math.max(shareBreakdown.provider.amount, 1), color: '#8b5cf6' },
+                          { name: `直推奖励 ${shareBreakdown.directReward.rate}`, value: Math.max(shareBreakdown.directReward.amount, 1), color: '#ec4899' },
+                          { name: `上级服务商 ${shareBreakdown.parentProvider.rate}`, value: Math.max(shareBreakdown.parentProvider.amount, 1), color: '#6366f1' },
+                          { name: `分公司 ${shareBreakdown.branch.rate}`, value: Math.max(shareBreakdown.branch.amount, 1), color: '#14b8a6' },
+                          { name: `公司运营 ${shareBreakdown.company.rate}`, value: Math.max(shareBreakdown.company.amount, 1), color: '#10b981' },
+                        ]}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {[
+                          { color: '#8b5cf6' },
+                          { color: '#ec4899' },
+                          { color: '#6366f1' },
+                          { color: '#14b8a6' },
+                          { color: '#10b981' },
+                        ].map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>服务商能量值排行 TOP5</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {providers.slice(0, 5).map((p: any, idx: number) => {
+                    const energy = p.energyValue || p.energy_value || p.totalEnergy || 0;
+                    const maxEnergy = (providers[0] as any)?.energyValue || (providers[0] as any)?.energy_value || (providers[0] as any)?.totalEnergy || 1;
+                    const percent = Math.max(Math.round((energy / maxEnergy) * 100), 5);
+                    return (
+                      <div key={p.id || idx} className="flex items-center gap-3">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                          idx === 0 ? 'bg-yellow-500 text-white' :
+                          idx === 1 ? 'bg-gray-400 text-white' :
+                          idx === 2 ? 'bg-amber-600 text-white' :
+                          'bg-gray-200 text-gray-600'
+                        }`}>
+                          {idx + 1}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex justify-between text-sm">
+                            <span>{p.username || p.name || `服务商${idx + 1}`}</span>
+                            <span className="font-medium">{energy.toLocaleString()} 能量值</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                            <div
+                              className="bg-purple-600 h-1.5 rounded-full"
+                              style={{ width: `${percent}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {providers.length === 0 && (
+                    <div className="text-center text-gray-400 py-4">暂无服务商数据</div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </>
       )}
