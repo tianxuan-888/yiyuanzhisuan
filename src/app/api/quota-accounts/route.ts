@@ -59,6 +59,34 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // 补充尚未在 quota_accounts 表中有记录的 branch 用户
+    // 新注册的分公司可能只有 users 表记录，没有 quota_accounts 记录
+    const existingUserIds = accounts
+      .filter((a: any) => a.user_id)
+      .map((a: any) => String(a.user_id));
+
+    const missingBranchSql = existingUserIds.length > 0
+      ? `SELECT id, username, role, phone, unique_id FROM users WHERE role = 'branch' AND id NOT IN (${existingUserIds.map((_, i) => `$${i + 1}`).join(',')})`
+      : `SELECT id, username, role, phone, unique_id FROM users WHERE role = 'branch'`;
+
+    const missingBranches = await query(missingBranchSql, existingUserIds);
+
+    for (const branch of missingBranches) {
+      accounts.push({
+        id: `pending-qa-${branch.id}`,
+        user_id: branch.id,
+        balance: 0,
+        total_in: 0,
+        total_out: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        username: branch.username,
+        role: branch.role,
+        phone: branch.phone,
+        unique_id: branch.unique_id,
+      });
+    }
+
     return NextResponse.json({
       success: true,
       data: accounts,
