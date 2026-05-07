@@ -4,6 +4,7 @@ const nextConfig = {
   // Turbopack 在 Next.js 16 中需使用对象格式，此处显式禁用
   turbopack: {},
   images: {
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',
@@ -25,3 +26,11 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
+
+// Cloudflare Pages 本地开发集成
+try {
+  const { initOpenNextCloudflareForDev } = require("@opennextjs/cloudflare");
+  initOpenNextCloudflareForDev();
+} catch (e) {
+  // 非 Cloudflare 开发环境忽略
+}

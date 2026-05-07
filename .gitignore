@@ -97,5 +97,10 @@ Desktop.ini
 .vercel
 .turbo
 
+# Cloudflare
+.open-next
+.dev.vars
+.wrangler
+
 .coze-logs
 assets/image.png
