@@ -1,15 +1,12 @@
 /**
  * 阿里云短信认证服务模块
- * 使用号码认证服务的 SendSmsVerifyCode API（个人用户免资质）
- * 无需企业营业执照、无需申请签名或模板
+ * 使用号码认证服务的 SendSmsVerifyCode / CheckSmsVerifyCode HTTP API
+ * 不依赖阿里云 SDK，直接用 fetch 调用，兼容 Cloudflare Workers Edge Runtime
+ * 使用 V1 签名方式（HMAC-SHA1）
  */
-import Dypnsapi from '@alicloud/dypnsapi20170525';
-import { SendSmsVerifyCodeRequest } from '@alicloud/dypnsapi20170525/dist/models/SendSmsVerifyCodeRequest';
-import { CheckSmsVerifyCodeRequest } from '@alicloud/dypnsapi20170525/dist/models/CheckSmsVerifyCodeRequest';
-import * as OpenApi from '@alicloud/openapi-client';
-import { RuntimeOptions } from '@darabonba/typescript';
+import CryptoJS from 'crypto-js';
 
-// 运行时读取环境变量（修改.env.local后无需重启服务，Next.js HMR会重新加载模块）
+// 运行时读取环境变量
 function getEnvConfig() {
   return {
     accessKeyId: process.env.ALIYUN_SMS_ACCESS_KEY_ID || '',
@@ -23,8 +20,6 @@ function getEnvConfig() {
 // 按场景选择不同模板CODE
 function getTemplateCode(scene: string): string {
   const config = getEnvConfig();
-  // 号码认证服务预置模板100001用于注册和找回密码
-  // 模板100003可能不存在或变量格式不同，统一使用100001
   const map: Record<string, string> = {
     register: config.templateCode,
     reset_password: config.templateCode,
@@ -34,85 +29,161 @@ function getTemplateCode(scene: string): string {
   return map[scene] || map['default'] || '';
 }
 
-let client: Dypnsapi | null = null;
-
 /**
- * 获取阿里云号码认证服务客户端（单例）
+ * 生成 UUID（去除横线）
  */
-function getClient(): Dypnsapi {
-  const config = getEnvConfig();
-  if (!client) {
-    const openApiConfig = new OpenApi.Config({
-      accessKeyId: config.accessKeyId,
-      accessKeySecret: config.accessKeySecret,
-      endpoint: 'dypnsapi.aliyuncs.com',
-    });
-    client = new Dypnsapi(openApiConfig);
-  }
-  return client;
+function generateNonce(): string {
+  return 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'.replace(/x/g, () =>
+    Math.floor(Math.random() * 16).toString(16),
+  );
 }
 
 /**
- * 发送验证码短信（使用短信认证服务 SendSmsVerifyCode）
- * 阿里云自动生成验证码（##code##占位符），通过 returnVerifyCode 返回给服务端存储
- * @param phone 手机号（纯数字，如 13800000001）
- * @param scene 场景：register / reset_password / default
- * @returns 发送结果，含阿里云生成的验证码（code字段）
+ * ISO 8601 时间格式
+ */
+function formatISO8601(date: Date): string {
+  return date.toISOString().replace(/\.\d{3}Z$/, 'Z');
+}
+
+/**
+ * 百分号编码（阿里云 V1 规范）
+ */
+function percentEncode(str: string): string {
+  return encodeURIComponent(str)
+    .replace(/\+/g, '%20')
+    .replace(/\*/g, '%2A')
+    .replace(/%7E/g, '~')
+    .replace(/'/g, '%27')
+    .replace(/!/g, '%21')
+    .replace(/\(/g, '%28')
+    .replace(/\)/g, '%29');
+}
+
+/**
+ * 调用阿里云 OpenAPI（V1 签名，RPC 风格）
+ * 参考：https://help.aliyun.com/zh/sdk/developer-reference/v1-request-signature
+ */
+async function callAliyunAPI(
+  action: string,
+  params: Record<string, string>,
+  accessKeyId: string,
+  accessKeySecret: string,
+): Promise<Record<string, unknown>> {
+  const endpoint = 'https://dypnsapi.aliyuncs.com';
+
+  // 公共参数
+  const timestamp = formatISO8601(new Date());
+  const nonce = generateNonce();
+
+  const allParams: Record<string, string> = {
+    Action: action,
+    Format: 'JSON',
+    Version: '2017-05-25',
+    AccessKeyId: accessKeyId,
+    SignatureMethod: 'HMAC-SHA1',
+    Timestamp: timestamp,
+    SignatureVersion: '1.0',
+    SignatureNonce: nonce,
+    ...params,
+  };
+
+  // 1. 按参数名排序
+  const sortedKeys = Object.keys(allParams).sort();
+
+  // 2. 构造规范化请求字符串
+  const canonicalizedQueryString = sortedKeys
+    .map((key) => `${percentEncode(key)}=${percentEncode(allParams[key])}`)
+    .join('&');
+
+  // 3. 构造待签名字符串
+  const stringToSign = `GET&${percentEncode('/')}&${percentEncode(canonicalizedQueryString)}`;
+
+  // 4. 计算签名
+  const key = accessKeySecret + '&';  // V1 签名的 key 末尾加 &
+  const signature = CryptoJS.HmacSHA1(stringToSign, key).toString(CryptoJS.enc.Base64);
+
+  // 5. 添加签名到参数
+  allParams.Signature = signature;
+
+  // 6. 构造 URL
+  const queryString = Object.entries(allParams)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('&');
+
+  const url = `${endpoint}/?${queryString}`;
+
+  // 7. 发送请求
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  const result = await response.json();
+  return result as Record<string, unknown>;
+}
+
+/**
+ * 发送验证码短信
  */
 export async function sendSmsVerifyCode(phone: string, scene: string = 'register'): Promise<{
   success: boolean;
   message: string;
-  code?: string;       // 阿里云生成的验证码（ReturnVerifyCode=true时返回）
+  code?: string;
   requestId?: string;
 }> {
   const config = getEnvConfig();
   const templateCode = getTemplateCode(scene);
+
   // 检查阿里云配置是否完整
   if (!config.accessKeyId || !config.accessKeySecret || !config.signName || !templateCode) {
-    console.warn('[阿里云短信认证] 配置不完整，跳过真实发送。需要在环境变量中配置：');
-    console.warn('  ALIYUN_SMS_ACCESS_KEY_ID');
-    console.warn('  ALIYUN_SMS_ACCESS_KEY_SECRET');
-    console.warn('  ALIYUN_SMS_SIGN_NAME（号码认证服务控制台 → 预置签名）');
-    console.warn('  ALIYUN_SMS_TEMPLATE_CODE（号码认证服务控制台 → 预置模板）');
+    console.warn('[阿里云短信认证] 配置不完整，跳过真实发送');
     return {
       success: true,
       message: '验证码已发送（开发模式，未实际发送短信）',
-      code: undefined,  // 开发模式：由调用方自行生成验证码
+      code: undefined,
     };
   }
 
   try {
     console.log(`[阿里云短信认证] 发送参数: phone=${phone}, signName=${config.signName}, templateCode=${templateCode}, scene=${scene}`);
-    const smsClient = getClient();
-    const request = new SendSmsVerifyCodeRequest({
-      phoneNumber: phone,
-      signName: config.signName,
-      templateCode: templateCode,
-      // 预置模板有两个变量：${code} 和 ${min}
-      // ##code## 由阿里云自动生成验证码，min 为有效期（分钟）
-      templateParam: JSON.stringify({ code: '##code##', min: '5' }),
-      codeType: 1,          // 纯数字验证码
-      codeLength: 6,        // 6位验证码
-      returnVerifyCode: true,   // 返回验证码用于存入数据库
-    });
 
-    const runtime = new RuntimeOptions({});
-    const response = await smsClient.sendSmsVerifyCodeWithOptions(request, runtime);
+    const templateParam = JSON.stringify({ code: '##code##', min: '5' });
+    const result = await callAliyunAPI(
+      'SendSmsVerifyCode',
+      {
+        PhoneNumber: phone,
+        SignName: config.signName,
+        TemplateCode: templateCode,
+        TemplateParam: templateParam,
+        CodeType: '1',
+        CodeLength: '6',
+        ReturnVerifyCode: 'true',
+      },
+      config.accessKeyId,
+      config.accessKeySecret,
+    );
 
-    if (response.body?.code === 'OK') {
-      const verifyCode = response.body.model?.verifyCode;
-      console.log(`[阿里云短信认证] 发送成功: ${phone}, RequestId: ${response.body.requestId}, hasCode: ${!!verifyCode}`);
+    const resultCode = result.Code as string;
+    const resultMessage = result.Message as string;
+
+    if (resultCode === 'OK') {
+      const model = result.Model as Record<string, unknown> | undefined;
+      const verifyCode = model?.VerifyCode as string | undefined;
+      const requestId = result.RequestId as string | undefined;
+      console.log(`[阿里云短信认证] 发送成功: ${phone}, RequestId: ${requestId}, hasCode: ${!!verifyCode}`);
       return {
         success: true,
         message: '验证码已发送',
         code: verifyCode,
-        requestId: response.body.requestId,
+        requestId,
       };
     } else {
-      console.error(`[阿里云短信认证] 发送失败: ${phone}, Code: ${response.body?.code}, Message: ${response.body?.message}`);
+      console.error(`[阿里云短信认证] 发送失败: ${phone}, Code: ${resultCode}, Message: ${resultMessage}`);
       return {
         success: false,
-        message: response.body?.message || '短信发送失败',
+        message: resultMessage || '短信发送失败',
       };
     }
   } catch (error: unknown) {
@@ -126,11 +197,7 @@ export async function sendSmsVerifyCode(phone: string, scene: string = 'register
 }
 
 /**
- * 校验验证码（使用短信认证服务 CheckSmsVerifyCode）
- * 可选：由阿里云服务端校验，比本地校验更安全
- * @param phone 手机号
- * @param verifyCode 用户输入的验证码
- * @returns 校验结果
+ * 校验验证码
  */
 export async function checkSmsVerifyCode(phone: string, verifyCode: string): Promise<{
   success: boolean;
@@ -138,26 +205,25 @@ export async function checkSmsVerifyCode(phone: string, verifyCode: string): Pro
 }> {
   const config = getEnvConfig();
   if (!config.accessKeyId || !config.accessKeySecret || !config.signName) {
-    // 开发模式，不校验
     return { success: true, message: '开发模式' };
   }
 
   try {
-    const smsClient = getClient();
-    const request = new CheckSmsVerifyCodeRequest({
-      phoneNumber: phone,
-      verifyCode: verifyCode,
-      countryCode: '86',
-      caseAuthPolicy: 1,  // 不区分大小写
-    });
+    const result = await callAliyunAPI(
+      'CheckSmsVerifyCode',
+      {
+        PhoneNumber: phone,
+        VerifyCode: verifyCode,
+        CountryCode: '86',
+      },
+      config.accessKeyId,
+      config.accessKeySecret,
+    );
 
-    const runtime = new RuntimeOptions({});
-    const response = await smsClient.checkSmsVerifyCodeWithOptions(request, runtime);
-
-    // 重要：Code=OK 只代表接口调用成功，不代表验证码正确
-    // 验证码核验结果以 Model.VerifyResult 为准（PASS/UNKNOWN）
-    if (response.body?.code === 'OK') {
-      const verifyResult = response.body.model?.verifyResult;
+    const resultCode = result.Code as string;
+    if (resultCode === 'OK') {
+      const model = result.Model as Record<string, unknown> | undefined;
+      const verifyResult = model?.VerifyResult as string | undefined;
       if (verifyResult === 'PASS') {
         return { success: true, message: '验证码校验通过' };
       } else {
@@ -165,8 +231,9 @@ export async function checkSmsVerifyCode(phone: string, verifyCode: string): Pro
         return { success: false, message: '验证码错误' };
       }
     } else {
-      console.error(`[阿里云短信认证] 校验失败: ${phone}, Code: ${response.body?.code}, Message: ${response.body?.message}`);
-      return { success: false, message: response.body?.message || '验证码错误' };
+      const resultMessage = result.Message as string;
+      console.error(`[阿里云短信认证] 校验失败: ${phone}, Code: ${resultCode}, Message: ${resultMessage}`);
+      return { success: false, message: resultMessage || '验证码错误' };
     }
   } catch (error: unknown) {
     const errMsg = error instanceof Error ? error.message : String(error);
