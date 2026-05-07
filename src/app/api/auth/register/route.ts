@@ -169,8 +169,29 @@ export async function POST(request: NextRequest) {
     // 对密码进行哈希
     const hashedPassword = await hashPassword(password);
 
-    // 生成专属ID：HM + 手机号后6位
-    const uniqueId = `HM${phone.slice(-6)}`;
+    // 生成专属ID：角色前缀 + 6位随机字母数字（唯一性）
+    const rolePrefixMapForId: Record<string, string> = {
+      admin: 'A',
+      branch: 'B',
+      provider: 'P',
+      member: 'M',
+    };
+    const idPrefix = rolePrefixMapForId[assignedRole] || 'M';
+    const generateUniqueId = (): string => {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 去掉容易混淆的 I/O/0/1
+      let code = idPrefix;
+      for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return code;
+    };
+    // 确保唯一性（最多尝试10次）
+    let uniqueId = generateUniqueId();
+    for (let i = 0; i < 10; i++) {
+      const existingId = await query('SELECT id FROM users WHERE unique_id = $1', [uniqueId]);
+      if (existingId.length === 0) break;
+      uniqueId = generateUniqueId();
+    }
 
     // 根据角色生成不同前缀的邀请码
     const rolePrefixMap: Record<string, string> = {

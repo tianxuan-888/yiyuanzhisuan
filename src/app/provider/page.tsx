@@ -2072,7 +2072,7 @@ export default function ProviderPage() {
                                         <div className="space-y-3">
                                             <div className="flex items-center justify-between py-2 border-b">
                                                 <span className="text-gray-500">用户ID</span>
-                                                <span className="font-mono text-sm">{user?.id || '-'}</span>
+                                                <span className="font-mono text-sm font-bold text-purple-700">{(user as any)?.unique_id || user?.id?.slice(0,8) || '-'}</span>
                                             </div>
                                             <div className="flex items-center justify-between py-2 border-b">
                                                 <span className="text-gray-500">用户名</span>

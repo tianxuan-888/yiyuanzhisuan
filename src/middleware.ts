@@ -87,6 +87,8 @@ const PUBLIC_PATHS = [
   '/api/admin/fee-records',
   '/api/admin/fee-stats',
   '/api/admin/withdraw-review',
+  '/api/admin/migrate-unique-ids',
+  '/api/quota-accounts',
 ];
 
 // 静态资源和页面路径不走 API 认证

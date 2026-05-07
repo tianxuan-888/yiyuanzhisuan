@@ -40,6 +40,7 @@ interface UserInfo {
   inviterId: string | null;
   branch_id?: string | null; // 服务商所属分公司ID
   unique_id?: string;
+  invite_code?: string;
   real_name?: string | null;
   alipay_account?: string | null;
   username?: string;
@@ -102,7 +103,8 @@ export function useAuth(requiredRole?: string) {
           points: Number(userData.points ?? 0),
           providerId: userData.provider_id,
           inviterId: userData.inviter_id,
-          unique_id: userData.unique_id || (userData.phone ? `HM${userData.phone.slice(-6)}` : undefined),
+          unique_id: userData.unique_id || undefined,
+          invite_code: (userData as any).invite_code || undefined,
           branch_id: userData.branch_id,
           username: userData.username,
           real_name: userData.real_name,
@@ -186,7 +188,8 @@ export function useAuth(requiredRole?: string) {
           balance: Number(data.data.balance) || 0,
           providerId: data.data.provider_id,
           inviterId: data.data.inviter_id,
-          unique_id: data.data.unique_id || (data.data.phone ? `HM${data.data.phone.slice(-6)}` : undefined),
+          unique_id: data.data.unique_id || undefined,
+          invite_code: data.data.invite_code || undefined,
           points: Number(data.data.points) || 0,
         });
       }

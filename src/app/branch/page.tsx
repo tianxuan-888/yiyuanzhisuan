@@ -1459,7 +1459,26 @@ export default function BranchPage() {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between py-2 border-b">
                         <span className="text-gray-500">用户ID</span>
-                        <span className="font-mono text-sm">{user?.id || '-'}</span>
+                        <span className="font-mono text-sm font-bold text-purple-700">{(user as any)?.unique_id || user?.id?.slice(0,8) || '-'}</span>
+                      </div>
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-gray-500">邀请码</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-sm font-bold text-blue-600">{(user as any)?.invite_code || '未生成'}</span>
+                          {(user as any)?.invite_code && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => {
+                                navigator.clipboard.writeText((user as any).invite_code);
+                                showMessage('success', '邀请码已复制');
+                              }}
+                            >
+                              复制
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center justify-between py-2 border-b">
                         <span className="text-gray-500">用户名</span>

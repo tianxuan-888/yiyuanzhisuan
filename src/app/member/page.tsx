@@ -284,12 +284,12 @@ const [copySuccess, setCopySuccess] = useState(false);
         if (!userId)
             return;
 
-        // 从本地存储获取邀请码（使用 unique_id 或 HM + 手机号后6位）
+        // 从本地存储获取邀请码
         if (userDataStr) {
             try {
                 const userData = JSON.parse(userDataStr);
-                // 优先使用 unique_id，其次使用 HM + 手机号后6位
-                const code = userData.unique_id || (userData.phone ? `HM${userData.phone.slice(-6)}` : '');
+                // 使用 invite_code 字段
+                const code = userData.invite_code || '';
                 setInviteCode(code);
             } catch (e) {
                 console.error("解析用户数据失败:", e);
@@ -1754,7 +1754,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                     {user?.name || '会员'}
                                 </p>
                                 <p className="text-xs text-gray-500">
-                                    ID: {user?.unique_id || (user?.phone ? `HM${user.phone.slice(-6)}` : 'N/A')}
+                                    ID: {user?.unique_id || 'N/A'}
                                 </p>
                             </div>
                         </div>
@@ -1959,7 +1959,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                 <div className="space-y-3">
                                                     <div className="flex items-center justify-between py-2 border-b">
                                                         <span className="text-gray-500">专属ID</span>
-                                                        <span className="font-medium text-sm">{user?.unique_id || (user?.phone ? `HM${user.phone.slice(-6)}` : '-')}</span>
+                                                        <span className="font-medium text-sm">{user?.unique_id || '-'}</span>
                                                     </div>
                                                     <div className="flex items-center justify-between py-2 border-b">
                                                         <span className="text-gray-500">用户名</span>
