@@ -7,6 +7,7 @@ import { getInviteCodeType } from '@/lib/invite-code';
  * 为用户生成/获取邀请码
  * POST /api/invite-codes/generate
  * 需要登录
+ * 支持角色：admin(ADMIN), branch(BRAN), provider(PROV), member(MEMB)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -38,9 +39,14 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 生成新的邀请码
-    let newCode: string;
-    const prefix = user.role === 'provider' ? 'PROV' : 'MEMB';
+    // 根据角色确定前缀
+    const prefixMap: Record<string, string> = {
+      admin: 'ADMIN',
+      branch: 'BRAN',
+      provider: 'PROV',
+      member: 'MEMB',
+    };
+    const prefix = prefixMap[user.role] || 'MEMB';
 
     // 生成唯一码
     const generateCode = (): string => {

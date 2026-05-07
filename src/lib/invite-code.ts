@@ -3,7 +3,7 @@ import { query } from './pg-client';
 /**
  * 邀请码类型
  */
-export type InviteCodeType = 'provider' | 'member' | 'invalid';
+export type InviteCodeType = 'admin' | 'branch' | 'provider' | 'member' | 'invalid';
 
 /**
  * 根据邀请码前缀判断类型
@@ -14,6 +14,14 @@ export function getInviteCodeType(inviteCode: string): InviteCodeType {
   }
   
   const upperCode = inviteCode.toUpperCase();
+  
+  if (upperCode.startsWith('ADMIN')) {
+    return 'admin';
+  }
+
+  if (upperCode.startsWith('BRAN')) {
+    return 'branch';
+  }
   
   if (upperCode.startsWith('PROV')) {
     return 'provider';
@@ -54,6 +62,20 @@ export async function generateInviteCode(prefix: string = 'PROV'): Promise<strin
   }
   
   throw new Error('生成邀请码失败，请重试');
+}
+
+/**
+ * 生成总公司邀请码
+ */
+export async function generateAdminInviteCode(): Promise<string> {
+  return generateInviteCode('ADMIN');
+}
+
+/**
+ * 生成分公司邀请码
+ */
+export async function generateBranchInviteCode(): Promise<string> {
+  return generateInviteCode('BRAN');
 }
 
 /**

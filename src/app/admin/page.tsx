@@ -55,6 +55,8 @@ import {
   Key,
   FileCheck,
   Cpu,
+  Search,
+  Ticket,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -328,12 +330,24 @@ export default function AdminPage() {
   const [systemConfig, setSystemConfig] = useState<SystemConfig>({});
   const [configLoading, setConfigLoading] = useState(false);
   const [configSaving, setConfigSaving] = useState(false);
-  const [systemSubTab, setSystemSubTab] = useState<'config' | 'data'>('config');
+  const [systemSubTab, setSystemSubTab] = useState<'config' | 'data' | 'assign-role' | 'invite-code'>('config');
   
   // 数据清除 state
   const [clearDataPassword, setClearDataPassword] = useState('');
   const [clearDataLoading, setClearDataLoading] = useState(false);
   const [clearDataMessage, setClearDataMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+
+  // 账号赋权 state
+  const [assignSearchKeyword, setAssignSearchKeyword] = useState('');
+  const [assignSearchResults, setAssignSearchResults] = useState<any[]>([]);
+  const [assignSearching, setAssignSearching] = useState(false);
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [assignMessage, setAssignMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+
+  // 总公司邀请码 state
+  const [adminInviteCode, setAdminInviteCode] = useState('');
+  const [inviteCodeLoading, setInviteCodeLoading] = useState(false);
+  const [inviteCodeMessage, setInviteCodeMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
   // 加载系统配置
   const loadSystemConfig = useCallback(async () => {
@@ -384,6 +398,82 @@ export default function AdminPage() {
   const handleConfigChange = (key: string, value: string) => {
     setSystemConfig(prev => ({ ...prev, [key]: value }));
   };
+
+  // 搜索用户（账号赋权用）
+  const searchUsersForAssign = useCallback(async () => {
+    if (!assignSearchKeyword || assignSearchKeyword.length < 2) return;
+    setAssignSearching(true);
+    setAssignMessage(null);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/admin/assign-role?keyword=${encodeURIComponent(assignSearchKeyword)}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAssignSearchResults(data.data || []);
+        if (data.data.length === 0) {
+          setAssignMessage({ type: 'error', text: '未找到匹配的用户' });
+        }
+      } else {
+        setAssignMessage({ type: 'error', text: data.error || '搜索失败' });
+      }
+    } catch (e) {
+      setAssignMessage({ type: 'error', text: '搜索失败，请重试' });
+    } finally {
+      setAssignSearching(false);
+    }
+  }, [assignSearchKeyword]);
+
+  // 赋权操作
+  const handleAssignRole = useCallback(async (userId: string, targetRole: string, username: string) => {
+    setAssignLoading(true);
+    setAssignMessage(null);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/admin/assign-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ userId, targetRole, adminId: user?.id })
+      });
+      const data = await res.json();
+      if (data.success) {
+        const roleLabels: Record<string, string> = { admin: '总公司', branch: '分公司', provider: '服务商', member: '会员' };
+        setAssignMessage({ type: 'success', text: `已将用户 ${username} 角色变更为${roleLabels[targetRole]}` });
+        // 刷新搜索结果
+        searchUsersForAssign();
+      } else {
+        setAssignMessage({ type: 'error', text: data.error || '赋权失败' });
+      }
+    } catch (e) {
+      setAssignMessage({ type: 'error', text: '赋权失败，请重试' });
+    } finally {
+      setAssignLoading(false);
+    }
+  }, [user, searchUsersForAssign]);
+
+  // 加载/生成总公司邀请码
+  const loadAdminInviteCode = useCallback(async () => {
+    setInviteCodeLoading(true);
+    setInviteCodeMessage(null);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/invite-codes/generate', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAdminInviteCode(data.data.invite_code);
+      } else {
+        setInviteCodeMessage({ type: 'error', text: data.error || '获取邀请码失败' });
+      }
+    } catch (e) {
+      setInviteCodeMessage({ type: 'error', text: '获取邀请码失败' });
+    } finally {
+      setInviteCodeLoading(false);
+    }
+  }, []);
 
   // 清除能量值数据
   const handleClearEnergyData = async () => {
@@ -4339,7 +4429,7 @@ export default function AdminPage() {
     return (
       <div className="space-y-3 md:space-y-6">
         {/* 子Tab导航 */}
-        <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
+        <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit flex-wrap">
           <button
             onClick={() => setSystemSubTab('config')}
             className={`px-4 py-2 rounded-md transition-colors cursor-pointer ${
@@ -4360,9 +4450,29 @@ export default function AdminPage() {
           >
             数据管理
           </button>
+          <button
+            onClick={() => setSystemSubTab('assign-role')}
+            className={`px-4 py-2 rounded-md transition-colors cursor-pointer ${
+              systemSubTab === 'assign-role' 
+                ? 'bg-purple-600 text-white' 
+                : 'text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            账号赋权
+          </button>
+          <button
+            onClick={() => { setSystemSubTab('invite-code'); if (!adminInviteCode) loadAdminInviteCode(); }}
+            className={`px-4 py-2 rounded-md transition-colors cursor-pointer ${
+              systemSubTab === 'invite-code' 
+                ? 'bg-purple-600 text-white' 
+                : 'text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            邀请码
+          </button>
         </div>
 
-        {systemSubTab === 'config' ? (
+        {systemSubTab === 'config' && (
           <>
         {/* 产品收益配置 */}
         <Card>
@@ -4672,7 +4782,9 @@ export default function AdminPage() {
           </Button>
         </div>
           </>
-        ) : (
+        )}
+
+        {systemSubTab === 'data' && (
           /* 数据管理Tab */
           <Card>
             <CardHeader>
@@ -4765,11 +4877,235 @@ export default function AdminPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* 账号赋权Tab */}
+        {systemSubTab === 'assign-role' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                账号赋权
+              </CardTitle>
+              <CardDescription>指定账号赋予任意角色身份（总公司/分公司/服务商/会员）</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* 搜索区域 */}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="输入用户名/手机号/专属ID搜索"
+                  value={assignSearchKeyword}
+                  onChange={(e) => setAssignSearchKeyword(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && searchUsersForAssign()}
+                  className="flex-1"
+                />
+                <Button 
+                  onClick={searchUsersForAssign} 
+                  disabled={assignSearching || assignSearchKeyword.length < 2}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  {assignSearching ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
+                  搜索
+                </Button>
+              </div>
+
+              {/* 操作提示 */}
+              {assignMessage && (
+                <div className={`p-3 rounded-lg text-sm ${
+                  assignMessage.type === 'success' 
+                    ? 'bg-green-50 text-green-700 border border-green-200' 
+                    : 'bg-red-50 text-red-700 border border-red-200'
+                }`}>
+                  {assignMessage.text}
+                </div>
+              )}
+
+              {/* 搜索结果 */}
+              {assignSearchResults.length > 0 && (
+                <div className="space-y-3">
+                  {assignSearchResults.map((u: any) => {
+                    const roleLabels: Record<string, string> = { admin: '总公司', branch: '分公司', provider: '服务商', member: '会员' };
+                    const roleColors: Record<string, string> = { 
+                      admin: 'bg-red-100 text-red-700', 
+                      branch: 'bg-blue-100 text-blue-700', 
+                      provider: 'bg-purple-100 text-purple-700', 
+                      member: 'bg-green-100 text-green-700' 
+                    };
+                    return (
+                      <div key={u.id} className="p-4 border rounded-lg flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{u.username}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${roleColors[u.role] || 'bg-gray-100 text-gray-700'}`}>
+                              {roleLabels[u.role] || u.role}
+                            </span>
+                            {u.unique_id && <span className="text-xs text-gray-400">[{u.unique_id}]</span>}
+                          </div>
+                          <div className="text-sm text-gray-500 mt-1">
+                            {u.phone && <span>{u.phone}</span>}
+                            {u.branch_name && <span className="ml-3">分公司: {u.branch_name}</span>}
+                            {u.provider_name && <span className="ml-3">服务商: {u.provider_name}</span>}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <select 
+                            id={`role-select-${u.id}`}
+                            className="text-sm border rounded-md px-3 py-1.5 bg-white"
+                            defaultValue=""
+                          >
+                            <option value="" disabled>选择角色</option>
+                            <option value="admin">总公司</option>
+                            <option value="branch">分公司</option>
+                            <option value="provider">服务商</option>
+                            <option value="member">会员</option>
+                          </select>
+                          <Button 
+                            size="sm"
+                            onClick={() => {
+                              const select = document.getElementById(`role-select-${u.id}`) as HTMLSelectElement;
+                              if (select && select.value) {
+                                handleAssignRole(u.id, select.value, u.username);
+                              }
+                            }}
+                            disabled={assignLoading}
+                            className="bg-purple-600 hover:bg-purple-700"
+                          >
+                            {assignLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : '赋权'}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* 空状态 */}
+              {assignSearchResults.length === 0 && !assignMessage && (
+                <div className="text-center py-8 text-gray-400">
+                  <Shield className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p>输入用户名、手机号或专属ID搜索用户</p>
+                  <p className="text-sm mt-1">搜索后可选择目标角色进行赋权</p>
+                </div>
+              )}
+
+              {/* 赋权说明 */}
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800 font-medium">赋权规则说明</p>
+                <ul className="text-xs text-blue-700 mt-2 list-disc list-inside space-y-1">
+                  <li><strong>总公司</strong>：拥有系统最高权限，可管理所有数据和账号</li>
+                  <li><strong>分公司</strong>：管理下级服务商和会员，分配额度</li>
+                  <li><strong>服务商</strong>：生成和上架产品，管理会员，审核交易</li>
+                  <li><strong>会员</strong>：购买产品，查看持仓，管理能量值</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 邀请码Tab */}
+        {systemSubTab === 'invite-code' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Ticket className="w-5 h-5" />
+                总公司邀请码
+              </CardTitle>
+              <CardDescription>使用总公司邀请码注册的账号将自动成为分公司角色</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {inviteCodeMessage && (
+                <div className={`p-3 rounded-lg text-sm ${
+                  inviteCodeMessage.type === 'success' 
+                    ? 'bg-green-50 text-green-700 border border-green-200' 
+                    : 'bg-red-50 text-red-700 border border-red-200'
+                }`}>
+                  {inviteCodeMessage.text}
+                </div>
+              )}
+
+              {/* 邀请码展示 */}
+              <div className="p-6 bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-dashed border-purple-200 rounded-xl text-center">
+                <p className="text-sm text-gray-500 mb-2">总公司专属邀请码</p>
+                {inviteCodeLoading ? (
+                  <Loader2 className="w-8 h-8 animate-spin text-purple-600 mx-auto" />
+                ) : adminInviteCode ? (
+                  <>
+                    <p className="text-3xl font-bold text-purple-700 tracking-widest">{adminInviteCode}</p>
+                    <p className="text-xs text-gray-400 mt-2">使用此邀请码注册 → 自动成为分公司</p>
+                    <div className="flex justify-center gap-3 mt-4">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => {
+                          navigator.clipboard.writeText(adminInviteCode);
+                          setInviteCodeMessage({ type: 'success', text: '邀请码已复制到剪贴板' });
+                          setTimeout(() => setInviteCodeMessage(null), 2000);
+                        }}
+                      >
+                        复制邀请码
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => {
+                          const link = `${window.location.origin}/?invite=${adminInviteCode}`;
+                          navigator.clipboard.writeText(link);
+                          setInviteCodeMessage({ type: 'success', text: '邀请链接已复制到剪贴板' });
+                          setTimeout(() => setInviteCodeMessage(null), 2000);
+                        }}
+                      >
+                        复制邀请链接
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-gray-400">点击下方按钮生成邀请码</p>
+                )}
+              </div>
+
+              {/* 生成/刷新按钮 */}
+              <div className="flex justify-center">
+                <Button 
+                  onClick={loadAdminInviteCode}
+                  disabled={inviteCodeLoading}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  {inviteCodeLoading ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Ticket className="w-4 h-4 mr-2" />
+                  )}
+                  {adminInviteCode ? '刷新邀请码' : '生成邀请码'}
+                </Button>
+              </div>
+
+              {/* 邀请码规则说明 */}
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800 font-medium">邀请码类型说明</p>
+                <div className="mt-2 space-y-2">
+                  <div className="flex items-center gap-2 text-xs text-yellow-700">
+                    <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded font-mono">ADMIN</span>
+                    <span>总公司邀请码 → 注册为<strong>分公司</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-yellow-700">
+                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-mono">BRAN</span>
+                    <span>分公司邀请码 → 注册为<strong>服务商</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-yellow-700">
+                    <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded font-mono">PROV</span>
+                    <span>服务商邀请码 → 注册为<strong>会员</strong>（绑定该服务商）</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-yellow-700">
+                    <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded font-mono">MEMB</span>
+                    <span>会员邀请码 → 注册为<strong>会员</strong>（绑定同服务商）</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     );
   };
-
-  // 渲染公告管理
   const renderAnnouncements = () => (
     <Card>
       <CardHeader>

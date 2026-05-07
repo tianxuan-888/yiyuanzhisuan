@@ -389,14 +389,21 @@ export default function LoginPage() {
       
       if (data.success) {
         // 注册成功后自动登录
+        const assignedRole = data.data.assignedRole || data.data.user.role || 'member';
+        const roleRoutes: Record<string, string> = {
+          admin: '/admin',
+          branch: '/branch',
+          provider: '/admin/provider',
+          member: '/member',
+        };
         localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('userId', data.data.user.id);
         localStorage.setItem('userName', data.data.user.username);
-        localStorage.setItem('userRole', 'member');
+        localStorage.setItem('userRole', assignedRole);
         localStorage.setItem('userData', JSON.stringify(data.data.user));
         
-        // 跳转到会员端
-        router.push('/member');
+        // 根据角色跳转
+        router.push(roleRoutes[assignedRole] || '/member');
       } else {
         setRegisterError(data.error || '注册失败');
       }

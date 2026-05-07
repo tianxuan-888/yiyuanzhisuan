@@ -110,6 +110,7 @@ export async function POST(request: NextRequest) {
     let branchId: string | null = null;
     let inviterId: string | null = null;
     let inviterInfo: { id: string; username: string } | null = null;
+    let assignedRole: string = 'member'; // 默认注册为会员
 
     if (inviteCodeType === 'invalid') {
       return NextResponse.json(
@@ -120,7 +121,7 @@ export async function POST(request: NextRequest) {
 
     // 查找邀请人
     const inviters = await query(
-      'SELECT id, username, provider_id, branch_id FROM users WHERE invite_code = $1',
+      'SELECT id, username, provider_id, branch_id, role FROM users WHERE invite_code = $1',
       [invite_code]
     );
     
@@ -134,13 +135,25 @@ export async function POST(request: NextRequest) {
     const inviter = inviters[0];
     inviterInfo = { id: inviter.id, username: inviter.username };
 
-    if (inviteCodeType === 'provider') {
-      // 服务商邀请
+    if (inviteCodeType === 'admin') {
+      // 总公司邀请码：注册为分公司
+      assignedRole = 'branch';
+      branchId = null; // 注册后由系统分配 branch_id
+      inviterId = inviter.id;
+    } else if (inviteCodeType === 'branch') {
+      // 分公司邀请码：注册为服务商
+      assignedRole = 'provider';
+      branchId = inviter.id; // 分公司的ID就是branch_id
+      inviterId = inviter.id;
+    } else if (inviteCodeType === 'provider') {
+      // 服务商邀请：注册为会员
+      assignedRole = 'member';
       providerId = inviter.id;
       branchId = inviter.branch_id;
       inviterId = inviter.id;
     } else if (inviteCodeType === 'member') {
-      // 会员邀请
+      // 会员邀请：注册为会员
+      assignedRole = 'member';
       providerId = inviter.provider_id;
       branchId = inviter.branch_id;
       inviterId = inviter.id;
@@ -159,15 +172,22 @@ export async function POST(request: NextRequest) {
     // 生成专属ID：HM + 手机号后6位
     const uniqueId = `HM${phone.slice(-6)}`;
 
-    // 生成会员邀请码
-    const memberInviteCode = `MEMB${Date.now().toString(36).toUpperCase()}`;
+    // 根据角色生成不同前缀的邀请码
+    const rolePrefixMap: Record<string, string> = {
+      admin: 'ADMIN',
+      branch: 'BRAN',
+      provider: 'PROV',
+      member: 'MEMB',
+    };
+    const prefix = rolePrefixMap[assignedRole] || 'MEMB';
+    const newInviteCode = `${prefix}${Date.now().toString(36).toUpperCase()}`;
 
-    // 创建会员用户
+    // 创建用户
     const newUsers = await query(
       `INSERT INTO users (username, password, role, phone, real_name, alipay_account, provider_id, branch_id, inviter_id, energy_value, balance, is_active, unique_id, invite_code)
-       VALUES ($1, $2, 'member', $3, $4, $5, $6, $7, $8, 0, 0, true, $9, $10)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, 0, true, $10, $11)
        RETURNING *`,
-      [username, hashedPassword, phone, realName || null, alipayAccount || null, providerId, branchId, inviterId, uniqueId, memberInviteCode]
+      [username, hashedPassword, assignedRole, phone, realName || null, alipayAccount || null, providerId, branchId, inviterId, uniqueId, newInviteCode]
     );
 
     if (newUsers.length === 0) {
@@ -176,21 +196,49 @@ export async function POST(request: NextRequest) {
 
     const newUser = newUsers[0];
 
+    // 注册后处理：分公司设置 branch_id 为自身；服务商创建 providers 记录
+    if (assignedRole === 'branch') {
+      // 分公司的 branch_id 指向自己
+      await query('UPDATE users SET branch_id = $1 WHERE id = $2', [newUser.id, newUser.id]);
+    } else if (assignedRole === 'provider') {
+      // 服务商：在 providers 表创建记录
+      const targetBranchId = branchId || inviter.id;
+      await query(
+        'UPDATE users SET branch_id = $1 WHERE id = $2',
+        [targetBranchId, newUser.id]
+      );
+      const existingProvider = await query('SELECT id FROM providers WHERE user_id = $1', [newUser.id]);
+      if (existingProvider.length === 0) {
+        await query(
+          `INSERT INTO providers (user_id, quota, used_quota, total_sales, branch_id) VALUES ($1, 0, 0, 0, $2)`,
+          [newUser.id, targetBranchId]
+        );
+      }
+    }
+
     // 验证成功后删除验证码
     await deleteVerifyCode(phone);
 
     // 返回用户信息（不包含密码）
     const { password: _, ...userWithoutPassword } = newUser;
 
+    const inviteCodeTypeLabels: Record<string, string> = {
+      admin: '总公司邀请（注册为分公司）',
+      branch: '分公司邀请（注册为服务商）',
+      provider: '服务商邀请',
+      member: '会员邀请',
+    };
+
     return NextResponse.json({
       success: true,
       data: {
         user: {
           ...userWithoutPassword,
-          invite_code: memberInviteCode,
+          invite_code: newInviteCode,
         },
         inviter: inviterInfo,
-        inviteType: inviteCodeType === 'provider' ? '服务商邀请' : '会员邀请',
+        inviteType: inviteCodeTypeLabels[inviteCodeType] || '邀请注册',
+        assignedRole,
       },
     });
   } catch (error) {
