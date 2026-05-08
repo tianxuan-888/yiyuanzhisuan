@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     const from = (page - 1) * pageSize;
 
-    // 查询该服务商下产品的 seller_confirmed 状态流转记录
+    // 查询该服务商下产品的所有进行中流转记录（awaiting_payment, buyer_confirmed, seller_confirmed）
     const transfers = await query(
       `SELECT pt.*,
               p.name as product_name, p.code as product_code, p.price, p.period,
@@ -39,9 +39,15 @@ export async function GET(request: NextRequest) {
        LEFT JOIN products p ON p.id = pt.product_id
        LEFT JOIN users seller ON seller.id = pt.from_user_id
        LEFT JOIN users buyer ON buyer.id = pt.to_user_id
-       WHERE pt.status = 'seller_confirmed'
+       WHERE pt.status IN ('awaiting_payment', 'buyer_confirmed', 'seller_confirmed')
          AND p.provider_id = $1
-       ORDER BY pt.updated_at DESC
+       ORDER BY 
+         CASE pt.status 
+           WHEN 'seller_confirmed' THEN 1 
+           WHEN 'buyer_confirmed' THEN 2 
+           WHEN 'awaiting_payment' THEN 3 
+         END,
+         pt.updated_at DESC
        LIMIT $2 OFFSET $3`,
       [providerId, pageSize, from]
     );
@@ -51,7 +57,7 @@ export async function GET(request: NextRequest) {
       `SELECT COUNT(*) as total
        FROM product_transfers pt
        LEFT JOIN products p ON p.id = pt.product_id
-       WHERE pt.status = 'seller_confirmed'
+       WHERE pt.status IN ('awaiting_payment', 'buyer_confirmed', 'seller_confirmed')
          AND p.provider_id = $1`,
       [providerId]
     );
