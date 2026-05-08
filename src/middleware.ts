@@ -89,6 +89,14 @@ const PUBLIC_PATHS = [
   '/api/admin/withdraw-review',
   '/api/admin/migrate-unique-ids',
   '/api/quota-accounts',
+  '/api/products/transfer/publish',
+  '/api/products/transfer/buy',
+  '/api/products/transfer/list',
+  '/api/products/transfer/market',
+  '/api/products/transfer/confirm-payment',
+  '/api/products/transfer/review',
+  '/api/products/transfer/pending-repurchase',
+  '/api/products/transfer/repurchase',
 ];
 
 // 静态资源和页面路径不走 API 认证

@@ -1,8 +1,11 @@
+const path = require('path');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   allowedDevOrigins: ['*.dev.coze.site'],
-  // Turbopack 在 Next.js 16 中需使用对象格式，此处显式禁用
-  turbopack: {},
+  turbopack: {
+    root: path.join(__dirname),
+  },
   images: {
     unoptimized: true,
     remotePatterns: [
