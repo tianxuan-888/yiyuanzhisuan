@@ -2671,24 +2671,24 @@ const [copySuccess, setCopySuccess] = useState(false);
                                     </CardContent>
                                 </Card>
 
-                                {/* 推荐人状态 */}
-                                <Card className={`border ${purchaseLimits.limits?.hasValidInviter ? 'border-green-600 bg-green-900/20' : 'border-orange-500/50 bg-orange-900/20'}`}>
+                                {/* 直推会员状态 */}
+                                <Card className={`border ${purchaseLimits.limits?.hasDirectReferral ? 'border-green-600 bg-green-900/20' : 'border-orange-500/50 bg-orange-900/20'}`}>
                                     <CardContent className="p-2">
                                         <div className="flex items-center gap-1 mb-1">
-                                            <Users className={`w-3.5 h-3.5 ${purchaseLimits.limits?.hasValidInviter ? 'text-green-400' : 'text-orange-400'}`} />
-                                            <span className="text-xs font-medium text-slate-300">推荐人</span>
+                                            <Users className={`w-3.5 h-3.5 ${purchaseLimits.limits?.hasDirectReferral ? 'text-green-400' : 'text-orange-400'}`} />
+                                            <span className="text-xs font-medium text-slate-300">直推会员</span>
                                         </div>
                                         <div className="flex justify-between items-end">
                                             <div>
                                                 <p className="text-lg font-bold text-white">
-                                                    {purchaseLimits.limits?.hasValidInviter ? '有效' : '无'}
+                                                    {purchaseLimits.limits?.hasDirectReferral ? `${purchaseLimits.limits?.directReferralCount || 1}人` : '无'}
                                                 </p>
                                                 <p className="text-[10px] text-slate-400">
-                                                    {purchaseLimits.limits?.hasValidInviter ? purchaseLimits.limits?.inviterInfo?.username : '未绑定'}
+                                                    {purchaseLimits.limits?.hasDirectReferral ? purchaseLimits.limits?.directReferralInfo?.username : '未推荐'}
                                                 </p>
                                             </div>
-                                            <Badge variant="outline" className={`text-[10px] ${purchaseLimits.limits?.hasValidInviter ? 'bg-green-500/20 text-green-400' : 'bg-orange-500/20 text-orange-400'}`}>
-                                                {purchaseLimits.limits?.hasValidInviter ? '已激活' : '待激活'}
+                                            <Badge variant="outline" className={`text-[10px] ${purchaseLimits.limits?.hasDirectReferral ? 'bg-green-500/20 text-green-400' : 'bg-orange-500/20 text-orange-400'}`}>
+                                                {purchaseLimits.limits?.hasDirectReferral ? '已激活' : '待激活'}
                                             </Badge>
                                         </div>
                                     </CardContent>
@@ -2706,7 +2706,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                 {purchaseLimits.limits?.isTimeLocked ? (
                                                     <>
                                                         <p className="text-lg font-bold text-red-400">已锁定</p>
-                                                        <p className="text-[10px] text-slate-400">需推荐人</p>
+                                                        <p className="text-[10px] text-slate-400">需直推会员</p>
                                                     </>
                                                 ) : purchaseLimits.limits?.graceRemainingDays > 0 ? (
                                                     <>
@@ -2716,20 +2716,20 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                         </p>
                                                         <p className="text-[10px] text-slate-400">保护中</p>
                                                     </>
-                                                ) : purchaseLimits.limits?.hasValidInviter ? (
+                                                ) : purchaseLimits.limits?.hasDirectReferral ? (
                                                     <>
                                                         <p className="text-lg font-bold text-green-400">已解除</p>
-                                                        <p className="text-[10px] text-slate-400">有推荐人</p>
+                                                        <p className="text-[10px] text-slate-400">有直推会员</p>
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <p className="text-lg font-bold text-orange-400">待绑定</p>
-                                                        <p className="text-[10px] text-slate-400">需推荐人</p>
+                                                        <p className="text-lg font-bold text-orange-400">待激活</p>
+                                                        <p className="text-[10px] text-slate-400">需直推会员</p>
                                                     </>
                                                 )}
                                             </div>
                                             <Badge variant="outline" className={`text-[10px] ${purchaseLimits.limits?.isTimeLocked ? 'bg-red-500/20 text-red-400' : purchaseLimits.limits?.graceRemainingDays > 0 ? 'bg-green-500/20 text-green-400' : 'bg-slate-500/20 text-slate-400'}`}>
-                                                {purchaseLimits.limits?.isTimeLocked ? '已锁定' : purchaseLimits.limits?.graceRemainingDays > 0 ? '保护中' : '待绑定'}
+                                                {purchaseLimits.limits?.isTimeLocked ? '已锁定' : purchaseLimits.limits?.graceRemainingDays > 0 ? '保护中' : purchaseLimits.limits?.hasDirectReferral ? '已解除' : '待激活'}
                                             </Badge>
                                         </div>
                                     </CardContent>

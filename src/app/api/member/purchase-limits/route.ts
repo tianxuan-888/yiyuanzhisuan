@@ -35,33 +35,38 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '用户不存在' }, { status: 404 });
     }
 
-    // 检查是否有有效推荐人（推荐人也要购买过产品才算）
-    let hasValidInviter = false;
+    // 检查是否有直推（我推荐了别人，别人才是有效推荐关系）
+    // 解锁条件：有直推（推荐了别人），而非被推荐（有推荐人）
+    let hasDirectReferral = false;
+    let directReferralInfo: any = null;
+
+    // 查询我推荐了多少人（我的直推）
+    const directReferrals: any = await query(
+      `SELECT id, username FROM users WHERE inviter_id = $1`,
+      [userId]
+    );
+
+    const directReferralCount = directReferrals ? directReferrals.length : 0;
+    if (directReferralCount > 0) {
+      hasDirectReferral = true;
+      directReferralInfo = {
+        id: directReferrals[0].id,
+        username: directReferrals[0].username,
+      };
+    }
+
+    // 查询推荐人信息（谁推荐了我，仅用于展示）
     let inviterInfo: any = null;
-    
     if (user.inviter_id) {
-      // 查询推荐人信息
       const inviter: any = await queryOne(
         `SELECT id, username FROM users WHERE id = $1`,
         [user.inviter_id]
       );
-      
       if (inviter) {
-        // 检查推荐人是否购买过产品
-        const inviterPurchase: any = await queryOne(
-          `SELECT COUNT(*) as count FROM user_products WHERE user_id = $1 AND status = 'holding'`,
-          [inviter.id]
-        );
-        
-        const inviterHasPurchase = parseInt(inviterPurchase?.count || '0') > 0;
-        
-        if (inviterHasPurchase) {
-          hasValidInviter = true;
-          inviterInfo = {
-            id: inviter.id,
-            username: inviter.username,
-          };
-        }
+        inviterInfo = {
+          id: inviter.id,
+          username: inviter.username,
+        };
       }
     }
 
@@ -89,9 +94,9 @@ export async function GET(request: NextRequest) {
       new Date(new Date(firstPurchaseDate).getTime() + lockDays * 24 * 60 * 60 * 1000) : null;
     
     const now = new Date();
-    // 时间锁：超过20天且无有效推荐人
+    // 时间锁：超过保护期且无有效直推
     const withinGracePeriod = lockEndDate ? now < lockEndDate : false;
-    const isTimeLocked = !hasValidInviter && lockEndDate && now >= lockEndDate;
+    const isTimeLocked = !hasDirectReferral && lockEndDate && now >= lockEndDate;
 
     // 持仓限制配置
     const maxHolding = 20000;
@@ -105,8 +110,11 @@ export async function GET(request: NextRequest) {
       remainingHolding,
       holdingLimitReached: totalHolding >= maxHolding,
       
-      // 时间锁（无有效推荐人）
-      hasValidInviter,
+      // 解锁状态（基于直推）
+      hasDirectReferral,
+      directReferralCount: directReferrals?.length || 0,
+      directReferralInfo,
+      hasInviter: !!user.inviter_id,
       inviterInfo,
       lockDays,
       firstPurchaseDate,
@@ -122,7 +130,7 @@ export async function GET(request: NextRequest) {
         totalHolding >= maxHolding ?
         `持仓已达上限（${totalHolding.toLocaleString()}/${maxHolding.toLocaleString()}元）` :
         isTimeLocked ?
-        `超过${lockDays}天保护期，需绑定有效推荐人才能继续购买` :
+        `超过${lockDays}天保护期，需有直推会员才能继续购买` :
         null,
     };
 
@@ -132,7 +140,9 @@ export async function GET(request: NextRequest) {
         user: {
           id: user.id,
           username: user.username,
-          hasValidInviter,
+          hasDirectReferral,
+          directReferralInfo,
+          hasInviter: !!user.inviter_id,
           inviterInfo,
         },
         limits: purchaseLimits,
