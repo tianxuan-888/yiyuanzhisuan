@@ -40,18 +40,18 @@ export async function GET(request: NextRequest) {
     // products.provider_id 存的是 users.id
     const providerUserId = providerResult[0].user_id;
 
-    // 构建查询条件
-    let whereClause = 'WHERE p.provider_id = $1';
-    const params: any[] = [providerUserId];
+    // 构建查询条件 - 销售记录只展示已上架、已售出、流转中的产品，排除未上架(draft/unlisted)
+    let whereClause = 'WHERE p.provider_id = $1 AND p.status NOT IN ($2, $3)';
+    const params: any[] = [providerUserId, 'draft', 'unlisted'];
 
     if (status === 'available') {
-      whereClause += ' AND p.status = $2';
+      whereClause += ' AND p.status = $4';
       params.push('available');
     } else if (status === 'sold') {
-      whereClause += ' AND p.status IN ($2, $3)';
+      whereClause += ' AND p.status IN ($4, $5)';
       params.push('sold', 'pending_sell');
     } else if (status === 'pending') {
-      whereClause += ' AND p.status = $2';
+      whereClause += ' AND p.status = $4';
       params.push('pending_sell');
     }
 
@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
     params.push(pageSize, offset);
     const records = await query(sql, params);
 
-    // 统计
+    // 统计 - 只统计非未上架的产品
     const statsSql = `
       SELECT 
         COUNT(*) as total,
@@ -121,15 +121,14 @@ export async function GET(request: NextRequest) {
         COUNT(*) FILTER (WHERE p.status = 'pending_sell') as pending,
         COALESCE(SUM(p.price) FILTER (WHERE p.status IN ('sold', 'pending_sell')), 0) as total_sold_amount
       FROM products p
-      WHERE p.provider_id = $1
+      WHERE p.provider_id = $1 AND p.status NOT IN ('draft', 'unlisted')
     `;
     const statsResult = await query(statsSql, [providerUserId]);
     const stats = statsResult[0] || { total: 0, available: 0, sold: 0, pending: 0, total_sold_amount: 0 };
 
     // 获取总数
     const countSql = `SELECT COUNT(*) as total FROM products p ${whereClause}`;
-    const countParams = params.slice(0, status ? (status === 'sold' ? 3 : 2) : 1);
-    const countResult = await query(countSql, countParams);
+    const countResult = await query(countSql, params);
     const total = parseInt(countResult[0]?.total || '0');
 
     return NextResponse.json({

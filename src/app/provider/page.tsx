@@ -3012,11 +3012,14 @@ export default function ProviderPage() {
                                                             record.productStatus === "available" ? "bg-green-100 text-green-700" :
                                                             record.productStatus === "sold" ? "bg-blue-100 text-blue-700" :
                                                             record.productStatus === "pending_sell" ? "bg-amber-100 text-amber-700" :
+                                                            record.productStatus === "pending_confirm" ? "bg-yellow-100 text-yellow-700" :
                                                             "bg-gray-100 text-gray-700"
                                                         }>
                                                             {record.productStatus === "available" ? "在售" :
                                                              record.productStatus === "sold" ? "已售出" :
-                                                             record.productStatus === "pending_sell" ? "待确认" : "其他"}
+                                                             record.productStatus === "pending_sell" ? "流转中" :
+                                                             record.productStatus === "pending_confirm" ? "待确认" :
+                                                             record.productStatus}
                                                         </Badge>
                                                     </td>
                                                     <td className="py-3 px-4">
