@@ -234,8 +234,8 @@ export async function POST(request: NextRequest) {
 
     // 通知卖家流转完成
     await query(
-      `INSERT INTO notifications (receiver_id, receiver_role, type, title, content, related_id, created_at)
-       VALUES ($1, 'member', 'transfer_completed', '流转完成', $2, $3, NOW())`,
+      `INSERT INTO notifications (receiver_id, receiver_role, type, title, content, related_id, status, created_at)
+       VALUES ($1, 'member', 'transfer_completed', '流转完成', $2, $3, 'unread', NOW())`,
       [
         transfer.from_user_id,
         `产品 ${product.name} 流转已完成，收益 ¥${sellerProfit} 已到账`,
@@ -245,8 +245,8 @@ export async function POST(request: NextRequest) {
 
     // 通知买家流转完成
     await query(
-      `INSERT INTO notifications (receiver_id, receiver_role, type, title, content, related_id, created_at)
-       VALUES ($1, 'member', 'transfer_completed', '流转完成', $2, $3, NOW())`,
+      `INSERT INTO notifications (receiver_id, receiver_role, type, title, content, related_id, status, created_at)
+       VALUES ($1, 'member', 'transfer_completed', '流转完成', $2, $3, 'unread', NOW())`,
       [
         transfer.to_user_id,
         `产品 ${product.name} 流转已完成，您已获得产品持仓`,
@@ -271,6 +271,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('审核流转失败:', error);
-    return NextResponse.json({ error: '服务器错误' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : '审核流转失败';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

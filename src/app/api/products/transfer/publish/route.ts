@@ -132,6 +132,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('发布流转失败:', error);
-    return NextResponse.json({ error: '服务器错误' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : '发布流转失败';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

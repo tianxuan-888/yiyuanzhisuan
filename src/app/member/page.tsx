@@ -912,6 +912,11 @@ const [copySuccess, setCopySuccess] = useState(false);
                 refreshAll();
             } else {
                 showMessage("error", data.error || "发布流转失败");
+                // 如果是时间锁错误，额外提示
+                if (data.data?.code === 'HOLD_TIME_LOCK') {
+                    const info = data.data;
+                    showMessage("error", `${info.productPeriod}天产品需持仓满${info.minHoldHours}小时，还需等待 ${info.remainingHours} 小时`);
+                }
             }
         } catch (error) {
             showMessage("error", "网络错误");
