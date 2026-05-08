@@ -68,11 +68,13 @@ export async function POST(request: NextRequest) {
         [operatorUserId]
       );
 
+      const providerUser = await queryOne<any>('SELECT role FROM users WHERE id = $1', [product.provider_id]);
       await query(
-        `INSERT INTO notifications (user_id, type, title, content, related_id, created_at)
-         VALUES ($1, 'transfer_review', '流转审核通知', $2, $3, NOW())`,
+        `INSERT INTO notifications (receiver_id, receiver_role, type, title, content, related_id, status, created_at)
+         VALUES ($1, $2, 'transfer_review', '流转审核通知', $3, $4, 'unread', NOW())`,
         [
           product.provider_id,
+          providerUser?.role || 'provider',
           `卖家 ${seller?.username || ''}已确认收款，产品 ${product.name || ''} 买家 ${buyer?.username || ''}，请审核确认流转`,
           transferId
         ]

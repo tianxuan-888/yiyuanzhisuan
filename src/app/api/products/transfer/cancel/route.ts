@@ -103,10 +103,11 @@ export async function POST(request: NextRequest) {
 
     // 通知买家流转已取消
     if (transfer.to_user_id) {
+      const toUser = await queryOne<any>('SELECT role FROM users WHERE id = $1', [transfer.to_user_id]);
       await query(
-        `INSERT INTO notifications (user_id, type, title, content, related_id, created_at)
-         VALUES ($1, 'transfer_cancelled', '流转已取消', $2, $3, NOW())`,
-        [transfer.to_user_id, '卖家已取消流转，市场费已退还到您的账户', transferId]
+        `INSERT INTO notifications (receiver_id, receiver_role, type, title, content, related_id, status, created_at)
+         VALUES ($1, $2, 'transfer_cancelled', '流转已取消', $3, $4, 'unread', NOW())`,
+        [transfer.to_user_id, toUser?.role || 'member', '卖家已取消流转，市场费已退还到您的账户', transferId]
       );
     }
 

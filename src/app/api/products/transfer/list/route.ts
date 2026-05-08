@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/storage/database/pg-client';
+import { query, queryOne } from '@/storage/database/pg-client';
 
 // 获取流转列表（支持流转市场 + 我的流转 + 回购查询）
 export async function GET(request: NextRequest) {
@@ -66,17 +66,19 @@ export async function GET(request: NextRequest) {
 
           // 通知卖家和买家
           if (t.from_user_id) {
+            const fromUser = await queryOne<any>('SELECT role FROM users WHERE id = $1', [t.from_user_id]);
             await query(
-              `INSERT INTO notifications (user_id, type, title, content, related_id, created_at)
-               VALUES ($1, 'transfer_cancelled', '流转超时取消', $2, $3, NOW())`,
-              [t.from_user_id, '买家付款超时，流转已自动取消，产品已重新上架到流转市场', t.id]
+              `INSERT INTO notifications (receiver_id, receiver_role, type, title, content, related_id, status, created_at)
+               VALUES ($1, $2, 'transfer_cancelled', '流转超时取消', $3, $4, 'unread', NOW())`,
+              [t.from_user_id, fromUser?.role || 'member', '买家付款超时，流转已自动取消，产品已重新上架到流转市场', t.id]
             );
           }
           if (t.to_user_id) {
+            const toUser = await queryOne<any>('SELECT role FROM users WHERE id = $1', [t.to_user_id]);
             await query(
-              `INSERT INTO notifications (user_id, type, title, content, related_id, created_at)
-               VALUES ($1, 'transfer_cancelled', '流转超时取消', $2, $3, NOW())`,
-              [t.to_user_id, '付款超时，流转已自动取消，市场费已退还', t.id]
+              `INSERT INTO notifications (receiver_id, receiver_role, type, title, content, related_id, status, created_at)
+               VALUES ($1, $2, 'transfer_cancelled', '流转超时取消', $3, $4, 'unread', NOW())`,
+              [t.to_user_id, toUser?.role || 'member', '付款超时，流转已自动取消，市场费已退还', t.id]
             );
           }
         }

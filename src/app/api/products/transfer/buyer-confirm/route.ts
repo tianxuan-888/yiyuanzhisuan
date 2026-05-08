@@ -74,11 +74,13 @@ export async function POST(request: NextRequest) {
     );
 
     if (transfer.from_user_id) {
+      const fromUser = await queryOne<any>('SELECT role FROM users WHERE id = $1', [transfer.from_user_id]);
       await query(
-        `INSERT INTO notifications (user_id, type, title, content, related_id, created_at)
-         VALUES ($1, 'transfer_payment', '买家已确认付款', $2, $3, NOW())`,
+        `INSERT INTO notifications (receiver_id, receiver_role, type, title, content, related_id, status, created_at)
+         VALUES ($1, $2, 'transfer_payment', '买家已确认付款', $3, $4, 'unread', NOW())`,
         [
           transfer.from_user_id,
+          fromUser?.role || 'member',
           `买家 ${buyer?.username || ''}已确认线下付款，产品 ${product?.name || ''}，请确认收款`,
           transferId
         ]
@@ -140,17 +142,19 @@ async function cancelTransfer(transfer: any) {
 
   // 通知卖家和买家
   if (transfer.from_user_id) {
+    const fromUser = await queryOne<any>('SELECT role FROM users WHERE id = $1', [transfer.from_user_id]);
     await query(
-      `INSERT INTO notifications (user_id, type, title, content, related_id, created_at)
-       VALUES ($1, 'transfer_cancelled', '流转已取消', $2, $3, NOW())`,
-      [transfer.from_user_id, '买家付款超时，流转已自动取消，产品已恢复到您的持仓', transfer.id]
+      `INSERT INTO notifications (receiver_id, receiver_role, type, title, content, related_id, status, created_at)
+       VALUES ($1, $2, 'transfer_cancelled', '流转已取消', $3, $4, 'unread', NOW())`,
+      [transfer.from_user_id, fromUser?.role || 'member', '买家付款超时，流转已自动取消，产品已恢复到您的持仓', transfer.id]
     );
   }
   if (transfer.to_user_id) {
+    const toUser = await queryOne<any>('SELECT role FROM users WHERE id = $1', [transfer.to_user_id]);
     await query(
-      `INSERT INTO notifications (user_id, type, title, content, related_id, created_at)
-       VALUES ($1, 'transfer_cancelled', '流转已取消', $2, $3, NOW())`,
-      [transfer.to_user_id, '付款超时，流转已自动取消，市场费已退还', transfer.id]
+      `INSERT INTO notifications (receiver_id, receiver_role, type, title, content, related_id, status, created_at)
+       VALUES ($1, $2, 'transfer_cancelled', '流转已取消', $3, $4, 'unread', NOW())`,
+      [transfer.to_user_id, toUser?.role || 'member', '付款超时，流转已自动取消，市场费已退还', transfer.id]
     );
   }
 }
