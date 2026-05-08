@@ -178,6 +178,38 @@ export async function POST(request: NextRequest) {
           sellerProfit
         ]
       );
+
+      // 写入会员收益表，以便"我的收益"页面展示
+      const [sellerProduct] = await query(
+        "SELECT id, purchase_date FROM user_products WHERE product_id = $1 AND user_id = $2 LIMIT 1",
+        [transfer.product_id, transfer.from_user_id]
+      );
+      // 计算持有天数
+      let holdingDays = product.period;
+      if (sellerProduct?.purchase_date) {
+        const purchaseDate = new Date(sellerProduct.purchase_date);
+        const now = new Date();
+        holdingDays = Math.max(1, Math.floor((now.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24)));
+      }
+      await query(
+        `INSERT INTO member_revenue (user_id, order_id, user_product_id, principal, profit, total_amount, converted_to_energy, status, product_name, product_code, product_period, total_rate, profit_rate, market_rate, holding_days, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, 0, 'available', $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())`,
+        [
+          transfer.from_user_id,
+          transfer.id,
+          sellerProduct?.id || '',
+          transfer.transfer_price,
+          sellerProfit,
+          transfer.transfer_price + sellerProfit,
+          product.name,
+          product.code,
+          product.period,
+          product.total_rate,
+          product.profit_rate,
+          product.market_rate,
+          holdingDays,
+        ]
+      );
     }
 
     // 记录流转完成日志

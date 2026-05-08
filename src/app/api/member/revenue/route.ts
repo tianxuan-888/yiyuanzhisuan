@@ -38,8 +38,12 @@ export async function GET(request: NextRequest) {
       .rpc('rpc_query', {
         sql_query: `
           SELECT mr.*, 
-            p.name as product_name, p.code as product_code, p.period as product_period,
-            p.total_rate, p.profit_rate, p.market_rate
+            COALESCE(mr.product_name, p.name) as product_name, 
+            COALESCE(mr.product_code, p.code) as product_code, 
+            COALESCE(mr.product_period, p.period) as product_period,
+            COALESCE(mr.total_rate, p.total_rate) as total_rate, 
+            COALESCE(mr.profit_rate, p.profit_rate) as profit_rate, 
+            COALESCE(mr.market_rate, p.market_rate) as market_rate
           FROM member_revenue mr
           LEFT JOIN user_products up ON mr.user_product_id = up.id
           LEFT JOIN products p ON up.product_id = p.id
@@ -183,7 +187,7 @@ export async function POST(request: NextRequest) {
       .from('member_revenue')
       .select('id, profit, converted_to_energy, status')
       .eq('user_id', userId)
-      .eq('status', 'pending')
+      .in('status', ['pending', 'available'])
       .order('created_at', { ascending: true });
 
     let totalAvailable = 0;
