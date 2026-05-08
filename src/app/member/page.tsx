@@ -183,6 +183,22 @@ export default function MemberPage() {
     const [showProfitToEnergyDialog, setShowProfitToEnergyDialog] = useState(false);
     const [showSellerContactDialog, setShowSellerContactDialog] = useState(false);
     const [selectedTransferForPayment, setSelectedTransferForPayment] = useState<any>(null);
+    const [countdownTick, setCountdownTick] = useState(0);
+
+    // 每秒更新倒计时
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCountdownTick(prev => prev + 1);
+        }, 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    // 计算流转剩余时间（毫秒）
+    const getPaymentRemaining = (transfer: any) => {
+        const createdTime = new Date(transfer.created_at).getTime();
+        const expireTime = createdTime + 2 * 60 * 60 * 1000;
+        return Math.max(0, expireTime - Date.now());
+    };
     const [rechargeAmount, setRechargeAmount] = useState("100");
     const [rechargeNote, setRechargeNote] = useState("");
     const [transferAmount, setTransferAmount] = useState("100");
@@ -1334,6 +1350,8 @@ const [copySuccess, setCopySuccess] = useState(false);
 
     return (
         <div className="min-h-screen bg-gray-100">
+            {/* 隐藏元素，用于触发倒计时刷新 */}
+            <span className="hidden">{countdownTick}</span>
             {}
             {message && <div
                 className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-lg ${message.type === "success" ? "bg-green-500" : "bg-red-500"} text-white shadow-lg`}>
@@ -1610,12 +1628,12 @@ const [copySuccess, setCopySuccess] = useState(false);
                                     <span className="font-bold text-lg text-amber-600">¥{Number(selectedTransferForPayment.price).toLocaleString()}</span>
                                 </div>
                             </div>
-                            {selectedTransferForPayment.paymentCountdown > 0 && (
+                            {(() => { const rem = getPaymentRemaining(selectedTransferForPayment); return rem > 0 ? (
                                 <div className="text-center text-xs text-orange-600">
                                     <Clock className="w-3 h-3 inline mr-1" />
-                                    付款剩余: {Math.floor(selectedTransferForPayment.paymentCountdown / 60)}分{Math.floor(selectedTransferForPayment.paymentCountdown % 60)}秒
+                                    付款剩余: {Math.floor(rem / 60000)}分{Math.floor((rem % 60000) / 1000)}秒
                                 </div>
-                            )}
+                            ) : null; })()}
                             <Button
                                 className="w-full bg-green-600 hover:bg-green-700 text-white"
                                 onClick={async () => {
@@ -3566,7 +3584,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                     <div className="pt-2 border-t space-y-2">
                                                         {t.paymentCountdown > 0 && (
                                                             <div className="text-xs text-orange-600 flex items-center gap-1">
-                                                                <Clock className="w-3 h-3" />付款剩余: {Math.floor(t.paymentCountdown / 60)}分{Math.floor(t.paymentCountdown % 60)}秒
+                                                                <Clock className="w-3 h-3" />付款剩余: {(() => { const rem = getPaymentRemaining(t); return `${Math.floor(rem / 60000)}分${Math.floor((rem % 60000) / 1000)}秒`; })()}
                                                             </div>
                                                         )}
                                                         <div className="flex gap-2">
