@@ -532,6 +532,11 @@ const [copySuccess, setCopySuccess] = useState(false);
         if (!user?.id) return;
         try {
             const token = localStorage.getItem('token');
+            // 先检查超时流转，触发回购标记
+            await fetch('/api/products/transfer/check-timeout', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+            });
             const response = await fetch(`/api/products/transfer/list?userId=${user.id}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -3225,6 +3230,46 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                             }}
                                                         >
                                                             <CheckCircle className="w-4 h-4 mr-1" />确认收款
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                                {/* 待回购确认 - 卖家确认收到回购本金 */}
+                                                {t.status === 'pending_repurchase' && (
+                                                    <div className="pt-2 border-t space-y-2">
+                                                        <div className="text-xs text-orange-600 flex items-center gap-1">
+                                                            <AlertCircle className="w-3 h-3" />24小时无人购买，服务商已发起回购。请确认已收到线下返还本金。
+                                                        </div>
+                                                        <Button
+                                                            size="sm"
+                                                            className="bg-orange-600 hover:bg-orange-700 text-white w-full"
+                                                            onClick={async () => {
+                                                                if (!confirm(`确认已收到服务商线下返还的本金 ¥${Number(t.price).toLocaleString()}？\n确认后产品将回到服务商在售列表。`)) return;
+                                                                try {
+                                                                    const token = localStorage.getItem('token');
+                                                                    const res = await fetch('/api/products/transfer/confirm-repurchase', {
+                                                                        method: 'POST',
+                                                                        headers: {
+                                                                            'Content-Type': 'application/json',
+                                                                            'Authorization': `Bearer ${token}`
+                                                                        },
+                                                                        body: JSON.stringify({
+                                                                            transferId: t.id,
+                                                                            sellerId: user?.id
+                                                                        })
+                                                                    });
+                                                                    const data = await res.json();
+                                                                    if (data.success) {
+                                                                        alert('已确认收到回购本金，产品已回到服务商在售列表');
+                                                                        refreshAll();
+                                                                    } else {
+                                                                        alert(data.error || '确认失败');
+                                                                    }
+                                                                } catch (e: any) {
+                                                                    alert('确认失败: ' + e.message);
+                                                                }
+                                                            }}
+                                                        >
+                                                            <CheckCircle className="w-4 h-4 mr-1" />确认收到回购本金
                                                         </Button>
                                                     </div>
                                                 )}

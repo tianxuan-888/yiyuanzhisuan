@@ -97,6 +97,8 @@ const PUBLIC_PATHS = [
   '/api/products/transfer/review',
   '/api/products/transfer/pending-repurchase',
   '/api/products/transfer/repurchase',
+  '/api/products/transfer/confirm-repurchase',
+  '/api/products/transfer/check-timeout',
 ];
 
 // 静态资源和页面路径不走 API 认证

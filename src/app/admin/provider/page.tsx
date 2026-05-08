@@ -131,6 +131,11 @@ export default function ProviderDashboard() {
   const [transferLoading, setTransferLoading] = useState(false);
   const [reviewingTransfer, setReviewingTransfer] = useState<string | null>(null);
 
+  // 回购管理状态
+  const [repurchases, setRepurchases] = useState<any[]>([]);
+  const [repurchaseLoading, setRepurchaseLoading] = useState(false);
+  const [repurchasingId, setRepurchasingId] = useState<string | null>(null);
+
   // Toast
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
@@ -298,6 +303,7 @@ export default function ProviderDashboard() {
   useEffect(() => {
     if (token && activeMenu === 'transfer') {
       fetchTransfers();
+      fetchRepurchases();
     }
   }, [token, activeMenu]);
 
@@ -306,6 +312,11 @@ export default function ProviderDashboard() {
     if (!user?.id) return;
     setTransferLoading(true);
     try {
+      // 先检查超时流转
+      await fetch('/api/products/transfer/check-timeout', {
+        method: 'POST',
+        headers: getHeaders()
+      });
       const res = await fetch(`/api/products/transfer/list?providerId=${user.id}`, {
         headers: getHeaders()
       });
@@ -317,6 +328,52 @@ export default function ProviderDashboard() {
       console.error('获取流转列表失败:', err);
     } finally {
       setTransferLoading(false);
+    }
+  };
+
+  // 获取待回购列表
+  const fetchRepurchases = async () => {
+    if (!user?.id) return;
+    setRepurchaseLoading(true);
+    try {
+      const res = await fetch(`/api/products/transfer/list?providerId=${user.id}&status=pending_repurchase,repurchasing`, {
+        headers: getHeaders()
+      });
+      const data = await res.json();
+      if (data.success) {
+        setRepurchases(data.data || []);
+      }
+    } catch (err) {
+      console.error('获取回购列表失败:', err);
+    } finally {
+      setRepurchaseLoading(false);
+    }
+  };
+
+  // 服务商发起回购
+  const handleRepurchase = async (transferId: string) => {
+    setRepurchasingId(transferId);
+    try {
+      const res = await fetch('/api/products/transfer/repurchase', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          transferId,
+          providerId: user.id
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setToast({ message: '回购已发起，请线下返还本金给会员，等待会员确认', type: 'success' });
+        fetchRepurchases();
+        fetchTransfers();
+      } else {
+        setToast({ message: data.error || '回购失败', type: 'error' });
+      }
+    } catch (err) {
+      setToast({ message: '回购操作失败', type: 'error' });
+    } finally {
+      setRepurchasingId(null);
     }
   };
 
@@ -1487,14 +1544,79 @@ export default function ProviderDashboard() {
       case 'repurchase':
         return (
           <div className="space-y-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">回购管理</h1>
-              <p className="text-gray-500 text-sm mt-1">管理待回购产品</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">回购管理</h1>
+                <p className="text-gray-500 text-sm mt-1">超时未售出的流转产品需要回购，回购后线下返还本金给卖家</p>
+              </div>
+              <Button onClick={fetchRepurchases} variant="outline" size="sm" disabled={repurchaseLoading}>
+                <RefreshCw className="w-4 h-4 mr-1" /> 刷新
+              </Button>
             </div>
-            <div className="text-center py-12 text-gray-500">
-              <RefreshCw className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-              <p>暂无待回购产品</p>
+
+            {/* 回购规则说明 */}
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <h3 className="font-semibold text-amber-800 mb-2">回购规则</h3>
+              <ul className="text-sm text-amber-700 space-y-1">
+                <li>• 流转产品发布后 <strong>24小时</strong> 无人购买，触发服务商回购机制</li>
+                <li>• 服务商需 <strong>线下返还本金</strong> 给卖家会员</li>
+                <li>• 卖家确认收到本金后，产品回到服务商在售列表</li>
+                <li>• 回购仅返还本金，不包含收益</li>
+              </ul>
             </div>
+
+            {repurchaseLoading ? (
+              <div className="text-center py-12 text-gray-500">
+                <RefreshCw className="w-8 h-8 mx-auto mb-2 animate-spin" />
+                <p>加载中...</p>
+              </div>
+            ) : repurchases.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <RefreshCw className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                <p>暂无待回购产品</p>
+                <p className="text-sm mt-1">流转产品超过24小时无人购买时会出现在这里</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {repurchases.map((item: any) => (
+                  <div key={item.id} className="bg-white rounded-lg border p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-semibold">{item.product_name || item.product_code || '产品'}</span>
+                          <Badge variant={item.status === 'repurchasing' ? 'default' : 'outline'}>
+                            {item.status === 'repurchasing' ? '待卖家确认' : '待回购'}
+                          </Badge>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
+                          <div>卖家：{item.seller_name || '-'}</div>
+                          <div>产品价格：¥{item.product_price?.toLocaleString() || '-'}</div>
+                          <div>发布时间：{item.created_at ? new Date(item.created_at).toLocaleString() : '-'}</div>
+                          <div>超时时间：{item.timeout_at ? new Date(item.timeout_at).toLocaleString() : '-'}</div>
+                        </div>
+                        {item.status === 'repurchasing' && (
+                          <div className="mt-2 text-sm text-amber-600 bg-amber-50 rounded p-2">
+                            已发起回购，等待卖家确认收到本金...
+                          </div>
+                        )}
+                      </div>
+                      <div className="ml-4">
+                        {item.status === 'pending_repurchase' ? (
+                          <Button
+                            onClick={() => handleRepurchase(item.id)}
+                            className="bg-amber-600 hover:bg-amber-700 text-white"
+                          >
+                            发起回购
+                          </Button>
+                        ) : item.status === 'repurchasing' ? (
+                          <span className="text-sm text-amber-600">等待确认</span>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         );
 
