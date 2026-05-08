@@ -11,9 +11,82 @@ export async function GET(request: NextRequest) {
     const statusFilter = searchParams.get('status');
     const marketMode = searchParams.get('market'); // 'true' 表示获取流转市场
 
-    const now = new Date().toISOString();
+    // ========== 自动超时取消：2小时未付款的流转 ==========
+    try {
+      const timeoutTransfers = await query(
+        `SELECT id, product_id, from_user_id, to_user_id, market_fee 
+         FROM product_transfers 
+         WHERE status = 'awaiting_payment' 
+           AND updated_at < NOW() - INTERVAL '2 hours'`
+      );
 
-    // 构建SQL查询（使用pg-client直接查询，避免Supabase外键依赖）
+      if (Array.isArray(timeoutTransfers) && timeoutTransfers.length > 0) {
+        for (const t of timeoutTransfers) {
+          // 恢复产品状态
+          await query(
+            "UPDATE products SET status = 'available', updated_at = NOW() WHERE id = $1",
+            [t.product_id]
+          );
+
+          // 恢复卖家持仓状态
+          const sellerUp = await query(
+            "SELECT id FROM user_products WHERE product_id = $1 AND user_id = $2 AND status = 'transferring'",
+            [t.product_id, t.from_user_id]
+          );
+          if (Array.isArray(sellerUp) && sellerUp.length > 0) {
+            await query(
+              "UPDATE user_products SET status = 'holding', updated_at = NOW() WHERE id = $1",
+              [sellerUp[0].id]
+            );
+          }
+
+          // 退还买家能量值
+          const marketFee = parseFloat(t.market_fee) || 0;
+          if (marketFee > 0 && t.to_user_id) {
+            await query(
+              'UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2',
+              [marketFee, t.to_user_id]
+            );
+            await query(
+              `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, status, created_at)
+               VALUES ($2, 'transfer_in', $1, NULL, $2, $3, 'completed', NOW())`,
+              [marketFee, t.to_user_id, `流转超时取消，退还市场费 ${marketFee}`]
+            );
+          }
+
+          // 重新发布流转（恢复为pending，让其他会员可购买）
+          await query(
+            `UPDATE product_transfers 
+             SET status = 'pending', to_user_id = NULL, market_fee = NULL, expected_profit = NULL,
+                 buyer_confirmed_at = NULL, seller_confirmed = false,
+                 expires_at = NOW() + INTERVAL '48 hours', updated_at = NOW()
+             WHERE id = $1`,
+            [t.id]
+          );
+
+          // 通知卖家和买家
+          if (t.from_user_id) {
+            await query(
+              `INSERT INTO notifications (user_id, type, title, content, related_id, created_at)
+               VALUES ($1, 'transfer_cancelled', '流转超时取消', $2, $3, NOW())`,
+              [t.from_user_id, '买家付款超时，流转已自动取消，产品已重新上架到流转市场', t.id]
+            );
+          }
+          if (t.to_user_id) {
+            await query(
+              `INSERT INTO notifications (user_id, type, title, content, related_id, created_at)
+               VALUES ($1, 'transfer_cancelled', '流转超时取消', $2, $3, NOW())`,
+              [t.to_user_id, '付款超时，流转已自动取消，市场费已退还', t.id]
+            );
+          }
+        }
+      }
+    } catch (timeoutErr) {
+      console.error('自动超时处理失败:', timeoutErr);
+      // 不影响主查询
+    }
+
+    // 构建SQL查询
     let whereClause = '1=1';
     const params: any[] = [];
     let paramIdx = 1;
@@ -58,6 +131,7 @@ export async function GET(request: NextRequest) {
               p.name as product_name, p.code as product_code, p.price, p.period,
               p.total_rate, p.market_rate, p.profit_rate, p.image_url, p.provider_id,
               seller.username as seller_name, seller.phone as seller_phone, seller.unique_id as seller_unique_id,
+              seller.alipay_account as seller_alipay_account,
               buyer.username as buyer_name, buyer.phone as buyer_phone, buyer.unique_id as buyer_unique_id
        FROM product_transfers pt
        LEFT JOIN products p ON p.id = pt.product_id
@@ -68,14 +142,25 @@ export async function GET(request: NextRequest) {
       params
     );
 
-    // 计算每个产品的剩余时间
-    const result = (Array.isArray(transfers) ? transfers : []).map((t: any) => ({
-      ...t,
-      remainingSeconds: t.expires_at 
-        ? Math.max(0, Math.floor((new Date(t.expires_at).getTime() - Date.now()) / 1000))
-        : 0,
-      price: t.transfer_price,
-    }));
+    // 计算每个产品的剩余时间 + 付款倒计时
+    const now = Date.now();
+    const result = (Array.isArray(transfers) ? transfers : []).map((t: any) => {
+      // 付款倒计时：2小时减去已过时间
+      let paymentCountdown = 0;
+      if (t.status === 'awaiting_payment' && t.updated_at) {
+        const elapsed = (now - new Date(t.updated_at).getTime()) / 1000;
+        paymentCountdown = Math.max(0, 7200 - elapsed); // 2小时 = 7200秒
+      }
+
+      return {
+        ...t,
+        remainingSeconds: t.expires_at 
+          ? Math.max(0, Math.floor((new Date(t.expires_at).getTime() - now) / 1000))
+          : 0,
+        paymentCountdown, // 付款剩余秒数
+        price: t.transfer_price,
+      };
+    });
 
     return NextResponse.json({
       success: true,

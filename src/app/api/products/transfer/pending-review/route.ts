@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { query } from '@/storage/database/pg-client';
+import { authenticateRequest } from '@/lib/auth';
 
-// 获取服务商待审核流转列表
+// 获取服务商待审核流转列表（seller_confirmed状态的流转）
 export async function GET(request: NextRequest) {
   try {
+    const user = authenticateRequest(request);
+    if (!user || !['admin', 'provider'].includes(user.role)) {
+      return NextResponse.json({ error: '无权访问' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const providerId = searchParams.get('providerId');
     const page = parseInt(searchParams.get('page') || '1');
@@ -16,41 +22,52 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const client = getSupabaseClient();
-
     const from = (page - 1) * pageSize;
 
-    // 查询该服务商下产品的流转记录
-    const { data, error, count } = await client
-      .from('product_transfers')
-      .select(`
-        *,
-        product:products(*, user_products!inner(*)),
-        from_user:users!product_transfers_from_user_id_fkey(id, username, real_name, phone, wechat_account, alipay_account),
-        to_user:users!product_transfers_to_user_id_fkey(id, username, real_name, phone)
-      `, { count: 'exact' })
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false })
-      .range(from, from + pageSize - 1);
+    // 查询该服务商下产品的 seller_confirmed 状态流转记录
+    const transfers = await query(
+      `SELECT pt.*,
+              p.name as product_name, p.code as product_code, p.price, p.period,
+              p.total_rate, p.market_rate, p.profit_rate, p.provider_id,
+              seller.username as seller_name, seller.phone as seller_phone, 
+              seller.real_name as seller_real_name, seller.unique_id as seller_unique_id,
+              seller.alipay_account as seller_alipay_account,
+              buyer.username as buyer_name, buyer.phone as buyer_phone,
+              buyer.real_name as buyer_real_name, buyer.unique_id as buyer_unique_id,
+              buyer.alipay_account as buyer_alipay_account
+       FROM product_transfers pt
+       LEFT JOIN products p ON p.id = pt.product_id
+       LEFT JOIN users seller ON seller.id = pt.from_user_id
+       LEFT JOIN users buyer ON buyer.id = pt.to_user_id
+       WHERE pt.status = 'seller_confirmed'
+         AND p.provider_id = $1
+       ORDER BY pt.updated_at DESC
+       LIMIT $2 OFFSET $3`,
+      [providerId, pageSize, from]
+    );
 
-    if (error) {
-      throw new Error(`查询待审核流转失败: ${error.message}`);
-    }
+    // 查询总数
+    const countResult = await query(
+      `SELECT COUNT(*) as total
+       FROM product_transfers pt
+       LEFT JOIN products p ON p.id = pt.product_id
+       WHERE pt.status = 'seller_confirmed'
+         AND p.provider_id = $1`,
+      [providerId]
+    );
 
-    // 过滤出属于该服务商的产品流转
-    const filteredTransfers = (data || []).filter((t: any) => {
-      const product = t.product;
-      return product?.provider_id === providerId || product?.user_products?.provider_id === providerId;
-    });
+    const total = Array.isArray(countResult) && countResult.length > 0 
+      ? parseInt(countResult[0].total) 
+      : 0;
 
     return NextResponse.json({
       success: true,
       data: {
-        list: filteredTransfers,
-        total: count || 0,
+        list: transfers || [],
+        total,
         page,
         pageSize,
-        totalPages: Math.ceil((count || 0) / pageSize),
+        totalPages: Math.ceil(total / pageSize),
       },
     });
   } catch (error) {

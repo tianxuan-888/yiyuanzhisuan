@@ -3216,44 +3216,63 @@ export default function ProviderPage() {
                                             {pendingTransfers.length > 0 ? (
                                                 <div className="space-y-3">
                                                     {pendingTransfers.map((transfer: any) => (
-                                                        <div key={transfer.id} className="border rounded-lg p-4 bg-orange-50">
+                                                        <div key={transfer.id} className={`border rounded-lg p-4 ${transfer.status === 'buyer_confirmed' ? 'bg-yellow-50' : transfer.status === 'seller_confirmed' ? 'bg-green-50' : 'bg-orange-50'}`}>
                                                             <div className="flex justify-between items-start mb-3">
                                                                 <div>
-                                                                    <p className="font-medium">{transfer.product?.name || '算力流转'}</p>
-                                                                    <p className="text-sm text-gray-500">流转价: ¥{transfer.transfer_price?.toLocaleString()}</p>
+                                                                    <p className="font-medium">{transfer.product_name || transfer.product?.name || '算力流转'}</p>
+                                                                    <p className="text-sm text-gray-500">流转价: ¥{(transfer.price || transfer.transfer_price)?.toLocaleString()}</p>
                                                                 </div>
-                                                                <Badge className="bg-orange-500">待审核</Badge>
+                                                                <Badge className={transfer.status === 'buyer_confirmed' ? 'bg-yellow-500' : transfer.status === 'seller_confirmed' ? 'bg-green-500' : 'bg-orange-500'}>
+                                                                    {transfer.status === 'buyer_confirmed' ? '买家已付款' : transfer.status === 'seller_confirmed' ? '卖家已确认' : '待审核'}
+                                                                </Badge>
                                                             </div>
                                                             <div className="grid grid-cols-2 gap-2 text-sm mb-3">
                                                                 <div className="text-gray-600">
-                                                                    <span className="font-medium">卖家:</span> {transfer.from_user?.username || '未知'}
+                                                                    <span className="font-medium">卖家:</span> {transfer.seller_name || transfer.from_user?.username || '未知'}
                                                                 </div>
                                                                 <div className="text-gray-600">
-                                                                    <span className="font-medium">买家:</span> {transfer.to_user?.username || '未知'}
+                                                                    <span className="font-medium">买家:</span> {transfer.buyer_name || transfer.to_user?.username || '未知'}
                                                                 </div>
                                                             </div>
+                                                            {transfer.status === 'buyer_confirmed' && (
+                                                                <div className="text-sm text-yellow-700 mb-3 bg-yellow-100 rounded p-2">
+                                                                    买家已确认线下付款，需卖家确认收款后再审核
+                                                                </div>
+                                                            )}
+                                                            {transfer.status === 'seller_confirmed' && (
+                                                                <div className="text-sm text-green-700 mb-3 bg-green-100 rounded p-2">
+                                                                    卖家已确认收款，请线下核实后审核
+                                                                </div>
+                                                            )}
                                                             {transfer.payment_proof && (
                                                                 <div className="text-sm text-blue-600 mb-3">
                                                                     凭证: {transfer.payment_proof}
                                                                 </div>
                                                             )}
                                                             <div className="flex gap-2">
-                                                                <Button 
-                                                                    size="sm" 
-                                                                    className="bg-green-600 hover:bg-green-700"
-                                                                    onClick={() => handleTransferReview(transfer.id, 'approve')}
-                                                                    disabled={submitting}
-                                                                >
-                                                                    <CheckCircle className="w-4 h-4 mr-1" /> 通过
-                                                                </Button>
-                                                                <Button 
-                                                                    size="sm" 
-                                                                    variant="destructive"
-                                                                    onClick={() => handleTransferReview(transfer.id, 'reject')}
-                                                                    disabled={submitting}
-                                                                >
-                                                                    <XCircle className="w-4 h-4 mr-1" /> 拒绝
-                                                                </Button>
+                                                                {transfer.status === 'seller_confirmed' && (
+                                                                    <>
+                                                                        <Button 
+                                                                            size="sm" 
+                                                                            className="bg-green-600 hover:bg-green-700"
+                                                                            onClick={() => handleTransferReview(transfer.id, 'approve')}
+                                                                            disabled={submitting}
+                                                                        >
+                                                                            <CheckCircle className="w-4 h-4 mr-1" /> 通过
+                                                                        </Button>
+                                                                        <Button 
+                                                                            size="sm" 
+                                                                            variant="destructive"
+                                                                            onClick={() => handleTransferReview(transfer.id, 'reject')}
+                                                                            disabled={submitting}
+                                                                        >
+                                                                            <XCircle className="w-4 h-4 mr-1" /> 拒绝
+                                                                        </Button>
+                                                                    </>
+                                                                )}
+                                                                {transfer.status === 'buyer_confirmed' && (
+                                                                    <span className="text-sm text-gray-500">等待卖家确认收款</span>
+                                                                )}
                                                                 {transfer.expires_at && (
                                                                     <span className="text-sm text-gray-500 ml-auto self-center">
                                                                         过期时间: {new Date(transfer.expires_at).toLocaleString()}

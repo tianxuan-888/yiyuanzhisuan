@@ -47,6 +47,9 @@ import {
     ArrowRightLeft,
     Info,
     RefreshCw,
+    Phone,
+    XCircle,
+    Timer,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -178,6 +181,8 @@ export default function MemberPage() {
     const [showRechargeDialog, setShowRechargeDialog] = useState(false);
     const [showTransferDialog, setShowTransferDialog] = useState(false);
     const [showProfitToEnergyDialog, setShowProfitToEnergyDialog] = useState(false);
+    const [showSellerContactDialog, setShowSellerContactDialog] = useState(false);
+    const [selectedTransferForPayment, setSelectedTransferForPayment] = useState<any>(null);
     const [rechargeAmount, setRechargeAmount] = useState("100");
     const [rechargeNote, setRechargeNote] = useState("");
     const [transferAmount, setTransferAmount] = useState("100");
@@ -1570,6 +1575,79 @@ const [copySuccess, setCopySuccess] = useState(false);
                 </DialogContent>
             </Dialog>
             {}
+            {/* 卖家联系方式弹窗 */}
+            <Dialog open={showSellerContactDialog} onOpenChange={setShowSellerContactDialog}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Phone className="w-5 h-5" />联系卖家付款
+                        </DialogTitle>
+                    </DialogHeader>
+                    {selectedTransferForPayment && (
+                        <div className="space-y-4">
+                            <div className="bg-blue-50 rounded-lg p-3">
+                                <p className="text-sm text-blue-800 mb-2">请线下转账给卖家，付款后点击"确认付款"</p>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm text-gray-600">卖家姓名</span>
+                                        <span className="font-medium">{selectedTransferForPayment.seller_name || '-'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm text-gray-600">手机号</span>
+                                        <a href={`tel:${selectedTransferForPayment.seller_phone}`} className="font-medium text-blue-600 underline">
+                                            {selectedTransferForPayment.seller_phone || '-'}
+                                        </a>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm text-gray-600">支付宝账号</span>
+                                        <span className="font-medium">{selectedTransferForPayment.seller_alipay_account || '未设置'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-amber-50 rounded-lg p-3">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm text-amber-800">付款金额</span>
+                                    <span className="font-bold text-lg text-amber-600">¥{Number(selectedTransferForPayment.price).toLocaleString()}</span>
+                                </div>
+                            </div>
+                            {selectedTransferForPayment.paymentCountdown > 0 && (
+                                <div className="text-center text-xs text-orange-600">
+                                    <Clock className="w-3 h-3 inline mr-1" />
+                                    付款剩余: {Math.floor(selectedTransferForPayment.paymentCountdown / 60)}分{Math.floor(selectedTransferForPayment.paymentCountdown % 60)}秒
+                                </div>
+                            )}
+                            <Button
+                                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                                onClick={async () => {
+                                    try {
+                                        const token = localStorage.getItem('token');
+                                        const res = await fetch('/api/products/transfer/buyer-confirm', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                            body: JSON.stringify({
+                                                userId: user?.id,
+                                                transferId: selectedTransferForPayment.id
+                                            })
+                                        });
+                                        const data = await res.json();
+                                        if (data.success) {
+                                            alert('已确认付款，等待卖家确认收款');
+                                            setShowSellerContactDialog(false);
+                                            loadMyTransfers();
+                                        } else {
+                                            alert(data.error || '确认付款失败');
+                                        }
+                                    } catch (e: any) {
+                                        alert('确认付款失败: ' + e.message);
+                                    }
+                                }}
+                            >
+                                <CheckCircle className="w-4 h-4 mr-1" />确认已付款
+                            </Button>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
             <Dialog open={showApplyDialog} onOpenChange={setShowApplyDialog}>
                 <DialogContent className="max-w-md">
                     <DialogHeader>
@@ -3387,18 +3465,22 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                         <Badge className={
                                                             t.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
                                                             t.status === 'awaiting_payment' ? 'bg-blue-100 text-blue-700' :
+                                                            t.status === 'buyer_confirmed' ? 'bg-indigo-100 text-indigo-700' :
                                                             t.status === 'seller_confirmed' ? 'bg-green-100 text-green-700' :
                                                             t.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
                                                             t.status === 'rejected' ? 'bg-red-100 text-red-700' :
                                                             t.status === 'repurchased' ? 'bg-gray-100 text-gray-700' :
+                                                            t.status === 'cancelled' ? 'bg-red-100 text-red-600' :
                                                             'bg-gray-100 text-gray-700'
                                                         }>
                                                             {t.status === 'pending' ? '等待买家' :
-                                                             t.status === 'awaiting_payment' ? '等待确认收款' :
+                                                             t.status === 'awaiting_payment' ? (isBuyer ? '待付款' : '等待买家付款') :
+                                                             t.status === 'buyer_confirmed' ? '买家已付款' :
                                                              t.status === 'seller_confirmed' ? '已确认收款' :
                                                              t.status === 'completed' ? '流转完成' :
                                                              t.status === 'rejected' ? '已拒绝' :
                                                              t.status === 'repurchased' ? '已回购' :
+                                                             t.status === 'cancelled' ? '已取消' :
                                                              t.status}
                                                         </Badge>
                                                     </div>
@@ -3410,48 +3492,127 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                     {isBuyer && t.seller_name && <div>卖家: {t.seller_name} {t.seller_unique_id ? `[${t.seller_unique_id}]` : ''}</div>}
                                                     <div>发布时间: {new Date(t.created_at).toLocaleString()}</div>
                                                 </div>
-                                                {/* 卖家操作：确认收款 */}
-                                                {isSeller && t.status === 'awaiting_payment' && (
-                                                    <div className="pt-2 border-t">
-                                                        <Button
-                                                            size="sm"
-                                                            className="bg-green-600 hover:bg-green-700 text-white w-full"
-                                                            onClick={async () => {
-                                                                if (!confirm('确认已收到买家线下付款？确认后服务商将审核流转。')) return;
-                                                                try {
-                                                                    const token = localStorage.getItem('token');
-                                                                    const res = await fetch('/api/products/transfer/confirm-payment', {
-                                                                        method: 'POST',
-                                                                        headers: {
-                                                                            'Content-Type': 'application/json',
-                                                                            'Authorization': `Bearer ${token}`
-                                                                        },
-                                                                        body: JSON.stringify({
-                                                                            transferId: t.id,
-                                                                            sellerId: user?.id
-                                                                        })
-                                                                    });
-                                                                    const data = await res.json();
-                                                                    if (data.success) {
-                                                                        alert('已确认收款，等待服务商审核');
-                                                                        loadMyTransfers();
-                                                                    } else {
-                                                                        alert(data.error || '确认收款失败');
+                                                {/* 卖家操作：确认收款（awaiting_payment 或 buyer_confirmed 状态） */}
+                                                {isSeller && (t.status === 'awaiting_payment' || t.status === 'buyer_confirmed') && (
+                                                    <div className="pt-2 border-t space-y-2">
+                                                        {t.status === 'buyer_confirmed' && (
+                                                            <div className="text-xs text-indigo-600 flex items-center gap-1">
+                                                                <CheckCircle className="w-3 h-3" />买家已确认付款，请确认是否收到款项
+                                                            </div>
+                                                        )}
+                                                        <div className="flex gap-2">
+                                                            <Button
+                                                                size="sm"
+                                                                className="bg-green-600 hover:bg-green-700 text-white flex-1"
+                                                                onClick={async () => {
+                                                                    if (!confirm('确认已收到买家线下付款？确认后服务商将审核流转。')) return;
+                                                                    try {
+                                                                        const token = localStorage.getItem('token');
+                                                                        const res = await fetch('/api/products/transfer/confirm-payment', {
+                                                                            method: 'POST',
+                                                                            headers: {
+                                                                                'Content-Type': 'application/json',
+                                                                                'Authorization': `Bearer ${token}`
+                                                                            },
+                                                                            body: JSON.stringify({
+                                                                                transferId: t.id,
+                                                                                userId: user?.id
+                                                                            })
+                                                                        });
+                                                                        const data = await res.json();
+                                                                        if (data.success) {
+                                                                            alert('已确认收款，等待服务商审核');
+                                                                            loadMyTransfers();
+                                                                        } else {
+                                                                            alert(data.error || '确认收款失败');
+                                                                        }
+                                                                    } catch (e: any) {
+                                                                        alert('确认收款失败: ' + e.message);
                                                                     }
-                                                                } catch (e: any) {
-                                                                    alert('确认收款失败: ' + e.message);
-                                                                }
-                                                            }}
-                                                        >
-                                                            <CheckCircle className="w-4 h-4 mr-1" />确认收款
-                                                        </Button>
+                                                                }}
+                                                            >
+                                                                <CheckCircle className="w-4 h-4 mr-1" />确认收款
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="text-red-600 border-red-300 hover:bg-red-50"
+                                                                onClick={async () => {
+                                                                    if (!confirm('确认取消流转？产品将重新上架到流转市场。')) return;
+                                                                    try {
+                                                                        const token = localStorage.getItem('token');
+                                                                        const res = await fetch('/api/products/transfer/cancel', {
+                                                                            method: 'POST',
+                                                                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                                                            body: JSON.stringify({ userId: user?.id, transferId: t.id })
+                                                                        });
+                                                                        const data = await res.json();
+                                                                        if (data.success) {
+                                                                            alert('流转已取消，产品已重新上架');
+                                                                            loadMyTransfers();
+                                                                        } else {
+                                                                            alert(data.error || '取消失败');
+                                                                        }
+                                                                    } catch (e: any) { alert('取消失败: ' + e.message); }
+                                                                }}
+                                                            >
+                                                                取消
+                                                            </Button>
+                                                        </div>
                                                     </div>
                                                 )}
-                                                {/* 买家视角：等待卖家确认收款 */}
+                                                {/* 买家视角：待付款状态 - 显示付款按钮和倒计时 */}
                                                 {isBuyer && t.status === 'awaiting_payment' && (
+                                                    <div className="pt-2 border-t space-y-2">
+                                                        {t.paymentCountdown > 0 && (
+                                                            <div className="text-xs text-orange-600 flex items-center gap-1">
+                                                                <Clock className="w-3 h-3" />付款剩余: {Math.floor(t.paymentCountdown / 60)}分{Math.floor(t.paymentCountdown % 60)}秒
+                                                            </div>
+                                                        )}
+                                                        <div className="flex gap-2">
+                                                            <Button
+                                                                size="sm"
+                                                                className="bg-blue-600 hover:bg-blue-700 text-white flex-1"
+                                                                onClick={() => {
+                                                                    setSelectedTransferForPayment(t);
+                                                                    setShowSellerContactDialog(true);
+                                                                }}
+                                                            >
+                                                                付款
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="text-red-600 border-red-300 hover:bg-red-50"
+                                                                onClick={async () => {
+                                                                    if (!confirm('确认放弃购买？市场费将退还到您的账户。')) return;
+                                                                    try {
+                                                                        const token = localStorage.getItem('token');
+                                                                        const res = await fetch('/api/products/transfer/cancel', {
+                                                                            method: 'POST',
+                                                                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                                                            body: JSON.stringify({ userId: user?.id, transferId: t.id })
+                                                                        });
+                                                                        const data = await res.json();
+                                                                        if (data.success) {
+                                                                            showMessage('success', '已放弃购买');
+                                                                            loadMyTransfers();
+                                                                        } else {
+                                                                            alert(data.error || '操作失败');
+                                                                        }
+                                                                    } catch (e: any) { alert('操作失败: ' + e.message); }
+                                                                }}
+                                                            >
+                                                                放弃
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {/* 买家视角：已确认付款，等待卖家确认收款 */}
+                                                {isBuyer && t.status === 'buyer_confirmed' && (
                                                     <div className="pt-2 border-t">
-                                                        <div className="text-xs text-blue-600 flex items-center gap-1">
-                                                            <Clock className="w-3 h-3" />已申请购买，等待卖家确认收款后服务商审核
+                                                        <div className="text-xs text-indigo-600 flex items-center gap-1">
+                                                            <CheckCircle className="w-3 h-3" />已确认付款，等待卖家确认收款
                                                         </div>
                                                     </div>
                                                 )}

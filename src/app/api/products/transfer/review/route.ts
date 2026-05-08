@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 验证流转状态
-    if (!['awaiting_payment', 'seller_confirmed'].includes(transfer.status)) {
+    if (!['awaiting_payment', 'buyer_confirmed', 'seller_confirmed'].includes(transfer.status)) {
       return NextResponse.json({ error: '该流转已被处理或状态不允许审核' }, { status: 400 });
     }
 

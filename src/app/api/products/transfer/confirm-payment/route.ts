@@ -37,8 +37,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '只有卖家才能确认收款' }, { status: 403 });
     }
 
-    // 验证流转状态必须是 awaiting_payment（有买家购买但卖家未确认）
-    if (transfer.status !== 'awaiting_payment') {
+    // 验证流转状态必须是 awaiting_payment 或 buyer_confirmed（买家已确认付款，卖家可确认收款）
+    if (!['awaiting_payment', 'buyer_confirmed'].includes(transfer.status)) {
       return NextResponse.json({ 
         error: transfer.status === 'seller_confirmed' 
           ? '您已确认过收款' 
@@ -71,12 +71,10 @@ export async function POST(request: NextRequest) {
       );
 
       await query(
-        `INSERT INTO notifications (receiver_id, receiver_role, sender_id, sender_name, type, title, content, related_id, created_at)
-         VALUES ($1, 'provider', $2, $3, 'transfer_review', '流转审核通知', $4, $5, NOW())`,
+        `INSERT INTO notifications (user_id, type, title, content, related_id, created_at)
+         VALUES ($1, 'transfer_review', '流转审核通知', $2, $3, NOW())`,
         [
           product.provider_id,
-          userId,
-          seller?.username || '卖家',
           `卖家 ${seller?.username || ''}已确认收款，产品 ${product.name || ''} 买家 ${buyer?.username || ''}，请审核确认流转`,
           transferId
         ]
