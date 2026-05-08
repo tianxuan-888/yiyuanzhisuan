@@ -118,22 +118,6 @@ async function cancelTransfer(transfer: any) {
     );
   }
 
-  // 退还买家能量值（市场费）
-  const marketFee = parseFloat(transfer.market_fee) || 0;
-  if (marketFee > 0 && transfer.to_user_id) {
-    await query(
-      'UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2',
-      [marketFee, transfer.to_user_id]
-    );
-    await query(
-      `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, status, created_at)
-       VALUES ($2, 'transfer_in', $1, NULL, $2, $3, 'completed', NOW())`,
-      [marketFee, transfer.to_user_id, `流转超时取消，退还市场费 ${marketFee}`]
-    );
-
-    // TODO: 退还市场费分成（复杂操作，暂不处理，后续可补充）
-  }
-
   // 更新流转状态为 cancelled
   await query(
     `UPDATE product_transfers SET status = 'cancelled', updated_at = NOW() WHERE id = $1`,

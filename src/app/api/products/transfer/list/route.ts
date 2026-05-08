@@ -40,20 +40,7 @@ export async function GET(request: NextRequest) {
             );
           }
 
-          // 退还买家能量值
-          const marketFee = parseFloat(t.market_fee) || 0;
-          if (marketFee > 0 && t.to_user_id) {
-            await query(
-              'UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2',
-              [marketFee, t.to_user_id]
-            );
-            await query(
-              `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, status, created_at)
-               VALUES ($2, 'transfer_in', $1, NULL, $2, $3, 'completed', NOW())`,
-              [marketFee, t.to_user_id, `流转超时取消，退还市场费 ${marketFee}`]
-            );
-          }
-
+          // 购买时不扣市场费，超时取消无需退还
           // 重新发布流转（恢复为pending，让其他会员可购买）
           await query(
             `UPDATE product_transfers 

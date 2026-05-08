@@ -82,21 +82,7 @@ export async function POST(request: NextRequest) {
         [transfer.product_id]
       );
 
-      // 退还买家能量值（市场费）
-      const marketFee = parseFloat(transfer.market_fee) || 0;
-      if (marketFee > 0 && transfer.to_user_id) {
-        await query(
-          'UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2',
-          [marketFee, transfer.to_user_id]
-        );
-        await query(
-          `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, status, created_at)
-           VALUES ($2, 'transfer_in', $1, NULL, $2, $3, 'completed', NOW())`,
-          [marketFee, transfer.to_user_id, `流转审核拒绝，退还市场费 ${marketFee}`]
-        );
-      }
-
-      return NextResponse.json({ success: true, message: '流转申请已拒绝，市场费已退还买家' });
+      return NextResponse.json({ success: true, message: '流转申请已拒绝' });
     }
 
     // ========== 审核通过 ==========
@@ -127,10 +113,127 @@ export async function POST(request: NextRequest) {
     const transferPrice = parseFloat(transfer.transfer_price) || parseFloat(product.price);
     const profitRate = parseFloat(product.profit_rate) || 0;
     const marketRate = parseFloat(product.market_rate) || 0;
+    const marketFee = Math.floor(transferPrice * marketRate / 100);
 
     // 卖家收益 = 本金 × profit_rate%
     const sellerProfit = Math.floor(transferPrice * profitRate / 100);
 
+    // ========== 扣除买家能量值（市场费） ==========
+    const buyer = await queryOne<any>(
+      'SELECT id, username, energy_value, provider_id, inviter_id FROM users WHERE id = $1',
+      [transfer.to_user_id]
+    );
+
+    if (!buyer) {
+      return NextResponse.json({ error: '买家用户不存在' }, { status: 404 });
+    }
+
+    if (marketFee > 0 && parseFloat(buyer.energy_value) < marketFee) {
+      return NextResponse.json({ 
+        error: `买家能量值不足（需 ${marketFee}，当前 ${parseFloat(buyer.energy_value)}），无法完成流转`,
+      }, { status: 400 });
+    }
+
+    if (marketFee > 0) {
+      await query(
+        'UPDATE users SET energy_value = GREATEST(0, energy_value - $1), updated_at = NOW() WHERE id = $2',
+        [marketFee, transfer.to_user_id]
+      );
+
+      // 记录能量值流水
+      await query(
+        `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, status, created_at)
+         VALUES ($1, 'transfer_out', $2, $1, NULL, $3, 'completed', NOW())`,
+        [transfer.to_user_id, marketFee, `购买流转产品 ${product.name} 支付市场费 ${marketFee}`]
+      );
+    }
+
+    // ========== 市场费按比例分成到各角色balance ==========
+    if (marketFee > 0) {
+      const providerShare = Math.floor(marketFee * 0.70);
+      const directReferralShare = Math.floor(marketFee * 0.10);
+      const upstreamProviderShare = Math.floor(marketFee * 0.10);
+      const branchShare = Math.floor(marketFee * 0.05);
+      const companyShare = Math.floor(marketFee * 0.05);
+
+      let distributionBranchId: string | null = null;
+      let distributionParentProviderId: string | null = null;
+
+      // 1. 服务商获得70%
+      if (providerShare > 0 && product.provider_id) {
+        await query(
+          'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
+          [providerShare, product.provider_id]
+        );
+      }
+
+      // 2. 直推人获得10%（买家的推荐人）
+      if (directReferralShare > 0 && buyer.inviter_id) {
+        await query(
+          'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
+          [directReferralShare, buyer.inviter_id]
+        );
+      }
+
+      // 3. 上级服务商获得10%
+      if (upstreamProviderShare > 0 && product.provider_id) {
+        const providerUser = await queryOne<any>(
+          'SELECT provider_id FROM users WHERE id = $1',
+          [product.provider_id]
+        );
+        if (providerUser?.provider_id) {
+          distributionParentProviderId = providerUser.provider_id;
+          await query(
+            'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
+            [upstreamProviderShare, providerUser.provider_id]
+          );
+        }
+      }
+
+      // 4. 分公司获得5%
+      if (branchShare > 0 && buyer.provider_id) {
+        const providerInfo = await queryOne<any>(
+          'SELECT branch_id FROM providers WHERE user_id = $1',
+          [buyer.provider_id]
+        );
+        if (providerInfo?.branch_id) {
+          distributionBranchId = providerInfo.branch_id;
+          await query(
+            'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
+            [branchShare, providerInfo.branch_id]
+          );
+        }
+      }
+
+      // 5. 总公司获得5%
+      if (companyShare > 0) {
+        const adminUser = await queryOne<any>(
+          "SELECT id FROM users WHERE role = 'admin' LIMIT 1"
+        );
+        if (adminUser) {
+          await query(
+            'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
+            [companyShare, adminUser.id]
+          );
+        }
+      }
+
+      // 记录市场费分配
+      await query(
+        `INSERT INTO provider_revenue_distribution 
+         (provider_id, member_id, product_id, product_price, market_fee, provider_share, direct_reward, direct_reward_to, parent_provider_share, parent_provider_id, branch_share, branch_id, company_share, status, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'completed', NOW(), NOW())`,
+        [
+          product.provider_id, transfer.to_user_id, product.id, transferPrice, marketFee,
+          providerShare, directReferralShare, buyer.inviter_id || null,
+          upstreamProviderShare, distributionParentProviderId,
+          branchShare, distributionBranchId,
+          companyShare
+        ]
+      );
+    }
+
+    // ========== 产品转移 ==========
     const completedDate = new Date();
 
     // 更新流转状态为 completed
@@ -149,7 +252,6 @@ export async function POST(request: NextRequest) {
 
     // 为买家创建新的用户产品记录
     const expectedProfit = Math.floor(transferPrice * profitRate / 100);
-    const marketFee = Math.floor(transferPrice * marketRate / 100);
     const periodDays = product.period || 7;
 
     await query(
