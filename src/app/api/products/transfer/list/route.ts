@@ -1,103 +1,82 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { query } from '@/storage/database/pg-client';
 
 // 获取流转列表（支持流转市场 + 我的流转 + 回购查询）
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const pageSize = parseInt(searchParams.get('pageSize') || '20');
     const sellerId = searchParams.get('sellerId');
     const buyerId = searchParams.get('buyerId');
     const statusFilter = searchParams.get('status');
     const marketMode = searchParams.get('market'); // 'true' 表示获取流转市场
 
-    const client = getSupabaseClient();
-
-    const from = (page - 1) * pageSize;
     const now = new Date().toISOString();
 
-    let query = client
-      .from('product_transfers')
-      .select(`
-        *,
-        product:products(*),
-        from_user:users!product_transfers_from_user_id_fkey(id, username, real_name, phone, unique_id),
-        to_user:users!product_transfers_to_user_id_fkey(id, username, real_name, phone, unique_id)
-      `, { count: 'exact' });
+    // 构建SQL查询（使用pg-client直接查询，避免Supabase外键依赖）
+    let whereClause = '1=1';
+    const params: any[] = [];
+    let paramIdx = 1;
 
     // 流转市场模式：只显示 pending 且未过期的
     if (marketMode === 'true') {
-      query = query.eq('status', 'pending').gt('expires_at', now);
+      whereClause += ` AND pt.status = 'pending' AND pt.expires_at > NOW()`;
     } else {
       // 按状态过滤
       if (statusFilter) {
         if (statusFilter.includes(',')) {
-          query = query.in('status', statusFilter.split(','));
+          const statuses = statusFilter.split(',').map((s: string) => `'${s}'`).join(',');
+          whereClause += ` AND pt.status IN (${statuses})`;
         } else {
-          query = query.eq('status', statusFilter);
+          params.push(statusFilter);
+          whereClause += ` AND pt.status = $${paramIdx++}`;
         }
       }
 
       // 按卖家过滤
       if (sellerId) {
-        query = query.eq('from_user_id', sellerId);
+        params.push(sellerId);
+        whereClause += ` AND pt.from_user_id = $${paramIdx++}`;
       }
 
       // 按买家过滤
       if (buyerId) {
-        query = query.eq('to_user_id', buyerId);
+        params.push(buyerId);
+        whereClause += ` AND pt.to_user_id = $${paramIdx++}`;
       }
     }
 
-    query = query.order('created_at', { ascending: false }).range(from, from + pageSize - 1);
-
-    const { data, error, count } = await query;
-
-    if (error) {
-      throw new Error(`查询流转列表失败: ${error.message}`);
-    }
+    const transfers = await query(
+      `SELECT pt.*,
+              p.name as product_name, p.code as product_code, p.price, p.period,
+              p.total_rate, p.market_rate, p.profit_rate, p.image_url, p.provider_id,
+              seller.username as seller_name, seller.phone as seller_phone, seller.unique_id as seller_unique_id,
+              buyer.username as buyer_name, buyer.phone as buyer_phone, buyer.unique_id as buyer_unique_id
+       FROM product_transfers pt
+       LEFT JOIN products p ON p.id = pt.product_id
+       LEFT JOIN users seller ON seller.id = pt.from_user_id
+       LEFT JOIN users buyer ON buyer.id = pt.to_user_id
+       WHERE ${whereClause}
+       ORDER BY pt.created_at DESC`,
+      params
+    );
 
     // 计算每个产品的剩余时间
-    const transfers = (data || []).map((t: any) => ({
+    const result = (Array.isArray(transfers) ? transfers : []).map((t: any) => ({
       ...t,
       remainingSeconds: t.expires_at 
         ? Math.max(0, Math.floor((new Date(t.expires_at).getTime() - Date.now()) / 1000))
         : 0,
-      product_name: t.product?.name || '',
-      product_code: t.product?.code || '',
-      period: t.product?.period || 0,
       price: t.transfer_price,
-      market_rate: t.product?.market_rate || 0,
-      profit_rate: t.product?.profit_rate || 0,
-      buyer_name: t.to_user?.username || '',
-      buyer_unique_id: t.to_user?.unique_id || '',
-      seller_name: t.from_user?.username || '',
-      seller_unique_id: t.from_user?.unique_id || '',
     }));
-
-    // 如果是卖家查询且按状态过滤，直接返回数组（兼容前端现有逻辑）
-    if (sellerId || buyerId) {
-      return NextResponse.json({
-        success: true,
-        data: transfers,
-      });
-    }
 
     return NextResponse.json({
       success: true,
-      data: {
-        list: transfers,
-        total: count || 0,
-        page,
-        pageSize,
-        totalPages: Math.ceil((count || 0) / pageSize),
-      },
+      data: result,
     });
   } catch (error) {
     console.error('获取流转列表失败:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : '获取失败' },
+      { success: false, error: error instanceof Error ? error.message : '获取失败' },
       { status: 500 }
     );
   }

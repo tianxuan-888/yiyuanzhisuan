@@ -23,13 +23,13 @@ export async function POST(request: NextRequest) {
     const transfer = transferRes[0];
 
     // 验证是卖家本人
-    if (transfer.seller_id !== userId) {
+    if (transfer.from_user_id !== userId) {
       return NextResponse.json({ success: false, error: '只能由卖家确认收款' }, { status: 403 });
     }
 
-    // 验证状态必须是repurchase_confirmed
-    if (transfer.status !== 'repurchase_confirmed') {
-      return NextResponse.json({ success: false, error: '当前状态不允许确认，必须为服务商已确认回购状态' }, { status: 400 });
+    // 验证状态必须是repurchase_confirmed 或 pending_repurchase
+    if (!['repurchase_confirmed', 'pending_repurchase'].includes(transfer.status)) {
+      return NextResponse.json({ success: false, error: '当前状态不允许确认' }, { status: 400 });
     }
 
     // 更新流转状态为repurchased
@@ -38,11 +38,11 @@ export async function POST(request: NextRequest) {
       [transferId]
     );
 
-    // 更新用户产品状态：从holding变为available（回到服务商在售列表）
-    // 先将用户产品的状态改为repurchased
+    // 更新用户产品状态：从transferring变为repurchased
     await query(
-      `UPDATE user_products SET status = 'repurchased', updated_at = NOW() WHERE id = $1`,
-      [transfer.user_product_id]
+      `UPDATE user_products SET status = 'repurchased', updated_at = NOW() 
+       WHERE product_id = $1 AND user_id = $2 AND status IN ('transferring', 'repurchase_pending')`,
+      [transfer.product_id, userId]
     );
 
     // 产品回到服务商在售列表
@@ -56,13 +56,13 @@ export async function POST(request: NextRequest) {
       'SELECT provider_id FROM products WHERE id = $1',
       [transfer.product_id]
     ) as any[];
-    if (productRes.length > 0) {
+    if (productRes.length > 0 && productRes[0].provider_id) {
       await query(
-        `INSERT INTO notifications (user_id, type, title, content, is_read, created_at)
-         VALUES ($1, 'repurchase_completed', '回购完成', $2, false, NOW())`,
+        `INSERT INTO notifications (receiver_id, receiver_role, type, title, content, created_at)
+         VALUES ($1, 'provider', 'repurchase_completed', '回购完成', $2, NOW())`,
         [
           productRes[0].provider_id,
-          `会员已确认回购收款（本金¥${transfer.price}），产品已回到您的在售列表。`
+          `会员已确认回购收款（本金¥${transfer.transfer_price}），产品已回到您的在售列表。`
         ]
       );
     }

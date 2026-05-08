@@ -22,10 +22,41 @@ export async function POST(request: NextRequest) {
     }
 
     // 查询流转记录
-    const transfer = await queryOne<any>(
+    let transfer = await queryOne<any>(
       'SELECT * FROM product_transfers WHERE id = $1',
       [transferId]
     );
+
+    // 如果没有找到 product_transfers 记录，检查是否是旧流程的 user_product
+    let isLegacy = false;
+    if (!transfer) {
+      const userProduct = await queryOne<any>(
+        `SELECT up.*, p.name as product_name, p.code as product_code, p.price, p.period, 
+                p.total_rate, p.market_rate, p.profit_rate, p.provider_id
+         FROM user_products up
+         JOIN products p ON p.id = up.product_id
+         WHERE up.id = $1 AND up.status = 'pending_sell'`,
+        [transferId]
+      );
+
+      if (userProduct) {
+        isLegacy = true;
+        // 为旧流程产品自动创建 product_transfers 记录
+        const newTransfer = await queryOne<any>(
+          `INSERT INTO product_transfers (product_id, from_user_id, transfer_price, status, expires_at, created_at, updated_at)
+           VALUES ($1, $2, $3, 'pending', NOW() + INTERVAL '48 hours', NOW(), NOW())
+           RETURNING *`,
+          [userProduct.product_id, userProduct.user_id, userProduct.purchase_price]
+        );
+        transfer = newTransfer;
+
+        // 更新 user_products 状态为 transferring
+        await query(
+          "UPDATE user_products SET status = 'transferring', updated_at = NOW() WHERE id = $1",
+          [transferId]
+        );
+      }
+    }
 
     if (!transfer) {
       return NextResponse.json({ error: '流转记录不存在' }, { status: 404 });
@@ -96,13 +127,16 @@ export async function POST(request: NextRequest) {
 
       // 记录能量值流水
       await query(
-        `INSERT INTO energy_transactions (type, amount, from_user_id, to_user_id, description, created_at)
-         VALUES ('transfer_out', $1, $2, NULL, $3, NOW())`,
-        [marketFee, userId, `购买流转产品 ${product.name} 支付市场费 ${marketFee}`]
+        `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, status, created_at)
+         VALUES ($1, 'transfer_out', $2, $1, NULL, $3, 'completed', NOW())`,
+        [userId, marketFee, `购买流转产品 ${product.name} 支付市场费 ${marketFee}`]
       );
     }
 
     // ========== 市场费按比例分成到各角色balance ==========
+    let distributionBranchId: string | null = null;
+    let distributionParentProviderId: string | null = null;
+
     if (marketFee > 0) {
       // 分配比例：服务商70% 直推10% 上级服务商10% 分公司5% 总公司5%
       const providerShare = Math.floor(marketFee * 0.70);
@@ -134,6 +168,7 @@ export async function POST(request: NextRequest) {
           [product.provider_id]
         );
         if (providerUser?.provider_id) {
+          distributionParentProviderId = providerUser.provider_id;
           await query(
             'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
             [upstreamProviderShare, providerUser.provider_id]
@@ -148,6 +183,7 @@ export async function POST(request: NextRequest) {
           [buyer.provider_id]
         );
         if (providerInfo?.branch_id) {
+          distributionBranchId = providerInfo.branch_id;
           await query(
             'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
             [branchShare, providerInfo.branch_id]
@@ -171,12 +207,14 @@ export async function POST(request: NextRequest) {
       // 记录市场费分配
       await query(
         `INSERT INTO provider_revenue_distribution 
-         (provider_id, user_id, order_type, total_market_fee, provider_amount, direct_referral_amount, upstream_provider_amount, branch_amount, company_amount, created_at)
-         VALUES ($1, $2, 'transfer', $3, $4, $5, $6, $7, $8, NOW())`,
+         (provider_id, member_id, product_id, product_price, market_fee, provider_share, direct_reward, direct_reward_to, parent_provider_share, parent_provider_id, branch_share, branch_id, company_share, status, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'completed', NOW(), NOW())`,
         [
-          product.provider_id, userId, marketFee,
-          providerShare, directReferralShare, upstreamProviderShare,
-          branchShare, companyShare
+          product.provider_id, userId, product.id, transferPrice, marketFee,
+          providerShare, directReferralShare, buyer.inviter_id || null,
+          upstreamProviderShare, distributionParentProviderId,
+          branchShare, distributionBranchId,
+          companyShare
         ]
       );
     }
@@ -186,14 +224,14 @@ export async function POST(request: NextRequest) {
       `UPDATE product_transfers 
        SET to_user_id = $1, status = 'awaiting_payment', market_fee = $2, expected_profit = $3, updated_at = NOW()
        WHERE id = $4`,
-      [userId, marketFee, expectedProfit, transferId]
+      [userId, marketFee, expectedProfit, transfer.id]
     );
 
     return NextResponse.json({
       success: true,
       message: '购买申请已提交，请线下付款给卖家',
       data: {
-        transferId,
+        transferId: transfer.id,
         transferPrice,
         marketFee,
         expectedProfit,

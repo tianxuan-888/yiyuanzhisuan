@@ -799,9 +799,9 @@ const [copySuccess, setCopySuccess] = useState(false);
                 // 乐观更新：立即将该产品添加到待审核列表
                 if (selectedProduct) {
                     const newPendingOrder = {
-                        orderId: data.data?.order?.id || `temp-${Date.now()}`,
+                        orderId: data.data?.order?.id || `temp-pending`,
                         orderStatus: 'pending',
-                        orderCreatedAt: new Date().toISOString(),
+                        orderCreatedAt: data.data?.order?.created_at || '',
                         productId: selectedProduct.id,
                         productName: selectedProduct.name,
                         productPrice: selectedProduct.price,
@@ -842,6 +842,44 @@ const [copySuccess, setCopySuccess] = useState(false);
             }
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    // 购买流转产品
+    const handleBuyTransfer = async (transferId: string, price: number, marketFee: number) => {
+        const userId = localStorage.getItem("userId");
+        if (!userId) return;
+
+        // 检查能量值是否足够支付市场费
+        if (stats.energy_value < marketFee) {
+            showMessage("error", `能量值不足，需要 ${marketFee} 能量值，当前余额 ${stats.energy_value}`);
+            return;
+        }
+
+        if (!confirm(`确认购买此流转产品？\n\n流转价格：¥${price.toLocaleString()}\n市场费：${marketFee} 能量值\n\n购买后需等待卖家确认收款，服务商审核通过后正式持有。`)) return;
+
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/products/transfer/buy', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    transferId,
+                    buyerId: userId
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showMessage("success", "购买申请已提交，请等待卖家确认收款");
+                refreshAll();
+            } else {
+                showMessage("error", data.error || "购买流转产品失败");
+            }
+        } catch (e: any) {
+            showMessage("error", "购买流转产品失败: " + e.message);
         }
     };
 
@@ -2742,7 +2780,124 @@ const [copySuccess, setCopySuccess] = useState(false);
 
                         {}
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-                            {products.map(product => {
+                            {/* 流转市场产品：来自其他会员的流转产品 */}
+                            {transferMarket.length > 0 && transferMarket.map((t: any) => {
+                                const product = t.product || {};
+                                const price = Number(t.transfer_price || product.price || 0);
+                                const period = product.period || 7;
+                                const total_rate = parseFloat(product.total_rate || '0').toFixed(2);
+                                const market_rate = parseFloat(product.market_rate || '0').toFixed(2);
+                                const profit_rate = parseFloat(product.profit_rate || '0').toFixed(2);
+                                const market_fee = Math.floor(price * (parseFloat(product.market_rate) || 0) / 100);
+
+                                const getProductTier = (price: number) => {
+                                    if (price <= 5000) return {
+                                        name: '流转', level: 'entry', color: 'blue', stars: 3,
+                                        bgGradient: 'from-blue-900/90 to-slate-900', iconBg: 'from-blue-500/40 to-cyan-500/40',
+                                        iconBorder: 'border-blue-500/60', iconColor: 'text-blue-400',
+                                        btnGradient: 'from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400',
+                                        badge: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+                                        headerBg: 'from-blue-600/90 to-blue-700/70',
+                                    };
+                                    if (price <= 30000) return {
+                                        name: '流转', level: 'advanced', color: 'green', stars: 4,
+                                        bgGradient: 'from-green-900/90 to-slate-900', iconBg: 'from-green-500/40 to-emerald-500/40',
+                                        iconBorder: 'border-green-500/60', iconColor: 'text-green-400',
+                                        btnGradient: 'from-green-600 to-green-500 hover:from-green-500 hover:to-green-400',
+                                        badge: 'bg-green-500/20 text-green-400 border-green-500/30',
+                                        headerBg: 'from-green-600/90 to-green-700/70',
+                                    };
+                                    return {
+                                        name: '流转', level: 'premium', color: 'amber', stars: 5,
+                                        bgGradient: 'from-amber-900/90 to-slate-900', iconBg: 'from-amber-500/40 to-yellow-500/40',
+                                        iconBorder: 'border-amber-500/60', iconColor: 'text-amber-400',
+                                        btnGradient: 'from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400',
+                                        badge: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+                                        headerBg: 'from-amber-600/90 to-amber-700/70',
+                                    };
+                                };
+                                const tier = getProductTier(price);
+
+                                return <Card key={`transfer-${t.id}`} className="bg-slate-900 border-slate-800 overflow-hidden relative">
+                                    {/* 流转标识角标 */}
+                                    <div className="absolute top-0 right-0 z-10">
+                                        <span className="px-2 py-0.5 bg-gradient-to-l from-orange-500 to-orange-600 text-white text-[10px] md:text-xs font-bold rounded-bl-lg">
+                                            流转
+                                        </span>
+                                    </div>
+
+                                    {/* GPU芯片图标区域 */}
+                                    <div className={`relative h-28 md:h-36 ${tier.bgGradient}`}>
+                                        <div className={`absolute inset-0 bg-gradient-to-br ${tier.headerBg}`}>
+                                            <div className="absolute inset-0 opacity-10" style={{
+                                                backgroundImage: `linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px)`,
+                                                backgroundSize: '20px 20px'
+                                            }} />
+                                        </div>
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <div className={`w-14 h-14 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-gradient-to-br ${tier.iconBg} border-2 ${tier.iconBorder} flex flex-col items-center justify-center backdrop-blur-sm shadow-2xl`}>
+                                                <span className={`text-lg md:text-2xl font-black ${tier.iconColor}`}>GPU</span>
+                                                <span className={`text-[8px] md:text-[10px] font-bold mt-0.5 md:mt-1 ${tier.iconColor}`}>{period}天</span>
+                                            </div>
+                                        </div>
+                                        <div className="absolute bottom-2 right-2 md:bottom-3 md:right-3">
+                                            <span className="px-1.5 py-0.5 bg-slate-900/80 rounded text-[9px] md:text-xs text-slate-300 font-mono backdrop-blur-sm">
+                                                {product.code || 'GPU'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <CardContent className="p-2.5 md:p-5">
+                                        {/* 周期+收益标签 */}
+                                        <div className="flex items-center gap-1.5 mb-2 md:mb-3">
+                                            <Badge variant="outline" className={`${tier.badge} border text-[10px] md:text-xs px-1.5 md:px-2.5`}>
+                                                <Clock className="w-2.5 h-2.5 md:w-3 md:h-3 mr-0.5 md:mr-1" />
+                                                {period}天
+                                            </Badge>
+                                            <Badge variant="outline" className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-[10px] md:text-xs px-1.5 md:px-2.5">
+                                                流转产品
+                                            </Badge>
+                                        </div>
+
+                                        {/* 核心参数 */}
+                                        <div className="hidden md:grid grid-cols-2 gap-3 mb-4">
+                                            <div className={`p-3 rounded-xl border ${tier.color === 'blue' ? 'bg-blue-500/10 border-blue-500/30' : tier.color === 'green' ? 'bg-green-500/10 border-green-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
+                                                <p className="text-xs text-slate-400 mb-1">预期收益</p>
+                                                <p className={`text-xl font-bold ${tier.color === 'blue' ? 'text-blue-400' : tier.color === 'green' ? 'text-green-400' : 'text-amber-400'}`}>+{total_rate}%</p>
+                                            </div>
+                                            <div className="p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
+                                                <p className="text-xs text-slate-400 mb-1">会员到手</p>
+                                                <p className="text-xl font-bold text-emerald-400">{profit_rate}%</p>
+                                            </div>
+                                        </div>
+
+                                        {/* 价格 */}
+                                        <div className={`flex items-center justify-between p-2 md:p-3 rounded-lg mb-2 md:mb-4 border ${tier.color === 'blue' ? 'bg-blue-500/10 border-blue-500/30' : tier.color === 'green' ? 'bg-green-500/10 border-green-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
+                                            <span className="text-[10px] md:text-sm text-slate-400">流转价</span>
+                                            <span className="text-sm md:text-xl font-bold text-white">¥{price.toLocaleString()}</span>
+                                        </div>
+
+                                        {/* 市场费提示 */}
+                                        <div className="mb-2 md:mb-4 p-2 md:p-3 rounded-lg bg-orange-500/20 border border-orange-500/40 text-orange-300 text-center text-xs md:text-sm">
+                                            <Zap className="w-3 h-3 md:w-4 md:h-4 inline mr-1" />
+                                            需支付市场费 {market_fee} 能量值
+                                        </div>
+
+                                        {/* 购买流转按钮 */}
+                                        <Button
+                                            size="sm"
+                                            className={`w-full font-medium shadow-lg transition-all text-xs md:text-sm h-8 md:h-10 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white`}
+                                            onClick={() => {
+                                                handleBuyTransfer(t.id, price, market_fee);
+                                            }}>
+                                            <ShoppingCart className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />购买流转
+                                        </Button>
+                                    </CardContent>
+                                </Card>;
+                            })}
+
+                            {/* 服务商直售产品：available 状态 */}
+                            {products.filter(p => p.status === 'available').map(product => {
                                 // 根据价格确定产品等级和颜色 (蓝色入门级、绿色进阶级、橙黄高端级)
                                 const getProductTier = (price: number) => {
                                     if (price <= 5000) return { 
@@ -2882,16 +3037,10 @@ const [copySuccess, setCopySuccess] = useState(false);
                                         </div>
 
                                         {/* 产品状态显示 */}
-                                        {product.status === 'sold' && (
-                                            <div className="mb-2 md:mb-4 p-2 md:p-3 rounded-lg bg-red-500/20 border border-red-500/40 text-red-300 text-center text-xs md:text-sm">
-                                                <CheckCircle className="w-3 h-3 md:w-4 md:h-4 inline mr-1" />
-                                                已售出
-                                            </div>
-                                        )}
                                         {product.status === 'pending_sell' && (
-                                            <div className="mb-2 md:mb-4 p-2 md:p-3 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-center text-xs md:text-sm">
-                                                <Clock className="w-3 h-3 md:w-4 md:h-4 inline mr-1" />
-                                                待确认
+                                            <div className="mb-2 md:mb-4 p-2 md:p-3 rounded-lg bg-orange-500/20 border border-orange-500/40 text-orange-300 text-center text-xs md:text-sm">
+                                                <RefreshCw className="w-3 h-3 md:w-4 md:h-4 inline mr-1" />
+                                                流转中 - 请在流转市场购买
                                             </div>
                                         )}
                                         {product.status === 'available' && isProductPending(product.id) && (
@@ -2902,52 +3051,52 @@ const [copySuccess, setCopySuccess] = useState(false);
                                         )}
 
                                         {/* 购买按钮 */}
-                                        <Button
-                                            size="sm"
-                                            className={`w-full font-medium shadow-lg transition-all text-xs md:text-sm h-8 md:h-10 ${
-                                                purchaseLimits?.limits?.canBuy === false || isProductPending(product.id) || product.status !== 'available'
-                                                    ? 'bg-slate-600 hover:bg-slate-600 cursor-not-allowed opacity-50'
-                                                    : `bg-gradient-to-r ${tier.btnGradient} text-white shadow-${tier.color === 'blue' ? 'blue' : tier.color === 'green' ? 'green' : 'amber'}-500/25`
-                                            }`}
-                                            disabled={purchaseLimits?.limits?.canBuy === false || isProductPending(product.id) || product.status !== 'available'}
-                                            onClick={() => {
-                                                if (product.status !== 'available') {
-                                                    showMessage("error", product.status === 'pending_sell' ? "该产品已被申购，等待确认中" : "该产品已售出");
-                                                    return;
-                                                }
-                                                if (purchaseLimits?.limits?.canBuy === false) {
-                                                    showMessage("error", purchaseLimits?.limits?.limitMessage || "当前无法购买");
-                                                    return;
-                                                }
-                                                if (isProductPending(product.id)) {
-                                                    showMessage("success", "该产品正在等待审核，请稍后再试");
-                                                    return;
-                                                }
-                                                setSelectedProduct(product);
-                                                setShowPurchaseDialog(true);
-                                            }}>
-                                            {product.status === 'sold' ? (
-                                                <>
-                                                    <CheckCircle className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />已售出
-                                                </>
-                                            ) : product.status === 'pending_sell' ? (
-                                                <>
-                                                    <Clock className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />待确认
-                                                </>
-                                            ) : purchaseLimits?.limits?.canBuy === false ? (
-                                                <>
-                                                    <Lock className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />无法购买
-                                                </>
-                                            ) : isProductPending(product.id) ? (
-                                                <>
-                                                    <Clock className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />审核中
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <ShoppingCart className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />购买
-                                                </>
-                                            )}
-                                        </Button>
+                                        {product.status === 'pending_sell' ? (
+                                            <Button
+                                                size="sm"
+                                                className="w-full font-medium shadow-lg transition-all text-xs md:text-sm h-8 md:h-10 bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:from-orange-600 hover:to-amber-600"
+                                                onClick={() => {
+                                                    // 切换到流转市场tab
+                                                    setActiveTab("productTransfer");
+                                                }}>
+                                                <RefreshCw className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />去流转市场购买
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                size="sm"
+                                                className={`w-full font-medium shadow-lg transition-all text-xs md:text-sm h-8 md:h-10 ${
+                                                    purchaseLimits?.limits?.canBuy === false || isProductPending(product.id)
+                                                        ? 'bg-slate-600 hover:bg-slate-600 cursor-not-allowed opacity-50'
+                                                        : `bg-gradient-to-r ${tier.btnGradient} text-white shadow-${tier.color === 'blue' ? 'blue' : tier.color === 'green' ? 'green' : 'amber'}-500/25`
+                                                }`}
+                                                disabled={purchaseLimits?.limits?.canBuy === false || isProductPending(product.id)}
+                                                onClick={() => {
+                                                    if (purchaseLimits?.limits?.canBuy === false) {
+                                                        showMessage("error", purchaseLimits?.limits?.limitMessage || "当前无法购买");
+                                                        return;
+                                                    }
+                                                    if (isProductPending(product.id)) {
+                                                        showMessage("success", "该产品正在等待审核，请稍后再试");
+                                                        return;
+                                                    }
+                                                    setSelectedProduct(product);
+                                                    setShowPurchaseDialog(true);
+                                                }}>
+                                                {purchaseLimits?.limits?.canBuy === false ? (
+                                                    <>
+                                                        <Lock className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />无法购买
+                                                    </>
+                                                ) : isProductPending(product.id) ? (
+                                                    <>
+                                                        <Clock className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />审核中
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <ShoppingCart className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />购买
+                                                    </>
+                                                )}
+                                            </Button>
+                                        )}
                                     </CardContent>
                                 </Card>
                                 );

@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     // 更新流转状态为 seller_confirmed
     await query(
       `UPDATE product_transfers 
-       SET status = 'seller_confirmed', seller_confirmed_at = NOW(), updated_at = NOW()
+       SET status = 'seller_confirmed', seller_confirmed = true, updated_at = NOW()
        WHERE id = $1`,
       [transferId]
     );

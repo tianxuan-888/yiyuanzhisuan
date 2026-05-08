@@ -44,11 +44,11 @@ export async function POST(request: NextRequest) {
 
     // 通知卖家：服务商已确认回购，请确认收到本金
     await query(
-      `INSERT INTO notifications (user_id, type, title, content, is_read, created_at)
-       VALUES ($1, 'repurchase_confirm', '请确认回购收款', $2, false, NOW())`,
+      `INSERT INTO notifications (receiver_id, receiver_role, type, title, content, created_at)
+       VALUES ($1, 'member', 'repurchase_confirm', '请确认回购收款', $2, NOW())`,
       [
-        transfer.seller_id,
-        `服务商已确认回购您的流转产品（本金¥${transfer.price}），请在线下确认收到本金后在系统中确认收款。`
+        transfer.from_user_id,
+        `服务商已确认回购您的流转产品（本金¥${transfer.transfer_price}），请在线下确认收到本金后在系统中确认收款。`
       ]
     );
 

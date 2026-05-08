@@ -56,16 +56,20 @@ export async function POST(request: NextRequest) {
     if (action === 'reject') {
       await query(
         `UPDATE product_transfers 
-         SET reviewer_id = $1, review_note = $2, reviewed_at = NOW(), status = 'rejected', updated_at = NOW()
-         WHERE id = $3`,
-        [reviewerId, reviewNote || null, transferId]
+         SET status = 'rejected', updated_at = NOW()
+         WHERE id = $1`,
+        [transferId]
       );
 
       // 恢复用户产品状态为持有中
-      if (transfer.from_user_product_id) {
+      const sellerUserProduct = await queryOne<any>(
+        "SELECT id FROM user_products WHERE product_id = $1 AND user_id = $2 AND status = 'transferring'",
+        [transfer.product_id, transfer.from_user_id]
+      );
+      if (sellerUserProduct) {
         await query(
           "UPDATE user_products SET status = 'holding', updated_at = NOW() WHERE id = $1",
-          [transfer.from_user_product_id]
+          [sellerUserProduct.id]
         );
       }
 
@@ -83,8 +87,8 @@ export async function POST(request: NextRequest) {
           [marketFee, transfer.to_user_id]
         );
         await query(
-          `INSERT INTO energy_transactions (type, amount, from_user_id, to_user_id, description, created_at)
-           VALUES ('transfer_in', $1, NULL, $2, $3, NOW())`,
+          `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, status, created_at)
+           VALUES ($2, 'transfer_in', $1, NULL, $2, $3, 'completed', NOW())`,
           [marketFee, transfer.to_user_id, `流转审核拒绝，退还市场费 ${marketFee}`]
         );
       }
@@ -109,8 +113,8 @@ export async function POST(request: NextRequest) {
 
     // 查询原持有用户（卖方）的购买信息
     const userProduct = await queryOne<any>(
-      'SELECT * FROM user_products WHERE id = $1',
-      [transfer.from_user_product_id]
+      "SELECT * FROM user_products WHERE product_id = $1 AND user_id = $2 AND status IN ('transferring', 'pending_sell')",
+      [transfer.product_id, transfer.from_user_id]
     );
 
     if (!userProduct) {
@@ -129,15 +133,15 @@ export async function POST(request: NextRequest) {
     // 更新流转状态为 completed
     await query(
       `UPDATE product_transfers 
-       SET reviewer_id = $1, review_note = $2, reviewed_at = NOW(), status = 'completed', updated_at = NOW()
-       WHERE id = $3`,
-      [reviewerId, reviewNote || null, transferId]
+       SET status = 'completed', updated_at = NOW()
+       WHERE id = $1`,
+      [transferId]
     );
 
     // 更新卖家的用户产品状态为 transferred
     await query(
       "UPDATE user_products SET status = 'transferred', updated_at = NOW() WHERE id = $1",
-      [transfer.from_user_product_id]
+      [userProduct.id]
     );
 
     // 为买家创建新的用户产品记录
@@ -167,35 +171,32 @@ export async function POST(request: NextRequest) {
 
       // 记录收益交易
       await query(
-        `INSERT INTO transactions (user_id, order_id, type, amount, description, created_at)
-         VALUES ($1, NULL, 'sell_profit', $2, $3, NOW())`,
+        `INSERT INTO transactions (user_id, order_id, type, amount, created_at)
+         VALUES ($1, NULL, 'sell_profit', $2, NOW())`,
         [
           transfer.from_user_id,
-          sellerProfit,
-          `流转卖出 ${product.name} 获得收益 ¥${sellerProfit}（收益${profitRate}%，本金已线下收取）`
+          sellerProfit
         ]
       );
     }
 
     // 记录流转完成日志
     await query(
-      `INSERT INTO transactions (user_id, order_id, type, amount, description, created_at)
-       VALUES ($1, NULL, 'transfer_out', $2, $3, NOW())`,
+      `INSERT INTO transactions (user_id, order_id, type, amount, created_at)
+       VALUES ($1, NULL, 'transfer_out', $2, NOW())`,
       [
         transfer.from_user_id,
-        transferPrice,
-        `产品 ${product.name} 已流转给用户 ${transfer.to_user_id}，本金 ¥${transferPrice} 线下收取，收益 ¥${sellerProfit} 线上到账`
+        transferPrice
       ]
     );
 
     // 记录买家购买日志
     await query(
-      `INSERT INTO transactions (user_id, order_id, type, amount, description, created_at)
-       VALUES ($1, NULL, 'transfer_in', $2, $3, NOW())`,
+      `INSERT INTO transactions (user_id, order_id, type, amount, created_at)
+       VALUES ($1, NULL, 'transfer_in', $2, NOW())`,
       [
         transfer.to_user_id,
-        transferPrice,
-        `购买流转产品 ${product.name}，本金 ¥${transferPrice}（线下支付），市场费 ¥${marketFee}（能量值已扣）`
+        transferPrice
       ]
     );
 

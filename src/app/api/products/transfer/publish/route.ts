@@ -112,10 +112,10 @@ export async function POST(request: NextRequest) {
     // 创建流转记录
     const transferResult = await query(
       `INSERT INTO product_transfers 
-       (product_id, from_user_id, from_user_product_id, transfer_price, status, expires_at, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())
+       (product_id, from_user_id, transfer_price, status, expires_at, created_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())
        RETURNING *`,
-      [userProduct.product_id, userId, userProductId, transferPrice, 'pending', expiresAt.toISOString()]
+      [userProduct.product_id, userId, transferPrice, 'pending', expiresAt.toISOString()]
     );
 
     const transfer = transferResult[0];
