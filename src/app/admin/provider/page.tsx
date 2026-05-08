@@ -125,6 +125,7 @@ export default function ProviderDashboard() {
   // 搜索状态
   const [memberSearch, setMemberSearch] = useState('');
   const [productFilter, setProductFilter] = useState('all');
+  const [showcaseFilter, setShowcaseFilter] = useState('all');
   
   // 流转审核状态
   const [transfers, setTransfers] = useState<any[]>([]);
@@ -279,6 +280,25 @@ export default function ProviderDashboard() {
       fetchProducts();
     }
   }, [token, activeMenu, fetchProducts]);
+
+  useEffect(() => {
+    if (token && activeMenu === 'product-showcase') {
+      // 确保展示页面获取全部产品（不受productFilter影响）
+      const fetchAllProducts = async () => {
+        try {
+          const res = await fetch('/api/provider/products', { headers: getHeaders() });
+          const data = await res.json();
+          if (data.success) {
+            setProducts(data.data.products);
+            setProductStats(data.data.stats);
+          }
+        } catch (err) {
+          console.error('获取产品失败:', err);
+        }
+      };
+      fetchAllProducts();
+    }
+  }, [token, activeMenu, getHeaders]);
 
   useEffect(() => {
     if (token && activeMenu === 'members') {
@@ -628,6 +648,7 @@ export default function ProviderDashboard() {
     { id: 'transfer', name: '产品流转', icon: ArrowRightLeft, badge: transfers.filter(t => t.status === 'awaiting_payment' || t.status === 'seller_confirmed').length },
     { id: 'quota', name: '算力额度', icon: Database, badge: 0 },
     { id: 'energy', name: '能量值管理', icon: Coins, badge: 0 },
+    { id: 'product-showcase', name: '产品展示', icon: Package, badge: 0 },
   ];
 
   const menuNames: Record<string, string> = {
@@ -641,6 +662,7 @@ export default function ProviderDashboard() {
     transfer: '产品流转',
     quota: '算力额度',
     energy: '能量值管理',
+    'product-showcase': '产品展示',
   };
 
   const formatCurrency = (amount: number) => {
@@ -1742,6 +1764,244 @@ export default function ProviderDashboard() {
             )}
           </div>
         );
+
+      case 'product-showcase': {
+        const getProductTier = (price: number) => {
+          if (price <= 5000) return {
+            name: '入门级', color: 'blue', stars: 3,
+            bgGradient: 'from-blue-900/90 to-slate-900',
+            iconBg: 'from-blue-500/40 to-cyan-500/40',
+            iconBorder: 'border-blue-500/60',
+            iconColor: 'text-blue-400',
+            badge: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+            headerBg: 'from-blue-600/90 to-blue-700/70',
+          };
+          if (price <= 30000) return {
+            name: '进阶级', color: 'green', stars: 4,
+            bgGradient: 'from-green-900/90 to-slate-900',
+            iconBg: 'from-green-500/40 to-emerald-500/40',
+            iconBorder: 'border-green-500/60',
+            iconColor: 'text-green-400',
+            badge: 'bg-green-500/20 text-green-400 border-green-500/30',
+            headerBg: 'from-green-600/90 to-green-700/70',
+          };
+          return {
+            name: '高端级', color: 'amber', stars: 5,
+            bgGradient: 'from-amber-900/90 to-slate-900',
+            iconBg: 'from-amber-500/40 to-orange-500/40',
+            iconBorder: 'border-amber-500/60',
+            iconColor: 'text-amber-400',
+            badge: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+            headerBg: 'from-amber-600/90 to-amber-700/70',
+          };
+        };
+
+        const statusLabel = (status: string) => {
+          switch (status) {
+            case 'available': return { text: '在售', cls: 'bg-green-500/20 text-green-400 border-green-500/30' };
+            case 'sold': return { text: '已售', cls: 'bg-slate-500/20 text-slate-400 border-slate-500/30' };
+            case 'pending_sell': return { text: '流转中', cls: 'bg-orange-500/20 text-orange-400 border-orange-500/30' };
+            default: return { text: status, cls: 'bg-gray-500/20 text-gray-400 border-gray-500/30' };
+          }
+        };
+
+        const filteredProducts = showcaseFilter === 'all'
+          ? products
+          : products.filter(p => p.status === showcaseFilter);
+
+        const showcaseStats = {
+          total: products.length,
+          available: products.filter(p => p.status === 'available').length,
+          sold: products.filter(p => p.status === 'sold').length,
+          transferring: products.filter(p => p.status === 'pending_sell').length,
+        };
+
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">产品展示</h1>
+                <p className="text-gray-500 text-sm mt-1">查看所有产品及其状态</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {['all', 'available', 'sold', 'pending_sell'].map(f => (
+                  <Button
+                    key={f}
+                    size="sm"
+                    variant={showcaseFilter === f ? 'default' : 'outline'}
+                    onClick={() => setShowcaseFilter(f)}
+                  >
+                    {f === 'all' ? '全部' : f === 'available' ? '在售' : f === 'sold' ? '已售' : '流转中'}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* 统计卡片 */}
+            <div className="grid grid-cols-4 gap-4">
+              <Card className="border-slate-200">
+                <CardContent className="p-4">
+                  <p className="text-sm text-gray-500">产品总数</p>
+                  <p className="text-2xl font-bold">{showcaseStats.total}</p>
+                </CardContent>
+              </Card>
+              <Card className="border-green-200">
+                <CardContent className="p-4">
+                  <p className="text-sm text-gray-500">在售</p>
+                  <p className="text-2xl font-bold text-green-600">{showcaseStats.available}</p>
+                </CardContent>
+              </Card>
+              <Card className="border-slate-300">
+                <CardContent className="p-4">
+                  <p className="text-sm text-gray-500">已售出</p>
+                  <p className="text-2xl font-bold text-slate-500">{showcaseStats.sold}</p>
+                </CardContent>
+              </Card>
+              <Card className="border-orange-200">
+                <CardContent className="p-4">
+                  <p className="text-sm text-gray-500">流转中</p>
+                  <p className="text-2xl font-bold text-orange-600">{showcaseStats.transferring}</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {filteredProducts.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <Package className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                <p>暂无产品数据</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {filteredProducts.map((product) => {
+                  const tier = getProductTier(product.price);
+                  const total_rate = product.total_rate || (product.period === 3 ? 5 : product.period === 7 ? 10 : product.period === 15 ? 20 : product.period === 30 ? 44 : 120);
+                  const profit_rate = product.profit_rate || (product.period === 3 ? 2 : product.period === 7 ? 5 : product.period === 15 ? 10 : product.period === 30 ? 22 : 60);
+                  const market_rate = product.market_rate || (total_rate - profit_rate);
+                  const st = statusLabel(product.status);
+
+                  return (
+                    <Card
+                      key={product.id}
+                      className={`bg-gradient-to-br ${tier.bgGradient} border-slate-700 overflow-hidden transition-all duration-300 hover:shadow-xl`}
+                    >
+                      {/* 顶部GPU展示区域 */}
+                      <div className="relative h-28 md:h-36 overflow-hidden">
+                        <div className={`absolute inset-0 bg-gradient-to-br ${tier.headerBg}`}>
+                          <div className="absolute inset-0 opacity-10" style={{
+                            backgroundImage: `linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px)`,
+                            backgroundSize: '20px 20px'
+                          }} />
+                          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                        </div>
+
+                        {/* GPU芯片图标 */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className={`w-14 h-14 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-gradient-to-br ${tier.iconBg} border-2 ${tier.iconBorder} flex flex-col items-center justify-center backdrop-blur-sm shadow-2xl`}>
+                            <span className={`text-lg md:text-2xl font-black ${tier.iconColor}`}>GPU</span>
+                            <span className={`text-[8px] md:text-[10px] font-bold mt-0.5 md:mt-1 ${tier.iconColor}`}>{product.period}天</span>
+                          </div>
+                        </div>
+
+                        {/* 等级标签 */}
+                        <div className="absolute top-2 left-2 md:top-3 md:left-3">
+                          <span className={`px-1.5 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-bold ${tier.badge} border backdrop-blur-sm`}>
+                            {tier.name}
+                          </span>
+                        </div>
+
+                        {/* 状态标签 */}
+                        <div className="absolute top-2 right-2 md:top-3 md:right-3">
+                          <span className={`px-1.5 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-bold border ${st.cls}`}>
+                            {st.text}
+                          </span>
+                        </div>
+
+                        {/* 产品编码 */}
+                        <div className="absolute bottom-2 right-2 md:bottom-3 md:right-3">
+                          <span className="px-1.5 py-0.5 bg-slate-900/80 rounded text-[9px] md:text-xs text-slate-300 font-mono backdrop-blur-sm">
+                            {product.code || `GPU-${product.id.slice(0, 6).toUpperCase()}`}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 产品信息区域 */}
+                      <CardContent className="p-2.5 md:p-5">
+                        {/* 周期+收益标签 */}
+                        <div className="flex items-center gap-1.5 mb-2 md:mb-3">
+                          <Badge variant="outline" className={`${tier.badge} border text-[10px] md:text-xs px-1.5 md:px-2.5`}>
+                            {product.period}天周期
+                          </Badge>
+                          <Badge variant="outline" className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] md:text-xs px-1.5 md:px-2.5">
+                            到期+{total_rate}%
+                          </Badge>
+                        </div>
+
+                        {/* 核心参数 */}
+                        <div className="hidden md:grid grid-cols-2 gap-3 mb-4">
+                          <div className={`p-3 rounded-xl border ${tier.color === 'blue' ? 'bg-blue-500/10 border-blue-500/30' : tier.color === 'green' ? 'bg-green-500/10 border-green-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
+                            <p className="text-xs text-slate-400 mb-1">预期收益</p>
+                            <p className={`text-xl font-bold ${tier.color === 'blue' ? 'text-blue-400' : tier.color === 'green' ? 'text-green-400' : 'text-amber-400'}`}>+{total_rate}%</p>
+                            <p className="text-xs text-slate-500">总收益率</p>
+                          </div>
+                          <div className="p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
+                            <p className="text-xs text-slate-400 mb-1">会员到手</p>
+                            <p className="text-xl font-bold text-emerald-400">{profit_rate}%</p>
+                            <p className="text-xs text-slate-500">实际收益</p>
+                          </div>
+                        </div>
+
+                        {/* 移动端参数 */}
+                        <div className="flex gap-2 mb-2 md:hidden">
+                          <div className={`flex-1 p-2 rounded-lg border ${tier.color === 'blue' ? 'bg-blue-500/10 border-blue-500/30' : tier.color === 'green' ? 'bg-green-500/10 border-green-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
+                            <p className={`text-base font-bold ${tier.color === 'blue' ? 'text-blue-400' : tier.color === 'green' ? 'text-green-400' : 'text-amber-400'}`}>+{total_rate}%</p>
+                            <p className="text-[9px] text-slate-500">总收益</p>
+                          </div>
+                          <div className="flex-1 p-2 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                            <p className="text-base font-bold text-emerald-400">{profit_rate}%</p>
+                            <p className="text-[9px] text-slate-500">到手</p>
+                          </div>
+                        </div>
+
+                        {/* 价格 */}
+                        <div className={`flex items-center justify-between p-2 md:p-3 rounded-lg mb-2 md:mb-4 border ${tier.color === 'blue' ? 'bg-blue-500/10 border-blue-500/30' : tier.color === 'green' ? 'bg-green-500/10 border-green-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
+                          <span className="text-[10px] md:text-sm text-slate-400">价格</span>
+                          <span className="text-sm md:text-xl font-bold text-white">¥{product.price.toLocaleString()}</span>
+                        </div>
+
+                        {/* 市场费 */}
+                        <div className="mb-2 md:mb-3 p-2 md:p-3 rounded-lg bg-orange-500/20 border border-orange-500/40 text-orange-300 text-center text-xs md:text-sm">
+                          <Zap className="w-3 h-3 md:w-4 md:h-4 inline mr-1" />
+                          市场费 {market_rate}% · 需能量值 ¥{Math.round(product.price * market_rate / 100).toLocaleString()}
+                        </div>
+
+                        {/* 状态指示 - 已售时显示持有人信息提示 */}
+                        {product.status === 'sold' && (
+                          <div className="p-2 md:p-3 rounded-lg bg-slate-500/20 border border-slate-500/30 text-slate-400 text-center text-xs md:text-sm">
+                            <Shield className="w-3 h-3 md:w-4 md:h-4 inline mr-1" />
+                            已售出 · 会员持有中
+                          </div>
+                        )}
+                        {product.status === 'pending_sell' && (
+                          <div className="p-2 md:p-3 rounded-lg bg-orange-500/20 border border-orange-500/30 text-orange-300 text-center text-xs md:text-sm">
+                            <RefreshCw className="w-3 h-3 md:w-4 md:h-4 inline mr-1" />
+                            流转中 · 等待买家购买
+                          </div>
+                        )}
+                        {product.status === 'available' && (
+                          <div className="p-2 md:p-3 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 text-center text-xs md:text-sm">
+                            <Package className="w-3 h-3 md:w-4 md:h-4 inline mr-1" />
+                            在售 · 等待会员购买
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      }
 
       default:
         return null;
