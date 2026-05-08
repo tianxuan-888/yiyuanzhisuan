@@ -2787,13 +2787,14 @@ const [copySuccess, setCopySuccess] = useState(false);
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
                             {/* 流转市场产品：来自其他会员的流转产品 */}
                             {transferMarket.length > 0 && transferMarket.map((t: any) => {
-                                const product = t.product || {};
-                                const price = Number(t.transfer_price || product.price || 0);
-                                const period = product.period || 7;
-                                const total_rate = parseFloat(product.total_rate || '0').toFixed(2);
-                                const market_rate = parseFloat(product.market_rate || '0').toFixed(2);
-                                const profit_rate = parseFloat(product.profit_rate || '0').toFixed(2);
-                                const market_fee = Math.floor(price * (parseFloat(product.market_rate) || 0) / 100);
+                                // API返回扁平结构，兼容嵌套product和扁平字段
+                                const p = t.product || t;
+                                const price = Number(t.transfer_price || p.price || 0);
+                                const period = p.period || 7;
+                                const total_rate = parseFloat(p.total_rate || '0').toFixed(2);
+                                const market_rate = parseFloat(p.market_rate || '0').toFixed(2);
+                                const profit_rate = parseFloat(p.profit_rate || '0').toFixed(2);
+                                const market_fee = Math.floor(price * (parseFloat(p.market_rate) || 0) / 100);
 
                                 const getProductTier = (price: number) => {
                                     if (price <= 5000) return {
@@ -2847,7 +2848,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                         </div>
                                         <div className="absolute bottom-2 right-2 md:bottom-3 md:right-3">
                                             <span className="px-1.5 py-0.5 bg-slate-900/80 rounded text-[9px] md:text-xs text-slate-300 font-mono backdrop-blur-sm">
-                                                {product.code || 'GPU'}
+                                                {p.code || 'GPU'}
                                             </span>
                                         </div>
                                     </div>
