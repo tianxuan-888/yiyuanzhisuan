@@ -40,9 +40,9 @@ export async function GET(request: NextRequest) {
     // products.provider_id 存的是 users.id
     const providerUserId = providerResult[0].user_id;
 
-    // 构建查询条件 - 销售记录只展示已上架、已售出、流转中的产品，排除未上架(draft/unlisted)
-    let whereClause = 'WHERE p.provider_id = $1 AND p.status NOT IN ($2, $3)';
-    const params: any[] = [providerUserId, 'draft', 'unlisted'];
+    // 构建查询条件 - 销售记录只展示已上架、已售出、流转中的产品，排除未上架(unlisted)
+    let whereClause = 'WHERE p.provider_id = $1 AND p.status != $2';
+    const params: any[] = [providerUserId, 'unlisted'];
 
     if (status === 'available') {
       whereClause += ' AND p.status = $4';
@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
         COUNT(*) FILTER (WHERE p.status = 'pending_sell') as pending,
         COALESCE(SUM(p.price) FILTER (WHERE p.status IN ('sold', 'pending_sell')), 0) as total_sold_amount
       FROM products p
-      WHERE p.provider_id = $1 AND p.status NOT IN ('draft', 'unlisted')
+      WHERE p.provider_id = $1 AND p.status != 'unlisted'
     `;
     const statsResult = await query(statsSql, [providerUserId]);
     const stats = statsResult[0] || { total: 0, available: 0, sold: 0, pending: 0, total_sold_amount: 0 };
