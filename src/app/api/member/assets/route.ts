@@ -127,13 +127,13 @@ export async function GET(request: NextRequest) {
     try {
       const { data: revenueRecords } = await client
         .from('member_revenue')
-        .select('profit_amount, principal_amount, converted')
+        .select('profit, principal, converted_to_energy, status')
         .eq('user_id', userId);
       if (revenueRecords && revenueRecords.length > 0) {
         for (const r of revenueRecords) {
-          realizedProfit += parseNumeric(r.profit_amount);
-          realizedPrincipal += parseNumeric(r.principal_amount);
-          convertedProfit += parseNumeric(r.converted);
+          realizedProfit += parseNumeric(r.profit);
+          realizedPrincipal += parseNumeric(r.principal);
+          convertedProfit += parseNumeric(r.converted_to_energy);
         }
       }
     } catch (e) {
