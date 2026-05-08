@@ -868,7 +868,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                 },
                 body: JSON.stringify({
                     transferId,
-                    buyerId: userId
+                    userId
                 })
             });
             const data = await res.json();
@@ -3564,7 +3564,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                     },
                                                                     body: JSON.stringify({
                                                                         transferId: t.id,
-                                                                        buyerId: user?.id
+                                                                        userId: user?.id
                                                                     })
                                                                 });
                                                                 const data = await res.json();
