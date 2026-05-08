@@ -537,7 +537,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
             });
-            const response = await fetch(`/api/products/transfer/list?userId=${user.id}`, {
+            const response = await fetch(`/api/products/transfer/list?sellerId=${user.id}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
@@ -2993,7 +2993,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                 {(() => {
                                     // 分为待确认和持有中两组
                                     const pendingProducts = userProducts.filter(up => up.status === 'pending_confirm');
-                                    const activeProducts = userProducts.filter(up => up.status === 'holding' || up.status === 'pending_sell' || up.status === 'sold');
+                                    const activeProducts = userProducts.filter(up => up.status === 'holding' || up.status === 'pending_sell' || up.status === 'transferring' || up.status === 'repurchase_pending');
                                     
                                     // 按产品周期分组
                                     const groupByPeriod = (products: typeof userProducts) => {
@@ -3073,6 +3073,10 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                         <Clock className="w-3 h-3 mr-1" />
                                                                         待确认
                                                                     </Badge>
+                                                                ) : up.status === "transferring" ? (
+                                                                    <Badge className="bg-orange-100 text-orange-700">流转中</Badge>
+                                                                ) : up.status === "repurchase_pending" ? (
+                                                                    <Badge className="bg-purple-100 text-purple-700">待确认回购</Badge>
                                                                 ) : up.status === "holding" && (
                                                                     canSell ? (
                                                                         <Badge className="bg-green-100 text-green-700">已解锁</Badge>
@@ -3090,12 +3094,16 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                         up.status === "pending_confirm" ? "bg-amber-100 text-amber-700" :
                                                                         up.status === "holding" ? "bg-blue-100 text-blue-700" : 
                                                                         up.status === "pending_sell" ? "bg-yellow-100 text-yellow-700" : 
-                                                                        up.status === "sold" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
+                                                                        up.status === "transferring" ? "bg-orange-100 text-orange-700" :
+                                                                        up.status === "repurchase_pending" ? "bg-purple-100 text-purple-700" :
+                                                                        "bg-gray-100 text-gray-700"
                                                                     }>
                                                                     {up.status === "pending_confirm" ? "已申购待确认" : 
                                                                      up.status === "holding" ? "持有中" : 
                                                                      up.status === "pending_sell" ? "待审核" : 
-                                                                     up.status === "sold" ? "已卖出" : up.status}
+                                                                     up.status === "transferring" ? "流转中" :
+                                                                     up.status === "repurchase_pending" ? "待确认回购" :
+                                                                     up.status}
                                                                 </Badge>
                                                             </td>
                                                             <td className="py-3 px-4">
@@ -3118,6 +3126,50 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                 >锁定中
                                                                 </Button>}
                                                                 {up.status === "pending_sell" && <span className="text-sm text-gray-500">审核中</span>}
+                                                                {up.status === "transferring" && <span className="text-sm text-orange-500">产品流转中</span>}
+                                                                {up.status === "repurchase_pending" && (
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                        className="text-purple-600 border-purple-300 hover:bg-purple-50"
+                                                                        onClick={async () => {
+                                                                            if (!confirm('确认已收到服务商返还的本金？确认后产品将回到服务商在售列表。')) return;
+                                                                            try {
+                                                                                const token = localStorage.getItem('token');
+                                                                                // 找到对应的回购流转记录
+                                                                                const transferRes = await fetch(`/api/products/transfer/list?sellerId=${user?.id}&status=repurchase_pending`, {
+                                                                                    headers: { 'Authorization': `Bearer ${token}` }
+                                                                                });
+                                                                                const transferData = await transferRes.json();
+                                                                                const matchTransfer = (transferData.data || []).find((tr: any) => tr.from_user_product_id === up.id);
+                                                                                if (!matchTransfer) {
+                                                                                    alert('未找到对应的回购记录');
+                                                                                    return;
+                                                                                }
+                                                                                const res = await fetch('/api/products/transfer/confirm-repurchase', {
+                                                                                    method: 'POST',
+                                                                                    headers: {
+                                                                                        'Content-Type': 'application/json',
+                                                                                        'Authorization': `Bearer ${token}`
+                                                                                    },
+                                                                                    body: JSON.stringify({
+                                                                                        transferId: matchTransfer.id,
+                                                                                        memberId: user?.id
+                                                                                    })
+                                                                                });
+                                                                                const data = await res.json();
+                                                                                if (data.success) {
+                                                                                    alert('已确认回购，本金已收到');
+                                                                                    loadData();
+                                                                                } else {
+                                                                                    alert(data.error || '确认回购失败');
+                                                                                }
+                                                                            } catch (e: any) {
+                                                                                alert('确认回购失败: ' + e.message);
+                                                                            }
+                                                                        }}
+                                                                    >确认回购</Button>
+                                                                )}
                                                             </td>
                                                         </tr>})}
                                                     </tbody>
@@ -3144,7 +3196,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                         </>
                                     );
                                 })()}
-                                {userProducts.filter(up => up.status !== 'cancelled').length === 0 && <div className="py-8 text-center text-gray-500">暂无持仓，请先购买算力</div>}
+                                {userProducts.filter(up => !['cancelled', 'sold', 'transferred', 'repurchased'].includes(up.status)).length === 0 && <div className="py-8 text-center text-gray-500">暂无持仓，请先购买算力</div>}
                             </div>
                         </CardContent>
                     </Card>}

@@ -1,11 +1,6 @@
-const path = require('path');
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   allowedDevOrigins: ['*.dev.coze.site'],
-  turbopack: {
-    root: path.join(__dirname),
-  },
   images: {
     unoptimized: true,
     remotePatterns: [
