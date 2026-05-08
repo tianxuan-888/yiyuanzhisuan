@@ -10,15 +10,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '未登录' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { userId, transferId } = body;
+    const operatorUserId = user.userId;
 
-    if (!userId || !transferId) {
+    const body = await request.json();
+    const { transferId } = body;
+
+    if (!transferId) {
       return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
     }
 
     // 验证操作者权限
-    if (user.role !== 'admin' && user.userId !== userId) {
+    if (user.role !== 'admin' && user.userId !== operatorUserId) {
       return NextResponse.json({ error: '无权操作' }, { status: 403 });
     }
 
@@ -33,7 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 验证是否是卖家本人
-    if (transfer.from_user_id !== userId) {
+    if (transfer.from_user_id !== operatorUserId) {
       return NextResponse.json({ error: '只有卖家才能取消流转' }, { status: 403 });
     }
 

@@ -11,9 +11,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { transferId, reviewerId, action, reviewNote } = body;
+    const { transferId, action, reviewNote } = body;
 
-    if (!transferId || !reviewerId || !action) {
+    // 使用 token 中的 userId 作为审核者身份
+    const reviewerId = user.userId;
+
+    if (!transferId || !action) {
       return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
     }
 

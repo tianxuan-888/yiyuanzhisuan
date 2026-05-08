@@ -1643,7 +1643,6 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                                             body: JSON.stringify({
-                                                userId: user?.id,
                                                 transferId: selectedTransferForPayment.id
                                             })
                                         });
@@ -3533,8 +3532,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                                 'Authorization': `Bearer ${token}`
                                                                             },
                                                                             body: JSON.stringify({
-                                                                                transferId: t.id,
-                                                                                userId: user?.id
+                                                                                transferId: t.id
                                                                             })
                                                                         });
                                                                         const data = await res.json();
@@ -3562,7 +3560,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                         const res = await fetch('/api/products/transfer/cancel', {
                                                                             method: 'POST',
                                                                             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                                                                            body: JSON.stringify({ userId: user?.id, transferId: t.id })
+                                                                            body: JSON.stringify({ transferId: t.id })
                                                                         });
                                                                         const data = await res.json();
                                                                         if (data.success) {
@@ -3609,7 +3607,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                         const res = await fetch('/api/products/transfer/cancel', {
                                                                             method: 'POST',
                                                                             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                                                                            body: JSON.stringify({ userId: user?.id, transferId: t.id })
+                                                                            body: JSON.stringify({ transferId: t.id })
                                                                         });
                                                                         const data = await res.json();
                                                                         if (data.success) {

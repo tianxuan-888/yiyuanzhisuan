@@ -11,15 +11,13 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { userId, transferId } = body;
+    const { transferId } = body;
 
-    if (!userId || !transferId) {
+    // 使用 token 中的 userId 作为操作者身份
+    const operatorUserId = user.userId;
+
+    if (!transferId) {
       return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
-    }
-
-    // 验证操作者权限
-    if (user.role !== 'admin' && user.userId !== userId) {
-      return NextResponse.json({ error: '无权操作' }, { status: 403 });
     }
 
     // 查询流转记录
@@ -33,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 验证是否是买家本人
-    if (transfer.to_user_id !== userId) {
+    if (transfer.to_user_id !== operatorUserId) {
       return NextResponse.json({ error: '只有买家才能确认付款' }, { status: 403 });
     }
 
@@ -72,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     const buyer = await queryOne<any>(
       'SELECT username FROM users WHERE id = $1',
-      [userId]
+      [operatorUserId]
     );
 
     if (transfer.from_user_id) {

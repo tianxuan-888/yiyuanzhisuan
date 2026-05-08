@@ -1630,7 +1630,6 @@ export default function ProviderPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     transferId,
-                    reviewerId: providerId,
                     action,
                 }),
             });
