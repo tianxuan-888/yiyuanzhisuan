@@ -7,6 +7,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const sellerId = searchParams.get('sellerId');
     const buyerId = searchParams.get('buyerId');
+    const userId = searchParams.get('userId'); // 同时查卖家和买家
     const statusFilter = searchParams.get('status');
     const marketMode = searchParams.get('market'); // 'true' 表示获取流转市场
 
@@ -42,6 +43,13 @@ export async function GET(request: NextRequest) {
       if (buyerId) {
         params.push(buyerId);
         whereClause += ` AND pt.to_user_id = $${paramIdx++}`;
+      }
+
+      // 按用户过滤（同时查卖家和买家）
+      if (userId) {
+        params.push(userId);
+        params.push(userId);
+        whereClause += ` AND (pt.from_user_id = $${paramIdx++} OR pt.to_user_id = $${paramIdx++})`;
       }
     }
 

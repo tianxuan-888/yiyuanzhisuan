@@ -537,7 +537,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
             });
-            const response = await fetch(`/api/products/transfer/list?sellerId=${user.id}`, {
+            const response = await fetch(`/api/products/transfer/list?userId=${user.id}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
@@ -3369,13 +3369,19 @@ const [copySuccess, setCopySuccess] = useState(false);
                                     <div className="py-8 text-center text-gray-500">暂无流转记录</div>
                                 ) : (
                                     <div className="space-y-3">
-                                        {myTransfers.map((t: any) => (
+                                        {myTransfers.map((t: any) => {
+                                            const isSeller = t.from_user_id === user?.id;
+                                            const isBuyer = t.to_user_id === user?.id;
+                                            return (
                                             <div key={t.id} className="border rounded-lg p-3 space-y-2">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2">
                                                         <span className="font-medium">{t.product_name || t.product_code}</span>
                                                         <Badge variant="outline" className="text-xs">
                                                             {t.period}天周期
+                                                        </Badge>
+                                                        <Badge className={isSeller ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}>
+                                                            {isSeller ? '卖家' : '买家'}
                                                         </Badge>
                                                         <Badge className={
                                                             t.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
@@ -3399,11 +3405,12 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                 </div>
                                                 <div className="text-xs text-gray-500 space-y-1">
                                                     <div>市场费: {t.market_rate}% · 收益率: {t.profit_rate}%</div>
-                                                    {t.buyer_name && <div>买家: {t.buyer_name} {t.buyer_unique_id ? `[${t.buyer_unique_id}]` : ''}</div>}
+                                                    {isSeller && t.buyer_name && <div>买家: {t.buyer_name} {t.buyer_unique_id ? `[${t.buyer_unique_id}]` : ''}</div>}
+                                                    {isBuyer && t.seller_name && <div>卖家: {t.seller_name} {t.seller_unique_id ? `[${t.seller_unique_id}]` : ''}</div>}
                                                     <div>发布时间: {new Date(t.created_at).toLocaleString()}</div>
                                                 </div>
-                                                {/* 卖家确认收款按钮 */}
-                                                {t.status === 'awaiting_payment' && (
+                                                {/* 卖家操作：确认收款 */}
+                                                {isSeller && t.status === 'awaiting_payment' && (
                                                     <div className="pt-2 border-t">
                                                         <Button
                                                             size="sm"
@@ -3439,8 +3446,24 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                         </Button>
                                                     </div>
                                                 )}
+                                                {/* 买家视角：等待卖家确认收款 */}
+                                                {isBuyer && t.status === 'awaiting_payment' && (
+                                                    <div className="pt-2 border-t">
+                                                        <div className="text-xs text-blue-600 flex items-center gap-1">
+                                                            <Clock className="w-3 h-3" />已申请购买，等待卖家确认收款后服务商审核
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {/* 买家视角：等待卖家发布/确认 */}
+                                                {isBuyer && t.status === 'pending' && (
+                                                    <div className="pt-2 border-t">
+                                                        <div className="text-xs text-yellow-600 flex items-center gap-1">
+                                                            <Clock className="w-3 h-3" />已发布流转，等待其他会员购买
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 {/* 待回购确认 - 卖家确认收到回购本金 */}
-                                                {t.status === 'pending_repurchase' && (
+                                                {isSeller && t.status === 'pending_repurchase' && (
                                                     <div className="pt-2 border-t space-y-2">
                                                         <div className="text-xs text-orange-600 flex items-center gap-1">
                                                             <AlertCircle className="w-3 h-3" />24小时无人购买，服务商已发起回购。请确认已收到线下返还本金。
@@ -3479,13 +3502,19 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                         </Button>
                                                     </div>
                                                 )}
-                                                {t.status === 'seller_confirmed' && (
+                                                {isSeller && t.status === 'seller_confirmed' && (
                                                     <div className="text-xs text-green-600 flex items-center gap-1 pt-2 border-t">
                                                         <CheckCircle className="w-3 h-3" />已确认收款，等待服务商审核通过
                                                     </div>
                                                 )}
+                                                {isBuyer && t.status === 'seller_confirmed' && (
+                                                    <div className="text-xs text-green-600 flex items-center gap-1 pt-2 border-t">
+                                                        <CheckCircle className="w-3 h-3" />卖家已确认收款，等待服务商审核
+                                                    </div>
+                                                )}
                                             </div>
-                                        ))}
+                                        );
+                                        })}
                                     </div>
                                 )}
                             </CardContent>
