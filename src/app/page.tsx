@@ -166,15 +166,13 @@ export default function LoginPage() {
     }
   };
 
+  // 客户端挂载检测（解决 Coze iframe hydrate 问题）
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   // 启动画面状态
   const [showSplash, setShowSplash] = useState(false);
 
-  // 客户端挂载后1.5秒自动关闭splash
-  useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 1500);
-    return () => clearTimeout(timer);
-  }, []);
-  
   // 登录表单状态
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -424,6 +422,15 @@ export default function LoginPage() {
   // 启动画面
   if (showSplash) {
     return <SplashScreen onComplete={() => setShowSplash(false)} />;
+  }
+
+  // 客户端未挂载时显示简单加载（避免 hydrate 不一致）
+  if (!mounted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-900">
+        <div className="text-white text-lg">加载中...</div>
+      </div>
+    );
   }
 
   return (
