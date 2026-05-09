@@ -168,6 +168,12 @@ export default function LoginPage() {
 
   // 启动画面状态
   const [showSplash, setShowSplash] = useState(true);
+
+  // 客户端挂载后1.5秒自动关闭splash
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSplash(false), 1500);
+    return () => clearTimeout(timer);
+  }, []);
   
   // 登录表单状态
   const [username, setUsername] = useState('');
