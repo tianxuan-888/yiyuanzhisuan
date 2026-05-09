@@ -1,3 +1,5 @@
+'use client';
+
 import dynamic from 'next/dynamic';
 
 // 禁用 SSR，解决 Coze iframe 中 React hydrate 失败导致交互不生效的问题
