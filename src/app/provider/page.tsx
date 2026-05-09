@@ -2115,7 +2115,21 @@ export default function ProviderPage() {
                                             </div>
                                             <div className="flex items-center justify-between py-2 border-b">
                                                 <span className="text-gray-500">真实姓名</span>
-                                                <span className="text-slate-500 italic text-sm">（对应支付宝账户）</span>
+                                                <span>{user?.real_name || '-'}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between py-2 border-b">
+                                                <span className="text-gray-500">支付宝账号</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span>{user?.alipay_account || '-'}</span>
+                                                    {user?.alipay_account && (
+                                                        <Button size="sm" variant="ghost" onClick={() => {
+                                                            navigator.clipboard.writeText(user.alipay_account || '');
+                                                            showMessage('success', '支付宝账号已复制到剪贴板');
+                                                        }}>
+                                                            <span className="text-blue-500 text-xs">复制</span>
+                                                        </Button>
+                                                    )}
+                                                </div>
                                             </div>
                                             <div className="flex items-center justify-between py-2 border-b">
                                                 <span className="text-gray-500">登录密码</span>
