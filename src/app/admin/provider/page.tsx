@@ -13,7 +13,7 @@ import {
   Shield, Award, Users, ArrowRightLeft, Plus, LogOut, 
   ChevronRight, ChevronLeft, Gift, Copy, Check, Lock, TrendingUp,
   Search, X, Eye, EyeOff, TrendingDown, ArrowUpRight, ArrowDownRight,
-  DollarSign, CreditCard, ArrowUp, ArrowDown, RefreshCw, Filter, Edit
+  DollarSign, CreditCard, ArrowUp, ArrowDown, RefreshCw, Filter, Edit, Menu
 } from 'lucide-react';
 import { ChangePasswordDialog } from '@/components/admin/ChangePasswordDialog';
 
@@ -78,6 +78,7 @@ export default function ProviderDashboard() {
   const [loading, setLoading] = useState(true);
   const [activeMenu, setActiveMenu] = useState('overview');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [token, setToken] = useState('');
   
@@ -2027,8 +2028,29 @@ export default function ProviderDashboard() {
         </div>
       )}
 
-      {/* 左侧导航 */}
-      <aside className={`${sidebarCollapsed ? 'w-20' : 'w-64'} bg-gradient-to-b from-slate-900 to-slate-800 min-h-screen flex flex-col border-r border-slate-700 transition-all duration-300`}>
+      {/* 移动端遮罩 */}
+      {mobileSidebarOpen && (
+        <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setMobileSidebarOpen(false)} />
+      )}
+
+      {/* 移动端顶部Header */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-gradient-to-r from-slate-900 to-slate-800 border-b border-slate-700 px-4 py-3 flex items-center justify-between">
+        <button onClick={() => setMobileSidebarOpen(true)} className="text-white p-1">
+          <Menu className="w-6 h-6" />
+        </button>
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center">
+            <Shield className="w-4 h-4 text-white" />
+          </div>
+          <span className="text-white font-bold text-sm">服务商后台</span>
+        </div>
+        <button onClick={handleLogout} className="text-red-400 p-1">
+          <LogOut className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* 左侧导航 - 移动端抽屉 / PC端固定 */}
+      <aside className={`fixed md:static inset-y-0 left-0 z-50 ${sidebarCollapsed ? 'md:w-20' : 'md:w-64'} w-64 bg-gradient-to-b from-slate-900 to-slate-800 flex flex-col border-r border-slate-700 transition-transform duration-300 ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         {/* Logo区域 */}
         <div className="p-4 border-b border-slate-700">
           <div className="flex items-center gap-3">
@@ -2052,7 +2074,7 @@ export default function ProviderDashboard() {
               return (
                 <li key={item.id}>
                   <button
-                    onClick={() => setActiveMenu(item.id)}
+                    onClick={() => { setActiveMenu(item.id); setMobileSidebarOpen(false); }}
                     className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all ${
                       activeMenu === item.id
                         ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
@@ -2078,7 +2100,7 @@ export default function ProviderDashboard() {
         <div className="p-3 border-t border-slate-700 space-y-2">
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
+            className="hidden md:flex w-full items-center justify-center gap-2 px-3 py-2 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
           >
             {sidebarCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
             {!sidebarCollapsed && <span className="text-sm">收起</span>}
@@ -2094,9 +2116,9 @@ export default function ProviderDashboard() {
       </aside>
 
       {/* 右侧内容 */}
-      <main className="flex-1 p-6 overflow-auto">
+      <main className="flex-1 p-3 md:p-6 overflow-auto pt-16 md:pt-6">
         {/* 面包屑 */}
-        <div className="mb-4 text-sm text-gray-500">
+        <div className="mb-4 text-sm text-gray-500 hidden md:block">
           <span className="text-purple-600">服务商后台</span> / <span>{menuNames[activeMenu]}</span>
         </div>
 
