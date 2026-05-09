@@ -166,8 +166,8 @@ export default function LoginPage() {
     }
   };
 
-  // 启动画面状态 - 默认false，避免iframe中hydrat失败导致卡在加载画面
-  const [showSplash, setShowSplash] = useState(false);
+  // 启动画面状态
+  const [showSplash, setShowSplash] = useState(true);
 
   // 客户端挂载后1.5秒自动关闭splash
   useEffect(() => {
