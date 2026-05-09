@@ -217,6 +217,7 @@ function ProviderWithdrawRecords({ userId, authFetch }: { userId: string; authFe
 export default function ProviderPage() {
     const {
         user,
+        setUser,
         loading: authLoading,
         logout,
         refreshUser
