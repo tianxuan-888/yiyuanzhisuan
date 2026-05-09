@@ -10,13 +10,13 @@ import { useRouter } from 'next/navigation';
 
 // 启动画面效果（使用渐变背景替代图片）
 const SplashScreen = ({ onComplete }: { onComplete: () => void }) => {
-  useEffect(() => {
-    const timer = setTimeout(onComplete, 1500);
-    return () => clearTimeout(timer);
-  }, [onComplete]);
-
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 overflow-hidden">
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 overflow-hidden"
+      onAnimationEnd={onComplete}
+      style={{ animation: 'splashFade 1.5s ease-in-out forwards' }}
+    >
+      <style>{`@keyframes splashFade { 0%,70% { opacity:1; } 100% { opacity:0; } }`}</style>
       <div className="text-center">
         <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
           <Shield className="w-10 h-10 text-white" />
@@ -167,7 +167,7 @@ export default function LoginPage() {
   };
 
   // 启动画面状态
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(false);
 
   // 客户端挂载后1.5秒自动关闭splash
   useEffect(() => {
