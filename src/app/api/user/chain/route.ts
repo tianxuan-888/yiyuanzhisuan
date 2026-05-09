@@ -155,7 +155,7 @@ export async function GET(request: NextRequest) {
       const membersResult = await query(`
         SELECT 
           u.id, u.username, u.phone, u.real_name, u.energy_value, u.balance,
-          u.created_at
+          u.unique_id, u.created_at
         FROM users u
         WHERE u.provider_id = $1 AND u.role = 'member'
         ORDER BY u.created_at DESC
@@ -166,11 +166,48 @@ export async function GET(request: NextRequest) {
         username: m.username,
         phone: m.phone,
         realName: m.real_name,
-        energyValue: m.energy_value,
-        balance: m.balance,
+        energyValue: m.energy_value || 0,
+        balance: m.balance || 0,
+        uniqueId: m.unique_id,
         createdAt: m.created_at,
         roleName: '会员'
       }));
+
+      // 批量获取会员持仓统计
+      if (membersResult.length > 0) {
+        const memberIds = membersResult.map((m: any) => m.id);
+        const holdingsResult = await query(`
+          SELECT 
+            up.user_id,
+            COUNT(*) as product_count,
+            COALESCE(SUM(up.purchase_price), 0) as total_amount
+          FROM user_products up
+          WHERE up.user_id = ANY($1) AND up.status = 'holding'
+          GROUP BY up.user_id
+        `, [memberIds]);
+
+        const holdingsMap: Record<string, { productCount: number; totalAmount: number }> = {};
+        holdingsResult.forEach((h: any) => {
+          holdingsMap[h.user_id] = {
+            productCount: parseInt(h.product_count) || 0,
+            totalAmount: parseFloat(h.total_amount) || 0
+          };
+        });
+
+        chain.members = membersResult.map((m: any) => ({
+          id: m.id,
+          username: m.username,
+          phone: m.phone,
+          realName: m.real_name,
+          energyValue: m.energy_value || 0,
+          balance: m.balance || 0,
+          uniqueId: m.unique_id,
+          productCount: holdingsMap[m.id]?.productCount || 0,
+          totalAmount: holdingsMap[m.id]?.totalAmount || 0,
+          createdAt: m.created_at,
+          roleName: '会员'
+        }));
+      }
 
       // 获取下级服务商
       const providersResult = await query(`

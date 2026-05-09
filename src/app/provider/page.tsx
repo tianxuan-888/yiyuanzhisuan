@@ -2465,29 +2465,68 @@ export default function ProviderPage() {
                                                     <Badge className="bg-purple-600 text-white">服务商</Badge>
                                                 </div>
 
-                                                {/* 下级会员 */}
+                                                {/* 下级会员管理 */}
                                                 {chainData.members && chainData.members.length > 0 && (
-                                                    <div className="p-3 bg-green-900/20 rounded-lg border border-green-800/50">
+                                                    <div className="p-4 bg-green-900/20 rounded-lg border border-green-800/50">
                                                         <p className="text-green-400 font-medium mb-3 flex items-center gap-2">
                                                             <Users className="w-4 h-4" />
                                                             我的会员 ({chainData.members.length})
                                                         </p>
-                                                        <div className="space-y-2">
-                                                            {chainData.members.slice(0, 5).map((member: any) => (
-                                                                <div key={member.id} className="flex items-center gap-2 p-2 bg-slate-800/50 rounded-lg">
-                                                                    <div className="w-8 h-8 rounded-full bg-green-600/30 flex items-center justify-center">
-                                                                        <User className="w-4 h-4 text-green-400" />
-                                                                    </div>
-                                                                    <div className="flex-1">
-                                                                        <p className="text-white text-sm">{member.username}</p>
-                                                                        <p className="text-slate-500 text-xs">{member.phone?.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')}</p>
-                                                                    </div>
-                                                                    <Badge className="bg-green-600/30 text-green-400 text-xs">会员</Badge>
-                                                                </div>
-                                                            ))}
-                                                            {chainData.members.length > 5 && (
-                                                                <p className="text-center text-slate-500 text-sm py-2">还有 {chainData.members.length - 5} 个会员...</p>
-                                                            )}
+                                                        {/* 统计卡片 */}
+                                                        <div className="grid grid-cols-3 gap-3 mb-4">
+                                                            <div className="p-3 bg-slate-800/60 rounded-lg text-center">
+                                                                <p className="text-slate-400 text-xs mb-1">会员总数</p>
+                                                                <p className="text-white text-lg font-bold">{chainData.members.length}</p>
+                                                            </div>
+                                                            <div className="p-3 bg-slate-800/60 rounded-lg text-center">
+                                                                <p className="text-slate-400 text-xs mb-1">总能量值</p>
+                                                                <p className="text-amber-400 text-lg font-bold">{chainData.members.reduce((sum: number, m: any) => sum + (m.energyValue || 0), 0).toLocaleString()}</p>
+                                                            </div>
+                                                            <div className="p-3 bg-slate-800/60 rounded-lg text-center">
+                                                                <p className="text-slate-400 text-xs mb-1">总持有额度</p>
+                                                                <p className="text-green-400 text-lg font-bold">¥{chainData.members.reduce((sum: number, m: any) => sum + (m.totalAmount || 0), 0).toLocaleString()}</p>
+                                                            </div>
+                                                        </div>
+                                                        {/* 会员列表表格 */}
+                                                        <div className="overflow-x-auto">
+                                                            <table className="w-full text-sm">
+                                                                <thead>
+                                                                    <tr className="border-b border-slate-700">
+                                                                        <th className="text-left py-2 px-2 text-slate-400 font-medium">会员信息</th>
+                                                                        <th className="text-right py-2 px-2 text-slate-400 font-medium">能量值</th>
+                                                                        <th className="text-right py-2 px-2 text-slate-400 font-medium">持有产品</th>
+                                                                        <th className="text-right py-2 px-2 text-slate-400 font-medium">持有额度</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {chainData.members.map((member: any) => (
+                                                                        <tr key={member.id} className="border-b border-slate-700/50 hover:bg-slate-800/30">
+                                                                            <td className="py-3 px-2">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <div className="w-8 h-8 rounded-full bg-green-600/30 flex items-center justify-center shrink-0">
+                                                                                        <User className="w-4 h-4 text-green-400" />
+                                                                                    </div>
+                                                                                    <div className="min-w-0">
+                                                                                        <p className="text-white text-sm truncate">{member.username}</p>
+                                                                                        <p className="text-slate-500 text-xs">
+                                                                                            {member.uniqueId ? `${member.uniqueId}` : member.phone?.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') || '-'}
+                                                                                        </p>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </td>
+                                                                            <td className="py-3 px-2 text-right">
+                                                                                <span className="text-amber-400 font-medium">{(member.energyValue || 0).toLocaleString()}</span>
+                                                                            </td>
+                                                                            <td className="py-3 px-2 text-right">
+                                                                                <span className="text-purple-400 font-medium">{member.productCount || 0} 个</span>
+                                                                            </td>
+                                                                            <td className="py-3 px-2 text-right">
+                                                                                <span className="text-green-400 font-medium">¥{(member.totalAmount || 0).toLocaleString()}</span>
+                                                                            </td>
+                                                                        </tr>
+                                                                    ))}
+                                                                </tbody>
+                                                            </table>
                                                         </div>
                                                     </div>
                                                 )}
