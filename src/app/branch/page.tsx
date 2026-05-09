@@ -1422,8 +1422,8 @@ export default function BranchPage() {
                 }`}
               >
                 <Zap className="w-4 h-4" />能量值管理
-                {(energyRequests.length + providerEnergyRequests.length) > 0 && (
-                  <Badge className="ml-1 bg-red-500 text-white text-xs">{energyRequests.length + providerEnergyRequests.length}</Badge>
+                {(energyRequests.filter((r: any) => r.status === 'pending').length + providerEnergyRequests.filter((r: any) => r.status === 'pending').length) > 0 && (
+                  <Badge className="ml-1 bg-red-500 text-white text-xs">{energyRequests.filter((r: any) => r.status === 'pending').length + providerEnergyRequests.filter((r: any) => r.status === 'pending').length}</Badge>
                 )}
               </button>
               <button
@@ -2308,8 +2308,8 @@ export default function BranchPage() {
                   }`}
                 >
                   审核服务商申请
-                  {providerEnergyRequests.length > 0 && (
-                    <Badge className="bg-red-500 text-white text-xs">{providerEnergyRequests.length}</Badge>
+                  {providerEnergyRequests.filter(r => r.status === 'pending').length > 0 && (
+                    <Badge className="bg-red-500 text-white text-xs">{providerEnergyRequests.filter(r => r.status === 'pending').length}</Badge>
                   )}
                 </button>
                 <button
