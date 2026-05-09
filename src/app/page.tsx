@@ -430,12 +430,12 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
       {/* AI科技感背景图 */}
       <div 
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none"
         style={{ backgroundImage: 'url(/ai-bg.jpg)' }}
       ></div>
       
       {/* 背景遮罩层 */}
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm pointer-events-none"></div>
       
       {/* 动态光效装饰 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
