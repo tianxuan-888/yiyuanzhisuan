@@ -2123,6 +2123,20 @@ export default function ProviderPage() {
                                                     <Lock className="w-4 h-4 mr-1" />修改密码
                                                 </Button>
                                             </div>
+                                            <div className="flex items-center justify-between py-2 border-b">
+                                                <span className="text-gray-500">邀请码</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-mono text-sm font-bold text-purple-700">{user?.invite_code || (user as any)?.unique_id || '-'}</span>
+                                                    {user?.invite_code && (
+                                                        <Button size="sm" variant="ghost" onClick={() => {
+                                                            navigator.clipboard.writeText(user.invite_code || '');
+                                                            showMessage('success', '邀请码已复制到剪贴板');
+                                                        }}>
+                                                            <span className="text-blue-500 text-xs">复制</span>
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
