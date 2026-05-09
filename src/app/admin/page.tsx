@@ -292,6 +292,14 @@ export default function AdminPage() {
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [memberStats, setMemberStats] = useState<any>(null);
   const [memberStatsLoading, setMemberStatsLoading] = useState(false);
+  const [showEnergyAdjustDialog, setShowEnergyAdjustDialog] = useState(false);
+  const [showEnergyRecordDialog, setShowEnergyRecordDialog] = useState(false);
+  const [energyAdjustTarget, setEnergyAdjustTarget] = useState<any>(null);
+  const [energyAdjustAmount, setEnergyAdjustAmount] = useState('');
+  const [energyAdjustNote, setEnergyAdjustNote] = useState('');
+  const [energyAdjustType, setEnergyAdjustType] = useState<'add' | 'deduct'>('add');
+  const [energyRecordList, setEnergyRecordList] = useState<any[]>([]);
+  const [energyRecordLoading, setEnergyRecordLoading] = useState(false);
 
   // 提现管理相关状态（提升到顶层避免 Hooks 规则违反）
   const [withdrawTab, setWithdrawTab] = useState<'deposit' | 'records'>('deposit');
@@ -2541,6 +2549,79 @@ export default function AdminPage() {
         .catch(() => alert('网络错误'));
     };
 
+    // 能量值调整
+    const handleEnergyAdjust = (user: any) => {
+      setEnergyAdjustTarget(user);
+      setEnergyAdjustAmount('');
+      setEnergyAdjustNote('');
+      setEnergyAdjustType('add');
+      setShowEnergyAdjustDialog(true);
+    };
+
+    const submitEnergyAdjust = async () => {
+      if (!energyAdjustTarget || !energyAdjustAmount) return alert('请填写调整金额');
+      const amount = parseFloat(energyAdjustAmount);
+      if (isNaN(amount) || amount <= 0) return alert('请输入有效金额');
+
+      try {
+        const res = await authFetch('/api/admin/energy-adjust', {
+          method: 'POST',
+          body: JSON.stringify({
+            userId: energyAdjustTarget.id,
+            type: energyAdjustType,
+            amount,
+            note: energyAdjustNote || (energyAdjustType === 'add' ? '管理员调整增加' : '管理员调整扣除'),
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('能量值调整成功');
+          setShowEnergyAdjustDialog(false);
+          // 刷新能量值列表
+          loadMemberEnergyList();
+        } else {
+          alert(data.error || '调整失败');
+        }
+      } catch {
+        alert('网络错误');
+      }
+    };
+
+    // 查看能量值记录
+    const handleViewEnergyRecord = async (user: any) => {
+      setEnergyAdjustTarget(user);
+      setShowEnergyRecordDialog(true);
+      setEnergyRecordLoading(true);
+      try {
+        const res = await authFetch(`/api/energy-transactions?userId=${user.id}`);
+        const data = await res.json();
+        if (data.success) {
+          setEnergyRecordList(data.data || []);
+        }
+      } catch {
+        setEnergyRecordList([]);
+      }
+      setEnergyRecordLoading(false);
+    };
+
+    // 加载会员能量值列表
+    const loadMemberEnergyList = async () => {
+      try {
+        const res = await authFetch('/api/admin/members-energy');
+        const data = await res.json();
+        if (data.success) {
+          setAllUsers(prev => {
+            // 合并能量值数据
+            const energyMap = new Map((data.data || []).map((u: any) => [u.id, u]));
+            return prev.map(u => {
+              const e = energyMap.get(u.id);
+              return e ? { ...u, ...e } : u;
+            });
+          });
+        }
+      } catch {}
+    };
+
     // 升级审核Tab
     const renderUpgradeAuditTab = () => (
       <Card>
@@ -2641,8 +2722,8 @@ export default function AdminPage() {
                       <td className="py-3 px-4">{item.provider_name || '-'}</td>
                       <td className="py-3 px-4">
                         <div className="flex gap-2">
-                          <Button size="sm" variant="outline">调整</Button>
-                          <Button size="sm" variant="outline">记录</Button>
+                          <Button size="sm" variant="outline" onClick={() => handleEnergyAdjust(item)}>调整</Button>
+                          <Button size="sm" variant="outline" onClick={() => handleViewEnergyRecord(item)}>记录</Button>
                         </div>
                       </td>
                     </tr>
@@ -2696,9 +2777,20 @@ export default function AdminPage() {
             <CardTitle>会员增长趋势</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-64 flex items-center justify-center text-gray-400">
-              <BarChart3 className="w-16 h-16 mr-4" />
-              <span>增长趋势图表（待接入数据）</span>
+            <div className="h-64">
+              {memberStats?.newUsersTrend?.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={memberStats.newUsersTrend}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" tick={{ fontSize: 12 }} tickFormatter={(v: string) => v.slice(5)} />
+                    <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                    <Tooltip />
+                    <Area type="monotone" dataKey="count" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.2} name="新增会员" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-gray-400">暂无趋势数据</div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -7774,7 +7866,138 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* 能量值调整弹窗 */}
+      {showEnergyAdjustDialog && energyAdjustTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-bold mb-4">调整能量值 - {energyAdjustTarget.username}</h3>
+            <div className="space-y-4">
+              <div className="bg-gray-50 rounded-lg p-3">
+                <p className="text-sm text-gray-500">当前能量值</p>
+                <p className="text-xl font-bold text-orange-600">{energyAdjustTarget.energy_value?.toLocaleString() || 0}</p>
+              </div>
+              <div>
+                <label className="text-sm text-gray-600">调整类型</label>
+                <select 
+                  value={energyAdjustType} 
+                  onChange={e => setEnergyAdjustType(e.target.value as 'add' | 'deduct')}
+                  className="w-full mt-1 p-2 border rounded-lg"
+                >
+                  <option value="add">增加能量值</option>
+                  <option value="deduct">扣除能量值</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm text-gray-600">调整数量</label>
+                <input
+                  type="number"
+                  value={energyAdjustAmount}
+                  onChange={e => setEnergyAdjustAmount(e.target.value)}
+                  className="w-full mt-1 p-2 border rounded-lg"
+                  placeholder="输入调整数量"
+                  min="1"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-600">备注</label>
+                <input
+                  type="text"
+                  value={energyAdjustNote}
+                  onChange={e => setEnergyAdjustNote(e.target.value)}
+                  className="w-full mt-1 p-2 border rounded-lg"
+                  placeholder="输入调整原因"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <Button variant="outline" className="flex-1" onClick={() => setShowEnergyAdjustDialog(false)}>取消</Button>
+              <Button 
+                className="flex-1 bg-orange-600 hover:bg-orange-700" 
+                onClick={async () => {
+                  if (!energyAdjustTarget || !energyAdjustAmount) return alert('请填写调整金额');
+                  const amount = parseFloat(energyAdjustAmount);
+                  if (isNaN(amount) || amount <= 0) return alert('请输入有效金额');
+                  try {
+                    const res = await authFetch('/api/admin/energy-adjust', {
+                      method: 'POST',
+                      body: JSON.stringify({
+                        userId: energyAdjustTarget.id,
+                        type: energyAdjustType,
+                        amount,
+                        note: energyAdjustNote || (energyAdjustType === 'add' ? '管理员调整增加' : '管理员调整扣除'),
+                      }),
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                      alert('能量值调整成功');
+                      setShowEnergyAdjustDialog(false);
+                      setEnergyAdjustAmount('');
+                      setEnergyAdjustNote('');
+                      try { const r = await authFetch('/api/admin/members-energy'); const d = await r.json(); if(d.success) setAllUsers(prev => { const m = new Map((d.data||[]).map((u:any)=>[u.id,u])); return prev.map(u => { const e = m.get(u.id); return e ? {...u,...e} : u; }); }); } catch {}
+                    } else {
+                      alert(data.error || '调整失败');
+                    }
+                  } catch (e) {
+                    alert('调整失败');
+                  }
+                }}
+                disabled={submitting || !energyAdjustAmount || parseFloat(energyAdjustAmount) <= 0}
+              >
+                {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                确认调整
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
+      {/* 能量值记录弹窗 */}
+      {showEnergyRecordDialog && energyAdjustTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">能量值记录 - {energyAdjustTarget.username}</h3>
+              <Button variant="ghost" size="sm" onClick={() => setShowEnergyRecordDialog(false)}>✕</Button>
+            </div>
+            {energyRecordList.length > 0 ? (
+              <div className="space-y-2">
+                {energyRecordList.map((record: { id: string; type: string; amount: number; from_user_id: string | null; to_user_id: string | null; created_at: string; note?: string }) => (
+                  <div key={record.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        ['create', 'purchase', 'quota_match', 'transfer_in'].includes(record.type) 
+                          ? 'bg-green-100 text-green-700' 
+                          : record.type === 'withdraw' 
+                            ? 'bg-red-100 text-red-700' 
+                            : 'bg-gray-100 text-gray-700'
+                      }`}>
+                        {record.type === 'create' ? '创建' 
+                          : record.type === 'purchase' ? '购买' 
+                          : record.type === 'quota_match' ? '额度匹配' 
+                          : record.type === 'transfer_in' ? '转入' 
+                          : record.type === 'transfer_out' ? '转出' 
+                          : record.type === 'withdraw' ? '变现' 
+                          : record.type === 'withdraw_freeze' ? '变现冻结' 
+                          : record.type === 'burn' ? '销毁' 
+                          : record.type}
+                      </span>
+                      <span className={`font-medium ${record.amount > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {record.amount > 0 ? '+' : ''}{record.amount}
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-400">{new Date(record.created_at).toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-400">暂无能量值记录</div>
+            )}
+            <div className="mt-4 flex justify-end">
+              <Button variant="outline" onClick={() => setShowEnergyRecordDialog(false)}>关闭</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 左侧导航 */}
       {renderSidebar()}

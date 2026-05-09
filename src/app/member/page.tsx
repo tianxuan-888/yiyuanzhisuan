@@ -193,12 +193,15 @@ export default function MemberPage() {
         return () => clearInterval(timer);
     }, []);
 
-    // 计算流转剩余时间（毫秒）
-    const getPaymentRemaining = (transfer: any) => {
+    // 计算流转剩余时间（毫秒）- 使用countdownTick确保重渲染
+    const getPaymentRemaining = useCallback((transfer: any) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+        countdownTick; // 依赖此state触发重渲染
         const createdTime = new Date(transfer.created_at).getTime();
         const expireTime = createdTime + 2 * 60 * 60 * 1000;
-        return Math.max(0, expireTime - Date.now());
-    };
+        const now = typeof window !== 'undefined' ? Date.now() : 0;
+        return Math.max(0, expireTime - now);
+    }, [countdownTick]);
     const [rechargeAmount, setRechargeAmount] = useState("100");
     const [rechargeNote, setRechargeNote] = useState("");
     const [transferAmount, setTransferAmount] = useState("100");
