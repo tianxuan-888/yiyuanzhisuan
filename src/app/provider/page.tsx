@@ -2472,6 +2472,22 @@ export default function ProviderPage() {
                                                             <Users className="w-4 h-4" />
                                                             我的会员 ({chainData.members.length})
                                                         </p>
+                                                        {/* 统计卡片 */}
+                                                        <div className="grid grid-cols-3 gap-3 mb-4">
+                                                            <div className="p-3 bg-slate-800/60 rounded-lg text-center">
+                                                                <p className="text-slate-400 text-xs mb-1">会员总数</p>
+                                                                <p className="text-white text-lg font-bold">{chainData.members.length}</p>
+                                                            </div>
+                                                            <div className="p-3 bg-slate-800/60 rounded-lg text-center">
+                                                                <p className="text-slate-400 text-xs mb-1">总能量值</p>
+                                                                <p className="text-amber-400 text-lg font-bold">{chainData.members.reduce((sum: number, m: any) => sum + (m.energyValue || 0), 0).toLocaleString()}</p>
+                                                            </div>
+                                                            <div className="p-3 bg-slate-800/60 rounded-lg text-center">
+                                                                <p className="text-slate-400 text-xs mb-1">总持有额度</p>
+                                                                <p className="text-green-400 text-lg font-bold">¥{chainData.members.reduce((sum: number, m: any) => sum + (m.totalAmount || 0), 0).toLocaleString()}</p>
+                                                            </div>
+                                                        </div>
+                                                        {/* 会员明细卡片 */}
                                                         <div className="space-y-3">
                                                             {chainData.members.map((member: any) => (
                                                                 <div key={member.id} className="bg-slate-800/60 rounded-lg p-4 border border-slate-700/50">
