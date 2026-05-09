@@ -18,7 +18,7 @@ export async function PUT(request: NextRequest) {
     const userId = authUser.userId;
 
     const body = await request.json();
-    const { wechatAccount, alipayAccount, paymentQRCode } = body;
+    const { wechatAccount, alipayAccount, paymentQRCode, realName } = body;
 
     const client = getSupabaseClient();
 
@@ -31,6 +31,9 @@ export async function PUT(request: NextRequest) {
     }
     if (paymentQRCode !== undefined) {
       updateData.payment_qr_code = paymentQRCode;
+    }
+    if (realName !== undefined) {
+      updateData.real_name = realName;
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -78,7 +81,7 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await client
       .from('users')
-      .select('id, username, wechat_account, alipay_account, payment_qr_code')
+      .select('id, username, real_name, wechat_account, alipay_account, payment_qr_code')
       .eq('id', userId)
       .maybeSingle();
 
@@ -98,6 +101,7 @@ export async function GET(request: NextRequest) {
       data: {
         id: data.id,
         username: data.username,
+        realName: data.real_name,
         wechatAccount: data.wechat_account,
         alipayAccount: data.alipay_account,
         paymentQRCode: data.payment_qr_code,

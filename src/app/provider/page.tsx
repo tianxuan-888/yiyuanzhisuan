@@ -58,6 +58,7 @@ import {
     ArrowDownLeft,
     ArrowDownToLine,
     ArrowUpFromLine,
+    Upload,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -266,6 +267,11 @@ export default function ProviderPage() {
     const [editingUsername, setEditingUsername] = useState(false);
     const [newUsername, setNewUsername] = useState("");
     const [savingUsername, setSavingUsername] = useState(false);
+
+    // 收款信息状态
+    const [alipayAccount, setAlipayAccount] = useState("");
+    const [wechatAccount, setWechatAccount] = useState("");
+    const [paymentQRCode, setPaymentQRCode] = useState<string | null>(null);
 
     // 能量充值相关状态
     const [energyMembers, setEnergyMembers] = useState<any[]>([]);
@@ -726,6 +732,55 @@ export default function ProviderPage() {
             showMessage("error", "修改失败，请稍后重试");
         } finally {
             setSavingUsername(false);
+        }
+    };
+
+    // 加载收款信息
+    const loadPaymentInfo = async () => {
+        try {
+            const response = await authFetch('/api/member/payment-info');
+            const data = await response.json();
+            if (data.success) {
+                if (data.data.alipayAccount) setAlipayAccount(data.data.alipayAccount);
+                if (data.data.wechatAccount) setWechatAccount(data.data.wechatAccount);
+                if (data.data.paymentQRCode) setPaymentQRCode(data.data.paymentQRCode);
+            }
+        } catch (error) {
+            console.error('加载收款信息失败:', error);
+        }
+    };
+
+    // 保存收款信息
+    const handleSavePaymentInfo = async () => {
+        try {
+            const response = await authFetch('/api/member/payment-info', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    wechatAccount,
+                    alipayAccount,
+                    paymentQRCode,
+                    realName: user?.real_name || ''
+                })
+            });
+            const data = await response.json();
+            if (data.success) {
+                // 同步更新本地user数据
+                const userDataStr = localStorage.getItem('userData');
+                if (userDataStr) {
+                    const userData = JSON.parse(userDataStr);
+                    userData.alipay_account = alipayAccount;
+                    userData.wechat_account = wechatAccount;
+                    userData.real_name = user?.real_name || '';
+                    localStorage.setItem('userData', JSON.stringify(userData));
+                }
+                refreshUser();
+                showMessage('success', '收款信息已保存');
+            } else {
+                showMessage('error', data.error || '保存失败');
+            }
+        } catch {
+            showMessage('error', '保存失败，请稍后重试');
         }
     };
 
@@ -2000,7 +2055,7 @@ export default function ProviderPage() {
                     <div className="bg-white rounded-2xl shadow-lg p-1.5 md:p-2">
                         <div className="mobile-tab-nav flex flex-nowrap gap-1 overflow-x-auto scrollbar-hide -mx-2 px-2">
                             <button
-                                onClick={() => setActiveTab("profile")}
+                                onClick={() => { setActiveTab("profile"); loadPaymentInfo(); }}
                                 className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "profile" || activeTab === "password" ? "bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-200" : "text-gray-600 hover:bg-purple-50"}`}>
                                 <User className="w-4 h-4" />我的资料
                             </button>
@@ -2069,7 +2124,7 @@ export default function ProviderPage() {
                                     <User className="w-5 h-5" />我的资料
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent>
+                            <CardContent className="space-y-6">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* 基本信息 */}
                                     <div className="space-y-4">
@@ -2114,24 +2169,6 @@ export default function ProviderPage() {
                                                 <span>{user?.phone || '-'}</span>
                                             </div>
                                             <div className="flex items-center justify-between py-2 border-b">
-                                                <span className="text-gray-500">真实姓名</span>
-                                                <span>{user?.real_name || '-'}</span>
-                                            </div>
-                                            <div className="flex items-center justify-between py-2 border-b">
-                                                <span className="text-gray-500">支付宝账号</span>
-                                                <div className="flex items-center gap-2">
-                                                    <span>{user?.alipay_account || '-'}</span>
-                                                    {user?.alipay_account && (
-                                                        <Button size="sm" variant="ghost" onClick={() => {
-                                                            navigator.clipboard.writeText(user.alipay_account || '');
-                                                            showMessage('success', '支付宝账号已复制到剪贴板');
-                                                        }}>
-                                                            <span className="text-blue-500 text-xs">复制</span>
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center justify-between py-2 border-b">
                                                 <span className="text-gray-500">登录密码</span>
                                                 <Button size="sm" variant="outline" onClick={() => setActiveTab("password")}>
                                                     <Lock className="w-4 h-4 mr-1" />修改密码
@@ -2152,6 +2189,114 @@ export default function ProviderPage() {
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>
+
+                                    {/* 收款信息 */}
+                                    <div className="space-y-4">
+                                        <h3 className="font-medium text-lg border-b pb-2 flex items-center gap-2">
+                                            <Wallet className="w-5 h-5 text-green-600" />收款信息
+                                        </h3>
+                                        <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                            <p className="text-sm text-blue-700">
+                                                <strong>提示：</strong>请填写您的收款信息，方便会员线下转账确认。
+                                            </p>
+                                        </div>
+
+                                        {/* 支付宝信息 */}
+                                        <div className="space-y-3">
+                                            <h4 className="font-medium flex items-center gap-2">
+                                                <span className="w-7 h-7 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs">支</span>
+                                                支付宝
+                                            </h4>
+                                            <div>
+                                                <Label className="text-sm text-gray-600">支付宝账号</Label>
+                                                <Input
+                                                    value={alipayAccount}
+                                                    onChange={(e) => setAlipayAccount(e.target.value)}
+                                                    className="mt-1"
+                                                    placeholder="请输入支付宝账号"
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label className="text-sm text-gray-600">真实姓名（与支付宝一致）</Label>
+                                                <Input
+                                                    value={user?.real_name || ''}
+                                                    onChange={(e) => {
+                                                        const newUser = { ...user, real_name: e.target.value } as typeof user;
+                                                        setUser(newUser);
+                                                        const userDataStr = localStorage.getItem('userData');
+                                                        if (userDataStr) {
+                                                            const userData = JSON.parse(userDataStr);
+                                                            userData.real_name = e.target.value;
+                                                            localStorage.setItem('userData', JSON.stringify(userData));
+                                                        }
+                                                    }}
+                                                    className="mt-1"
+                                                    placeholder="请输入真实姓名"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* 微信信息 */}
+                                        <div className="space-y-3 pt-3 border-t">
+                                            <h4 className="font-medium flex items-center gap-2">
+                                                <span className="w-7 h-7 rounded-full bg-green-500 text-white flex items-center justify-center text-xs">微</span>
+                                                微信
+                                            </h4>
+                                            <div>
+                                                <Label className="text-sm text-gray-600">微信账号</Label>
+                                                <Input
+                                                    value={wechatAccount}
+                                                    onChange={(e) => setWechatAccount(e.target.value)}
+                                                    className="mt-1"
+                                                    placeholder="请输入微信账号"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* 付款码上传 */}
+                                        <div className="space-y-3 pt-3 border-t">
+                                            <h4 className="font-medium flex items-center gap-2">
+                                                <span className="w-7 h-7 rounded-full bg-purple-500 text-white flex items-center justify-center text-xs">码</span>
+                                                付款码上传
+                                            </h4>
+                                            <p className="text-xs text-gray-500">上传您的支付宝或微信付款码图片，方便会员扫码转账</p>
+                                            <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 text-center hover:border-purple-500 transition-colors">
+                                                {paymentQRCode ? (
+                                                    <div className="relative">
+                                                        <img src={paymentQRCode} alt="付款码" className="max-h-36 mx-auto rounded" />
+                                                        <Button variant="destructive" size="sm" className="mt-2" onClick={() => setPaymentQRCode(null)}>删除</Button>
+                                                    </div>
+                                                ) : (
+                                                    <label className="cursor-pointer">
+                                                        <div className="py-6">
+                                                            <Upload className="w-10 h-10 mx-auto mb-2 text-gray-400" />
+                                                            <p className="text-sm text-gray-500">点击上传付款码</p>
+                                                            <p className="text-xs text-gray-400 mt-1">支持 JPG、PNG 格式</p>
+                                                        </div>
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            className="hidden"
+                                                            onChange={(e) => {
+                                                                const file = e.target.files?.[0];
+                                                                if (file) {
+                                                                    const reader = new FileReader();
+                                                                    reader.onload = (event) => {
+                                                                        setPaymentQRCode(event.target?.result as string);
+                                                                    };
+                                                                    reader.readAsDataURL(file);
+                                                                }
+                                                            }}
+                                                        />
+                                                    </label>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <Button className="w-full bg-purple-600 hover:bg-purple-700 mt-2" onClick={handleSavePaymentInfo}>
+                                            保存收款信息
+                                        </Button>
                                     </div>
                                 </div>
                             </CardContent>
