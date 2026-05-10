@@ -181,6 +181,7 @@ export default function BranchPage() {
   const [transferPreview, setTransferPreview] = useState<any>(null);
   
   // 编辑资料状态
+  const [editUsername, setEditUsername] = useState("");
   const [editRealName, setEditRealName] = useState("");
   const [editAlipayAccount, setEditAlipayAccount] = useState("");
   
@@ -447,6 +448,7 @@ export default function BranchPage() {
   // 初始化编辑资料状态
   useEffect(() => {
     if (user) {
+      setEditUsername(user.username || '');
       setEditRealName(user.real_name || '');
       setEditAlipayAccount(user.alipay_account || '');
     }
@@ -715,6 +717,33 @@ export default function BranchPage() {
       showMessage('error', '转移失败');
     } finally {
       setTransferLoading(false);
+    }
+  };
+
+  // 保存用户名
+  const handleSaveUsername = async () => {
+    try {
+      const userId = localStorage.getItem('userId');
+      const response = await authFetch('/api/user/username', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, username: editUsername })
+      });
+      const data = await response.json();
+      if (data.success) {
+        showMessage('success', '用户名修改成功');
+        const stored = localStorage.getItem('userData');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          parsed.username = editUsername;
+          localStorage.setItem('userData', JSON.stringify(parsed));
+        }
+        localStorage.setItem('userName', editUsername);
+      } else {
+        showMessage('error', data.error || '修改失败');
+      }
+    } catch (error) {
+      showMessage('error', '修改失败');
     }
   };
 
@@ -1723,7 +1752,7 @@ export default function BranchPage() {
                       </div>
                       <div className="flex items-center justify-between py-2 border-b">
                         <span className="text-gray-500">用户名</span>
-                        <span className="font-medium">{(user as any)?.name || '-'}</span>
+                        <span className="font-medium">{user?.username || '-'}</span>
                       </div>
                       <div className="flex items-center justify-between py-2 border-b">
                         <span className="text-gray-500">角色</span>
@@ -1735,7 +1764,7 @@ export default function BranchPage() {
                       </div>
                       <div className="flex items-center justify-between py-2 border-b">
                         <span className="text-gray-500">真实姓名</span>
-                        <span>{(user as any)?.name || '未填写'}</span>
+                        <span>{(user as any)?.real_name || '未填写'}</span>
                       </div>
                     </div>
                   </div>
@@ -1761,6 +1790,27 @@ export default function BranchPage() {
                         <span className="font-medium">¥{allocations.reduce((sum: number, a: any) => sum + (parseFloat(a.quota_amount) || 0), 0).toLocaleString()}</span>
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                {/* 修改用户名 */}
+                <div className="mt-6 pt-6 border-t">
+                  <h3 className="font-medium text-lg mb-4">修改用户名</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>用户名</Label>
+                      <Input 
+                        value={editUsername}
+                        onChange={(e) => setEditUsername(e.target.value)}
+                        className="mt-1"
+                        placeholder="请输入用户名（2-20个字符）"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Button className="bg-purple-600 hover:bg-purple-700" onClick={handleSaveUsername}>
+                      保存用户名
+                    </Button>
                   </div>
                 </div>
 
