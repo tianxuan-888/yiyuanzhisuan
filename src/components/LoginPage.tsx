@@ -428,7 +428,7 @@ export default function LoginPage() {
       ></div>
       
       {/* 背景遮罩层 */}
-      <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm pointer-events-none"></div>
+      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] pointer-events-none"></div>
       
       {/* 动态光效装饰 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
