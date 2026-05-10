@@ -1551,7 +1551,7 @@ export default function ProviderPage() {
             const res = await authFetch(`/api/user/chain?userId=${providerId}`);
             const data = await res.json();
             if (data.success) {
-                const members = (data.data?.members || []).map((m: any) => ({ value: m.id, label: `${m.username} [${m.unique_id || ''}] (能量值: ${m.energy_value || 0})` }));
+                const members = (data.data?.members || []).map((m: any) => ({ value: m.id, label: `${m.username} [${m.uniqueId || ''}] (能量值: ${m.energyValue || 0})` }));
                 setChainMembers(members);
             }
         } catch (error) {
