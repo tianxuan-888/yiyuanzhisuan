@@ -582,15 +582,16 @@ export default function BranchPage() {
   };
 
   // 加载会员列表
-  const loadMemberList = async (page: number = 1) => {
+  const loadMemberList = async (page: number = 1, overrideProviderId?: string) => {
     const branchId = localStorage.getItem('userId');
     if (!branchId) return;
 
+    const currentProviderId = overrideProviderId !== undefined ? overrideProviderId : memberFilterProvider;
     setMemberLoading(true);
     try {
       let url = `/api/branch/members?branchId=${branchId}&page=${page}&pageSize=20`;
-      if (memberFilterProvider !== 'all') {
-        url += `&providerId=${memberFilterProvider}`;
+      if (currentProviderId !== 'all') {
+        url += `&providerId=${currentProviderId}`;
       }
       const response = await authFetch(url);
       const data = await response.json();
@@ -2910,8 +2911,9 @@ export default function BranchPage() {
                         className="border rounded-md px-3 py-1.5 text-sm bg-white"
                         value={memberFilterProvider}
                         onChange={(e) => {
-                          setMemberFilterProvider(e.target.value);
-                          loadMemberList(1);
+                          const val = e.target.value;
+                          setMemberFilterProvider(val);
+                          loadMemberList(1, val);
                         }}
                       >
                         <option value="all">全部服务商</option>
