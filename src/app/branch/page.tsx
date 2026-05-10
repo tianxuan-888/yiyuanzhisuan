@@ -3098,19 +3098,7 @@ export default function BranchPage() {
                                 </div>
                               </div>
                               {/* 操作 */}
-                              <div className="col-span-2 flex gap-1">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs h-7"
-                                  onClick={() => {
-                                    setTransferTarget(m.id);
-                                    setTransferUserType('member');
-                                    setShowTransferDialog(true);
-                                  }}
-                                >
-                                  <Zap className="w-3 h-3 mr-0.5" />充值
-                                </Button>
+                              <div className="col-span-1">
                                 <Button
                                   size="sm"
                                   variant="outline"
