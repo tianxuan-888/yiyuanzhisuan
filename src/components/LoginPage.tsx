@@ -17,8 +17,8 @@ const SplashScreen = ({ onComplete }: { onComplete: () => void }) => {
     >
       <style>{`@keyframes splashFade { 0%,70% { opacity:1; } 100% { opacity:0; } }`}</style>
       <div className="text-center">
-        <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-          <Shield className="w-10 h-10 text-white" />
+        <div className="w-20 h-20 mx-auto mb-6 flex items-center justify-center">
+          <img src="/logo.png" alt="艺元智算" className="w-full h-full object-contain drop-shadow-lg" />
         </div>
         <h1 className="text-3xl font-bold text-white mb-2">艺元智算</h1>
         <p className="text-blue-400">GPU算力基建平台</p>
@@ -424,11 +424,11 @@ export default function LoginPage() {
       {/* AI科技感背景图 */}
       <div 
         className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none"
-        style={{ backgroundImage: 'url(/ai-bg.jpg)' }}
+        style={{ backgroundImage: 'url(/login-banner.png)' }}
       ></div>
       
       {/* 背景遮罩层 */}
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm pointer-events-none"></div>
+      <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm pointer-events-none"></div>
       
       {/* 动态光效装饰 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -439,8 +439,8 @@ export default function LoginPage() {
 
       <Card className="login-container w-full max-w-md relative z-10 bg-slate-800/70 border-slate-600/50 backdrop-blur-xl shadow-2xl shadow-purple-500/10">
         <CardHeader className="text-center pb-2">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/30">
-            <Shield className="w-8 h-8 text-white" />
+          <div className="w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+            <img src="/logo.png" alt="艺元智算" className="w-full h-full object-contain drop-shadow-lg" />
           </div>
           <CardTitle className="text-2xl font-bold text-white">艺元智算</CardTitle>
           <CardDescription className="text-gray-300 mt-2">
