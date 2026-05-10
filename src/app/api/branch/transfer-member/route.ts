@@ -76,10 +76,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2. 验证被转移会员存在且属于该分公司
+    // 2. 验证被转移会员存在
     const { data: member, error: memberError } = await supabase
       .from('users')
-      .select('id, username, role, provider_id, branch_id, unique_id, phone')
+      .select('id, username, role, provider_id, unique_id, phone')
       .eq('id', memberId)
       .single();
 
@@ -90,11 +90,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (member.branch_id !== branchId) {
-      return NextResponse.json(
-        { success: false, message: '该会员不属于当前分公司' },
-        { status: 400 }
-      );
+    // 会员通过 provider_id 关联服务商，服务商的 branch_id 确定所属分公司
+    // 验证该会员所属服务商在同一分公司下
+    if (member.provider_id) {
+      const { data: currentProvider } = await supabase
+        .from('users')
+        .select('id, branch_id')
+        .eq('id', member.provider_id)
+        .single();
+
+      if (!currentProvider || currentProvider.branch_id !== branchId) {
+        return NextResponse.json(
+          { success: false, message: '该会员不属于当前分公司' },
+          { status: 400 }
+        );
+      }
     }
 
     // 3. 验证目标服务商存在且属于同一分公司
@@ -187,7 +197,7 @@ export async function POST(request: NextRequest) {
     // === 执行模式：真正转移 ===
     // 7. 更新直推树中所有用户的 provider_id
     const idList = treeUserIds.map(id => `'${id}'`).join(',');
-    const updateSql = `UPDATE users SET provider_id = '${targetProviderId}', updated_at = NOW() WHERE id IN (${idList}) AND branch_id = '${branchId}'`;
+    const updateSql = `UPDATE users SET provider_id = '${targetProviderId}', updated_at = NOW() WHERE id IN (${idList})`;
     
     const { error: updateError } = await supabase.rpc('rpc_execute', { sql_query: updateSql });
 

@@ -3114,16 +3114,15 @@ export default function BranchPage() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="text-xs h-7"
+                                  className="text-xs h-7 text-orange-600 border-orange-200 hover:bg-orange-50"
                                   onClick={() => {
-                                    setTransferTarget(m.id);
-                                    setTransferUserType('member');
-                                    setTransferAmount('');
-                                    setTransferNote('');
-                                    setShowTransferDialog(true);
+                                    setTransferMemberId(m.id);
+                                    setTransferMemberInfo(m);
+                                    setTransferPreview(null);
+                                    setShowMemberTransferDialog(true);
                                   }}
                                 >
-                                  <Share2 className="w-3 h-3 mr-0.5" />转账
+                                  <ArrowRightLeft className="w-3 h-3 mr-0.5" />转移
                                 </Button>
                                 <Button
                                   size="sm"
