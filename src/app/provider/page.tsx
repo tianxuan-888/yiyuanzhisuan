@@ -3548,20 +3548,17 @@ export default function ProviderPage() {
                                                         <div>
                                                             <p className="font-medium">{product.name}</p>
                                                             <p className="text-sm text-gray-500">价格: ¥{product.price?.toLocaleString()} | 周期: {product.period}天</p>
-                                                            {product.previous_holder_name && (
-                                                                <p className="text-sm text-orange-600">原持有人: {product.previous_holder_name}</p>
+                                                            {product.previous_holder && (
+                                                                <p className="text-sm text-orange-600">出售会员: {product.previous_holder.username} [{product.previous_holder.unique_id}]</p>
                                                             )}
                                                         </div>
                                                         <Badge className={product.status === 'pending_match' ? 'bg-blue-500' : 'bg-orange-500'}>
                                                             {product.status === 'pending_match' ? '待匹配' : '待确认'}
                                                         </Badge>
                                                     </div>
-                                                    {product.pending_match_user_name && (
+                                                    {product.pending_match_user && (
                                                         <div className="text-sm text-green-700 mb-2 bg-green-100 rounded p-2">
-                                                            已指定匹配给: {product.pending_match_user_name}
-                                                            {product.pending_match_energy !== undefined && (
-                                                                <span className="ml-2">（能量值: {product.pending_match_energy}）</span>
-                                                            )}
+                                                            已指定匹配给: {product.pending_match_user.username} [{product.pending_match_user.unique_id}]
                                                         </div>
                                                     )}
                                                     <div className="flex gap-2 mt-2">
