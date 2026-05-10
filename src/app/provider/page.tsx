@@ -3523,7 +3523,7 @@ export default function ProviderPage() {
                                     <div className="flex items-center justify-between">
                                         <CardTitle className="flex items-center gap-2">
                                             <UserPlus className="w-5 h-5" />
-                                            流转记录 - 待匹配产品
+                                            流转记录 - 待匹配产品 ({matchProducts.filter((p: any) => p.status === 'pending_match').length})
                                         </CardTitle>
                                         {matchProducts.filter((p: any) => p.status === 'pending_match').length > 0 && (
                                             <Button
