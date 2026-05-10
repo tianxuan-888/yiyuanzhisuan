@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 import {
     Cpu,
@@ -954,6 +954,14 @@ const [copySuccess, setCopySuccess] = useState(false);
             return;
         }
 
+        // 自动判断申请类型：有provider_id则是第二代，否则是第一代
+        const autoApplyType = user?.providerId ? "second_gen" : "first_gen";
+
+        if (autoApplyType === "first_gen" && !branchId) {
+            showMessage("error", "请填写分公司ID");
+            return;
+        }
+
         setSubmitting(true);
 
         try {
@@ -964,9 +972,9 @@ const [copySuccess, setCopySuccess] = useState(false);
                     applicantName,
                     phone,
                     alipayAccount,
-                    applyType,
-                    parentProviderId: applyType === "second_gen" ? parentProviderId : null,
-                    branchId: applyType === "first_gen" ? branchId : null,
+                    applyType: autoApplyType,
+                    parentProviderId: autoApplyType === "second_gen" ? (user?.providerId || parentProviderId) : null,
+                    branchId: autoApplyType === "first_gen" ? branchId : null,
                     quotaRequest: parseFloat(quotaRequest) || 50000
                 })
             });
@@ -1573,27 +1581,13 @@ const [copySuccess, setCopySuccess] = useState(false);
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <Star className="w-5 h-5 text-purple-500" />申请成为服务商
-                                        </DialogTitle>
+                        </DialogTitle>
+                        <DialogDescription className="text-sm text-muted-foreground">
+                            {user?.providerId ? "您的申请将由您的上级服务商审核" : "您的申请将由分公司审核"}
+                        </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
-                                    <div className="space-y-2">
-                            <Label>申请类型</Label>
-                            <div className="grid grid-cols-2 gap-2">
-                                <button
-                                    onClick={() => setApplyType("first_gen")}
-                                    className={`p-3 rounded-lg border-2 text-left ${applyType === "first_gen" ? "border-purple-500 bg-purple-50" : "border-gray-200"}`}>
-                                    <p className="font-medium">第一代服务商</p>
-                                    <p className="text-xs text-gray-500 mt-1">由分公司审核</p>
-                                </button>
-                                <button
-                                    onClick={() => setApplyType("second_gen")}
-                                    className={`p-3 rounded-lg border-2 text-left ${applyType === "second_gen" ? "border-purple-500 bg-purple-50" : "border-gray-200"}`}>
-                                    <p className="font-medium">第二代服务商</p>
-                                    <p className="text-xs text-gray-500 mt-1">由上级服务商审核</p>
-                                </button>
-                            </div>
-                        </div>
-                                    <div className="space-y-2">
+                        <div className="space-y-2">
                             <Label htmlFor="applicantName">真实姓名 *</Label>
                             <Input
                                 id="applicantName"
@@ -1617,7 +1611,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                 onChange={e => setAlipayAccount(e.target.value)}
                                 placeholder="请输入支付宝账号（用于收益提现）" />
                         </div>
-                                    {applyType === "first_gen" && <div className="space-y-2">
+                        {!user?.providerId && <div className="space-y-2">
                             <Label htmlFor="branchId">选择分公司 *</Label>
                             <Input
                                 id="branchId"
@@ -1626,16 +1620,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                 placeholder="请输入分公司ID或用户名" />
                             <p className="text-xs text-gray-500">请联系分公司获取ID</p>
                         </div>}
-                                    {applyType === "second_gen" && <div className="space-y-2">
-                            <Label htmlFor="parentProvider">上级服务商ID *</Label>
-                            <Input
-                                id="parentProvider"
-                                value={parentProviderId}
-                                onChange={e => setParentProviderId(e.target.value)}
-                                placeholder="请输入上级服务商ID或用户名" />
-                            <p className="text-xs text-gray-500">请联系您的上级服务商获取ID</p>
-                        </div>}
-                                    <div className="space-y-2">
+                        <div className="space-y-2">
                             <Label htmlFor="quota">申请额度（元）</Label>
                             <Input
                                 id="quota"
@@ -1645,8 +1630,8 @@ const [copySuccess, setCopySuccess] = useState(false);
                                 placeholder="申请的额度" />
                             <p className="text-xs text-gray-500">建议填写50000元，可获得15个算力名额</p>
                         </div>
-                                    <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
-                            <p className="font-medium mb-1">💡 成为服务商的好处：</p>
+                        <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+                            <p className="font-medium mb-1">成为服务商的好处：</p>
                             <ul className="list-disc list-inside space-y-1 text-xs">
                                 <li>获得算力额度，生成算力上架销售</li>
                                 <li>享受算力销售收益</li>
