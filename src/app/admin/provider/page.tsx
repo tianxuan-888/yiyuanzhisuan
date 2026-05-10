@@ -193,6 +193,7 @@ export default function ProviderDashboard() {
   useEffect(() => {
     const userData = localStorage.getItem('userData');
     const savedToken = localStorage.getItem('token');
+    const userRole = localStorage.getItem('userRole');
     if (userData) {
       try {
         setUser(JSON.parse(userData));
@@ -202,6 +203,11 @@ export default function ProviderDashboard() {
     }
     if (savedToken) {
       setToken(savedToken);
+    }
+    // 如果是服务商角色直接访问此页面，重定向到 /provider
+    if (userRole === 'provider') {
+      window.location.href = '/provider';
+      return;
     }
     setLoading(false);
   }, []);

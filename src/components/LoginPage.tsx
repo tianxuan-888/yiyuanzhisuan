@@ -392,7 +392,7 @@ export default function LoginPage() {
         const roleRoutes: Record<string, string> = {
           admin: '/admin',
           branch: '/branch',
-          provider: '/admin/provider',
+          provider: '/provider',
           member: '/member',
         };
         localStorage.setItem('isLoggedIn', 'true');

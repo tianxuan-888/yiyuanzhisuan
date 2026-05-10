@@ -38,7 +38,7 @@ export default function TestLoginPage() {
           if (data.data.role === 'member') {
             window.location.href = '/member';
           } else if (data.data.role === 'provider') {
-            window.location.href = '/admin/provider';
+            window.location.href = '/provider';
           } else if (data.data.role === 'branch') {
             window.location.href = '/admin/branch';
           } else {
