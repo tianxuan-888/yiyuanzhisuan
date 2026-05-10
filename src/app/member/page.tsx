@@ -202,6 +202,8 @@ export default function MemberPage() {
     const [branchId, setBranchId] = useState("");
     const [quotaRequest, setQuotaRequest] = useState("50000");
     const [realtimeEnergy, setRealtimeEnergy] = useState<number>(0);
+    const [applyEligibility, setApplyEligibility] = useState<{ canApply: boolean; effectiveMembers: number; requiredMembers: number; applyType: string } | null>(null);
+    const [checkingEligibility, setCheckingEligibility] = useState(false);
 
     // 流转相关状态
     const [myTransfers, setMyTransfers] = useState<any[]>([]);
@@ -943,11 +945,35 @@ const [copySuccess, setCopySuccess] = useState(false);
         return Math.floor(product.price * marketRate / 100);
     };
 
+    const checkApplyEligibility = async () => {
+        const userId = localStorage.getItem("userId");
+        if (!userId) return;
+
+        setCheckingEligibility(true);
+        try {
+            const response = await authFetch(`/api/member/apply-provider?userId=${userId}&checkEligibility=true`);
+            const data = await response.json();
+            if (data.success) {
+                setApplyEligibility(data.data);
+            }
+        } catch (error) {
+            console.error("检查申请资格失败:", error);
+        } finally {
+            setCheckingEligibility(false);
+        }
+    };
+
     const handleApplyProvider = async () => {
         const userId = localStorage.getItem("userId");
 
         if (!userId)
             return;
+
+        // 检查资格
+        if (applyEligibility && !applyEligibility.canApply) {
+            showMessage("error", `需推荐${applyEligibility.requiredMembers}个以上有效会员才能申请，当前已推荐${applyEligibility.effectiveMembers}个`);
+            return;
+        }
 
         if (!applicantName || !phone) {
             showMessage("error", "请填写真实姓名和手机号");
@@ -965,24 +991,23 @@ const [copySuccess, setCopySuccess] = useState(false);
         setSubmitting(true);
 
         try {
-            const response = await authFetch("/api/provider-applications", {
+            const response = await authFetch("/api/member/apply-provider", {
                 method: "POST",
                 body: JSON.stringify({
                     userId,
-                    applicantName,
+                    realName: applicantName,
                     phone,
-                    alipayAccount,
-                    applyType: autoApplyType,
-                    parentProviderId: autoApplyType === "second_gen" ? (user?.providerId || parentProviderId) : null,
-                    branchId: autoApplyType === "first_gen" ? branchId : null,
-                    quotaRequest: parseFloat(quotaRequest) || 50000
+                    apply_type: autoApplyType,
+                    parent_provider_id: autoApplyType === "second_gen" ? (user?.providerId || parentProviderId) : null,
+                    branch_id: autoApplyType === "first_gen" ? branchId : null,
+                    quota_request: parseFloat(quotaRequest) || 50000
                 })
             });
 
             const data = await response.json();
 
             if (data.success) {
-                showMessage("success", data.message || "申请已提交，请等待审核");
+                showMessage("success", data.data?.message || data.message || "申请已提交，请等待审核");
                 setShowApplyDialog(false);
                 setApplicantName("");
                 setPhone("");
@@ -1576,77 +1601,126 @@ const [copySuccess, setCopySuccess] = useState(false);
                 </DialogContent>
             </Dialog>
             {/* 卖家联系方式弹窗 */}
-            <Dialog open={showApplyDialog} onOpenChange={setShowApplyDialog}>
+            <Dialog open={showApplyDialog} onOpenChange={(open) => {
+                setShowApplyDialog(open);
+                if (open) checkApplyEligibility();
+            }}>
                 <DialogContent className="max-w-md">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <Star className="w-5 h-5 text-purple-500" />申请成为服务商
                         </DialogTitle>
                         <DialogDescription className="text-sm text-muted-foreground">
-                            {user?.providerId ? "您的申请将由您的上级服务商审核" : "您的申请将由分公司审核"}
+                            {user?.providerId ? "审核流程：上级服务商审核 → 分公司最终审核" : "审核流程：分公司直接审核"}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="applicantName">真实姓名 *</Label>
-                            <Input
-                                id="applicantName"
-                                value={applicantName}
-                                onChange={e => setApplicantName(e.target.value)}
-                                placeholder="请输入真实姓名" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="phone">手机号 *</Label>
-                            <Input
-                                id="phone"
-                                value={phone}
-                                onChange={e => setPhone(e.target.value)}
-                                placeholder="请输入手机号" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="alipay">支付宝账号</Label>
-                            <Input
-                                id="alipay"
-                                value={alipayAccount}
-                                onChange={e => setAlipayAccount(e.target.value)}
-                                placeholder="请输入支付宝账号（用于收益提现）" />
-                        </div>
-                        {!user?.providerId && <div className="space-y-2">
-                            <Label htmlFor="branchId">选择分公司 *</Label>
-                            <Input
-                                id="branchId"
-                                value={branchId}
-                                onChange={e => setBranchId(e.target.value)}
-                                placeholder="请输入分公司ID或用户名" />
-                            <p className="text-xs text-gray-500">请联系分公司获取ID</p>
-                        </div>}
-                        <div className="space-y-2">
-                            <Label htmlFor="quota">申请额度（元）</Label>
-                            <Input
-                                id="quota"
-                                type="number"
-                                value={quotaRequest}
-                                onChange={e => setQuotaRequest(e.target.value)}
-                                placeholder="申请的额度" />
-                            <p className="text-xs text-gray-500">建议填写50000元，可获得15个算力名额</p>
-                        </div>
-                        <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
-                            <p className="font-medium mb-1">成为服务商的好处：</p>
-                            <ul className="list-disc list-inside space-y-1 text-xs">
-                                <li>获得算力额度，生成算力上架销售</li>
-                                <li>享受算力销售收益</li>
-                                <li>可发展下级服务商，获得团队收益</li>
-                            </ul>
-                        </div>
+                        {/* 资格检查提示 */}
+                        {checkingEligibility ? (
+                            <div className="p-3 bg-gray-50 rounded-lg text-sm text-gray-500 flex items-center gap-2">
+                                <Loader2 className="w-4 h-4 animate-spin" />正在检查申请资格...
+                            </div>
+                        ) : applyEligibility ? (
+                            <div className={`p-3 rounded-lg text-sm ${applyEligibility.canApply ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+                                <p className="font-medium mb-1">
+                                    {applyEligibility.canApply ? "✓ 符合申请条件" : "✗ 暂不符合申请条件"}
+                                </p>
+                                <p className="text-xs">
+                                    有效推荐会员：{applyEligibility.effectiveMembers} / {applyEligibility.requiredMembers}（需推荐3个以上有效会员）
+                                </p>
+                            </div>
+                        ) : null}
+
+                        {applyEligibility && !applyEligibility.canApply ? (
+                            <div className="p-3 bg-amber-50 rounded-lg text-sm text-amber-700">
+                                <p className="font-medium">如何满足申请条件：</p>
+                                <ul className="list-disc list-inside text-xs mt-1 space-y-1">
+                                    <li>分享您的邀请码给好友注册</li>
+                                    <li>需要至少3个有效（已激活）推荐会员</li>
+                                    <li>当前已推荐 {applyEligibility.effectiveMembers} 个，还需 {applyEligibility.requiredMembers - applyEligibility.effectiveMembers} 个</li>
+                                </ul>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="space-y-2">
+                                    <Label htmlFor="applicantName">真实姓名 *</Label>
+                                    <Input
+                                        id="applicantName"
+                                        value={applicantName}
+                                        onChange={e => setApplicantName(e.target.value)}
+                                        placeholder="请输入真实姓名" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="phone">手机号 *</Label>
+                                    <Input
+                                        id="phone"
+                                        value={phone}
+                                        onChange={e => setPhone(e.target.value)}
+                                        placeholder="请输入手机号" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="alipay">支付宝账号</Label>
+                                    <Input
+                                        id="alipay"
+                                        value={alipayAccount}
+                                        onChange={e => setAlipayAccount(e.target.value)}
+                                        placeholder="请输入支付宝账号（用于收益提现）" />
+                                </div>
+                                {!user?.providerId && <div className="space-y-2">
+                                    <Label htmlFor="branchId">选择分公司 *</Label>
+                                    <Input
+                                        id="branchId"
+                                        value={branchId}
+                                        onChange={e => setBranchId(e.target.value)}
+                                        placeholder="请输入分公司ID或用户名" />
+                                    <p className="text-xs text-gray-500">请联系分公司获取ID</p>
+                                </div>}
+                                <div className="space-y-2">
+                                    <Label htmlFor="quota">申请额度（元）</Label>
+                                    <Input
+                                        id="quota"
+                                        type="number"
+                                        value={quotaRequest}
+                                        onChange={e => setQuotaRequest(e.target.value)}
+                                        placeholder="申请的额度" />
+                                    <p className="text-xs text-gray-500">
+                                        {user?.providerId 
+                                            ? "上级服务商将从自己额度中拆分给您" 
+                                            : "通过后由分公司分配额度"}
+                                    </p>
+                                </div>
+                                <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+                                    <p className="font-medium mb-1">成为服务商的权益：</p>
+                                    <ul className="list-disc list-inside space-y-1 text-xs">
+                                        <li>获得算力额度，生成产品上架销售</li>
+                                        <li>享受会员购买产品时能量值收益的70%</li>
+                                        <li>可发展下级服务商，获得团队收益分成</li>
+                                        <li>给会员充值能量值（线下收款线上充值）</li>
+                                    </ul>
+                                </div>
+                                {user?.providerId && (
+                                    <div className="p-3 bg-amber-50 rounded-lg text-sm text-amber-700">
+                                        <p className="font-medium">审核流程说明：</p>
+                                        <ul className="list-disc list-inside text-xs mt-1 space-y-1">
+                                            <li>第一步：上级服务商审核（拆分额度）</li>
+                                            <li>第二步：分公司最终审核（线下签合同确认）</li>
+                                            <li>通过后：您所有直推会员自动迁移到您的体系</li>
+                                        </ul>
+                                    </div>
+                                )}
+                            </>
+                        )}
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setShowApplyDialog(false)}>取消</Button>
-                        <Button
-                            className="bg-purple-600 hover:bg-purple-700"
-                            onClick={handleApplyProvider}
-                            disabled={submitting}>
-                            {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Star className="w-4 h-4 mr-2" />}提交申请
-                                        </Button>
+                        {applyEligibility?.canApply && (
+                            <Button
+                                className="bg-purple-600 hover:bg-purple-700"
+                                onClick={handleApplyProvider}
+                                disabled={submitting}>
+                                {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Star className="w-4 h-4 mr-2" />}提交申请
+                            </Button>
+                        )}
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

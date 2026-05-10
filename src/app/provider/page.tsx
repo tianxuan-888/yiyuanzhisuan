@@ -129,10 +129,18 @@ interface ProviderApplication {
     user_id: string;
     applicant_name: string;
     phone: string;
+    user_phone?: string;
+    username?: string;
+    real_name?: string;
+    energy_value?: number;
     alipay_account: string;
     apply_type: string;
     quota_request: number;
+    quota_approved?: number;
     status: string;
+    reject_reason?: string;
+    parent_provider_name?: string;
+    parent_provider_id?: string;
     created_at: string;
     users?: {
         id: string;
@@ -583,7 +591,7 @@ export default function ProviderPage() {
             const results = await Promise.allSettled([
                 authFetch(`/api/quota-allocations?providerId=${providerId}`),
                 authFetch(`/api/provider/products?providerId=${providerId}&status=all`),
-                authFetch(`/api/provider-applications?providerId=${providerId}&status=pending`),
+                authFetch(`/api/provider-applications/review?providerId=${providerId}&status=pending`),
                 authFetch(`/api/quota?userId=${providerId}`),
                 authFetch(`/api/provider/pending-orders?status=pending`),
                 authFetch(`/api/provider/pending-orders?status=completed`)
@@ -1956,7 +1964,7 @@ export default function ProviderPage() {
                     applicationId,
                     reviewerId: providerId,
                     action,
-                    quotaAllocated: action === "approve" ? quotaAllocated || 50000 : undefined
+                    quotaAllocated: action === "approve" ? (quotaAllocated || 50000) : undefined
                 })
             });
 
@@ -3676,15 +3684,19 @@ export default function ProviderPage() {
                         {}
                         <Card className="border-purple-200 bg-purple-50">
                             <CardContent className="py-4">
-                                <h4 className="font-medium text-purple-800 mb-2">💡 下级服务商审核说明</h4>
-                                <p className="text-sm text-purple-600">通过审核后，将从您的额度中拆分给下级服务商。建议分配额度为5万元的倍数。
-                                                      </p>
+                                <h4 className="font-medium text-purple-800 mb-2">下级服务商审核说明</h4>
+                                <ul className="text-sm text-purple-600 space-y-1">
+                                    <li>• 通过审核后，将从您的空闲额度中拆分给下级服务商</li>
+                                    <li>• 建议分配额度为5万元的倍数</li>
+                                    <li>• 您审核通过后，还需分公司最终审核，新服务商才能正式生效</li>
+                                    <li>• 分公司审核通过后，该会员所有直推会员自动迁移到新服务商体系</li>
+                                </ul>
                             </CardContent>
                         </Card>
                         <Card>
                             <CardHeader>
                                 <div className="flex items-center justify-between">
-                                    <CardTitle>第二代服务商申请</CardTitle>
+                                    <CardTitle>下级服务商申请</CardTitle>
                                     <Badge className="bg-purple-100 text-purple-700">待审核: {applications.length}个
                                                             </Badge>
                                 </div>
@@ -3699,22 +3711,18 @@ export default function ProviderPage() {
                                             <div className="flex items-start justify-between">
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-2 mb-2">
-                                                        <h4 className="font-medium">{app.applicant_name || app.users?.real_name || "申请人"}</h4>
+                                                        <h4 className="font-medium">{app.applicant_name || app.real_name || "申请人"}</h4>
                                                         <Badge className="bg-blue-100 text-blue-700">第二代申请
                                                                                             </Badge>
                                                     </div>
                                                     <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
                                                         <div>
                                                             <span className="text-gray-400">用户名：</span>
-                                                            {app.users?.username || "-"}
+                                                            {app.username || "-"}
                                                         </div>
                                                         <div>
                                                             <span className="text-gray-400">手机号：</span>
-                                                            {app.phone || "-"}
-                                                        </div>
-                                                        <div>
-                                                            <span className="text-gray-400">支付宝：</span>
-                                                            {app.alipay_account || "-"}
+                                                            {app.phone || app.user_phone || "-"}
                                                         </div>
                                                         <div>
                                                             <span className="text-gray-400">申请额度：</span>
@@ -3728,23 +3736,27 @@ export default function ProviderPage() {
                                                     <Button
                                                         size="sm"
                                                         className="bg-green-600 hover:bg-green-700"
-                                                        onClick={() => handleReviewApplication(app.id, "approve", app.quota_request)}
+                                                        onClick={() => {
+                                                            const quota = prompt("请输入要拆分给该服务商的额度:", String(app.quota_request || 50000));
+                                                            if (quota) {
+                                                                handleReviewApplication(app.id, "approve", parseFloat(quota));
+                                                            }
+                                                        }}
                                                         disabled={submitting}>
-                                                        <CheckCircle className="w-4 h-4 mr-1" />通过
-                                                                                      </Button>
+                                                        <CheckCircle className="w-4 h-4 mr-1" />同意拆分
+                                                    </Button>
                                                     <Button
                                                         size="sm"
                                                         variant="destructive"
                                                         onClick={() => {
                                                             const reason = prompt("请输入拒绝原因:");
-
                                                             if (reason) {
                                                                 handleReviewApplication(app.id, "reject");
                                                             }
                                                         }}
                                                         disabled={submitting}>
                                                         <XCircle className="w-4 h-4 mr-1" />拒绝
-                                                                                      </Button>
+                                                    </Button>
                                                 </div>
                                             </div>
                                         </div>

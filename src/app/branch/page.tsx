@@ -73,11 +73,17 @@ interface ProviderApplication {
   user_id: string;
   applicant_name: string;
   phone: string;
+  user_phone?: string;
+  username?: string;
+  real_name?: string;
   alipay_account: string;
   apply_type: string;
   quota_request: number;
+  quota_approved?: number;
   status: string;
   reject_reason?: string;
+  parent_provider_name?: string;
+  parent_provider_id?: string;
   created_at: string;
   users?: { id: string; username: string; real_name: string };
 }
@@ -314,7 +320,7 @@ export default function BranchPage() {
         fetch(`/api/branch/overview?branchId=${branchId}`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`/api/admin/branch-templates?branchId=${branchId}`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`/api/quota-allocations?branchId=${branchId}`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`/api/provider-applications?branchId=${branchId}&status=pending`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`/api/branch/approve-provider?branchId=${branchId}`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`/api/quota?userId=${branchId}`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`/api/quota-requests?requesterId=${branchId}&requesterType=branch`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`/api/branch/approve-quota?branchId=${branchId}&status=pending`, { headers: { 'Authorization': `Bearer ${token}` } }),
@@ -510,14 +516,13 @@ export default function BranchPage() {
 
     setSubmitting(true);
     try {
-      const response = await authFetch('/api/provider-applications/review', {
+      const response = await authFetch('/api/branch/approve-provider', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           applicationId,
           reviewerId: branchId,
           action,
-          quotaAllocated: action === 'approve' ? (quotaAllocated || 50000) : undefined,
         }),
       });
 
@@ -2371,9 +2376,14 @@ export default function BranchPage() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>服务商申请审核</CardTitle>
-                  <Badge className="bg-blue-100 text-blue-700">
-                    待审核: {applications.length}个
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-blue-100 text-blue-700">
+                      一代待审: {applications.filter(a => a.status === 'pending' && a.apply_type === 'first_gen').length}个
+                    </Badge>
+                    <Badge className="bg-amber-100 text-amber-700">
+                      二代待终审: {applications.filter(a => a.status === 'provider_approved').length}个
+                    </Badge>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -2389,40 +2399,63 @@ export default function BranchPage() {
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2">
-                              <h4 className="font-medium">{app.applicant_name || app.users?.real_name || '申请人'}</h4>
+                              <h4 className="font-medium">{app.applicant_name || app.real_name || '申请人'}</h4>
                               <Badge className={
                                 app.apply_type === 'first_gen' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
                               }>
                                 {app.apply_type === 'first_gen' ? '第一代申请' : '第二代申请'}
                               </Badge>
+                              {app.status === 'provider_approved' && (
+                                <Badge className="bg-amber-100 text-amber-700">
+                                  上级已审核-待终审
+                                </Badge>
+                              )}
+                              {app.status === 'pending' && (
+                                <Badge className="bg-gray-100 text-gray-700">
+                                  待审核
+                                </Badge>
+                              )}
                             </div>
                             <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
                               <div>
                                 <span className="text-gray-400">用户名：</span>
-                                {app.users?.username || '-'}
+                                {app.username || '-'}
                               </div>
                               <div>
                                 <span className="text-gray-400">手机号：</span>
-                                {app.phone || '-'}
-                              </div>
-                              <div>
-                                <span className="text-gray-400">支付宝：</span>
-                                {app.alipay_account || '-'}
+                                {app.phone || app.user_phone || '-'}
                               </div>
                               <div>
                                 <span className="text-gray-400">申请额度：</span>
-                                <span className="text-green-600 font-medium">¥{(parseFloat(String(app.quota_request)) || 50000).toLocaleString()}</span>
+                                <span className="text-green-600 font-medium">¥{(parseFloat(String(app.quota_request || app.quota_approved || 0)) || 0).toLocaleString()}</span>
                               </div>
+                              {app.status === 'provider_approved' && (app.quota_approved || 0) > 0 && (
+                                <div>
+                                  <span className="text-gray-400">上级已批额度：</span>
+                                  <span className="text-amber-600 font-medium">¥{parseFloat(String(app.quota_approved || 0)).toLocaleString()}</span>
+                                </div>
+                              )}
+                              {app.parent_provider_name && (
+                                <div>
+                                  <span className="text-gray-400">上级服务商：</span>
+                                  {app.parent_provider_name}
+                                </div>
+                              )}
                             </div>
                             <div className="mt-2 text-xs text-gray-400">
                               申请时间: {app.created_at ? new Date(app.created_at).toLocaleString() : '-'}
                             </div>
+                            {app.status === 'provider_approved' && (
+                              <div className="mt-1 text-xs text-amber-600">
+                                上级服务商已同意拆分 {app.quota_approved || 0} 额度，请确认线下合同签署后通过
+                              </div>
+                            )}
                           </div>
                           <div className="flex gap-2 ml-4">
                             <Button
                               size="sm"
                               className="bg-green-600 hover:bg-green-700"
-                              onClick={() => handleReviewApplication(app.id, 'approve', app.quota_request)}
+                              onClick={() => handleReviewApplication(app.id, 'approve')}
                               disabled={submitting}
                             >
                               <CheckCircle className="w-4 h-4 mr-1" />通过
