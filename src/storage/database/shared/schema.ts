@@ -10,10 +10,10 @@ export const userRoleEnum = pgEnum("user_role", ["admin", "provider", "member", 
 export const orderStatusEnum = pgEnum("order_status", ["pending", "paid", "completed", "cancelled"]);
 
 // 产品状态枚举
-export const productStatusEnum = pgEnum("product_status", ["available", "sold", "pending_sell"]);
+export const productStatusEnum = pgEnum("product_status", ["available", "sold", "pending_sell", "unlisted", "pending_match"]);
 
 // 用户产品状态枚举
-export const userProductStatusEnum = pgEnum("user_product_status", ["holding", "sold", "pending_sell"]);
+export const userProductStatusEnum = pgEnum("user_product_status", ["holding", "sold", "pending_sell", "pending_confirm", "cancelled", "transferred"]);
 
 // 交易类型枚举
 export const transactionTypeEnum = pgEnum("transaction_type", [

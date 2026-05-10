@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
           .update({ status: 'transferred' })
           .eq('user_id', product.previous_holder_id)
           .eq('product_id', product.id)
-          .eq('status', 'selling');
+          .eq('status', 'pending_sell');
       }
 
       // 4. 创建新持有记录

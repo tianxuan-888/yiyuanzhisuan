@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
 
     // 2. 更新用户产品状态为"售卖中"
     await execute(
-      `UPDATE user_products SET status = 'selling', updated_at = NOW() WHERE id = $1`,
+      `UPDATE user_products SET status = 'pending_sell', updated_at = NOW() WHERE id = $1`,
       [userProductId]
     );
 
