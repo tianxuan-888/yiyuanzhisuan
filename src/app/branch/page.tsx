@@ -3103,19 +3103,6 @@ export default function BranchPage() {
                                   size="sm"
                                   variant="outline"
                                   className="text-xs h-7 text-orange-600 border-orange-200 hover:bg-orange-50"
-                                  onClick={() => {
-                                    setTransferMemberId(m.id);
-                                    setTransferMemberInfo(m);
-                                    setTransferPreview(null);
-                                    setShowMemberTransferDialog(true);
-                                  }}
-                                >
-                                  <ArrowRightLeft className="w-3 h-3 mr-0.5" />转移
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs h-7 text-orange-600 border-orange-200 hover:bg-orange-50"
                                   onClick={() => openMemberTransfer(m)}
                                 >
                                   <ArrowRightLeft className="w-3 h-3 mr-0.5" />转移
