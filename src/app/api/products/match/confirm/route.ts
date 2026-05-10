@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { authenticateRequest } from '@/lib/auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,17 +9,8 @@ const supabase = createClient(
 
 export async function POST(request: NextRequest) {
   try {
-    // 验证token
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ success: false, message: '未授权' }, { status: 401 });
-    }
-
-    const token = authHeader.split(' ')[1];
-    let user: { userId: string; role: string };
-    try {
-      user = JSON.parse(Buffer.from(token, 'base64').toString());
-    } catch {
+    const user = authenticateRequest(request);
+    if (!user) {
       return NextResponse.json({ success: false, message: '无效token' }, { status: 401 });
     }
 
