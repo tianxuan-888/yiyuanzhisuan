@@ -91,10 +91,10 @@ export async function POST(request: NextRequest) {
     // 4. 创建卖出订单（记录本金待结算）
     const orderResult = await query(
       `INSERT INTO orders 
-       (user_id, user_product_id, product_id, provider_id, order_type, amount, status, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       (user_id, user_product_id, product_id, order_type, amount, status, review_note)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [userId, userProductId, userProduct.product_id, user.provider_id, 'sell', purchasePrice, 'pending', 
+      [userId, userProductId, userProduct.product_id, 'sell', purchasePrice, 'pending', 
        `出售产品: ${product?.name || '未知产品'}，收益¥${expectedProfit}已到账，本金¥${purchasePrice}待匹配成功后返还`]
     );
 
