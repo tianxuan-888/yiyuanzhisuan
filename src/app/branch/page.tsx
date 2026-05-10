@@ -11,7 +11,7 @@ import {
   RefreshCw, Plus, Bell, ChevronDown, ChevronUp,
   Eye, DollarSign, ClipboardList, CheckCircle, XCircle, Database,
   FileCheck, ClipboardCheck, User, History, Banknote, Gift, TrendingUp,
-  AlertCircle, Cpu, Share2, FileText, PlusCircle
+  AlertCircle, Cpu, Share2, FileText, PlusCircle, ArrowRightLeft
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -153,6 +153,14 @@ export default function BranchPage() {
   const [transferUserType, setTransferUserType] = useState<"provider" | "member" | "branch">("provider");
   const [transferAmount, setTransferAmount] = useState("");
   const [transferNote, setTransferNote] = useState("");
+  
+  // 会员转移相关状态
+  const [showMemberTransferDialog, setShowMemberTransferDialog] = useState(false);
+  const [transferMemberId, setTransferMemberId] = useState("");
+  const [transferMemberInfo, setTransferMemberInfo] = useState<any>(null);
+  const [transferTargetProvider, setTransferTargetProvider] = useState("");
+  const [transferLoading, setTransferLoading] = useState(false);
+  const [transferPreview, setTransferPreview] = useState<any>(null);
   
   // 分公司能量值余额
   const [branchEnergyBalance, setBranchEnergyBalance] = useState(0);
@@ -605,6 +613,79 @@ export default function BranchPage() {
       console.error('加载会员列表失败:', error);
     } finally {
       setMemberLoading(false);
+    }
+  };
+
+  // 打开会员转移Dialog
+  const openMemberTransfer = (member: any) => {
+    setTransferMemberId(member.id);
+    setTransferMemberInfo(member);
+    setTransferTargetProvider('');
+    setTransferPreview(null);
+    setShowMemberTransferDialog(true);
+  };
+
+  // 预览会员转移（获取直推树和持有产品检查）
+  const previewMemberTransfer = async () => {
+    if (!transferMemberId || !transferTargetProvider) return;
+    setTransferLoading(true);
+    try {
+      const branchId = localStorage.getItem('userId');
+      const response = await authFetch('/api/branch/transfer-member', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          branchId,
+          memberId: transferMemberId,
+          targetProviderId: transferTargetProvider,
+          operatorId: branchId,
+          preview: true
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setTransferPreview(data.data);
+      } else {
+        setTransferPreview({ error: data.message });
+      }
+    } catch (error) {
+      console.error('预览转移失败:', error);
+      setTransferPreview({ error: '预览失败' });
+    } finally {
+      setTransferLoading(false);
+    }
+  };
+
+  // 确认执行会员转移
+  const confirmMemberTransfer = async () => {
+    if (!transferMemberId || !transferTargetProvider) return;
+    setTransferLoading(true);
+    try {
+      const branchId = localStorage.getItem('userId');
+      const response = await authFetch('/api/branch/transfer-member', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          branchId,
+          memberId: transferMemberId,
+          targetProviderId: transferTargetProvider,
+          operatorId: branchId
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        showMessage('success', data.message);
+        setShowMemberTransferDialog(false);
+        setTransferPreview(null);
+        loadMemberList(1);
+      } else {
+        showMessage('error', data.message);
+      }
+    } catch (error) {
+      console.error('转移失败:', error);
+      showMessage('error', '转移失败');
+    } finally {
+      setTransferLoading(false);
     }
   };
 
@@ -3044,6 +3125,14 @@ export default function BranchPage() {
                                 >
                                   <Share2 className="w-3 h-3 mr-0.5" />转账
                                 </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs h-7 text-orange-600 border-orange-200 hover:bg-orange-50"
+                                  onClick={() => openMemberTransfer(m)}
+                                >
+                                  <ArrowRightLeft className="w-3 h-3 mr-0.5" />转移
+                                </Button>
                               </div>
                             </div>
                           ))}
@@ -3247,6 +3336,115 @@ export default function BranchPage() {
                   {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
                   确认申请
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* 会员隶属关系转移对话框 */}
+      {showMemberTransferDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-lg bg-white">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-gray-900">
+                <ArrowRightLeft className="w-5 h-5 text-orange-500" />
+                会员隶属关系转移
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* 被转移会员信息 */}
+              <div className="bg-gray-50 rounded-lg p-3">
+                <p className="text-sm font-medium text-gray-700 mb-2">转移会员</p>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                    <User className="w-5 h-5 text-orange-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium">{transferMemberInfo?.realName || transferMemberInfo?.username}</p>
+                    <p className="text-xs text-gray-500">{transferMemberInfo?.uniqueId} | {transferMemberInfo?.phone}</p>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  当前隶属: <span className="text-blue-600 font-medium">{transferMemberInfo?.providerName || '未知'}</span>
+                </p>
+              </div>
+
+              {/* 目标服务商选择 */}
+              <div>
+                <Label className="text-gray-700">转移到服务商</Label>
+                <select
+                  className="w-full mt-1 p-2 border rounded-md text-sm"
+                  value={transferTargetProvider}
+                  onChange={(e) => {
+                    setTransferTargetProvider(e.target.value);
+                    setTransferPreview(null);
+                  }}
+                >
+                  <option value="">请选择目标服务商</option>
+                  {providers
+                    .filter(p => p.id !== transferMemberInfo?.providerId)
+                    .map(p => (
+                      <option key={p.id} value={p.id}>{p.username}</option>
+                    ))
+                  }
+                </select>
+              </div>
+
+              {/* 转移规则说明 */}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-sm font-medium text-amber-700 mb-1">转移规则说明</p>
+                <ul className="text-xs text-amber-600 space-y-1">
+                  <li>• 会员及其整条直推链将一并转移到新服务商</li>
+                  <li>• 转移后会员只能购买新服务商的产品</li>
+                  <li>• 推荐关系（inviter_id）不变，推荐收益仍归原推荐人</li>
+                  <li>• 持有产品的会员不能被转移，必须先清空持仓</li>
+                  <li>• 目标服务商必须在同一分公司下</li>
+                </ul>
+              </div>
+
+              {/* 预览结果 */}
+              {transferPreview && (
+                <div className={`rounded-lg p-3 ${transferPreview.error ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'}`}>
+                  {transferPreview.error ? (
+                    <p className="text-sm text-red-600">{transferPreview.error}</p>
+                  ) : (
+                    <>
+                      <p className="text-sm font-medium text-green-700">转移预览</p>
+                      <p className="text-sm text-green-600">将转移 <strong>{transferPreview.treeSize}</strong> 个会员到 <strong>{transferPreview.targetProviderName}</strong></p>
+                      {transferPreview.treeUsers && transferPreview.treeUsers.length > 0 && (
+                        <div className="mt-2 max-h-24 overflow-y-auto">
+                          {transferPreview.treeUsers.map((u: any) => (
+                            <p key={u.id} className="text-xs text-green-600">• {u.username}{u.unique_id ? ` [${u.unique_id}]` : ''}</p>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => { setShowMemberTransferDialog(false); setTransferPreview(null); }}>取消</Button>
+                {!transferPreview ? (
+                  <Button
+                    className="bg-orange-500 hover:bg-orange-600"
+                    onClick={previewMemberTransfer}
+                    disabled={transferLoading || !transferTargetProvider}
+                  >
+                    {transferLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Eye className="w-4 h-4 mr-2" />}
+                    预览转移
+                  </Button>
+                ) : !transferPreview.error ? (
+                  <Button
+                    className="bg-red-500 hover:bg-red-600"
+                    onClick={confirmMemberTransfer}
+                    disabled={transferLoading}
+                  >
+                    {transferLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-2" />}
+                    确认转移
+                  </Button>
+                ) : null}
               </div>
             </CardContent>
           </Card>
