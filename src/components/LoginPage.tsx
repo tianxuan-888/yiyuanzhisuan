@@ -17,8 +17,8 @@ const SplashScreen = ({ onComplete }: { onComplete: () => void }) => {
     >
       <style>{`@keyframes splashFade { 0%,70% { opacity:1; } 100% { opacity:0; } }`}</style>
       <div className="text-center">
-        <div className="w-20 h-20 mx-auto mb-6 flex items-center justify-center">
-          <img src="/logo.png" alt="艺元智算" className="w-full h-full object-contain drop-shadow-lg" />
+        <div className="w-24 h-24 mx-auto mb-6 rounded-2xl bg-slate-900/80 border border-slate-600/30 flex items-center justify-center p-3 shadow-lg shadow-blue-500/20">
+          <img src="/logo.png" alt="艺元智算" className="w-full h-full object-contain" />
         </div>
         <h1 className="text-3xl font-bold text-white mb-2">艺元智算</h1>
         <p className="text-blue-400">GPU算力基建平台</p>
@@ -439,8 +439,8 @@ export default function LoginPage() {
 
       <Card className="login-container w-full max-w-md relative z-10 bg-slate-800/70 border-slate-600/50 backdrop-blur-xl shadow-2xl shadow-purple-500/10">
         <CardHeader className="text-center pb-2">
-          <div className="w-20 h-20 mx-auto mb-4 flex items-center justify-center">
-            <img src="/logo.png" alt="艺元智算" className="w-full h-full object-contain drop-shadow-lg" />
+          <div className="w-24 h-24 mx-auto mb-4 rounded-2xl bg-slate-900/80 border border-slate-600/30 flex items-center justify-center p-2 shadow-lg shadow-blue-500/20">
+            <img src="/logo.png" alt="艺元智算" className="w-full h-full object-contain" />
           </div>
           <CardTitle className="text-2xl font-bold text-white">艺元智算</CardTitle>
           <CardDescription className="text-gray-300 mt-2">
