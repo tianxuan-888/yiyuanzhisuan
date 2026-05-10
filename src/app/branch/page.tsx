@@ -189,6 +189,15 @@ export default function BranchPage() {
     transferOutCount: 0,
   });
 
+  // 会员管理
+  const [memberList, setMemberList] = useState<any[]>([]);
+  const [memberLoading, setMemberLoading] = useState(false);
+  const [memberFilterProvider, setMemberFilterProvider] = useState<string>('all');
+  const [memberSearch, setMemberSearch] = useState('');
+  const [memberPage, setMemberPage] = useState(1);
+  const [memberTotalPages, setMemberTotalPages] = useState(1);
+  const [memberTotal, setMemberTotal] = useState(0);
+
   // 加载能量值流转记录
   const loadEnergyRecords = async (filterType: string = 'all') => {
     const branchId = localStorage.getItem('userId');
@@ -569,6 +578,32 @@ export default function BranchPage() {
       showMessage('error', '网络错误');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // 加载会员列表
+  const loadMemberList = async (page: number = 1) => {
+    const branchId = localStorage.getItem('userId');
+    if (!branchId) return;
+
+    setMemberLoading(true);
+    try {
+      let url = `/api/branch/members?branchId=${branchId}&page=${page}&pageSize=20`;
+      if (memberFilterProvider !== 'all') {
+        url += `&providerId=${memberFilterProvider}`;
+      }
+      const response = await authFetch(url);
+      const data = await response.json();
+      if (data.success) {
+        setMemberList(data.data.members || []);
+        setMemberTotal(data.data.stats?.totalMembers || 0);
+        setMemberTotalPages(data.data.pagination?.totalPages || 1);
+        setMemberPage(page);
+      }
+    } catch (error) {
+      console.error('加载会员列表失败:', error);
+    } finally {
+      setMemberLoading(false);
     }
   };
 
@@ -1402,6 +1437,14 @@ export default function BranchPage() {
                 }`}
               >
                 <Building2 className="w-4 h-4" />服务商管理
+              </button>
+              <button
+                onClick={() => { loadMemberList(1); setActiveTab('members'); }}
+                className={`px-4 py-2 rounded-md transition-all flex items-center gap-1 ${
+                  activeTab === 'members' ? 'bg-white text-purple-900 font-semibold shadow-md' : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <User className="w-4 h-4" />会员管理
               </button>
               <button
                 onClick={() => setActiveTab('applications')}
@@ -2823,6 +2866,219 @@ export default function BranchPage() {
                   ) : (
                     <p className="text-gray-500 text-center py-8">暂无收益记录</p>
                   )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* 会员管理 */}
+          {activeTab === 'members' && (
+            <div className="space-y-3 md:space-y-6">
+              {/* 统计卡片 */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Users className="w-5 h-5" />
+                      <span className="text-sm opacity-80">会员总数</span>
+                    </div>
+                    <p className="text-2xl font-bold">{memberTotal}</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Zap className="w-5 h-5" />
+                      <span className="text-sm opacity-80">能量值总额</span>
+                    </div>
+                    <p className="text-2xl font-bold">{memberList.reduce((sum: number, m: any) => sum + (m.energyValue || 0), 0).toLocaleString()}</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Package className="w-5 h-5" />
+                      <span className="text-sm opacity-80">持有算力额度</span>
+                    </div>
+                    <p className="text-2xl font-bold">¥{memberList.reduce((sum: number, m: any) => sum + (m.totalInvestment || 0), 0).toLocaleString()}</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* 筛选栏 */}
+              <Card>
+                <CardContent className="pt-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm text-gray-500">按服务商筛选:</Label>
+                      <select
+                        className="border rounded-md px-3 py-1.5 text-sm bg-white"
+                        value={memberFilterProvider}
+                        onChange={(e) => {
+                          setMemberFilterProvider(e.target.value);
+                          loadMemberList(1);
+                        }}
+                      >
+                        <option value="all">全部服务商</option>
+                        {providers.map((p: any) => (
+                          <option key={p.id} value={p.id}>{p.username}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm text-gray-500">搜索:</Label>
+                      <Input
+                        className="w-48"
+                        placeholder="姓名/ID/手机号"
+                        value={memberSearch}
+                        onChange={(e) => setMemberSearch(e.target.value)}
+                      />
+                    </div>
+                    <Button size="sm" variant="outline" onClick={() => loadMemberList(memberPage)}>
+                      <RefreshCw className="w-4 h-4 mr-1" />刷新
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 会员列表 */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="w-5 h-5" />
+                      会员列表 ({memberTotal})
+                    </CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {memberLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+                      <span className="ml-2 text-gray-500">加载中...</span>
+                    </div>
+                  ) : (() => {
+                    const filteredMembers = memberList.filter((m: any) => {
+                      if (!memberSearch) return true;
+                      const s = memberSearch.toLowerCase();
+                      return (
+                        (m.username || '').toLowerCase().includes(s) ||
+                        (m.realName || '').toLowerCase().includes(s) ||
+                        (m.uniqueId || '').toLowerCase().includes(s) ||
+                        (m.phone || '').includes(s)
+                      );
+                    });
+
+                    return filteredMembers.length === 0 ? (
+                      <div className="py-12 text-center text-gray-500">
+                        <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                        <p>暂无会员数据</p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* 表头 */}
+                        <div className="hidden md:grid grid-cols-12 gap-2 text-sm font-medium text-gray-500 pb-2 border-b">
+                          <div className="col-span-2">姓名</div>
+                          <div className="col-span-1">专属ID</div>
+                          <div className="col-span-2">手机号</div>
+                          <div className="col-span-2">隶属服务商</div>
+                          <div className="col-span-1">能量值</div>
+                          <div className="col-span-2">持有算力额度</div>
+                          <div className="col-span-2">操作</div>
+                        </div>
+
+                        {/* 会员行 */}
+                        <div className="space-y-1">
+                          {filteredMembers.map((m: any) => (
+                            <div key={m.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 py-3 border-b last:border-b-0 items-center hover:bg-gray-50 rounded px-1">
+                              {/* 姓名 */}
+                              <div className="col-span-2">
+                                <p className="font-medium">{m.realName || m.username || '-'}</p>
+                                <p className="text-xs text-gray-400 md:hidden">手机: {m.phone || '-'}</p>
+                              </div>
+                              {/* 专属ID */}
+                              <div className="col-span-1">
+                                <span className="font-mono text-sm text-purple-600">{m.uniqueId || '-'}</span>
+                              </div>
+                              {/* 手机号 */}
+                              <div className="col-span-2 hidden md:block">
+                                <span className="text-sm">{m.phone || '-'}</span>
+                              </div>
+                              {/* 隶属服务商 */}
+                              <div className="col-span-2 hidden md:block">
+                                <Badge className="bg-blue-100 text-blue-700">{m.providerName || '-'}</Badge>
+                              </div>
+                              {/* 能量值 */}
+                              <div className="col-span-1 hidden md:block">
+                                <span className="text-sm font-medium text-emerald-600">{(m.energyValue || 0).toLocaleString()}</span>
+                              </div>
+                              {/* 持有算力额度 */}
+                              <div className="col-span-2 hidden md:block">
+                                <div>
+                                  <span className="text-sm font-semibold text-orange-600">¥{(m.totalInvestment || 0).toLocaleString()}</span>
+                                  <span className="text-xs text-gray-400 ml-1">({m.holdingProducts || 0}个产品)</span>
+                                </div>
+                              </div>
+                              {/* 操作 */}
+                              <div className="col-span-2 flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs h-7"
+                                  onClick={() => {
+                                    setTransferTarget(m.id);
+                                    setTransferUserType('member');
+                                    setShowTransferDialog(true);
+                                  }}
+                                >
+                                  <Zap className="w-3 h-3 mr-0.5" />充值
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs h-7"
+                                  onClick={() => {
+                                    setTransferTarget(m.id);
+                                    setTransferUserType('member');
+                                    setTransferAmount('');
+                                    setTransferNote('');
+                                    setShowTransferDialog(true);
+                                  }}
+                                >
+                                  <Share2 className="w-3 h-3 mr-0.5" />转账
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* 分页 */}
+                        {memberTotalPages > 1 && (
+                          <div className="flex items-center justify-between mt-4 pt-3 border-t">
+                            <span className="text-sm text-gray-500">共 {memberTotal} 个会员，第 {memberPage}/{memberTotalPages} 页</span>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={memberPage <= 1}
+                                onClick={() => loadMemberList(memberPage - 1)}
+                              >
+                                上一页
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={memberPage >= memberTotalPages}
+                                onClick={() => loadMemberList(memberPage + 1)}
+                              >
+                                下一页
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             </div>
