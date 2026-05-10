@@ -424,7 +424,7 @@ export default function LoginPage() {
       {/* AI科技感背景图 */}
       <div 
         className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none"
-        style={{ backgroundImage: 'url(/login-banner.png)' }}
+        style={{ backgroundImage: 'url(/login-banner.jpg)' }}
       ></div>
       
       {/* 背景遮罩层 */}
