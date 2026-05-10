@@ -16,6 +16,7 @@ import {
   DollarSign, CreditCard, ArrowUp, ArrowDown, RefreshCw, Filter, Edit, Menu
 } from 'lucide-react';
 import { ChangePasswordDialog } from '@/components/admin/ChangePasswordDialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 interface ProviderStats {
   memberCount: number;
@@ -128,15 +129,26 @@ export default function ProviderDashboard() {
   const [productFilter, setProductFilter] = useState('all');
   const [showcaseFilter, setShowcaseFilter] = useState('all');
   
-  // 流转审核状态
-  const [transfers, setTransfers] = useState<any[]>([]);
-  const [transferLoading, setTransferLoading] = useState(false);
-  const [reviewingTransfer, setReviewingTransfer] = useState<string | null>(null);
+  // 匹配管理状态
+  const [matchProducts, setMatchProducts] = useState<any[]>([]);
+  const [matchLoading, setMatchLoading] = useState(false);
+  const [showMatchDialog, setShowMatchDialog] = useState(false);
+  const [matchingProductId, setMatchingProductId] = useState<string | null>(null);
+  const [selectedMatchMember, setSelectedMatchMember] = useState('');
+  const [matchTargetProduct, setMatchTargetProduct] = useState<any>(null);
+  const [assigningMatch, setAssigningMatch] = useState(false);
+  const [batchConfirming, setBatchConfirming] = useState(false);
+  const [matchMembers, setMatchMembers] = useState<any[]>([]);
+  const [matchAssigning, setMatchAssigning] = useState<string | null>(null);
+  const [selectedMatchIds, setSelectedMatchIds] = useState<string[]>([]);
+  const [confirmingMatchIds, setConfirmingMatchIds] = useState<Set<string>>(new Set());
 
   // 回购管理状态
   const [repurchases, setRepurchases] = useState<any[]>([]);
   const [repurchaseLoading, setRepurchaseLoading] = useState(false);
   const [repurchasingId, setRepurchasingId] = useState<string | null>(null);
+
+  const [matchConfirming, setMatchConfirming] = useState<string | null>(null);
 
   // Toast
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
@@ -323,109 +335,155 @@ export default function ProviderDashboard() {
 
   useEffect(() => {
     if (token && activeMenu === 'transfer') {
-      fetchTransfers();
-      fetchRepurchases();
+      fetchMatchProducts();
     }
   }, [token, activeMenu]);
 
   // 获取流转列表
-  const fetchTransfers = async () => {
+  // 获取待匹配产品列表
+  const fetchMatchProducts = async () => {
     if (!user?.id) return;
-    setTransferLoading(true);
+    setMatchLoading(true);
     try {
-      // 先检查超时流转
-      await fetch('/api/products/transfer/check-timeout', {
-        method: 'POST',
-        headers: getHeaders()
-      });
-      const res = await fetch(`/api/products/transfer/list?providerId=${user.id}`, {
+      const res = await fetch(`/api/products/match/list?providerId=${user.id}`, {
         headers: getHeaders()
       });
       const data = await res.json();
       if (data.success) {
-        setTransfers(data.data || []);
+        setMatchProducts(data.data || []);
       }
     } catch (err) {
-      console.error('获取流转列表失败:', err);
+      console.error('获取匹配列表失败:', err);
     } finally {
-      setTransferLoading(false);
+      setMatchLoading(false);
     }
   };
 
-  // 获取待回购列表
-  const fetchRepurchases = async () => {
-    if (!user?.id) return;
-    setRepurchaseLoading(true);
+  // 服务商指定匹配会员
+  const handleMatchAssign = async (productId: string, targetUserId: string) => {
+    setMatchAssigning(productId);
     try {
-      const res = await fetch(`/api/products/transfer/list?providerId=${user.id}&status=pending_repurchase,repurchasing`, {
-        headers: getHeaders()
-      });
-      const data = await res.json();
-      if (data.success) {
-        setRepurchases(data.data || []);
-      }
-    } catch (err) {
-      console.error('获取回购列表失败:', err);
-    } finally {
-      setRepurchaseLoading(false);
-    }
-  };
-
-  // 服务商发起回购
-  const handleRepurchase = async (transferId: string) => {
-    setRepurchasingId(transferId);
-    try {
-      const res = await fetch('/api/products/transfer/repurchase', {
+      const res = await fetch('/api/products/match/assign', {
         method: 'POST',
         headers: getHeaders(),
-        body: JSON.stringify({
-          transferId,
-          providerId: user.id
-        })
+        body: JSON.stringify({ productId, targetUserId })
       });
       const data = await res.json();
       if (data.success) {
-        setToast({ message: '回购已发起，请线下返还本金给会员，等待会员确认', type: 'success' });
-        fetchRepurchases();
-        fetchTransfers();
+        setToast({ message: '已指定匹配会员，等待确认', type: 'success' });
+        fetchMatchProducts();
+        setShowMatchDialog(false);
       } else {
-        setToast({ message: data.error || '回购失败', type: 'error' });
+        setToast({ message: data.error || '指定失败', type: 'error' });
       }
     } catch (err) {
-      setToast({ message: '回购操作失败', type: 'error' });
+      setToast({ message: '指定匹配失败', type: 'error' });
     } finally {
-      setRepurchasingId(null);
+      setMatchAssigning(null);
     }
   };
 
-  // 审核流转
-  const handleTransferReview = async (transferId: string, action: 'approve' | 'reject') => {
-    setReviewingTransfer(transferId);
+  // 服务商确认匹配（单个或批量）
+  const handleMatchConfirm = async (productIds: string[]) => {
+    setMatchConfirming('confirming');
     try {
-      const res = await fetch('/api/products/transfer/review', {
+      const res = await fetch('/api/products/match/confirm', {
         method: 'POST',
         headers: getHeaders(),
-        body: JSON.stringify({
-          transferId,
-          reviewerId: user.id,
-          action
-        })
+        body: JSON.stringify({ productIds })
       });
       const data = await res.json();
       if (data.success) {
-        setToast({ message: data.message, type: 'success' });
-        fetchTransfers();
+        const results = data.data?.results || [];
+        const successCount = results.filter((r: { success: boolean }) => r.success).length;
+        const failCount = results.filter((r: { success: boolean }) => !r.success).length;
+        let msg = `${successCount}个产品匹配成功`;
+        if (failCount > 0) msg += `，${failCount}个因能量值不足匹配失败`;
+        setToast({ message: msg, type: successCount > 0 ? 'success' : 'error' });
+        fetchMatchProducts();
+        setSelectedMatchIds([]);
       } else {
-        setToast({ message: data.error || '操作失败', type: 'error' });
+        setToast({ message: data.error || '匹配失败', type: 'error' });
       }
     } catch (err) {
-      setToast({ message: '操作失败', type: 'error' });
+      setToast({ message: '匹配操作失败', type: 'error' });
     } finally {
-      setReviewingTransfer(null);
+      setMatchConfirming('');
     }
   };
 
   // 处理充值
+  const handleCancelAssign = async (productId: string) => {
+    try {
+      const res = await fetch('/api/products/match/assign', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ productId, action: 'cancel' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setToast({ message: '已取消匹配', type: 'success' });
+        fetchMatchProducts();
+      } else {
+        setToast({ message: data.message || '操作失败', type: 'error' });
+      }
+    } catch {
+      setToast({ message: '操作失败', type: 'error' });
+    }
+  };
+
+  const handleBatchConfirm = async () => {
+    setBatchConfirming(true);
+    try {
+      const assignedProducts = matchProducts.filter((p: Record<string, unknown>) => p.pending_match_user_id);
+      const productIds = assignedProducts.map((p: Record<string, unknown>) => p.id);
+      const res = await fetch('/api/products/match/confirm', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ productIds })
+      });
+      const data = await res.json();
+      if (data.success) {
+        const result = data.data?.results;
+        if (result?.failed > 0) {
+          setToast({ message: `成功匹配${result.succeeded}个，${result.failed}个因能量值不足匹配失败`, type: 'error' });
+        } else {
+          setToast({ message: `成功匹配${result.succeeded}个产品`, type: 'success' });
+        }
+        fetchMatchProducts();
+      } else {
+        setToast({ message: data.message || '批量匹配失败', type: 'error' });
+      }
+    } catch {
+      setToast({ message: '批量匹配失败', type: 'error' });
+    } finally {
+      setBatchConfirming(false);
+    }
+  };
+
+  const fetchChainMembers = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/user/chain', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success && data.data?.members) {
+        setMatchMembers(data.data.members);
+      }
+    } catch { /* ignore */ }
+  };
+
+  const handleOpenMatchDialog = (product: Record<string, unknown>) => {
+    setMatchTargetProduct(product);
+    setSelectedMatchMember('');
+    fetchChainMembers();
+  };
+
+  const handleRepurchase = async (_productId: string) => {
+    setToast({ message: '回购功能暂未开放', type: 'error' });
+  };
+
   const handleRecharge = async () => {
     if (!rechargeMember || !rechargeAmount || parseFloat(rechargeAmount) <= 0) {
       setToast({ message: '请选择会员并输入正确的充值金额', type: 'error' });
@@ -646,7 +704,7 @@ export default function ProviderDashboard() {
     { id: 'reviews', name: '审核申请', icon: CheckCircle, badge: 0 },
     { id: 'recharge-review', name: '充值审核', icon: Zap, badge: 0 },
     { id: 'repurchase', name: '回购管理', icon: RefreshCw, badge: 0 },
-    { id: 'transfer', name: '产品流转', icon: ArrowRightLeft, badge: transfers.filter(t => t.status === 'awaiting_payment' || t.status === 'seller_confirmed').length },
+    { id: 'transfer', name: '产品匹配', icon: ArrowRightLeft, badge: matchProducts.filter(p => p.status === 'pending_match').length },
     { id: 'quota', name: '算力额度', icon: Database, badge: 0 },
     { id: 'energy', name: '能量值管理', icon: Coins, badge: 0 },
     { id: 'product-showcase', name: '产品展示', icon: Package, badge: 0 },
@@ -1572,7 +1630,7 @@ export default function ProviderDashboard() {
                 <h1 className="text-2xl font-bold text-gray-900">回购管理</h1>
                 <p className="text-gray-500 text-sm mt-1">超时未售出的流转产品需要回购，回购后线下返还本金给卖家</p>
               </div>
-              <Button onClick={fetchRepurchases} variant="outline" size="sm" disabled={repurchaseLoading}>
+              <Button onClick={() => {}} variant="outline" size="sm" disabled={repurchaseLoading}>
                 <RefreshCw className="w-4 h-4 mr-1" /> 刷新
               </Button>
             </div>
@@ -1648,114 +1706,128 @@ export default function ProviderDashboard() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">产品流转</h1>
-                <p className="text-gray-500 text-sm mt-1">会员间产品流转审核</p>
+                <h1 className="text-2xl font-bold text-gray-900">流转记录</h1>
+                <p className="text-gray-500 text-sm mt-1">会员出售产品匹配管理</p>
               </div>
-              <Button variant="outline" size="sm" onClick={fetchTransfers}>
-                <RefreshCw className="w-4 h-4 mr-1" /> 刷新
-              </Button>
+              <div className="flex gap-2">
+                {matchProducts.some(p => p.pending_match_user_id) && (
+                  <Button variant="default" size="sm" className="bg-green-600 hover:bg-green-700" onClick={handleBatchConfirm} disabled={batchConfirming}>
+                    {batchConfirming ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CheckCircle className="w-4 h-4 mr-1" />}
+                    一键匹配成功
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={fetchMatchProducts}>
+                  <RefreshCw className="w-4 h-4 mr-1" /> 刷新
+                </Button>
+              </div>
             </div>
 
-            {transferLoading ? (
+            {/* 统计 */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-sm text-gray-500">待匹配产品</div>
+                  <div className="text-2xl font-bold text-orange-600">{matchProducts.filter(p => !p.pending_match_user_id).length}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-sm text-gray-500">待确认匹配</div>
+                  <div className="text-2xl font-bold text-blue-600">{matchProducts.filter(p => p.pending_match_user_id).length}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-sm text-gray-500">总流转额度</div>
+                  <div className="text-2xl font-bold text-purple-600">¥{matchProducts.reduce((s, p) => s + p.price, 0).toLocaleString()}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-sm text-gray-500">产品总数</div>
+                  <div className="text-2xl font-bold">{matchProducts.length}</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {matchLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
               </div>
-            ) : transfers.length === 0 ? (
+            ) : matchProducts.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 <ArrowRightLeft className="w-16 h-16 mx-auto mb-4 text-gray-300" />
                 <p>暂无流转记录</p>
               </div>
             ) : (
               <div className="space-y-4">
-                {transfers.map((t) => {
-                  const isAwaitingPayment = t.status === 'awaiting_payment';
-                  const isSellerConfirmed = t.status === 'seller_confirmed';
-                  const isPending = isAwaitingPayment || isSellerConfirmed;
-                  
+                {matchProducts.map((product) => {
+                  const isAssigned = !!product.pending_match_user_id;
                   return (
-                    <Card key={t.id} className={`${isSellerConfirmed ? 'border-green-300 bg-green-50/50' : isAwaitingPayment ? 'border-yellow-300 bg-yellow-50/30' : ''}`}>
+                    <Card key={product.id} className={isAssigned ? 'border-blue-300 bg-blue-50/30' : 'border-orange-300 bg-orange-50/20'}>
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between">
                           <div className="flex-1 space-y-2">
                             <div className="flex items-center gap-2">
                               <Package className="w-4 h-4 text-gray-500" />
-                              <span className="font-semibold text-gray-900">{t.product_name || t.product_id}</span>
-                              <Badge variant={t.status === 'completed' ? 'default' : t.status === 'rejected' ? 'destructive' : 'secondary'}>
-                                {t.status === 'pending' ? '待购买' :
-                                 t.status === 'awaiting_payment' ? '等待付款' :
-                                 t.status === 'seller_confirmed' ? '已确认收款' :
-                                 t.status === 'completed' ? '已完成' :
-                                 t.status === 'rejected' ? '已拒绝' :
-                                 t.status === 'repurchased' ? '已回购' : t.status}
+                              <span className="font-semibold text-gray-900">{product.name}</span>
+                              <Badge variant="outline" className="text-xs">{product.code}</Badge>
+                              <Badge className={isAssigned ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}>
+                                {isAssigned ? '待确认匹配' : '待匹配'}
                               </Badge>
                             </div>
-                            
-                            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1 text-sm">
                               <div className="text-gray-500">
-                                卖家: <span className="text-gray-900 font-medium">{t.from_username || t.from_user_id?.substring(0,8)}</span>
-                              </div>
-                              <div className="text-gray-500">
-                                买家: <span className="text-gray-900 font-medium">{t.to_username || (t.to_user_id ? t.to_user_id.substring(0,8) + '...' : '暂无')}</span>
+                                产品价格: <span className="text-gray-900 font-medium">¥{product.price.toLocaleString()}</span>
                               </div>
                               <div className="text-gray-500">
-                                流转价格: <span className="text-gray-900 font-medium">¥{t.transfer_price || '-'}</span>
+                                周期: <span className="text-gray-900 font-medium">{product.period}天</span>
                               </div>
                               <div className="text-gray-500">
-                                市场费: <span className="text-gray-900 font-medium">{t.market_fee || '-'}</span>
+                                原持有人: <span className="text-gray-900 font-medium">{product.previous_holder_name || '未知'}</span>
                               </div>
-                            </div>
-
-                            {/* 付款状态 */}
-                            {isPending && t.to_user_id && (
-                              <div className={`flex items-center gap-2 mt-2 p-2 rounded-md text-sm ${
-                                isSellerConfirmed 
-                                  ? 'bg-green-100 text-green-700' 
-                                  : 'bg-yellow-100 text-yellow-700'
-                              }`}>
-                                {isSellerConfirmed ? (
-                                  <>
-                                    <CheckCircle className="w-4 h-4" />
-                                    <span>卖家已确认收款，可以审核通过</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <div className="w-4 h-4 rounded-full border-2 border-yellow-500 flex items-center justify-center">
-                                      <div className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
-                                    </div>
-                                    <span>卖家未确认收款，无法审核通过</span>
-                                  </>
-                                )}
-                              </div>
-                            )}
-
-                            <div className="text-xs text-gray-400 mt-1">
-                              {t.created_at ? new Date(t.created_at).toLocaleString('zh-CN') : ''}
+                              {isAssigned && (
+                                <>
+                                  <div className="text-gray-500">
+                                    匹配会员: <span className="text-blue-700 font-medium">{product.pending_match_name || '未知'}</span>
+                                  </div>
+                                  <div className="text-gray-500">
+                                    会员能量值: <span className={`font-medium ${(product.pending_match_energy || 0) >= product.price * product.market_rate / 100 ? 'text-green-600' : 'text-red-600'}`}>
+                                      {product.pending_match_energy || 0}
+                                    </span>
+                                    <span className="text-xs text-gray-400 ml-1">（需{Math.floor(product.price * product.market_rate / 100)}）</span>
+                                  </div>
+                                </>
+                              )}
                             </div>
                           </div>
 
-                          {/* 审核按钮 */}
-                          {isPending && (
-                            <div className="flex gap-2 ml-4">
-                              <Button
-                                size="sm"
-                                variant="default"
-                                className="bg-green-600 hover:bg-green-700"
-                                disabled={!isSellerConfirmed || reviewingTransfer === t.id}
-                                onClick={() => handleTransferReview(t.id, 'approve')}
-                                title={!isSellerConfirmed ? '卖家未确认收款，无法审核' : '审核通过'}
-                              >
-                                {reviewingTransfer === t.id ? <Loader2 className="w-4 h-4 animate-spin" /> : '通过'}
+                          <div className="flex gap-2 ml-4">
+                            {!isAssigned ? (
+                              <Button size="sm" variant="default" onClick={() => handleOpenMatchDialog(product)}>
+                                匹配
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                disabled={reviewingTransfer === t.id}
-                                onClick={() => handleTransferReview(t.id, 'reject')}
-                              >
-                                拒绝
-                              </Button>
-                            </div>
-                          )}
+                            ) : (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  className="bg-green-600 hover:bg-green-700"
+                                  disabled={matchConfirming === product.id}
+                                  onClick={() => handleMatchConfirm(product.id)}
+                                >
+                                  {matchConfirming === product.id ? <Loader2 className="w-4 h-4 animate-spin" /> : '匹配成功'}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleCancelAssign(product.id)}
+                                >
+                                  取消
+                                </Button>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -1763,6 +1835,57 @@ export default function ProviderDashboard() {
                 })}
               </div>
             )}
+
+            {/* 匹配会员选择Dialog */}
+            <Dialog open={showMatchDialog} onOpenChange={setShowMatchDialog}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>匹配产品给会员</DialogTitle>
+                  <DialogDescription>
+                    产品：{matchTargetProduct?.name}（¥{matchTargetProduct?.price.toLocaleString()}）
+                    <br />
+                    需要会员能量值：{matchTargetProduct ? Math.floor(matchTargetProduct.price * matchTargetProduct.market_rate / 100) : 0}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3 max-h-80 overflow-y-auto">
+                  {matchMembers.length === 0 ? (
+                    <p className="text-center text-gray-500 py-4">暂无可匹配的会员</p>
+                  ) : (
+                    matchMembers.map((member) => (
+                      <div
+                        key={member.id}
+                        className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
+                          selectedMatchMember === member.id
+                            ? 'border-purple-500 bg-purple-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                        onClick={() => setSelectedMatchMember(member.id)}
+                      >
+                        <div>
+                          <div className="font-medium text-gray-900">{member.username}</div>
+                          <div className="text-xs text-gray-500">{member.phone || member.unique_id || ''}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className={`text-sm font-medium ${member.energy_value >= (matchTargetProduct?.price || 0) * (matchTargetProduct?.market_rate || 0) / 100 ? 'text-green-600' : 'text-red-500'}`}>
+                            能量值: {member.energy_value}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowMatchDialog(false)}>取消</Button>
+                  <Button
+                    disabled={!selectedMatchMember || assigningMatch}
+                    onClick={() => handleMatchAssign(matchTargetProduct.id, selectedMatchMember)}
+                  >
+                    {assigningMatch ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                    确认匹配
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         );
 

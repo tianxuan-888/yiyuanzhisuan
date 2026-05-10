@@ -59,6 +59,7 @@ import {
     ArrowDownToLine,
     ArrowUpFromLine,
     Upload,
+    UserPlus,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -344,9 +345,15 @@ export default function ProviderPage() {
     const [buyOrderAction, setBuyOrderAction] = useState<"confirm" | "reject">("confirm");
     const [rejectReason, setRejectReason] = useState("");
 
-    // 流转审核相关状态
-    const [pendingTransfers, setPendingTransfers] = useState<any[]>([]);
-    const [pendingRepurchases, setPendingRepurchases] = useState<any[]>([]);
+    // 匹配管理相关状态
+    const [matchProducts, setMatchProducts] = useState<any[]>([]);
+    const [matchTargetProduct, setMatchTargetProduct] = useState<any>(null);
+    const [matchTargetUserId, setMatchTargetUserId] = useState("");
+    const [assigningMatch, setAssigningMatch] = useState(false);
+    const [matchConfirming, setMatchConfirming] = useState(false);
+    const [batchConfirming, setBatchConfirming] = useState(false);
+    const [chainMembers, setChainMembers] = useState<any[]>([]);
+    const [showMatchDialog, setShowMatchDialog] = useState(false);
 
     // 能量值申请相关状态
     const [showEnergyRequestDialog, setShowEnergyRequestDialog] = useState(false);
@@ -1524,23 +1531,129 @@ export default function ProviderPage() {
         if (!providerId) return;
 
         try {
-            // 加载待审核流转
-            const pendingRes = await authFetch(`/api/products/transfer/pending-review?providerId=${providerId}`);
-            const pendingData = await pendingRes.json();
-            if (pendingData.success) {
-                setPendingTransfers(pendingData.data?.list || []);
-            }
-
-            // 加载待回购算力
-            const repurchaseRes = await authFetch(`/api/products/transfer/pending-repurchase?providerId=${providerId}`);
-            const repurchaseData = await repurchaseRes.json();
-            if (repurchaseData.success) {
-                setPendingRepurchases(repurchaseData.data?.list || []);
+            // 加载待匹配产品
+            const res = await authFetch(`/api/products/match/list?providerId=${providerId}`);
+            const data = await res.json();
+            if (data.success) {
+                setMatchProducts(data.data || []);
             }
         } catch (error) {
-            console.error("加载流转数据失败:", error);
+            console.error("加载匹配数据失败:", error);
         }
     }, []);
+
+    // 加载链属会员
+    const fetchChainMembers = useCallback(async () => {
+        const providerId = localStorage.getItem("userId");
+        if (!providerId) return;
+        try {
+            const res = await authFetch(`/api/user/chain?userId=${providerId}`);
+            const data = await res.json();
+            if (data.success) {
+                const members = (data.data?.members || []).map((m: any) => ({ value: m.id, label: `${m.username} [${m.unique_id || ''}] (能量值: ${m.energy_value || 0})` }));
+                setChainMembers(members);
+            }
+        } catch (error) {
+            console.error("加载会员列表失败:", error);
+        }
+    }, []);
+
+    // 匹配 - 指定会员
+    const handleOpenMatchDialog = useCallback((product: any) => {
+        setMatchTargetProduct(product);
+        setMatchTargetUserId("");
+        setShowMatchDialog(true);
+        fetchChainMembers();
+    }, [fetchChainMembers]);
+
+    // 执行匹配分配
+    const handleMatchAssign = useCallback(async () => {
+        if (!matchTargetProduct || !matchTargetUserId) {
+            showMessage("error", "请选择目标会员");
+            return;
+        }
+        setAssigningMatch(true);
+        try {
+            const res = await authFetch("/api/products/match/assign", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ productId: matchTargetProduct.id, targetUserId: matchTargetUserId }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                showMessage("success", "已指定匹配，等待确认");
+                setShowMatchDialog(false);
+                setMatchTargetProduct(null);
+                setMatchTargetUserId("");
+                loadTransferData();
+            } else {
+                showMessage("error", "匹配失败");
+            }
+        } catch (error) {
+            showMessage("error", "操作失败");
+        } finally {
+            setAssigningMatch(false);
+        }
+    }, [matchTargetProduct, matchTargetUserId, loadTransferData, showMessage]);
+
+    // 确认单个匹配
+    const handleMatchConfirm = useCallback(async (productId: string) => {
+        setMatchConfirming(true);
+        try {
+            const res = await authFetch("/api/products/match/confirm", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ productIds: [productId] }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                const result = data.data?.results?.[0];
+                if (result?.success) {
+                    showMessage("success", "匹配成功: 产品已成功匹配给会员");
+                } else {
+                    showMessage("error", "匹配失败: " + (result?.error || "目标会员能量值不足"));
+                }
+                loadTransferData();
+            } else {
+                showMessage("error", "操作失败: " + data.error);
+            }
+        } catch (error) {
+            showMessage("error", "操作失败");
+        } finally {
+            setMatchConfirming(false);
+        }
+    }, [loadTransferData, showMessage]);
+
+    // 批量一键匹配
+    const handleBatchConfirm = useCallback(async () => {
+        const assignedProducts = matchProducts.filter((p: any) => p.pending_match_user_id);
+        if (assignedProducts.length === 0) {
+            showMessage("error", "没有待确认的匹配");
+            return;
+        }
+        setBatchConfirming(true);
+        try {
+            const res = await authFetch("/api/products/match/confirm", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ productIds: assignedProducts.map((p: any) => p.id) }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                const results = data.data?.results || [];
+                const successCount = results.filter((r: any) => r.success).length;
+                const failCount = results.filter((r: any) => !r.success).length;
+                showMessage("success", `批量匹配完成: 成功 ${successCount} 个${failCount > 0 ? `，失败 ${failCount} 个（能量值不足）` : ""}`);
+                loadTransferData();
+            } else {
+                showMessage("error", "操作失败: " + data.error);
+            }
+        } catch (error) {
+            showMessage("error", "操作失败");
+        } finally {
+            setBatchConfirming(false);
+        }
+    }, [matchProducts, loadTransferData, showMessage]);
 
     // 加载提现数据
     const loadWithdrawalData = useCallback(async () => {
@@ -1579,12 +1692,10 @@ export default function ProviderPage() {
     // 轮询：当有任意待审核状态时，每5秒自动刷新
     useEffect(() => {
         const hasPendingBuy = pendingBuyOrders.length > 0;
-        const hasPendingTransfer = pendingTransfers.length > 0;
-        const hasPendingRepurchase = pendingRepurchases.length > 0;
-        const hasPendingTransferReq = pendingTransferRequests.length > 0;
+        const hasPendingMatch = matchProducts.filter((p: any) => !p.pending_match_user_id).length > 0;
         const hasPendingWithdrawal = pendingWithdrawals.length > 0;
 
-        if (!hasPendingBuy && !hasPendingTransfer && !hasPendingRepurchase && !hasPendingTransferReq && !hasPendingWithdrawal) return;
+        if (!hasPendingBuy && !hasPendingMatch && !hasPendingWithdrawal) return;
 
         const interval = setInterval(() => {
             loadPendingBuyOrders();
@@ -1592,7 +1703,7 @@ export default function ProviderPage() {
         }, 5000);
 
         return () => clearInterval(interval);
-    }, [pendingBuyOrders, pendingTransfers, pendingRepurchases, pendingTransferRequests, pendingWithdrawals, loadPendingBuyOrders, loadWithdrawalData]);
+    }, [pendingBuyOrders, matchProducts, pendingWithdrawals, loadPendingBuyOrders, loadWithdrawalData]);
 
     // 加载积分记录
     const loadPointsRecords = useCallback(async () => {
@@ -3405,130 +3516,80 @@ export default function ProviderPage() {
                     {/* 流转审核 */}
                     {powerSubTab === "transfers" && (
                         <div className="space-y-3 md:space-y-6">
+                            {/* 待匹配产品 */}
                             <Card>
                                 <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <RefreshCw className="w-5 h-5" />
-                                        流转审核管理
-                                    </CardTitle>
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="flex items-center gap-2">
+                                            <UserPlus className="w-5 h-5" />
+                                            流转记录 - 待匹配产品
+                                        </CardTitle>
+                                        {matchProducts.filter((p: any) => p.status === 'pending_match').length > 0 && (
+                                            <Button
+                                                onClick={handleBatchConfirm}
+                                                disabled={batchConfirming}
+                                                className="bg-green-600 hover:bg-green-700"
+                                            >
+                                                {batchConfirming ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-1" />}
+                                                一键匹配成功
+                                            </Button>
+                                        )}
+                                    </div>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="space-y-4">
-                                        {/* 待审核流转 */}
-                                        <div className="mb-6">
-                                            <h4 className="font-medium mb-3 flex items-center gap-2">
-                                                <AlertCircle className="w-4 h-4 text-orange-500" />
-                                                待审核流转（{pendingTransfers.length}）
-                                            </h4>
-                                            {pendingTransfers.length > 0 ? (
-                                                <div className="space-y-3">
-                                                    {pendingTransfers.map((transfer: any) => (
-                                                        <div key={transfer.id} className={`border rounded-lg p-4 ${transfer.status === 'buyer_confirmed' ? 'bg-yellow-50' : transfer.status === 'seller_confirmed' ? 'bg-green-50' : 'bg-orange-50'}`}>
-                                                            <div className="flex justify-between items-start mb-3">
-                                                                <div>
-                                                                    <p className="font-medium">{transfer.product_name || transfer.product?.name || '算力流转'}</p>
-                                                                    <p className="text-sm text-gray-500">流转价: ¥{(transfer.price || transfer.transfer_price)?.toLocaleString()}</p>
-                                                                </div>
-                                                                <Badge className={transfer.status === 'buyer_confirmed' ? 'bg-yellow-500' : transfer.status === 'seller_confirmed' ? 'bg-green-500' : 'bg-orange-500'}>
-                                                                    {transfer.status === 'buyer_confirmed' ? '买家已付款' : transfer.status === 'seller_confirmed' ? '卖家已确认' : '待审核'}
-                                                                </Badge>
-                                                            </div>
-                                                            <div className="grid grid-cols-2 gap-2 text-sm mb-3">
-                                                                <div className="text-gray-600">
-                                                                    <span className="font-medium">卖家:</span> {transfer.seller_name || transfer.from_user?.username || '未知'}
-                                                                </div>
-                                                                <div className="text-gray-600">
-                                                                    <span className="font-medium">买家:</span> {transfer.buyer_name || transfer.to_user?.username || '未知'}
-                                                                </div>
-                                                            </div>
-                                                            {transfer.status === 'buyer_confirmed' && (
-                                                                <div className="text-sm text-yellow-700 mb-3 bg-yellow-100 rounded p-2">
-                                                                    买家已确认线下付款，需卖家确认收款后再审核
-                                                                </div>
+                                    {matchProducts.length === 0 ? (
+                                        <p className="text-gray-500 text-center py-4">暂无待匹配产品</p>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {matchProducts.map((product: any) => (
+                                                <div key={product.id} className="border rounded-lg p-4 bg-blue-50">
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <div>
+                                                            <p className="font-medium">{product.name}</p>
+                                                            <p className="text-sm text-gray-500">价格: ¥{product.price?.toLocaleString()} | 周期: {product.period}天</p>
+                                                            {product.previous_holder_name && (
+                                                                <p className="text-sm text-orange-600">原持有人: {product.previous_holder_name}</p>
                                                             )}
-                                                            {transfer.status === 'seller_confirmed' && (
-                                                                <div className="text-sm text-green-700 mb-3 bg-green-100 rounded p-2">
-                                                                    卖家已确认收款，请线下核实后审核
-                                                                </div>
-                                                            )}
-                                                            {transfer.payment_proof && (
-                                                                <div className="text-sm text-blue-600 mb-3">
-                                                                    凭证: {transfer.payment_proof}
-                                                                </div>
-                                                            )}
-                                                            <div className="flex gap-2">
-                                                                {transfer.status === 'seller_confirmed' && (
-                                                                    <>
-                                                                        <Button 
-                                                                            size="sm" 
-                                                                            className="bg-green-600 hover:bg-green-700"
-                                                                            onClick={() => handleTransferReview(transfer.id, 'approve')}
-                                                                            disabled={submitting}
-                                                                        >
-                                                                            <CheckCircle className="w-4 h-4 mr-1" /> 通过
-                                                                        </Button>
-                                                                        <Button 
-                                                                            size="sm" 
-                                                                            variant="destructive"
-                                                                            onClick={() => handleTransferReview(transfer.id, 'reject')}
-                                                                            disabled={submitting}
-                                                                        >
-                                                                            <XCircle className="w-4 h-4 mr-1" /> 拒绝
-                                                                        </Button>
-                                                                    </>
-                                                                )}
-                                                                {transfer.status === 'buyer_confirmed' && (
-                                                                    <span className="text-sm text-gray-500">等待卖家确认收款</span>
-                                                                )}
-                                                                {transfer.expires_at && (
-                                                                    <span className="text-sm text-gray-500 ml-auto self-center">
-                                                                        过期时间: {new Date(transfer.expires_at).toLocaleString()}
-                                                                    </span>
-                                                                )}
-                                                            </div>
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <p className="text-gray-500 text-center py-4">暂无待审核流转</p>
-                                            )}
-                                        </div>
-
-                                        {/* 待回购算力 */}
-                                        <div>
-                                            <h4 className="font-medium mb-3 flex items-center gap-2">
-                                                <Clock className="w-4 h-4 text-red-500" />
-                                                待回购算力（{pendingRepurchases.length}）
-                                            </h4>
-                                            {pendingRepurchases.length > 0 ? (
-                                                <div className="space-y-3">
-                                                    {pendingRepurchases.map((item: any) => (
-                                                        <div key={item.id} className="border rounded-lg p-4 bg-red-50">
-                                                            <div className="flex justify-between items-start mb-3">
-                                                                <div>
-                                                                    <p className="font-medium">{item.product?.name || '算力'}</p>
-                                                                    <p className="text-sm text-gray-500">流转价: ¥{item.transfer_price?.toLocaleString()}</p>
-                                                                </div>
-                                                                <Badge className="bg-red-500">已过期</Badge>
-                                                            </div>
-                                                            <div className="flex gap-2">
-                                                                <Button 
-                                                                    size="sm" 
-                                                                    className="bg-blue-600 hover:bg-blue-700"
-                                                                    onClick={() => handleRepurchase(item.id)}
-                                                                    disabled={submitting}
-                                                                >
-                                                                    回购
-                                                                </Button>
-                                                            </div>
+                                                        <Badge className={product.status === 'pending_match' ? 'bg-blue-500' : 'bg-orange-500'}>
+                                                            {product.status === 'pending_match' ? '待匹配' : '待确认'}
+                                                        </Badge>
+                                                    </div>
+                                                    {product.pending_match_user_name && (
+                                                        <div className="text-sm text-green-700 mb-2 bg-green-100 rounded p-2">
+                                                            已指定匹配给: {product.pending_match_user_name}
+                                                            {product.pending_match_energy !== undefined && (
+                                                                <span className="ml-2">（能量值: {product.pending_match_energy}）</span>
+                                                            )}
                                                         </div>
-                                                    ))}
+                                                    )}
+                                                    <div className="flex gap-2 mt-2">
+                                                        {product.status === 'pending_match' && !product.pending_match_user_id && (
+                                                            <Button
+                                                                size="sm"
+                                                                className="bg-purple-600 hover:bg-purple-700"
+                                                                onClick={() => handleOpenMatchDialog(product)}
+                                                                disabled={assigningMatch}
+                                                            >
+                                                                <UserPlus className="w-4 h-4 mr-1" /> 匹配
+                                                            </Button>
+                                                        )}
+                                                        {product.pending_match_user_id && (
+                                                            <Button
+                                                                size="sm"
+                                                                className="bg-green-600 hover:bg-green-700"
+                                                                onClick={() => matchTargetProduct && handleMatchConfirm(matchTargetProduct.id)}
+                                                                disabled={matchConfirming}
+                                                            >
+                                                                {matchConfirming ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-1" />}
+                                                                确认匹配
+                                                            </Button>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            ) : (
-                                                <p className="text-gray-500 text-center py-4">暂无待回购算力</p>
-                                            )}
+                                            ))}
                                         </div>
-                                    </div>
+                                    )}
                                 </CardContent>
                             </Card>
                         </div>
