@@ -209,6 +209,10 @@ export default function BranchPage() {
   const [branchWithdrawRealName, setBranchWithdrawRealName] = useState("");
   const [showBranchWithdrawDialog, setShowBranchWithdrawDialog] = useState(false);
 
+  // 收益转能量值
+  const [showConvertToEnergyDialog, setShowConvertToEnergyDialog] = useState(false);
+  const [convertToEnergyAmount, setConvertToEnergyAmount] = useState("");
+
   // 分公司能量值流转记录
   const [energyRecords, setEnergyRecords] = useState<any[]>([]);
   const [energyFilterType, setEnergyFilterType] = useState<string>('all');
@@ -1056,6 +1060,44 @@ export default function BranchPage() {
         loadBranchRevenueRecords();
       } else {
         showMessage('error', data.error || '提现失败');
+      }
+    } catch (error) {
+      showMessage('error', '网络错误');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // 收益转能量值
+  const handleConvertToEnergy = async () => {
+    const amount = parseFloat(convertToEnergyAmount);
+    if (!amount || amount < 10) {
+      showMessage('error', '最低转换金额为10元');
+      return;
+    }
+    try {
+      setSubmitting(true);
+      const response = await authFetch('/api/branch/convert-to-energy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: convertToEnergyAmount }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        showMessage('success', data.message || `转换成功：${data.data?.energyAdded}元→能量值，${data.data?.pointsAdded}元→积分`);
+        setShowConvertToEnergyDialog(false);
+        setConvertToEnergyAmount('');
+        // 更新本地用户数据
+        const userDataStr = localStorage.getItem('userData');
+        if (userDataStr && data.data) {
+          const userData = JSON.parse(userDataStr);
+          userData.balance = data.data.balance;
+          userData.energy_value = data.data.energyValue;
+          localStorage.setItem('userData', JSON.stringify(userData));
+        }
+        loadBranchRevenueRecords();
+      } else {
+        showMessage('error', data.error || '转换失败');
       }
     } catch (error) {
       showMessage('error', '网络错误');
@@ -3156,6 +3198,12 @@ export default function BranchPage() {
                     </div>
                     <div className="flex gap-2">
                       <Button
+                        className="bg-blue-600 hover:bg-blue-700"
+                        onClick={() => setShowConvertToEnergyDialog(true)}
+                      >
+                        <Zap className="w-4 h-4 mr-1" /> 收益转能量值
+                      </Button>
+                      <Button
                         className="bg-green-600 hover:bg-green-700"
                         onClick={() => setShowBranchWithdrawDialog(true)}
                       >
@@ -3739,6 +3787,56 @@ export default function BranchPage() {
                 >
                   {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Banknote className="w-4 h-4 mr-2" />}
                   确认提现
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* 收益转能量值对话框 */}
+      {showConvertToEnergyDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-blue-500" />
+                收益转能量值
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">当前收益余额</p>
+                <p className="text-2xl font-bold text-blue-600">¥{Number(branchRevenueStats.totalRevenue || 0).toLocaleString()}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">转换金额</label>
+                <Input
+                  type="number"
+                  placeholder="请输入转换金额（最低10）"
+                  value={convertToEnergyAmount}
+                  onChange={(e) => setConvertToEnergyAmount(e.target.value)}
+                />
+                {convertToEnergyAmount && parseFloat(convertToEnergyAmount) > 0 && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    能量值: ¥{(parseFloat(convertToEnergyAmount) * 0.95).toFixed(2)} | 积分(5%): ¥{(parseFloat(convertToEnergyAmount) * 0.05).toFixed(2)}
+                  </p>
+                )}
+              </div>
+              <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-600">
+                <p>• 最低转换金额: ¥10</p>
+                <p>• 转换比例: 95%转为能量值，5%转为积分</p>
+                <p>• 转换后能量值可用于支付市场费</p>
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => { setShowConvertToEnergyDialog(false); setConvertToEnergyAmount(''); }}>取消</Button>
+                <Button
+                  className="bg-blue-600 hover:bg-blue-700"
+                  onClick={handleConvertToEnergy}
+                  disabled={submitting || !convertToEnergyAmount || parseFloat(convertToEnergyAmount) < 10}
+                >
+                  {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
+                  确认转换
                 </Button>
               </div>
             </CardContent>
