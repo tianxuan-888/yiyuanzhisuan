@@ -160,7 +160,23 @@ export default function BranchPage() {
   const [transferMemberInfo, setTransferMemberInfo] = useState<any>(null);
   const [transferTargetProvider, setTransferTargetProvider] = useState("");
   const [transferLoading, setTransferLoading] = useState(false);
+
+  // 收款信息和修改密码相关状态
+  const [profileAlipayAccount, setProfileAlipayAccount] = useState("");
+  const [profileWechatAccount, setProfileWechatAccount] = useState("");
+  const [profileBankName, setProfileBankName] = useState("");
+  const [profileBankAccount, setProfileBankAccount] = useState("");
+  const [profileBankHolder, setProfileBankHolder] = useState("");
+  const [savingPaymentInfo, setSavingPaymentInfo] = useState(false);
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
   const [transferPreview, setTransferPreview] = useState<any>(null);
+  
+  // 编辑资料状态
+  const [editRealName, setEditRealName] = useState("");
+  const [editAlipayAccount, setEditAlipayAccount] = useState("");
   
   // 分公司能量值余额
   const [branchEnergyBalance, setBranchEnergyBalance] = useState(0);
@@ -421,6 +437,14 @@ export default function BranchPage() {
     apiData: null as any,
     error: ''
   });
+
+  // 初始化编辑资料状态
+  useEffect(() => {
+    if (user) {
+      setEditRealName(user.real_name || '');
+      setEditAlipayAccount(user.alipay_account || '');
+    }
+  }, [user]);
 
   useEffect(() => {
     setDebugInfo({
@@ -686,6 +710,93 @@ export default function BranchPage() {
       showMessage('error', '转移失败');
     } finally {
       setTransferLoading(false);
+    }
+  };
+
+  // 保存真实姓名
+  const handleSaveProfile = async () => {
+    try {
+      const userId = localStorage.getItem('userId');
+      const response = await authFetch('/api/user/username', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, realName: editRealName })
+      });
+      const data = await response.json();
+      if (data.success) {
+        showMessage('success', '姓名修改成功');
+        const stored = localStorage.getItem('userData');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          parsed.real_name = editRealName;
+          localStorage.setItem('userData', JSON.stringify(parsed));
+        }
+      } else {
+        showMessage('error', data.message || '修改失败');
+      }
+    } catch (error) {
+      showMessage('error', '修改失败');
+    }
+  };
+
+  // 保存收款信息
+  const handleSavePayment = async () => {
+    try {
+      const userId = localStorage.getItem('userId');
+      const response = await authFetch('/api/member/payment-info', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, alipayAccount: editAlipayAccount })
+      });
+      const data = await response.json();
+      if (data.success) {
+        showMessage('success', '收款信息保存成功');
+        const stored = localStorage.getItem('userData');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          parsed.alipay_account = editAlipayAccount;
+          localStorage.setItem('userData', JSON.stringify(parsed));
+        }
+      } else {
+        showMessage('error', data.message || '保存失败');
+      }
+    } catch (error) {
+      showMessage('error', '保存失败');
+    }
+  };
+
+  // 修改密码
+  const handlePasswordChange = async () => {
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      showMessage('error', '请填写完整密码信息');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      showMessage('error', '两次输入的新密码不一致');
+      return;
+    }
+    if (newPassword.length < 6) {
+      showMessage('error', '新密码至少6个字符');
+      return;
+    }
+    try {
+      const userId = localStorage.getItem('userId');
+      const response = await authFetch('/api/user/password', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, oldPassword, newPassword })
+      });
+      const data = await response.json();
+      if (data.success) {
+        showMessage('success', '密码修改成功，请重新登录');
+        setOldPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        showMessage('error', data.message || '修改失败');
+      }
+    } catch (error) {
+      showMessage('error', '修改失败');
     }
   };
 
@@ -1648,18 +1759,15 @@ export default function BranchPage() {
                   </div>
                 </div>
 
-                {/* 编辑信息 */}
+                {/* 修改姓名 */}
                 <div className="mt-6 pt-6 border-t">
-                  <h3 className="font-medium text-lg mb-4">编辑资料</h3>
+                  <h3 className="font-medium text-lg mb-4">修改姓名</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label>真实姓名</Label>
                       <Input 
-                        value={user?.real_name || ''} 
-                        onChange={(e) => {
-                          const newUser = { ...user, real_name: e.target.value };
-                          localStorage.setItem('userData', JSON.stringify(newUser));
-                        }}
+                        value={editRealName}
+                        onChange={(e) => setEditRealName(e.target.value)}
                         className="mt-1"
                         placeholder="请输入真实姓名"
                       />
@@ -1675,8 +1783,72 @@ export default function BranchPage() {
                     </div>
                   </div>
                   <div className="mt-4">
-                    <Button className="bg-purple-600" onClick={() => showMessage('success', '资料已保存')}>
-                      保存修改
+                    <Button className="bg-purple-600 hover:bg-purple-700" onClick={handleSaveProfile}>
+                      保存姓名
+                    </Button>
+                  </div>
+                </div>
+
+                {/* 收款信息 */}
+                <div className="mt-6 pt-6 border-t">
+                  <h3 className="font-medium text-lg mb-4">收款信息</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>支付宝账号</Label>
+                      <Input 
+                        value={editAlipayAccount}
+                        onChange={(e) => setEditAlipayAccount(e.target.value)}
+                        className="mt-1"
+                        placeholder="请输入支付宝账号（用于收款）"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-2">收款信息用于会员提现时向您转账，请确保账号正确</p>
+                  <div className="mt-4">
+                    <Button className="bg-purple-600 hover:bg-purple-700" onClick={handleSavePayment}>
+                      保存收款信息
+                    </Button>
+                  </div>
+                </div>
+
+                {/* 修改密码 */}
+                <div className="mt-6 pt-6 border-t">
+                  <h3 className="font-medium text-lg mb-4">修改密码</h3>
+                  <div className="space-y-4 max-w-md">
+                    <div>
+                      <Label>当前密码</Label>
+                      <Input 
+                        type="password"
+                        value={oldPassword}
+                        onChange={(e) => setOldPassword(e.target.value)}
+                        className="mt-1"
+                        placeholder="请输入当前密码"
+                      />
+                    </div>
+                    <div>
+                      <Label>新密码</Label>
+                      <Input 
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="mt-1"
+                        placeholder="请输入新密码（至少6个字符）"
+                      />
+                    </div>
+                    <div>
+                      <Label>确认新密码</Label>
+                      <Input 
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="mt-1"
+                        placeholder="请再次输入新密码"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Button className="bg-purple-600 hover:bg-purple-700" onClick={handlePasswordChange}>
+                      修改密码
                     </Button>
                   </div>
                 </div>
