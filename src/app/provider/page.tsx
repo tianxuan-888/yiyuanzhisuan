@@ -1588,7 +1588,7 @@ export default function ProviderPage() {
                 setMatchTargetUserId("");
                 loadTransferData();
             } else {
-                showMessage("error", "匹配失败");
+                showMessage("error", data.message || "匹配失败");
             }
         } catch (error) {
             showMessage("error", "操作失败");

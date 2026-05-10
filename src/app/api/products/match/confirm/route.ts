@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: '无效token' }, { status: 401 });
     }
 
-    if (user.role !== 'provider') {
+    if (user.role !== 'provider' && user.role !== 'admin') {
       return NextResponse.json({ success: false, message: '仅服务商可操作' }, { status: 403 });
     }
 
@@ -32,6 +32,8 @@ export async function POST(request: NextRequest) {
     if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
       return NextResponse.json({ success: false, message: '缺少产品ID列表' }, { status: 400 });
     }
+
+    console.log('[MATCH CONFIRM] 确认匹配:', { productIds, userId: user.userId });
 
     // 获取所有待确认的产品
     const { data: products, error: productsError } = await supabase
@@ -77,10 +79,9 @@ export async function POST(request: NextRequest) {
 
       if (targetUser.energy_value < marketFee) {
         // 能量值不足，清除匹配，回到待匹配列表
-        await supabase
-          .from('products')
-          .update({ pending_match_user_id: null })
-          .eq('id', product.id);
+        await supabase.rpc('rpc_execute', {
+          sql_query: `UPDATE products SET pending_match_user_id = NULL WHERE id = '${product.id}'`
+        });
         results.push({ productId: product.id, success: false, message: `${targetUser.username}能量值不足(${targetUser.energy_value}/${marketFee})` });
         continue;
       }
@@ -92,6 +93,7 @@ export async function POST(request: NextRequest) {
         sql_query: `UPDATE users SET energy_value = energy_value - ${marketFee} WHERE id = '${targetUser.id}' AND energy_value >= ${marketFee}`
       });
       if (deductError) {
+        console.error('[MATCH CONFIRM] 扣除能量值失败:', deductError);
         results.push({ productId: product.id, success: false, message: '扣除能量值失败' });
         continue;
       }
@@ -147,12 +149,9 @@ export async function POST(request: NextRequest) {
         });
 
         // 更新原持有人的user_product状态为transferred
-        await supabase
-          .from('user_products')
-          .update({ status: 'transferred' })
-          .eq('user_id', product.previous_holder_id)
-          .eq('product_id', product.id)
-          .eq('status', 'pending_sell');
+        await supabase.rpc('rpc_execute', {
+          sql_query: `UPDATE user_products SET status = 'transferred' WHERE user_id = '${product.previous_holder_id}' AND product_id = '${product.id}' AND status = 'pending_sell'`
+        });
       }
 
       // 4. 创建新持有记录
@@ -173,18 +172,15 @@ export async function POST(request: NextRequest) {
         });
 
       if (upError) {
+        console.error('[MATCH CONFIRM] 创建持有记录失败:', upError);
         results.push({ productId: product.id, success: false, message: '创建持有记录失败' });
         continue;
       }
 
       // 5. 更新产品状态为sold，清除匹配信息
-      await supabase
-        .from('products')
-        .update({
-          status: 'sold',
-          pending_match_user_id: null,
-        })
-        .eq('id', product.id);
+      await supabase.rpc('rpc_execute', {
+        sql_query: `UPDATE products SET status = 'sold', pending_match_user_id = NULL WHERE id = '${product.id}'`
+      });
 
       // 6. 创建订单记录
       await supabase.from('orders').insert({
@@ -217,6 +213,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      console.log('[MATCH CONFIRM] 匹配成功:', { productId: product.id, targetUser: targetUser.username });
       results.push({ productId: product.id, success: true, message: '匹配成功' });
     }
 
@@ -234,6 +231,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : '未知错误';
+    console.error('[MATCH CONFIRM] 异常:', error);
     return NextResponse.json({ success: false, message }, { status: 500 });
   }
 }
