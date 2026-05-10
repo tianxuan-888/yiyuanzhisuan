@@ -76,19 +76,7 @@ export async function POST(request: NextRequest) {
       [expectedProfit, userId]
     );
 
-    // 2. 更新用户产品状态为"售卖中"
-    await execute(
-      `UPDATE user_products SET status = 'pending_sell', updated_at = NOW() WHERE id = $1`,
-      [userProductId]
-    );
-
-    // 3. 产品回到服务商 - 状态改为 pending_match（待匹配）
-    await execute(
-      `UPDATE products SET status = 'pending_match', previous_holder_id = $1, updated_at = NOW() WHERE id = $2`,
-      [userId, userProduct.product_id]
-    );
-
-    // 4. 创建卖出订单（记录本金待结算）
+    // 2. 创建卖出订单（记录本金待结算）
     const orderResult = await query(
       `INSERT INTO orders 
        (user_id, user_product_id, product_id, order_type, amount, status, review_note)
@@ -98,7 +86,38 @@ export async function POST(request: NextRequest) {
        `出售产品: ${product?.name || '未知产品'}，收益¥${expectedProfit}已到账，本金¥${purchasePrice}待匹配成功后返还`]
     );
 
-    // 5. 通知服务商
+    // 3. 写入 member_revenue 收益记录（前端"已到账收益"从此表读取）
+    const profitRate = parseFloat(product?.profit_rate || userProduct.profit_rate || 0);
+    const totalRate = parseFloat(product?.total_rate || userProduct.total_rate || 0);
+    const marketRate = parseFloat(product?.market_rate || userProduct.market_rate || 0);
+    const holdingDays = Math.max(1, Math.floor(holdHours / 24));
+    const orderId = orderResult?.[0]?.id || '';
+    await execute(
+      `INSERT INTO member_revenue 
+       (user_id, order_id, user_product_id, principal, profit, total_amount, converted_to_energy, status, product_name, product_code, product_period, total_rate, profit_rate, market_rate, holding_days)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+      [
+        userId, orderId, userProductId,
+        purchasePrice, expectedProfit, purchasePrice + expectedProfit,
+        0, 'available',
+        product?.name || '未知产品', product?.code || '', product?.period || 1,
+        totalRate, profitRate, marketRate, holdingDays
+      ]
+    );
+
+    // 4. 更新用户产品状态为"售卖中"
+    await execute(
+      `UPDATE user_products SET status = 'pending_sell', updated_at = NOW() WHERE id = $1`,
+      [userProductId]
+    );
+
+    // 5. 产品回到服务商 - 状态改为 pending_match（待匹配）
+    await execute(
+      `UPDATE products SET status = 'pending_match', previous_holder_id = $1, updated_at = NOW() WHERE id = $2`,
+      [userId, userProduct.product_id]
+    );
+
+    // 6. 通知服务商
     if (user.provider_id) {
       await query(
         `INSERT INTO notifications 
