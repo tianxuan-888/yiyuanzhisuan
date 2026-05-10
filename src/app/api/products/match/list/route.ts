@@ -36,15 +36,15 @@ export async function GET(request: NextRequest) {
     const matchUserIds = [...new Set(products?.map(p => p.pending_match_user_id).filter(Boolean))];
     const allUserIds = [...new Set([...holderIds, ...matchUserIds])];
 
-    let userMap: Record<string, { username: string; phone: string; unique_id: string }> = {};
+    let userMap: Record<string, { username: string; phone: string; unique_id: string; energyValue: number }> = {};
     if (allUserIds.length > 0) {
       const { data: users } = await supabase
         .from('users')
-        .select('id, username, phone, unique_id')
+        .select('id, username, phone, unique_id, energy_value')
         .in('id', allUserIds);
       
       (users || []).forEach(u => {
-        userMap[u.id] = { username: u.username, phone: u.phone, unique_id: u.unique_id };
+        userMap[u.id] = { username: u.username, phone: u.phone, unique_id: u.unique_id, energyValue: u.energy_value || 0 };
       });
     }
 

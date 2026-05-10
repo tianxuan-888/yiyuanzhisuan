@@ -352,6 +352,7 @@ export default function ProviderPage() {
     const [matchTargetUserId, setMatchTargetUserId] = useState("");
     const [assigningMatch, setAssigningMatch] = useState(false);
     const [matchConfirming, setMatchConfirming] = useState(false);
+    const [matchSubTab, setMatchSubTab] = useState<"pending" | "review">("pending");
     const [batchConfirming, setBatchConfirming] = useState(false);
     const [chainMembers, setChainMembers] = useState<any[]>([]);
     const [showMatchDialog, setShowMatchDialog] = useState(false);
@@ -1622,6 +1623,30 @@ export default function ProviderPage() {
             showMessage("error", "操作失败");
         } finally {
             setMatchConfirming(false);
+        }
+    }, [loadTransferData, showMessage]);
+
+    // 取消匹配（将 pending_match_user_id 清空）
+    const handleCancelAssign = useCallback(async (productId: string) => {
+        if (!confirm("确定要取消此匹配吗？取消后产品将回到待匹配列表。")) return;
+        setAssigningMatch(true);
+        try {
+            const res = await authFetch("/api/products/match/cancel", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ productId }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                showMessage("success", "已取消匹配，产品回到待匹配列表");
+                loadTransferData();
+            } else {
+                showMessage("error", "取消失败: " + (data.message || data.error || "未知错误"));
+            }
+        } catch (error) {
+            showMessage("error", "取消匹配失败");
+        } finally {
+            setAssigningMatch(false);
         }
     }, [loadTransferData, showMessage]);
 
@@ -3517,76 +3542,129 @@ export default function ProviderPage() {
                     {/* 流转审核 */}
                     {powerSubTab === "transfers" && (
                         <div className="space-y-3 md:space-y-6">
-                            {/* 待匹配产品 */}
+                            {/* 流转记录 - 双TAB */}
                             <Card>
                                 <CardHeader>
                                     <div className="flex items-center justify-between">
                                         <CardTitle className="flex items-center gap-2">
                                             <UserPlus className="w-5 h-5" />
-                                            流转记录 - 待匹配产品 ({matchProducts.filter((p: any) => p.status === 'pending_match').length})
+                                            流转记录
                                         </CardTitle>
-                                        {matchProducts.filter((p: any) => p.status === 'pending_match').length > 0 && (
-                                            <Button
-                                                onClick={handleBatchConfirm}
-                                                disabled={batchConfirming}
-                                                className="bg-green-600 hover:bg-green-700"
-                                            >
-                                                {batchConfirming ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-1" />}
-                                                一键匹配成功
-                                            </Button>
-                                        )}
+                                    </div>
+                                    {/* 子TAB */}
+                                    <div className="flex gap-1 mt-2 border-b pb-0">
+                                        <button
+                                            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${matchSubTab === 'pending' ? 'bg-blue-500 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+                                            onClick={() => setMatchSubTab('pending')}
+                                        >
+                                            待匹配 ({matchProducts.filter((p: any) => !p.pending_match_user_id).length})
+                                        </button>
+                                        <button
+                                            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${matchSubTab === 'review' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+                                            onClick={() => setMatchSubTab('review')}
+                                        >
+                                            审核匹配 ({matchProducts.filter((p: any) => p.pending_match_user_id).length})
+                                        </button>
                                     </div>
                                 </CardHeader>
                                 <CardContent>
-                                    {matchProducts.length === 0 ? (
-                                        <p className="text-gray-500 text-center py-4">暂无待匹配产品</p>
-                                    ) : (
-                                        <div className="space-y-3">
-                                            {matchProducts.map((product: any) => (
-                                                <div key={product.id} className="border rounded-lg p-4 bg-blue-50">
-                                                    <div className="flex justify-between items-start mb-2">
-                                                        <div>
-                                                            <p className="font-medium">{product.name}</p>
-                                                            <p className="text-sm text-gray-500">价格: ¥{product.price?.toLocaleString()} | 周期: {product.period}天</p>
-                                                            {product.previous_holder && (
-                                                                <p className="text-sm text-orange-600">出售会员: {product.previous_holder.username} [{product.previous_holder.unique_id}]</p>
-                                                            )}
+                                    {/* 待匹配 TAB */}
+                                    {matchSubTab === 'pending' && (
+                                        <>
+                                            {matchProducts.filter((p: any) => !p.pending_match_user_id).length === 0 ? (
+                                                <p className="text-gray-500 text-center py-4">暂无待匹配产品</p>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    {matchProducts.filter((p: any) => !p.pending_match_user_id).map((product: any) => (
+                                                        <div key={product.id} className="border rounded-lg p-4 bg-blue-50">
+                                                            <div className="flex justify-between items-start mb-2">
+                                                                <div>
+                                                                    <p className="font-medium">{product.name}</p>
+                                                                    <p className="text-sm text-gray-500">价格: ¥{product.price?.toLocaleString()} | 周期: {product.period}天</p>
+                                                                    {product.previous_holder && (
+                                                                        <p className="text-sm text-orange-600">出售会员: {product.previous_holder.username} [{product.previous_holder.unique_id}]</p>
+                                                                    )}
+                                                                </div>
+                                                                <Badge className="bg-blue-500">待匹配</Badge>
+                                                            </div>
+                                                            <div className="flex gap-2 mt-2">
+                                                                <Button
+                                                                    size="sm"
+                                                                    className="bg-purple-600 hover:bg-purple-700"
+                                                                    onClick={() => handleOpenMatchDialog(product)}
+                                                                    disabled={assigningMatch}
+                                                                >
+                                                                    <UserPlus className="w-4 h-4 mr-1" /> 匹配
+                                                                </Button>
+                                                            </div>
                                                         </div>
-                                                        <Badge className={product.status === 'pending_match' ? 'bg-blue-500' : 'bg-orange-500'}>
-                                                            {product.status === 'pending_match' ? '待匹配' : '待确认'}
-                                                        </Badge>
-                                                    </div>
-                                                    {product.pending_match_user && (
-                                                        <div className="text-sm text-green-700 mb-2 bg-green-100 rounded p-2">
-                                                            已指定匹配给: {product.pending_match_user.username} [{product.pending_match_user.unique_id}]
-                                                        </div>
-                                                    )}
-                                                    <div className="flex gap-2 mt-2">
-                                                        {product.status === 'pending_match' && !product.pending_match_user_id && (
-                                                            <Button
-                                                                size="sm"
-                                                                className="bg-purple-600 hover:bg-purple-700"
-                                                                onClick={() => handleOpenMatchDialog(product)}
-                                                                disabled={assigningMatch}
-                                                            >
-                                                                <UserPlus className="w-4 h-4 mr-1" /> 匹配
-                                                            </Button>
-                                                        )}
-                                                        {product.pending_match_user_id && (
-                                                            <Button
-                                                                size="sm"
-                                                                className="bg-green-600 hover:bg-green-700"
-                                                                onClick={() => matchTargetProduct && handleMatchConfirm(matchTargetProduct.id)}
-                                                                disabled={matchConfirming}
-                                                            >
-                                                                {matchConfirming ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-1" />}
-                                                                确认匹配
-                                                            </Button>
-                                                        )}
-                                                    </div>
+                                                    ))}
                                                 </div>
-                                            ))}
-                                        </div>
+                                            )}
+                                        </>
+                                    )}
+
+                                    {/* 审核匹配 TAB */}
+                                    {matchSubTab === 'review' && (
+                                        <>
+                                            <div className="flex justify-end mb-3">
+                                                {matchProducts.filter((p: any) => p.pending_match_user_id).length > 0 && (
+                                                    <Button
+                                                        size="sm"
+                                                        onClick={handleBatchConfirm}
+                                                        disabled={batchConfirming}
+                                                        className="bg-green-600 hover:bg-green-700"
+                                                    >
+                                                        {batchConfirming ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-1" />}
+                                                        一键匹配成功
+                                                    </Button>
+                                                )}
+                                            </div>
+                                            {matchProducts.filter((p: any) => p.pending_match_user_id).length === 0 ? (
+                                                <p className="text-gray-500 text-center py-4">暂无待审核的匹配</p>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    {matchProducts.filter((p: any) => p.pending_match_user_id).map((product: any) => (
+                                                        <div key={product.id} className="border rounded-lg p-4 bg-orange-50">
+                                                            <div className="flex justify-between items-start mb-2">
+                                                                <div>
+                                                                    <p className="font-medium">{product.name}</p>
+                                                                    <p className="text-sm text-gray-500">价格: ¥{product.price?.toLocaleString()} | 周期: {product.period}天</p>
+                                                                    {product.previous_holder && (
+                                                                        <p className="text-sm text-orange-600">出售会员: {product.previous_holder.username} [{product.previous_holder.unique_id}]</p>
+                                                                    )}
+                                                                </div>
+                                                                <Badge className="bg-orange-500">待确认</Badge>
+                                                            </div>
+                                                            {product.pending_match_user && (
+                                                                <div className="text-sm text-green-700 mb-2 bg-green-100 rounded p-2">
+                                                                    已指定匹配给: {product.pending_match_user.username} [{product.pending_match_user.unique_id}] (能量值: {product.pending_match_user.energyValue ?? product.pending_match_user.energy_value ?? 0})
+                                                                </div>
+                                                            )}
+                                                            <div className="flex gap-2 mt-2">
+                                                                <Button
+                                                                    size="sm"
+                                                                    className="bg-green-600 hover:bg-green-700"
+                                                                    onClick={() => handleMatchConfirm(product.id)}
+                                                                    disabled={matchConfirming}
+                                                                >
+                                                                    {matchConfirming ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-1" />}
+                                                                    确认匹配
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    onClick={() => handleCancelAssign(product.id)}
+                                                                    disabled={assigningMatch}
+                                                                >
+                                                                    取消匹配
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </>
                                     )}
                                 </CardContent>
                             </Card>
