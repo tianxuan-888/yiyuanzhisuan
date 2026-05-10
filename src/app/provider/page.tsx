@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
     DialogFooter,
@@ -5645,6 +5646,61 @@ export default function ProviderPage() {
                                     }}>
                                     {submitting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-1" />}
                                     审核通过（已线下打款）
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* 匹配会员Dialog */}
+                    <Dialog open={showMatchDialog} onOpenChange={setShowMatchDialog}>
+                        <DialogContent className="max-w-md">
+                            <DialogHeader>
+                                <DialogTitle className="flex items-center gap-2">
+                                    <UserPlus className="w-5 h-5" />
+                                    匹配产品给会员
+                                </DialogTitle>
+                                <DialogDescription>
+                                    {matchTargetProduct && (
+                                        <span>产品: {matchTargetProduct.name} | 价格: ¥{matchTargetProduct.price?.toLocaleString()}</span>
+                                    )}
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4 py-2">
+                                <div>
+                                    <label className="text-sm font-medium mb-1 block">选择目标会员</label>
+                                    <select
+                                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                        value={matchTargetUserId}
+                                        onChange={(e) => setMatchTargetUserId(e.target.value)}
+                                    >
+                                        <option value="">请选择会员</option>
+                                        {chainMembers.map((m: any) => (
+                                            <option key={m.value} value={m.value}>{m.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                {matchTargetUserId && matchTargetProduct && (
+                                    <div className="rounded-md bg-muted p-3 text-sm space-y-1">
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground">产品价格</span>
+                                            <span>¥{matchTargetProduct.price?.toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground">需能量值(市场费{matchTargetProduct.market_rate}%)</span>
+                                            <span>¥{Math.round(matchTargetProduct.price * matchTargetProduct.market_rate / 100)}</span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            <DialogFooter className="gap-2">
+                                <Button variant="outline" onClick={() => setShowMatchDialog(false)}>取消</Button>
+                                <Button
+                                    className="bg-purple-600 hover:bg-purple-700"
+                                    disabled={!matchTargetUserId || assigningMatch}
+                                    onClick={handleMatchAssign}
+                                >
+                                    {assigningMatch ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <UserPlus className="w-4 h-4 mr-1" />}
+                                    确认匹配
                                 </Button>
                             </DialogFooter>
                         </DialogContent>
