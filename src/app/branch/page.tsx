@@ -2591,7 +2591,6 @@ export default function BranchPage() {
                         <p>• 给服务商转账：直接转账，不扣手续费</p>
                         <p>• 给会员转账：直接转账，不扣手续费</p>
                         <p>• 同级分公司互转：不扣手续费</p>
-                        <p>• <strong>申请变现：</strong>向总公司申请变现，扣除5%手续费</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -2599,10 +2598,6 @@ export default function BranchPage() {
                   {/* 操作按钮 */}
                   <div className="flex gap-4">
                     <Button className="bg-purple-600" onClick={() => { loadTransferTargets(); loadBranchList(); }}>转账</Button>
-                    <Button className="bg-yellow-500" onClick={() => {
-                      loadWithdrawRequests();
-                      setShowWithdrawDialog(true);
-                    }}>申请变现</Button>
                   </div>
 
                   {/* 转账区域 */}
@@ -3315,84 +3310,6 @@ export default function BranchPage() {
                 >
                   {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Banknote className="w-4 h-4 mr-2" />}
                   确认提现
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* 分公司变现申请对话框 */}
-      {showWithdrawDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-yellow-500" />
-                申请变现能量值
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* 当前余额 */}
-              <div className="bg-yellow-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600">当前能量值余额</p>
-                <p className="text-2xl font-bold text-yellow-600">{branchEnergyBalance.toLocaleString()}</p>
-              </div>
-
-              {/* 变现金额输入 */}
-              <div>
-                <label className="text-sm font-medium mb-1 block">变现金额</label>
-                <Input
-                  type="number"
-                  placeholder="请输入变现金额"
-                  value={withdrawAmount}
-                  onChange={(e) => setWithdrawAmount(e.target.value)}
-                />
-                {withdrawAmount && (
-                  <p className="text-sm text-gray-500 mt-1">
-                    实际到账: <span className="text-green-600 font-medium">{(parseFloat(withdrawAmount) * 0.95).toLocaleString()}</span> 
-                    （扣除5%手续费 {(parseFloat(withdrawAmount) * 0.05).toLocaleString()}）
-                  </p>
-                )}
-              </div>
-
-              {/* 变现说明 */}
-              <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-600">
-                <p>• 最低变现金额: 50 能量值</p>
-                <p>• 变现将扣除5%手续费</p>
-                <p>• 申请需总公司审核通过</p>
-              </div>
-
-              {/* 变现申请记录 */}
-              {withdrawRequests.length > 0 && (
-                <div className="border-t pt-4 mt-4">
-                  <p className="text-sm font-medium mb-2">我的变现申请记录</p>
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {withdrawRequests.slice(0, 5).map((req) => (
-                      <div key={req.id} className="flex justify-between items-center text-sm p-2 bg-gray-50 rounded">
-                        <span>{req.amount?.toLocaleString()} 能量值</span>
-                        <span className={`px-2 py-1 rounded text-xs ${
-                          req.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                          req.status === 'approved' ? 'bg-green-100 text-green-700' :
-                          'bg-red-100 text-red-700'
-                        }`}>
-                          {req.status === 'pending' ? '待审核' : req.status === 'approved' ? '已通过' : '已拒绝'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-2 pt-4">
-                <Button variant="outline" onClick={() => setShowWithdrawDialog(false)}>取消</Button>
-                <Button
-                  className="bg-yellow-500 hover:bg-yellow-600"
-                  onClick={handleBranchWithdraw}
-                  disabled={submitting || !withdrawAmount || parseFloat(withdrawAmount) < 50}
-                >
-                  {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <DollarSign className="w-4 h-4 mr-2" />}
-                  确认申请变现
                 </Button>
               </div>
             </CardContent>
