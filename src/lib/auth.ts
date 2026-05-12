@@ -9,7 +9,7 @@ if (!process.env.JWT_SECRET) {
   console.warn('⚠️  警告: JWT_SECRET 未设置，将使用默认值（不安全）');
 }
 
-const TOKEN_EXPIRY = '7d';
+const TOKEN_EXPIRY = '365d';
 
 export interface JwtPayload {
   userId: string;
