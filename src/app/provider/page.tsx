@@ -437,7 +437,16 @@ export default function ProviderPage() {
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
         }
-        return fetch(url, { ...options, headers, cache: 'no-store' });
+        const response = await fetch(url, { ...options, headers, cache: 'no-store' });
+        // 401 时自动清理并跳转登录页
+        if (response.status === 401) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('userId');
+            localStorage.removeItem('userRole');
+            localStorage.removeItem('userData');
+            window.location.href = '/';
+        }
+        return response;
     };
 
     // 加载会员充值申请列表
@@ -1487,7 +1496,15 @@ export default function ProviderPage() {
             const token = localStorage.getItem('token');
             const headers: Record<string, string> = { 'Content-Type': 'application/json', ...(options.headers as Record<string, string>) };
             if (token) headers['Authorization'] = `Bearer ${token}`;
-            return fetch(url, { ...options, headers });
+            const response = await fetch(url, { ...options, headers });
+            if (response.status === 401) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('userId');
+                localStorage.removeItem('userRole');
+                localStorage.removeItem('userData');
+                window.location.href = '/';
+            }
+            return response;
         };
 
         try {

@@ -123,6 +123,13 @@ export default function BranchPage() {
       headers['Authorization'] = `Bearer ${token}`;
     }
     const response = await fetch(url, { ...options, headers, cache: 'no-store' });
+    if (response.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('userData');
+      window.location.href = '/';
+    }
     return response;
   };
 

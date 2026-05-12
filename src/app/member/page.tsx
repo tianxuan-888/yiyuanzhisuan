@@ -131,7 +131,15 @@ export default function MemberPage() {
         const token = localStorage.getItem('token');
         const headers: Record<string, string> = { 'Content-Type': 'application/json', ...(options.headers as Record<string, string>) };
         if (token) headers['Authorization'] = `Bearer ${token}`;
-        return fetch(url, { ...options, headers, cache: 'no-store' });
+        const response = await fetch(url, { ...options, headers, cache: 'no-store' });
+        if (response.status === 401) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('userId');
+            localStorage.removeItem('userRole');
+            localStorage.removeItem('userData');
+            window.location.href = '/';
+        }
+        return response;
     };
 
     const [stats, setStats] = useState<Stats>({

@@ -328,7 +328,15 @@ export default function AdminPage() {
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
-    return fetch(url, { ...options, headers, cache: 'no-store' });
+    const response = await fetch(url, { ...options, headers, cache: 'no-store' });
+    if (response.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('userData');
+      window.location.href = '/';
+    }
+    return response;
   };
 
   // 系统配置类型
