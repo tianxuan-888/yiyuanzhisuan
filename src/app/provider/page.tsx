@@ -290,7 +290,7 @@ export default function ProviderPage() {
     const [rechargeMemberId, setRechargeMemberId] = useState("");
     const [rechargeAmount, setRechargeAmount] = useState("");
 
-    // 能量值管理子Tab
+    // 收益管理子Tab
     const [energyFilter, setEnergyFilter] = useState<string>("all");
     // 收益管理子Tab
     const [revenueSubTab, setRevenueSubTab] = useState<string>("records");
@@ -300,7 +300,7 @@ export default function ProviderPage() {
     const [chainLoading, setChainLoading] = useState(false);
     const [rechargeNote, setRechargeNote] = useState("");
 
-    // 能量值互转相关状态
+    // 收益互转相关状态
     const [showTransferDialog, setShowTransferDialog] = useState(false);
     const [transferTargets, setTransferTargets] = useState<any>({ branch: null, providers: [], members: [] });
     const [transferUserId, setTransferUserId] = useState("");
@@ -328,7 +328,7 @@ export default function ProviderPage() {
     });
 
 
-    // 收益转能量值记录
+    // 收益转入收益记录
     const [convertRecords, setConvertRecords] = useState<any[]>([]);
     const [convertStats, setConvertStats] = useState<any>({ totalConverted: 0, totalEnergy: 0, totalPoints: 0, count: 0 });
 
@@ -365,7 +365,7 @@ export default function ProviderPage() {
     const [chainMembers, setChainMembers] = useState<any[]>([]);
     const [showMatchDialog, setShowMatchDialog] = useState(false);
 
-    // 能量值申请相关状态
+    // 收益申请相关状态
     const [showEnergyRequestDialog, setShowEnergyRequestDialog] = useState(false);
     const [energyRequestAmount, setEnergyRequestAmount] = useState("");
     const [energyRequestNote, setEnergyRequestNote] = useState("");
@@ -1301,7 +1301,7 @@ export default function ProviderPage() {
         }
     };
 
-    // 处理能量值互转
+    // 处理收益互转
     const handleTransferEnergy = async () => {
         const providerId = localStorage.getItem("userId");
         if (!providerId || !transferUserId || !transferAmount) {
@@ -1408,7 +1408,7 @@ export default function ProviderPage() {
         }
     };
 
-    // 处理能量值充值
+    // 处理收益充值
     const handleRechargeEnergy = async () => {
         const providerId = localStorage.getItem("userId");
         if (!providerId || !rechargeMemberId || !rechargeAmount) {
@@ -1468,7 +1468,7 @@ export default function ProviderPage() {
         }
     };
 
-    // 加载能量值申请记录
+    // 加载收益申请记录
     const loadEnergyRequests = async () => {
         const providerId = localStorage.getItem("userId");
         if (!providerId) return;
@@ -1480,11 +1480,11 @@ export default function ProviderPage() {
                 setEnergyRequests(data.data || []);
             }
         } catch (error) {
-            console.error("加载能量值申请记录失败:", error);
+            console.error("加载收益申请记录失败:", error);
         }
     };
 
-    // 提交能量值申请
+    // 提交收益申请
     const handleEnergyRequest = async () => {
         const providerId = localStorage.getItem("userId");
         if (!providerId || !energyRequestAmount || parseFloat(energyRequestAmount) <= 0) {
@@ -1514,12 +1514,12 @@ export default function ProviderPage() {
                 body: JSON.stringify({
                     userId: providerId,
                     requestedAmount: parseFloat(energyRequestAmount),
-                    note: energyRequestNote || '服务商申请能量值'
+                    note: energyRequestNote || '服务商申请收益'
                 })
             });
             const data = await response.json();
             if (data.success) {
-                alert('能量值申请已提交，等待分公司审核');
+                alert('收益申请已提交，等待分公司审核');
                 setShowEnergyRequestDialog(false);
                 setEnergyRequestAmount("");
                 setEnergyRequestNote("");
@@ -1528,7 +1528,7 @@ export default function ProviderPage() {
                 alert(data.error || '申请失败');
             }
         } catch (error) {
-            console.error("申请能量值失败:", error);
+            console.error("申请收益失败:", error);
             alert('申请失败，请重试');
         } finally {
             setSubmitting(false);
@@ -1577,7 +1577,7 @@ export default function ProviderPage() {
             const res = await authFetch(`/api/user/chain?userId=${providerId}`);
             const data = await res.json();
             if (data.success) {
-                const members = (data.data?.members || []).map((m: any) => ({ value: m.id, label: `${m.username} [${m.uniqueId || ''}] (能量值: ${m.energyValue || 0})` }));
+                const members = (data.data?.members || []).map((m: any) => ({ value: m.id, label: `${m.username} [${m.uniqueId || ''}] (收益: ${m.energyValue || 0})` }));
                 setChainMembers(members);
             }
         } catch (error) {
@@ -1638,7 +1638,7 @@ export default function ProviderPage() {
                 if (result?.success) {
                     showMessage("success", "匹配成功: 产品已成功匹配给会员");
                 } else {
-                    showMessage("error", "匹配失败: " + (result?.error || "目标会员能量值不足"));
+                    showMessage("error", "匹配失败: " + (result?.error || "目标会员余额不足"));
                 }
                 loadTransferData();
             } else {
@@ -1694,7 +1694,7 @@ export default function ProviderPage() {
                 const results = data.data?.results || [];
                 const successCount = results.filter((r: any) => r.success).length;
                 const failCount = results.filter((r: any) => !r.success).length;
-                showMessage("success", `批量匹配完成: 成功 ${successCount} 个${failCount > 0 ? `，失败 ${failCount} 个（能量值不足）` : ""}`);
+                showMessage("success", `批量匹配完成: 成功 ${successCount} 个${failCount > 0 ? `，失败 ${failCount} 个（余额不足）` : ""}`);
                 loadTransferData();
             } else {
                 showMessage("error", "操作失败: " + data.error);
@@ -1800,7 +1800,7 @@ export default function ProviderPage() {
         ]);
     }, [refreshUser, loadData, loadRevenueRecords, loadTransferRecords, loadWithdrawRecords, loadWithdrawalData, loadEnergyRequests, loadPointsRecords, loadConvertRecords]);
 
-    // 积分转能量值
+    // 积分转入收益
     const handlePointsToEnergy = async () => {
         const amount = parseFloat(pointsConvertAmount);
         if (isNaN(amount) || amount <= 0) {
@@ -1822,7 +1822,7 @@ export default function ProviderPage() {
             });
             const data = await response.json();
             if (data.success) {
-                showMessage("success", `转换成功！${amount}积分 → ${amount}能量值`);
+                showMessage("success", `转换成功！${amount}积分 → ${amount}收益`);
                 setShowPointsToEnergyDialog(false);
                 setPointsConvertAmount("");
                 refreshAll();
@@ -1924,7 +1924,7 @@ export default function ProviderPage() {
         }
     };
 
-    // 审核能量值转账申请
+    // 审核收益转账申请
     const handleEnergyTransferReview = async (requestId: string, action: 'approve' | 'reject') => {
         const providerId = localStorage.getItem("userId");
         if (!providerId) return;
@@ -2159,14 +2159,14 @@ export default function ProviderPage() {
                             <p className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1">算力总值</p>
                         </CardContent>
                     </Card>
-                    {/* 能量值卡片 */}
+                    {/* 收益卡片 */}
                     <Card className="mobile-compact-card col-span-2 md:col-span-1 bg-gradient-to-br from-purple-600 via-fuchsia-600 to-purple-700 border-0 shadow-xl">
                         <CardContent className="p-3 md:pt-5">
                             <div className="flex items-center justify-between mb-1.5 md:mb-3">
                                 <div className="p-1.5 md:p-2.5 bg-white/20 backdrop-blur rounded-lg md:rounded-xl">
                                     <Zap className="w-4 h-4 md:w-5 md:h-5 text-white" />
                                 </div>
-                                <span className="text-[10px] md:text-xs font-medium text-purple-200 bg-white/10 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full backdrop-blur">能量值</span>
+                                <span className="text-[10px] md:text-xs font-medium text-purple-200 bg-white/10 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full backdrop-blur">收益</span>
                             </div>
                             <p className="text-lg md:text-2xl font-bold mt-1 md:mt-2 text-white">{user?.energyValue?.toLocaleString() || 0}</p>
                             <div className="flex gap-2 mt-3">
@@ -2251,7 +2251,7 @@ export default function ProviderPage() {
                                     loadWithdrawalData();
                                 }}
                                 className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "energy" ? "bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-200" : "text-gray-600 hover:bg-purple-50"}`}>
-                                <Zap className="w-4 h-4" />能量值管理
+                                <Zap className="w-4 h-4" />收益管理
                             </button>
                             <button
                                 onClick={() => {
@@ -2641,7 +2641,7 @@ export default function ProviderPage() {
                                                                 <p className="text-white text-lg font-bold">{chainData.members.length}</p>
                                                             </div>
                                                             <div className="p-3 bg-slate-800/60 rounded-lg text-center">
-                                                                <p className="text-slate-400 text-xs mb-1">总能量值</p>
+                                                                <p className="text-slate-400 text-xs mb-1">总收益</p>
                                                                 <p className="text-amber-400 text-lg font-bold">{chainData.members.reduce((sum: number, m: any) => sum + (m.energyValue || 0), 0).toLocaleString()}</p>
                                                             </div>
                                                             <div className="p-3 bg-slate-800/60 rounded-lg text-center">
@@ -2670,7 +2670,7 @@ export default function ProviderPage() {
                                                                     {/* 会员数据 */}
                                                                     <div className="grid grid-cols-3 gap-3">
                                                                         <div className="bg-slate-900/50 rounded-md p-2.5 text-center">
-                                                                            <p className="text-slate-500 text-xs mb-1">能量值</p>
+                                                                            <p className="text-slate-500 text-xs mb-1">收益</p>
                                                                             <p className="text-amber-400 text-base font-bold">{(member.energyValue || 0).toLocaleString()}</p>
                                                                         </div>
                                                                         <div className="bg-slate-900/50 rounded-md p-2.5 text-center">
@@ -3663,7 +3663,7 @@ export default function ProviderPage() {
                                                             </div>
                                                             {product.pending_match_user && (
                                                                 <div className="text-sm text-green-700 mb-2 bg-green-100 rounded p-2">
-                                                                    已指定匹配给: {product.pending_match_user.username} [{product.pending_match_user.unique_id}] (能量值: {product.pending_match_user.energyValue ?? product.pending_match_user.energy_value ?? 0})
+                                                                    已指定匹配给: {product.pending_match_user.username} [{product.pending_match_user.unique_id}] (收益: {product.pending_match_user.energyValue ?? product.pending_match_user.energy_value ?? 0})
                                                                 </div>
                                                             )}
                                                             <div className="flex gap-2 mt-2">
@@ -3783,14 +3783,14 @@ export default function ProviderPage() {
                         </Card>
                     </div>}
 
-                    {/* 能量值管理 Tab */}
+                    {/* 收益管理 Tab */}
                     {activeTab === "energy" && <div className="space-y-3 md:space-y-6">
-                        {/* 能量值余额总览 */}
+                        {/* 收益余额总览 */}
                         <Card>
                             <CardContent className="p-4 md:p-6">
                                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                                     <div>
-                                        <p className="text-sm text-muted-foreground">我的能量值</p>
+                                        <p className="text-sm text-muted-foreground">我的收益</p>
                                         <p className="text-3xl font-bold text-purple-600">{user?.energyValue?.toLocaleString() || 0}</p>
                                         <p className="text-xs text-muted-foreground mt-1">用于给会员充值、购买产品付市场费等</p>
                                     </div>
@@ -3798,24 +3798,24 @@ export default function ProviderPage() {
                                         <Button onClick={() => { loadEnergyRequests(); setShowEnergyRequestDialog(true); }} variant="outline" size="sm" className="border-orange-300 text-orange-600">
                                             <Plus className="w-4 h-4 mr-1" />向分公司申请
                                         </Button>
-                                        <Button onClick={() => { loadTransferTargets(); setShowTransferDialog(true); }} variant="outline" size="sm" className="border-purple-300 text-purple-600">
+                                        {false && <Button onClick={() => { loadTransferTargets(); setShowTransferDialog(true); }} variant="outline" size="sm" className="border-purple-300 text-purple-600">
                                             <ArrowLeftRight className="w-4 h-4 mr-1" />互转
-                                        </Button>
-                                        <Button onClick={() => { loadEnergyMembers(); setShowRechargeDialog(true); }} variant="outline" size="sm" className="border-green-300 text-green-600">
+                                        </Button>}
+                                        {false && <Button onClick={() => { loadEnergyMembers(); setShowRechargeDialog(true); }} variant="outline" size="sm" className="border-green-300 text-green-600">
                                             <Zap className="w-4 h-4 mr-1" />给会员充值
-                                        </Button>
+                                        </Button>}
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
 
-                        {/* 能量值记录 - 全部转入转出记录 */}
+                        {/* 收益记录 - 全部转入转出记录 */}
                         <Card>
                             <CardHeader className="pb-3">
                                 <div className="flex items-center justify-between">
                                     <CardTitle className="text-sm flex items-center gap-2">
                                         <History className="w-4 h-4" />
-                                        能量值记录
+                                        收益记录
                                     </CardTitle>
                                     <div className="flex gap-1">
                                         <Button size="sm" variant={energyFilter === 'all' ? 'default' : 'outline'} className="text-xs h-7" onClick={() => setEnergyFilter('all')}>全部</Button>
@@ -3881,7 +3881,7 @@ export default function ProviderPage() {
                                                                             {getTypeLabel(record.type)}
                                                                         </Badge>
                                                                         <p className={`font-medium text-sm ${isIn ? 'text-green-600' : 'text-red-600'}`}>
-                                                                            {isIn ? '+' : '-'}{Math.abs(record.amount)} 能量值
+                                                                            {isIn ? '+' : '-'}{Math.abs(record.amount)} 收益
                                                                         </p>
                                                                     </div>
                                                                     <p className="text-xs text-muted-foreground mt-1 truncate">
@@ -3931,7 +3931,7 @@ export default function ProviderPage() {
                                                         </p>
                                                     </div>
                                                     <div className="text-right">
-                                                        <p className="text-lg font-bold text-green-600">+{req.amount} 能量值</p>
+                                                        <p className="text-lg font-bold text-green-600">+{req.amount} 收益</p>
                                                         <p className="text-xs text-muted-foreground">{req.createdAt ? new Date(req.createdAt).toLocaleString() : ''}</p>
                                                     </div>
                                                 </div>
@@ -3985,7 +3985,7 @@ export default function ProviderPage() {
                                                         </p>
                                                     </div>
                                                     <div className="text-right">
-                                                        <p className="text-lg font-bold text-blue-600">{req.amount} 能量值</p>
+                                                        <p className="text-lg font-bold text-blue-600">{req.amount} 收益</p>
                                                         <p className="text-xs text-muted-foreground">{new Date(req.created_at).toLocaleString()}</p>
                                                     </div>
                                                 </div>
@@ -4012,26 +4012,26 @@ export default function ProviderPage() {
                                     <CardContent className="p-3 text-xs text-green-700">
                                         <p className="font-medium mb-1">转账审核说明</p>
                                         <ul className="list-disc list-inside space-y-0.5">
-                                            <li>会员将能量值转账给您，您需线下打款给会员</li>
+                                            <li></li>
                                             <li>确认已线下打款后，点击"审核通过"完成转账</li>
-                                            <li>拒绝后能量值将退还给会员</li>
+                                            <li></li>
                                         </ul>
                                     </CardContent>
                                 </Card>
                             </CardContent>
                         </Card>
 
-                        {/* 能量值消耗规则 */}
+                        {/* 收益消耗规则 */}
                         <Card className="bg-blue-50 border-blue-200">
                             <CardHeader className="pb-2">
-                                <CardTitle className="text-blue-800 text-sm">能量值消耗规则</CardTitle>
+                                <CardTitle className="text-blue-800 text-sm">收益消耗规则</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <table className="w-full text-sm">
                                     <thead>
                                         <tr className="text-left">
                                             <th className="py-1">算力周期</th>
-                                            <th className="py-1">能量值比例</th>
+                                            <th className="py-1">市场费比例</th>
                                             <th className="py-1">示例（¥1000算力）</th>
                                         </tr>
                                     </thead>
@@ -4043,7 +4043,7 @@ export default function ProviderPage() {
                                         <tr><td className="py-1">90天</td><td>60%</td><td>¥600</td></tr>
                                     </tbody>
                                 </table>
-                                <p className="text-xs text-blue-600 mt-2">会员购买算力时需要消耗相应能量值作为市场费，能量值不足无法购买。</p>
+                                <p className="text-xs text-blue-600 mt-2">会员购买算力时需要消耗相应收益作为市场费，购买产品只需支付本金。</p>
                             </CardContent>
                         </Card>
                     </div>}
@@ -4056,12 +4056,12 @@ export default function ProviderPage() {
                                 <CardContent className="p-4 md:p-6">
                                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                                         <div>
-                                            <p className="text-sm text-muted-foreground">收益余额（可提现/可转能量值）</p>
+                                            <p className="text-sm text-muted-foreground">收益余额（可提现/可提现）</p>
                                             <p className="text-3xl font-bold text-green-600">¥{Number(revenueStats.balance || 0).toLocaleString()}</p>
                                             <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
                                                 <span>累计收益: ¥{Number(revenueStats.totalRevenue || 0).toLocaleString()}</span>
                                                 <span>已提现: ¥{Number(revenueStats.totalWithdrawn || 0).toLocaleString()}</span>
-                                                <span>已转能量值: ¥{Number(revenueStats.totalConverted || 0).toLocaleString()}</span>
+                                                <span>已转入收益: ¥{Number(revenueStats.totalConverted || 0).toLocaleString()}</span>
                                             </div>
                                         </div>
                                         <div className="flex gap-2 flex-wrap">
@@ -4071,7 +4071,7 @@ export default function ProviderPage() {
                                             </Button>
                                             <Button size="sm" variant="outline" className="border-green-300 text-green-600"
                                                 onClick={() => setShowConvertDialog(true)}>
-                                                <Zap className="w-4 h-4 mr-1" /> 收益转能量值
+                                                <Zap className="w-4 h-4 mr-1" /> 收益转入收益
                                             </Button>
                                         </div>
                                     </div>
@@ -4096,11 +4096,11 @@ export default function ProviderPage() {
                                     onClick={() => setRevenueSubTab("convert")}
                                     className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-all ${revenueSubTab === "convert" ? "bg-blue-600 text-white shadow" : "text-muted-foreground hover:text-foreground"}`}
                                 >
-                                    <Zap className="w-4 h-4 inline mr-1" />转能量值
+                                    <Zap className="w-4 h-4 inline mr-1" />转入收益
                                 </button>
                             </div>
 
-                            {/* 子Tab内容：市场收益记录（只含市场业务收益，不含能量值进出） */}
+                            {/* 子Tab内容：市场收益记录（只含市场业务收益，不含收益进出） */}
                             {revenueSubTab === "records" && (
                                 <div className="space-y-4">
                                     {/* 收益统计 */}
@@ -4292,7 +4292,7 @@ export default function ProviderPage() {
                                 </div>
                             )}
 
-                            {/* 子Tab内容：收益转能量值记录 */}
+                            {/* 子Tab内容：收益转入收益记录 */}
                             {revenueSubTab === "convert" && (
                                 <div className="space-y-4">
                                     {/* 转换统计 */}
@@ -4306,7 +4306,7 @@ export default function ProviderPage() {
                                         </Card>
                                         <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
                                             <CardContent className="p-3 md:p-4">
-                                                <p className="text-xs opacity-80">转入能量值</p>
+                                                <p className="text-xs opacity-80">转入收益</p>
                                                 <p className="text-lg md:text-xl font-bold">{Number(convertStats.totalEnergy || 0).toLocaleString()}</p>
                                                 <p className="text-[10px] opacity-70">95%</p>
                                             </CardContent>
@@ -4336,7 +4336,7 @@ export default function ProviderPage() {
                                                             <div className="flex justify-between items-start mb-2">
                                                                 <div>
                                                                     <div className="flex items-center gap-2 mb-1">
-                                                                        <Badge className="bg-blue-100 text-blue-700">收益转能量值</Badge>
+                                                                        <Badge className="bg-blue-100 text-blue-700">收益转入收益</Badge>
                                                                     </div>
                                                                     <p className="text-xs text-muted-foreground">
                                                                         {new Date(record.createdAt).toLocaleString('zh-CN')}
@@ -4351,7 +4351,7 @@ export default function ProviderPage() {
                                                             </div>
                                                             <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-blue-200">
                                                                 <div className="text-center p-2 bg-green-50 rounded">
-                                                                    <p className="text-xs text-green-600">→ 能量值</p>
+                                                                    <p className="text-xs text-green-600">→ 收益</p>
                                                                     <p className="text-sm font-bold text-green-700">{Number(record.energyAmount || 0).toLocaleString()}</p>
                                                                     <p className="text-[10px] text-muted-foreground">余额: {record.energyAfter?.toLocaleString() || '-'}</p>
                                                                 </div>
@@ -4368,7 +4368,7 @@ export default function ProviderPage() {
                                                 <div className="text-center py-6 text-muted-foreground">
                                                     <Zap className="w-8 h-8 mx-auto mb-2 opacity-50" />
                                                     <p className="text-sm">暂无转换记录</p>
-                                                    <p className="text-xs mt-1">收益转能量值后，记录将在这里显示</p>
+                                                    <p className="text-xs mt-1">收益转入收益后，记录将在这里显示</p>
                                                 </div>
                                             )}
                                         </CardContent>
@@ -4379,9 +4379,9 @@ export default function ProviderPage() {
                                         <CardContent className="p-3 text-xs text-blue-700">
                                             <p className="font-medium mb-1">转换规则</p>
                                             <ul className="list-disc list-inside space-y-0.5">
-                                                <li>收益余额转为能量值：95% → 能量值，5% → 积分</li>
+                                                <li>收益余额转为收益：95% → 收益，5% → 积分</li>
                                                 <li>最低转换金额: ¥10</li>
-                                                <li>转换后能量值可用于会员市场费支付</li>
+                                                <li>转换后收益可用于会员市场费支付</li>
                                             </ul>
                                         </CardContent>
                                     </Card>
@@ -4400,7 +4400,7 @@ export default function ProviderPage() {
                                         <span className="text-sm opacity-80">我的积分</span>
                                     </div>
                                     <p className="text-3xl font-bold">{Number(user?.points || 0).toLocaleString()}</p>
-                                    <span className="text-xs opacity-70 mt-1">收益转能量值时，5%自动转为积分，积分可兑换产品或转能量值</span>
+                                    <span className="text-xs opacity-70 mt-1">收益转入收益时，5%自动转为积分，积分可兑换产品或转入收益</span>
                                     <div className="mt-3 flex gap-2">
                                         <Button
                                             size="sm"
@@ -4411,7 +4411,7 @@ export default function ProviderPage() {
                                             }}
                                         >
                                             <Zap className="w-4 h-4 mr-1" />
-                                            积分转能量值
+                                            积分转入收益
                                         </Button>
                                     </div>
                                 </CardContent>
@@ -4468,7 +4468,7 @@ export default function ProviderPage() {
                                                                     {record.type === 'convert' ? '收益转化' : record.type === 'exchange' ? '兑换使用' : record.type}
                                                                 </Badge>
                                                             </div>
-                                                            <p className="text-xs text-muted-foreground">{record.note || '收益转能量值产生'}</p>
+                                                            <p className="text-xs text-muted-foreground">{record.note || '收益转入收益产生'}</p>
                                                         </div>
                                                     </div>
                                                     <p className="text-xs text-muted-foreground">
@@ -4481,7 +4481,7 @@ export default function ProviderPage() {
                                         <div className="text-center py-8 text-gray-500">
                                             <Gift className="w-12 h-12 mx-auto mb-3 opacity-50" />
                                             <p>暂无积分记录</p>
-                                            <p className="text-sm mt-1">收益转能量值时自动产生积分（5%）</p>
+                                            <p className="text-sm mt-1">收益转入收益时自动产生积分（5%）</p>
                                         </div>
                                     )}
                                 </CardContent>
@@ -4705,7 +4705,7 @@ export default function ProviderPage() {
                                                         {/* 市场费 */}
                                                         <div className="mb-2 p-1.5 md:p-2.5 rounded-lg bg-orange-500/20 border border-orange-500/40 text-orange-300 text-center text-[9px] md:text-xs">
                                                             <Zap className="w-3 h-3 inline mr-0.5" />
-                                                            市场费 {market_rate}% · 需能量值 ¥{Math.round(product.price * market_rate / 100).toLocaleString()}
+                                                            市场费 {market_rate}% · 需收益 ¥{Math.round(product.price * market_rate / 100).toLocaleString()}
                                                         </div>
 
                                                         {/* 状态指示 */}
@@ -4730,11 +4730,11 @@ export default function ProviderPage() {
                         </div>
                     )}
 
-                    {/* 能量值充值对话框 */}
-                    <Dialog open={showRechargeDialog} onOpenChange={setShowRechargeDialog}>
+                    {/* 收益充值对话框 */}
+                    <Dialog open={false && showRechargeDialog} onOpenChange={setShowRechargeDialog}>
                         <DialogContent>
                             <DialogHeader>
-                                <DialogTitle>给会员充值能量值</DialogTitle>
+                                <DialogTitle>给会员充值收益</DialogTitle>
                             </DialogHeader>
                             <div className="space-y-4 py-4">
                                 <div>
@@ -4747,7 +4747,7 @@ export default function ProviderPage() {
                                         <option value="">请选择会员</option>
                                         {energyMembers.map(m => (
                                             <option key={m.id} value={m.id}>
-                                                {m.username}（当前能量值: {m.energy_value || 0}）
+                                                {m.username}（当前收益: {m.energy_value || 0}）
                                             </option>
                                         ))}
                                     </select>
@@ -4756,13 +4756,13 @@ export default function ProviderPage() {
                                     <label className="text-sm font-medium mb-2 block">充值金额</label>
                                     <Input
                                         type="number"
-                                        placeholder="请输入充值能量值"
+                                        placeholder="请输入充值收益"
                                         value={rechargeAmount}
                                         onChange={(e) => setRechargeAmount(e.target.value)}
                                         min="1"
                                     />
                                     <p className="text-xs text-gray-500 mt-1">
-                                        您当前能量值: {user?.energyValue?.toLocaleString() || 0}
+                                        您当前收益: {user?.energyValue?.toLocaleString() || 0}
                                     </p>
                                 </div>
                                 <div>
@@ -4791,7 +4791,7 @@ export default function ProviderPage() {
                     </Dialog>
 
                     {/* 处理会员充值申请对话框 */}
-                    <Dialog open={showMemberRechargeDialog} onOpenChange={(open) => {
+                    <Dialog open={false && showMemberRechargeDialog} onOpenChange={(open) => {
                         setShowMemberRechargeDialog(open);
                         if (!open) setSelectedRechargeRequest(null);
                     }}>
@@ -4816,7 +4816,7 @@ export default function ProviderPage() {
                                             </div>
                                             <div>
                                                 <p className="text-sm text-gray-500">充值金额</p>
-                                                <p className="font-medium text-green-600">+{selectedRechargeRequest.amount} 能量值</p>
+                                                <p className="font-medium text-green-600">+{selectedRechargeRequest.amount} 收益</p>
                                             </div>
                                             <div>
                                                 <p className="text-sm text-gray-500">申请时间</p>
@@ -4832,14 +4832,14 @@ export default function ProviderPage() {
                                     </div>
                                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                                         <p className="text-sm text-yellow-700">
-                                            <strong>提示：</strong>请确认已收到会员线下付款后再点击"确认充值"。确认后，能量值将直接充入会员账户。
+                                            <strong>提示：</strong>请确认已收到会员线下付款后再点击"确认充值"。确认后，收益将直接充入会员账户。
                                         </p>
                                     </div>
                                     <div>
-                                        <label className="text-sm font-medium mb-2 block">您的当前能量值</label>
-                                        <p className="text-lg font-bold text-purple-600">{user?.energyValue?.toLocaleString() || 0} 能量值</p>
+                                        <label className="text-sm font-medium mb-2 block">您的当前收益</label>
+                                        <p className="text-lg font-bold text-purple-600">{user?.energyValue?.toLocaleString() || 0} 收益</p>
                                         {user && user.energyValue < selectedRechargeRequest.amount && (
-                                            <p className="text-sm text-red-500 mt-1">能量值不足，无法完成充值</p>
+                                            <p className="text-sm text-red-500 mt-1">余额不足，无法完成充值</p>
                                         )}
                                     </div>
                                 </div>
@@ -4865,19 +4865,19 @@ export default function ProviderPage() {
                         </DialogContent>
                     </Dialog>
 
-                    {/* 能量值互转对话框 */}
-                    <Dialog open={showTransferDialog} onOpenChange={setShowTransferDialog}>
+                    {/* 收益互转对话框 */}
+                    <Dialog open={false && showTransferDialog} onOpenChange={setShowTransferDialog}>
                         <DialogContent>
                             <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">
                                     <ArrowLeftRight className="w-5 h-5 text-purple-600" />
-                                    能量值互转
+                                    收益互转
                                 </DialogTitle>
                             </DialogHeader>
                             <div className="space-y-4 py-4">
                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                                     <p className="text-sm text-blue-700">
-                                        <strong>说明：</strong>可向所属分公司、其他服务商或自己的会员转账能量值，最低转账金额为50。
+                                        <strong>说明：</strong>可向所属分公司、其他服务商或自己的会员转账收益，最低转账金额为50。
                                     </p>
                                 </div>
                                 <div>
@@ -4920,17 +4920,17 @@ export default function ProviderPage() {
                                         <option value="">请选择</option>
                                         {transferUserType === "branch" && transferTargets.branch && (
                                             <option value={transferTargets.branch.id}>
-                                                {transferTargets.branch.username} {transferTargets.branch.unique_id ? `[${transferTargets.branch.unique_id}]` : ''} {transferTargets.branch.phone ? `(${transferTargets.branch.phone})` : ''}（能量值: {transferTargets.branch.energy_value || 0}）
+                                                {transferTargets.branch.username} {transferTargets.branch.unique_id ? `[${transferTargets.branch.unique_id}]` : ''} {transferTargets.branch.phone ? `(${transferTargets.branch.phone})` : ''}（收益: {transferTargets.branch.energy_value || 0}）
                                             </option>
                                         )}
                                         {transferUserType === "provider" && transferTargets.providers?.map((p: any) => (
                                             <option key={p.id} value={p.id}>
-                                                {p.username} {p.unique_id ? `[${p.unique_id}]` : ''} {p.phone ? `(${p.phone})` : ''}（能量值: {p.energy_value || 0}）
+                                                {p.username} {p.unique_id ? `[${p.unique_id}]` : ''} {p.phone ? `(${p.phone})` : ''}（收益: {p.energy_value || 0}）
                                             </option>
                                         ))}
                                         {transferUserType === "member" && transferTargets.members?.map((m: any) => (
                                             <option key={m.id} value={m.id}>
-                                                {m.username} {m.unique_id ? `[${m.unique_id}]` : ''} {m.phone ? `(${m.phone})` : ''}（能量值: {m.energy_value || 0}）
+                                                {m.username} {m.unique_id ? `[${m.unique_id}]` : ''} {m.phone ? `(${m.phone})` : ''}（收益: {m.energy_value || 0}）
                                             </option>
                                         ))}
                                     </select>
@@ -4939,13 +4939,13 @@ export default function ProviderPage() {
                                     <label className="text-sm font-medium mb-2 block">转账金额</label>
                                     <Input
                                         type="number"
-                                        placeholder="请输入转账能量值（最低50）"
+                                        placeholder="请输入转账收益（最低50）"
                                         value={transferAmount}
                                         onChange={(e) => setTransferAmount(e.target.value)}
                                         min="50"
                                     />
                                     <p className="text-xs text-gray-500 mt-1">
-                                        您当前能量值: {user?.energyValue?.toLocaleString() || 0}
+                                        您当前收益: {user?.energyValue?.toLocaleString() || 0}
                                     </p>
                                 </div>
                                 <div>
@@ -4973,19 +4973,19 @@ export default function ProviderPage() {
                         </DialogContent>
                     </Dialog>
 
-                    {/* 收益转能量值对话框 */}
+                    {/* 收益转入收益对话框 */}
                     <Dialog open={showConvertDialog} onOpenChange={setShowConvertDialog}>
                         <DialogContent>
                             <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">
                                     <Zap className="w-5 h-5 text-green-600" />
-                                    收益转能量值
+                                    收益转入收益
                                 </DialogTitle>
                             </DialogHeader>
                             <div className="space-y-4 py-4">
                                 <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                                     <p className="text-sm text-green-700">
-                                        <strong>说明：</strong>收益转为能量值时，5%转为积分，95%转为能量值。能量值可用于给会员充值。
+                                        <strong>说明：</strong>收益转为收益时，5%转为积分，95%转为收益。收益可用于给会员充值。
                                     </p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
@@ -4994,7 +4994,7 @@ export default function ProviderPage() {
                                         <p className="text-xl font-bold text-green-600">¥{revenueStats.balance?.toLocaleString() || 0}</p>
                                     </div>
                                     <div className="bg-slate-100 rounded-lg p-3">
-                                        <p className="text-xs text-gray-500">当前能量值</p>
+                                        <p className="text-xs text-gray-500">当前收益</p>
                                         <p className="text-xl font-bold text-purple-600">{user?.energyValue?.toLocaleString() || 0}</p>
                                     </div>
                                 </div>
@@ -5008,7 +5008,7 @@ export default function ProviderPage() {
                                         min="1"
                                     />
                                     <p className="text-xs text-gray-500 mt-1">
-                                        积分: {withdrawAmount ? (parseFloat(withdrawAmount) * 0.05).toFixed(2) : "0.00"} | 能量值: {withdrawAmount ? (parseFloat(withdrawAmount) * 0.95).toFixed(2) : "0.00"}
+                                        积分: {withdrawAmount ? (parseFloat(withdrawAmount) * 0.05).toFixed(2) : "0.00"} | 收益: {withdrawAmount ? (parseFloat(withdrawAmount) * 0.95).toFixed(2) : "0.00"}
                                     </p>
                                 </div>
                                 <Button 
@@ -5025,7 +5025,7 @@ export default function ProviderPage() {
                                             });
                                             const data = await res.json();
                                             if (data.success) {
-                                                showMessage("success", `转换成功！${data.data?.pointsAdded || 0}→积分，${data.data?.energyAdded || 0}→能量值`);
+                                                showMessage("success", `转换成功！${data.data?.pointsAdded || 0}→积分，${data.data?.energyAdded || 0}→收益`);
                                                 setShowConvertDialog(false);
                                                 setWithdrawAmount("");
                                                 refreshAll();
@@ -5148,19 +5148,19 @@ export default function ProviderPage() {
                         </DialogContent>
                     </Dialog>
 
-                    {/* 能量值申请对话框 */}
+                    {/* 收益申请对话框 */}
                     <Dialog open={showEnergyRequestDialog} onOpenChange={setShowEnergyRequestDialog}>
                         <DialogContent>
                             <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">
                                     <Zap className="w-5 h-5 text-orange-600" />
-                                    申请能量值
+                                    申请收益
                                 </DialogTitle>
                             </DialogHeader>
                             <div className="space-y-4 py-4">
                                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
                                     <p className="text-sm text-orange-700">
-                                        <strong>说明：</strong>服务商需要向分公司申请能量值，用于给会员充值。
+                                        <strong>说明：</strong>服务商需要向分公司申请收益，用于给会员充值。
                                         申请提交后需等待分公司审核通过。
                                     </p>
                                 </div>
@@ -5168,7 +5168,7 @@ export default function ProviderPage() {
                                     <label className="text-sm font-medium mb-2 block">申请数量</label>
                                     <Input
                                         type="number"
-                                        placeholder="请输入申请的能量值数量"
+                                        placeholder="请输入申请的收益数量"
                                         value={energyRequestAmount}
                                         onChange={(e) => setEnergyRequestAmount(e.target.value)}
                                         min="100"
@@ -5199,13 +5199,13 @@ export default function ProviderPage() {
                         </DialogContent>
                     </Dialog>
 
-                    {/* 能量值申请记录完整列表对话框 */}
+                    {/* 收益申请记录完整列表对话框 */}
                     <Dialog open={showEnergyRequestListDialog} onOpenChange={setShowEnergyRequestListDialog}>
                         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                             <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">
                                     <Zap className="w-5 h-5 text-orange-600" />
-                                    能量值申请记录
+                                    收益申请记录
                                 </DialogTitle>
                             </DialogHeader>
                             <div className="space-y-3 py-4">
@@ -5228,7 +5228,7 @@ export default function ProviderPage() {
                                                                     {desc.status === 'pending' ? '待审核' : desc.status === 'completed' ? '已通过' : '已拒绝'}
                                                                 </Badge>
                                                                 <p className="font-medium text-lg">
-                                                                    申请 {desc.requestedAmount?.toLocaleString() || 0} 能量值
+                                                                    申请 {desc.requestedAmount?.toLocaleString() || 0} 收益
                                                                 </p>
                                                             </div>
                                                             <div className="text-sm text-gray-600 space-y-1">
@@ -5371,7 +5371,7 @@ export default function ProviderPage() {
                                                         <div>
                                                             <p className="font-medium text-foreground">{template.name}</p>
                                                             <p className="text-xs text-muted-foreground mt-1">
-                                                                {template.period}天周期 | 总收益{template.total_rate}% | 会员到手{template.profit_rate}% | 能量值{template.market_rate}%
+                                                                {template.period}天周期 | 总收益{template.total_rate}% | 会员到手{template.profit_rate}% | 收益{template.market_rate}%
                                                             </p>
                                                         </div>
                                                         {selectedTemplateId === template.id && (
@@ -5468,7 +5468,7 @@ export default function ProviderPage() {
                                                             {product.period}天
                                                         </Badge>
                                                         <span className="text-sm text-gray-600">
-                                                            收益{product.totalRate}% / 会员到手{product.profitRate}% / 能量值{product.marketRate}%
+                                                            收益{product.totalRate}% / 会员到手{product.profitRate}% / 收益{product.marketRate}%
                                                         </span>
                                                     </div>
                                                     <span className="font-semibold text-gray-800">¥{product.price.toLocaleString()}</span>
@@ -5605,13 +5605,13 @@ export default function ProviderPage() {
                         </DialogContent>
                     </Dialog>
 
-                    {/* 积分转能量值对话框 */}
+                    {/* 积分转入收益对话框 */}
                     <Dialog open={showPointsToEnergyDialog} onOpenChange={setShowPointsToEnergyDialog}>
                         <DialogContent>
                             <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">
                                     <Zap className="w-5 h-5 text-amber-500" />
-                                    积分转能量值
+                                    积分转入收益
                                 </DialogTitle>
                             </DialogHeader>
                             <div className="space-y-4 py-4">
@@ -5632,13 +5632,13 @@ export default function ProviderPage() {
                                         max={String(user?.points || 0)}
                                     />
                                     <p className="text-xs text-gray-500 mt-1">
-                                        1积分 = 1能量值，转换后积分扣除，能量值等额增加
+                                        1积分 = 1收益，转换后积分扣除，收益等额增加
                                     </p>
                                 </div>
                                 {pointsConvertAmount && parseFloat(pointsConvertAmount) > 0 && (
                                     <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                                         <p className="text-sm text-green-700">
-                                            转换后：积分 <strong>-{pointsConvertAmount}</strong>，能量值 <strong>+{pointsConvertAmount}</strong>
+                                            转换后：积分 <strong>-{pointsConvertAmount}</strong>，收益 <strong>+{pointsConvertAmount}</strong>
                                         </p>
                                     </div>
                                 )}
@@ -5688,7 +5688,7 @@ export default function ProviderPage() {
                                     <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                                         <h4 className="font-medium text-sm text-blue-700 mb-2">转账信息</h4>
                                         <div className="space-y-1.5">
-                                            <p className="text-lg font-bold text-blue-800">转账金额：{selectedTransferRequest.amount} 能量值</p>
+                                            <p className="text-lg font-bold text-blue-800">转账金额：{selectedTransferRequest.amount} 收益</p>
                                             <p className="text-xs text-gray-400">申请时间：{new Date(selectedTransferRequest.created_at).toLocaleString()}</p>
                                         </div>
                                     </div>
@@ -5719,7 +5719,7 @@ export default function ProviderPage() {
                                     <div className="p-3 bg-red-50 rounded-lg border border-red-200">
                                         <p className="text-sm text-red-700">
                                             <strong>重要提示：</strong>请先通过以上收款信息线下打款给会员，确认打款完成后再点击"审核通过"。
-                                            审核通过后，能量值将转入您的账户。
+                                            审核通过后，收益将转入您的账户。
                                         </p>
                                     </div>
                                 </div>
@@ -5790,7 +5790,7 @@ export default function ProviderPage() {
                                             <span>¥{matchTargetProduct.price?.toLocaleString()}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span className="text-muted-foreground">需能量值(市场费{matchTargetProduct.market_rate}%)</span>
+                                            <span className="text-muted-foreground">需收益(市场费{matchTargetProduct.market_rate}%)</span>
                                             <span>¥{Math.round(matchTargetProduct.price * matchTargetProduct.market_rate / 100)}</span>
                                         </div>
                                     </div>

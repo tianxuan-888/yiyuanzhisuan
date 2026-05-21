@@ -108,7 +108,6 @@ interface Notification {
 }
 
 interface Stats {
-    energy_value: number;
     balance: number;
     points: number;
     total_holding: number;
@@ -143,7 +142,6 @@ export default function MemberPage() {
     };
 
     const [stats, setStats] = useState<Stats>({
-        energy_value: 0,
         balance: 0,
         points: 0,
         total_holding: 0,
@@ -186,17 +184,6 @@ export default function MemberPage() {
     const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
     const [showSellDialog, setShowSellDialog] = useState(false);
     const [showApplyDialog, setShowApplyDialog] = useState(false);
-    const [showRechargeDialog, setShowRechargeDialog] = useState(false);
-    const [showProfitToEnergyDialog, setShowProfitToEnergyDialog] = useState(false);
-    const [showEnergyTransferDialog, setShowEnergyTransferDialog] = useState(false);
-
-    const [rechargeAmount, setRechargeAmount] = useState("100");
-    const [rechargeNote, setRechargeNote] = useState("");
-    const [transferAmount, setTransferAmount] = useState("100");
-    const [paymentMethod, setPaymentMethod] = useState<'alipay' | 'wechat'>('alipay');
-    const [paymentAccount, setPaymentAccount] = useState("");
-    const [transferRealName, setTransferRealName] = useState("");
-    const [profitToEnergyAmount, setProfitToEnergyAmount] = useState("100");
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [submittingProductIds, setSubmittingProductIds] = useState<Set<string>>(new Set());
     const [selectedUserProduct, setSelectedUserProduct] = useState<UserProduct | null>(null);
@@ -228,47 +215,7 @@ export default function MemberPage() {
         members: [] as { id: string; username: string; phone: string; uniqueId: string; role: string; energyValue: number; balance: number; createdAt: string }[],
     });
 
-interface EnergyRecord {
-    id: string;
-    type: string;
-    amount: number;
-    status: string;
-    from_user_id?: string;
-    to_user_id?: string;
-    note?: string;
-    description?: string;
-    created_at?: string;
-    createdAt?: string;
-    recordType?: 'recharge' | 'transfer_in' | 'transfer_out' | 'consume' | 'market_transfer' | 'purchase' | 'convert_from_balance' | 'withdraw';
-}
-
-interface EnergyStats {
-    totalRecharge: number;
-    totalTransferOut: number;
-    totalTransferIn: number;
-    totalConsume: number;
-    rechargeCount: number;
-    transferOutCount: number;
-    transferInCount: number;
-    consumeCount: number;
-}
-
 const [copySuccess, setCopySuccess] = useState(false);
-
-    // 能量值记录相关状态
-    const [energyRecords, setEnergyRecords] = useState<EnergyRecord[]>([]);
-    const [energyStats, setEnergyStats] = useState<EnergyStats>({
-        totalRecharge: 0,
-        totalTransferOut: 0,
-        totalTransferIn: 0,
-        totalConsume: 0,
-        rechargeCount: 0,
-        transferOutCount: 0,
-        transferInCount: 0,
-        consumeCount: 0,
-    });
-    const [energyRecordFilter, setEnergyRecordFilter] = useState<'all' | 'recharge' | 'transfer_in' | 'transfer_out' | 'consume'>('all');
-    const [energyRecordsLoading, setEnergyRecordsLoading] = useState(false);
 
     // 收益记录相关状态
     const [profitRecords, setProfitRecords] = useState<any[]>([]);
@@ -432,24 +379,6 @@ const [copySuccess, setCopySuccess] = useState(false);
                 console.log('[member] referralStats failed:', JSON.stringify(referralData));
             }
 
-            if (energyRecordsData.success && energyRecordsData.data) {
-                setEnergyRecords(energyRecordsData.data.records || []);
-                setEnergyStats(energyRecordsData.data.stats || {
-                    totalRecharge: 0,
-                    totalTransferOut: 0,
-                    totalTransferIn: 0,
-                    totalConsume: 0,
-                    rechargeCount: 0,
-                    transferOutCount: 0,
-                    transferInCount: 0,
-                    consumeCount: 0,
-                });
-                // 设置实时能量值余额（从API获取，不使用缓存）
-                if (energyRecordsData.data.balance !== undefined) {
-                    setRealtimeEnergy(energyRecordsData.data.balance);
-                }
-            }
-
             // 处理充值申请记录（使用已解析的数据，避免重复读取 Response）
             if (rechargeData.success && rechargeData.data) {
                 setRechargeRequests(rechargeData.data || []);
@@ -609,7 +538,7 @@ const [copySuccess, setCopySuccess] = useState(false);
         const hasPendingConfirm = userProducts.some(up => up.status === 'pending_confirm');
         const hasPendingOrders = pendingOrders.length > 0;
         const hasPendingRecharge = pendingRechargeCount > 0;
-        const hasPendingTransfer = energyRecords.some((r: any) => r.type === 'transfer_out' && r.status === 'pending');
+        const hasPendingTransfer = false; // 能量值互转已移除
 
         if (!hasPendingConfirm && !hasPendingOrders && !hasPendingRecharge && !hasPendingTransfer) return;
 
@@ -618,7 +547,7 @@ const [copySuccess, setCopySuccess] = useState(false);
         }, 5000);
 
         return () => clearInterval(interval);
-    }, [userProducts, pendingOrders, pendingRechargeCount, energyRecords, loadData]);
+    }, [userProducts, pendingOrders, pendingRechargeCount, loadData]);
 
     // 加载收款信息
     const loadPaymentInfo = async () => {
@@ -766,13 +695,6 @@ const [copySuccess, setCopySuccess] = useState(false);
         if (!userId)
             return;
 
-        // 检查能量值是否足够支付市场费
-        const marketFee = selectedProduct.market_fee || 0;
-        if (stats.energy_value < marketFee) {
-            showMessage("error", `能量值不足，需要 ${marketFee} 能量值，当前余额 ${stats.energy_value}`);
-            return;
-        }
-
         // 确认购买时才标记为提交中，防止重复点击
         setSubmittingProductIds(prev => new Set(prev).add(selectedProduct.id));
         setSubmitting(true);
@@ -782,8 +704,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                 method: "POST",
                 body: JSON.stringify({
                     userId,
-                    productId: selectedProduct.id,
-                    deductEnergy: true // 标记购买时扣除能量值
+                    productId: selectedProduct.id
                 })
             });
 
@@ -794,21 +715,6 @@ const [copySuccess, setCopySuccess] = useState(false);
                 const message = data.data?.message || "购买申请已提交，等待服务商审核确认";
                 showMessage("success", message);
                 setShowPurchaseDialog(false);
-
-                // 更新本地存储中的用户能量值
-                if (data.data?.remainingEnergy !== undefined) {
-                    const userDataStr = localStorage.getItem('userData');
-                    if (userDataStr) {
-                        try {
-                            const userData = JSON.parse(userDataStr);
-                            userData.energyValue = data.data.remainingEnergy;
-                            userData.energy_value = data.data.remainingEnergy;
-                            localStorage.setItem('userData', JSON.stringify(userData));
-                        } catch (e) {
-                            console.error('更新本地能量值失败:', e);
-                        }
-                    }
-                }
 
                 // 乐观更新：立即将该产品添加到待审核列表
                 if (selectedProduct) {
@@ -864,13 +770,7 @@ const [copySuccess, setCopySuccess] = useState(false);
         const userId = localStorage.getItem("userId");
         if (!userId) return;
 
-        // 检查能量值是否足够支付市场费
-        if (stats.energy_value < marketFee) {
-            showMessage("error", `能量值不足，需要 ${marketFee} 能量值，当前余额 ${stats.energy_value}`);
-            return;
-        }
-
-        if (!confirm(`确认购买此流转产品？\n\n流转价格：¥${price.toLocaleString()}\n市场费：${marketFee} 能量值\n\n购买后需等待卖家确认收款，服务商审核通过后正式持有。`)) return;
+        if (!confirm(`确认购买此流转产品？\n\n流转价格：¥${price.toLocaleString()}\n\n购买后需等待卖家确认收款，服务商审核通过后正式持有。`)) return;
 
         try {
             const token = localStorage.getItem('token');
@@ -1031,189 +931,6 @@ const [copySuccess, setCopySuccess] = useState(false);
         }
     };
 
-    const handleRechargeEnergy = async () => {
-        const userId = localStorage.getItem("userId");
-        if (!userId) return;
-
-        const amount = parseFloat(rechargeAmount);
-        if (!amount || amount <= 0) {
-            showMessage("error", "请输入有效的充值金额");
-            return;
-        }
-
-        setSubmitting(true);
-
-        try {
-            const response = await authFetch("/api/member/energy-recharge", {
-                method: "POST",
-                body: JSON.stringify({
-                    userId,
-                    amount,
-                    note: rechargeNote,
-                }),
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                showMessage("success", data.message || "充值申请已提交");
-                setShowRechargeDialog(false);
-                setRechargeAmount("100");
-                setRechargeNote("");
-                refreshAll();
-            } else {
-                showMessage("error", data.error || "充值申请失败");
-            }
-        } catch (error) {
-            showMessage("error", "网络错误");
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
-    const handleEnergyTransfer = async () => {
-        const userId = localStorage.getItem("userId");
-        // 优先使用 state 中的 providerId，其次使用 localStorage
-        const providerId = currentProviderId || localStorage.getItem("providerId");
-
-        if (!userId) {
-            showMessage("error", "缺少用户信息");
-            return;
-        }
-
-        if (!providerId) {
-            showMessage("error", "您还没有关联服务商，无法进行转账操作");
-            return;
-        }
-
-        const amount = parseFloat(transferAmount);
-        if (!amount || amount < 50) {
-            showMessage("error", "转账金额不能少于50");
-            return;
-        }
-
-        if (!paymentAccount) {
-            showMessage("error", "请输入收款账号");
-            return;
-        }
-
-        if (!transferRealName.trim()) {
-            showMessage("error", "请输入真实姓名");
-            return;
-        }
-
-        setSubmitting(true);
-
-        try {
-            const response = await authFetch("/api/energy/transfer", {
-                    method: "POST",
-                    body: JSON.stringify({
-                        from_user_id: userId,
-                        to_user_id: providerId,
-                        amount: amount,
-                        note: "会员转账给服务商",
-                        payment_method: paymentMethod,
-                        real_name: transferRealName.trim(),
-                        alipay_account: paymentAccount,
-                    }),
-                });
-            const data = await response.json();
-
-            if (data.success) {
-                showMessage("success", data.message || "转账申请已提交，等待服务商审核");
-                // removed;
-                setTransferAmount("100");
-                setPaymentAccount("");
-                setTransferRealName("");
-                refreshAll();
-            } else {
-                showMessage("error", data.error || "转账失败");
-            }
-        } catch (error) {
-            showMessage("error", "网络错误");
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
-    const handleProfitToEnergy = async () => {
-        const userId = localStorage.getItem("userId");
-        if (!userId) return;
-
-        const amount = parseFloat(profitToEnergyAmount);
-        if (!amount || amount <= 0) {
-            showMessage("error", "请输入有效的转换金额");
-            return;
-        }
-
-        setSubmitting(true);
-
-        try {
-            const response = await authFetch("/api/member/convert-to-energy", {
-                method: "POST",
-                body: JSON.stringify({
-                    userId,
-                    amount,
-                }),
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                const result = data.data || {};
-                showMessage("success", `转换成功！${result.energyAmount || 0}→能量值，${result.pointsAmount || 0}→积分`);
-                setShowProfitToEnergyDialog(false);
-                setProfitToEnergyAmount("100");
-                refreshAll();
-            } else {
-                showMessage("error", data.error || "转换失败");
-            }
-        } catch (error) {
-            showMessage("error", "网络错误");
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
-    // 会员收益转能量值
-    const handleProfitConvert = async () => {
-        const userId = localStorage.getItem("userId");
-        if (!userId) return;
-
-        const amount = parseFloat(profitConvertAmount);
-        if (!amount || amount < 50) {
-            showMessage("error", "转换金额不能少于50");
-            return;
-        }
-
-        setSubmitting(true);
-
-        try {
-            const response = await authFetch("/api/member/convert-to-energy", {
-                method: "POST",
-                body: JSON.stringify({
-                    userId,
-                    amount,
-                }),
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                const result = data.data || {};
-                showMessage("success", `转换成功！${result.energyAmount || 0}→能量值，${result.pointsAmount || 0}→积分`);
-                setShowProfitConvertDialog(false);
-                setProfitConvertAmount("");
-                refreshAll();
-            } else {
-                showMessage("error", data.error || "转换失败");
-            }
-        } catch (error) {
-            showMessage("error", "网络错误");
-        } finally {
-            setSubmitting(false);
-        }
-    };
 
     // 会员提现
     const handleWithdraw = async () => {
@@ -1407,26 +1124,9 @@ const [copySuccess, setCopySuccess] = useState(false);
                                 <p className="text-lg font-bold text-green-600">¥{(selectedProduct.price + calculateProfit(selectedProduct)).toLocaleString()}</p>
                             </div>
                         </div>
-                        {/* 能量值要求 */}
-                        <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-orange-800 font-medium">购买需支付市场费</span>
-                                <span className="text-orange-600 font-bold">{(selectedProduct.market_fee || 0)} 能量值</span>
-                            </div>
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-orange-600">当前能量值余额</span>
-                                <span className={`font-semibold ${stats.energy_value >= (selectedProduct.market_fee || 0) ? 'text-green-600' : 'text-red-600'}`}>
-                                    {stats.energy_value.toLocaleString()} 能量值
-                                </span>
-                            </div>
-                            {stats.energy_value < (selectedProduct.market_fee || 0) && (
-                                <div className="mt-2 p-2 bg-red-100 rounded text-sm text-red-700">
-                                    ⚠️ 能量值不足，请先充值后再购买
-                                </div>
-                            )}
-                        </div>
+                        {/* 收益说明 */}
                         <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
-                            <p>💡 购买时需支付市场费（能量值），到期卖出时直接获得本金+收益</p>
+                            <p>💡 购买产品只需支付本金，到期后自动获得本金+收益</p>
                         </div>
                     </div>}
                     <DialogFooter>
@@ -1436,132 +1136,9 @@ const [copySuccess, setCopySuccess] = useState(false);
                         <Button
                             className="bg-green-600 hover:bg-green-700"
                             onClick={handlePurchase}
-                            disabled={submitting || !selectedProduct || stats.energy_value < (selectedProduct.market_fee || 0)}>
+                            disabled={submitting || !selectedProduct}>
                             {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ArrowRight className="w-4 h-4 mr-2" />}确认购买
                                         </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-            <Dialog open={showEnergyTransferDialog} onOpenChange={setShowEnergyTransferDialog}>
-                <DialogContent className="max-w-md">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <Zap className="w-5 h-5 text-orange-500" />能量值转账
-                        </DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                            <p className="text-sm text-blue-800">
-                                <strong>转账说明：</strong>
-                            </p>
-                            <ul className="list-disc list-inside text-xs text-blue-700 mt-2 space-y-1">
-                                <li>能量值转账给服务商，服务商线下打款给您</li>
-                                <li>最低转账金额：50能量值</li>
-                                <li>提交后等待服务商审核确认</li>
-                                <li>请确保收款信息准确，方便服务商打款</li>
-                            </ul>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="transferAmount">转账金额（能量值）</Label>
-                            <Input
-                                id="transferAmount"
-                                type="number"
-                                min="50"
-                                value={transferAmount}
-                                onChange={e => setTransferAmount(e.target.value)}
-                                placeholder="请输入转账金额，最少50"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="paymentMethod">收款方式</Label>
-                            <div className="grid grid-cols-2 gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setPaymentMethod('alipay')}
-                                    className={`p-3 rounded-lg border-2 ${paymentMethod === 'alipay' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
-                                    <p className="font-medium text-sm">支付宝</p>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setPaymentMethod('wechat')}
-                                    className={`p-3 rounded-lg border-2 ${paymentMethod === 'wechat' ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}>
-                                    <p className="font-medium text-sm">微信</p>
-                                </button>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="paymentAccount">
-                                {paymentMethod === 'alipay' ? '支付宝账号' : '微信号'}
-                            </Label>
-                            <Input
-                                id="paymentAccount"
-                                value={paymentAccount}
-                                onChange={e => setPaymentAccount(e.target.value)}
-                                placeholder={`请输入您的${paymentMethod === 'alipay' ? '支付宝账号' : '微信号'}`}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="transferRealName">真实姓名</Label>
-                            <Input
-                                id="transferRealName"
-                                value={transferRealName}
-                                onChange={e => setTransferRealName(e.target.value)}
-                                placeholder={`请输入真实姓名（需与${paymentMethod === 'alipay' ? '支付宝' : '微信'}一致）`}
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => {}}>取消</Button>
-                        <Button
-                            className="bg-orange-500 hover:bg-orange-600"
-                            onClick={handleEnergyTransfer}
-                            disabled={submitting || !paymentAccount || !transferRealName.trim()}>
-                            {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ArrowRight className="w-4 h-4 mr-2" />}提交转账
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-            <Dialog open={showProfitToEnergyDialog} onOpenChange={setShowProfitToEnergyDialog}>
-                <DialogContent className="max-w-md">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <TrendingUp className="w-5 h-5 text-green-500" />收益转能量值
-                        </DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                            <p className="text-sm text-green-800">
-                                <strong>转换说明：</strong>
-                            </p>
-                            <ul className="list-disc list-inside text-xs text-green-700 mt-2 space-y-1">
-                                <li>将已获得的收益转换为能量值</li>
-                                <li>转换后的能量值可用于支付市场费</li>
-                                <li>1收益 = 1能量值</li>
-                            </ul>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="profitToEnergyAmount">转换金额（收益）</Label>
-                            <Input
-                                id="profitToEnergyAmount"
-                                type="number"
-                                min="1"
-                                value={profitToEnergyAmount}
-                                onChange={e => setProfitToEnergyAmount(e.target.value)}
-                                placeholder="请输入转换金额"
-                            />
-                        </div>
-                        <div className="p-3 bg-yellow-50 rounded-lg text-sm text-yellow-700">
-                            <p>可转换收益：¥{stats.total_profit.toLocaleString()}</p>
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowProfitToEnergyDialog(false)}>取消</Button>
-                        <Button
-                            className="bg-green-500 hover:bg-green-600"
-                            onClick={handleProfitToEnergy}
-                            disabled={submitting}>
-                            {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-2" />}确认转换
-                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -1701,9 +1278,9 @@ const [copySuccess, setCopySuccess] = useState(false);
                                     <p className="font-medium mb-1">成为服务商的权益：</p>
                                     <ul className="list-disc list-inside space-y-1 text-xs">
                                         <li>获得算力额度，生成产品上架销售</li>
-                                        <li>享受会员购买产品时能量值收益的70%</li>
+                                        <li>享受会员购买产品时市场费收益</li>
                                         <li>可发展下级服务商，获得团队收益分成</li>
-                                        <li>给会员充值能量值（线下收款线上充值）</li>
+                                        <li>管理会员产品购买与流转</li>
                                     </ul>
                                 </div>
                                 {user?.providerId && (
@@ -1732,159 +1309,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-            <Dialog open={showRechargeDialog} onOpenChange={setShowRechargeDialog}>
-                <DialogContent className="max-w-md">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <Zap className="w-5 h-5 text-orange-500" />充值能量值
-                        </DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
-                            <p className="text-sm text-orange-800">
-                                <strong>充值说明：</strong>
-                            </p>
-                            <ul className="list-disc list-inside text-xs text-orange-700 mt-2 space-y-1">
-                                <li>能量值用于支付卖出算力时的市场费</li>
-                                <li>充值后请联系服务商线下付款</li>
-                                <li>服务商确认后会为您充值能量值</li>
-                            </ul>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="rechargeAmount">充值金额（能量值）</Label>
-                            <Input
-                                id="rechargeAmount"
-                                type="number"
-                                min="1"
-                                value={rechargeAmount}
-                                onChange={e => setRechargeAmount(e.target.value)}
-                                placeholder="请输入充值金额"
-                            />
-                        </div>
-                        <div className="grid grid-cols-4 gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setRechargeAmount("50")}>
-                                50
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setRechargeAmount("100")}>
-                                100
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setRechargeAmount("500")}>
-                                500
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setRechargeAmount("1000")}>
-                                1000
-                            </Button>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="rechargeNote">备注（可选）</Label>
-                            <Input
-                                id="rechargeNote"
-                                value={rechargeNote}
-                                onChange={e => setRechargeNote(e.target.value)}
-                                placeholder="请输入备注信息"
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowRechargeDialog(false)}>取消</Button>
-                        <Button
-                            className="bg-orange-500 hover:bg-orange-600"
-                            onClick={handleRechargeEnergy}
-                            disabled={submitting}>
-                            {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}提交申请
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
 
-            {/* 收益转能量值对话框 */}
-            <Dialog open={showProfitConvertDialog} onOpenChange={setShowProfitConvertDialog}>
-                <DialogContent className="max-w-md">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <TrendingUp className="w-5 h-5 text-green-500" />收益转能量值
-                        </DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
-                            <p className="text-sm text-gray-800">
-                                <strong>可转换收益：</strong>
-                                <span className="text-2xl font-bold text-green-600 ml-2">
-                                    ¥{(profitStats.available || 0).toFixed(2)}
-                                </span>
-                            </p>
-                            <ul className="list-disc list-inside text-xs text-gray-600 mt-2 space-y-1">
-                                <li>转换时5%转为积分，95%转为能量值</li>
-                                <li>积分可用于兑换产品</li>
-                                <li>最低转换额度：50元</li>
-                            </ul>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="profitConvertAmount">转换金额（元）</Label>
-                            <Input
-                                id="profitConvertAmount"
-                                type="number"
-                                min="50"
-                                max={profitStats.available || 0}
-                                value={profitConvertAmount}
-                                onChange={e => setProfitConvertAmount(e.target.value)}
-                                placeholder="请输入转换金额"
-                            />
-                        </div>
-                        <div className="grid grid-cols-3 gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setProfitConvertAmount(String(Math.min(100, profitStats.available || 0)))}>
-                                100
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setProfitConvertAmount(String(Math.min(500, profitStats.available || 0)))}>
-                                500
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setProfitConvertAmount(String(profitStats.available || 0))}>
-                                全部
-                            </Button>
-                        </div>
-                        {profitConvertAmount && Number(profitConvertAmount) > 0 && (
-                            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 space-y-1">
-                                <p className="text-sm text-blue-800">
-                                    能量值：<strong className="text-blue-600">{(Number(profitConvertAmount) * 0.95).toFixed(2)}</strong>
-                                </p>
-                                <p className="text-sm text-orange-800">
-                                    积分：<strong className="text-orange-600">{(Number(profitConvertAmount) * 0.05).toFixed(2)}</strong>
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowProfitConvertDialog(false)}>取消</Button>
-                        <Button
-                            className="bg-green-500 hover:bg-green-600"
-                            onClick={handleProfitConvert}
-                            disabled={submitting || !profitConvertAmount || Number(profitConvertAmount) < 50}>
-                            {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <TrendingUp className="w-4 h-4 mr-2" />}确认转换
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
 
             <header className="border-b bg-white shadow-sm sticky top-0 z-40">
                 <div className="container mx-auto px-3 md:px-6 py-3 md:py-4">
@@ -1925,33 +1350,6 @@ const [copySuccess, setCopySuccess] = useState(false);
             <main className="container mx-auto px-3 md:px-6 py-4 md:py-8">
                     {/* 资产概览 - 移除余额显示 */}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4 mb-4 md:mb-8">
-                    <Card className="mobile-compact-card bg-gradient-to-br from-orange-500 to-orange-600 text-white relative overflow-hidden">
-                        <CardContent className="pt-4">
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                    <Zap className="w-5 h-5 mobile-icon" />
-                                    <span className="opacity-80 text-sm mobile-label">能量值</span>
-                                </div>
-                            </div>
-                            <p className="text-2xl font-bold mobile-num">{stats.energy_value.toLocaleString()}</p>
-                            <div className="flex gap-2 mt-3">
-                                <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="text-white hover:bg-white/20 border border-white/40"
-                                    onClick={() => setShowRechargeDialog(true)}>
-                                    充值
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="text-white hover:bg-white/20 border border-white/40"
-                                    onClick={() => setShowEnergyTransferDialog(true)}>
-                                    转账
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
                     <Card className="mobile-compact-card bg-gradient-to-br from-blue-500 to-blue-600 text-white">
                         <CardContent className="pt-4">
                             <div className="flex items-center gap-2">
@@ -1968,21 +1366,6 @@ const [copySuccess, setCopySuccess] = useState(false);
                                 <span className="opacity-80 text-sm mobile-label">已到账收益</span>
                             </div>
                             <p className="text-2xl font-bold mt-2 mobile-num">¥{stats.total_profit?.toLocaleString() || 0}</p>
-                            <div className="mt-2 pt-2 border-t border-white/20">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-xs opacity-70">剩余可转收益</p>
-                                        <p className="text-lg font-semibold">¥{stats.available_profit?.toLocaleString() || 0}</p>
-                                    </div>
-                                    <Button
-                                        size="sm"
-                                        className="bg-white text-purple-600 hover:bg-purple-50"
-                                        onClick={() => setShowProfitToEnergyDialog(true)}
-                                        disabled={!stats.available_profit || stats.available_profit <= 0}>
-                                        收益转能量值
-                                    </Button>
-                                </div>
-                            </div>
                         </CardContent>
                     </Card>
                 </div>
@@ -2004,11 +1387,6 @@ const [copySuccess, setCopySuccess] = useState(false);
                             <Package className="w-4 h-4 inline mr-2" />我的持仓
                         </button>
 
-                        <button
-                            onClick={() => setActiveTab("transfers")}
-                            className={`px-4 py-2 border-b-2 transition-colors flex-shrink-0 ${activeTab === "transfers" ? "border-green-500 text-green-600" : "border-transparent text-gray-500"}`}>
-                            <Zap className="w-4 h-4 inline mr-2" />能量值管理
-                        </button>
                         <button
                             onClick={() => {
                                 setActiveTab("notifications");
@@ -2158,10 +1536,6 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                 <h3 className="font-medium text-lg border-b pb-2">账户信息</h3>
                                                 <div className="space-y-3">
                                                     <div className="flex items-center justify-between py-2 border-b">
-                                                        <span className="text-gray-500">能量值余额</span>
-                                                        <span className="font-bold text-xl text-green-600">{(realtimeEnergy || user?.energyValue || 0).toLocaleString()}</span>
-                                                    </div>
-                                                    <div className="flex items-center justify-between py-2 border-b">
                                                         <span className="text-gray-500">账户余额</span>
                                                         <span className="font-medium">¥{(user?.balance || 0).toLocaleString()}</span>
                                                     </div>
@@ -2169,12 +1543,6 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                         <span className="text-gray-500">专属ID</span>
                                                         <span className="font-mono text-sm">{user?.unique_id || '-'}</span>
                                                     </div>
-                                                </div>
-
-                                                <div className="mt-4 p-4 bg-green-50 rounded-lg">
-                                                    <p className="text-sm text-green-700 font-medium mb-2">温馨提示</p>
-                                                    <p className="text-sm text-green-600">购买算力需要充足的能量值作为市场费</p>
-                                                    <p className="text-sm text-green-600">能量值余额不足时无法卖出产品</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -2194,7 +1562,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                     <CardContent className="space-y-3 md:space-y-6">
                                         <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                                             <p className="text-sm text-blue-700">
-                                                <strong>提示：</strong>请填写您的支付宝和微信收款信息，以便服务商为您充值能量值时进行验证。付款码用于线下转账确认。
+                                                <strong>提示：</strong>请填写您的支付宝和微信收款信息，以便产品收益和本金返还时进行验证。付款码用于线下转账确认。
                                             </p>
                                         </div>
 
@@ -2476,7 +1844,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                     </li>
                                                     <li className="flex items-start gap-2">
                                                         <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                                                        <span>奖励实时到账，可用于能量值充值或提现</span>
+                                                        <span>奖励实时到账，可提现</span>
                                                     </li>
                                                 </ul>
                                             </div>
@@ -3152,7 +2520,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                             <td className="py-3 px-4 text-blue-600">+¥{up.expected_profit.toLocaleString()}
                                                             </td>
                                                             <td className="py-3 px-4 text-orange-600">
-                                                                {up.market_fee || 0}能量值
+                                                                {up.market_fee || 0}市场费
                                                             </td>
                                                             <td className="py-3 px-4">
                                                                 {up.status === "pending_confirm" ? (
@@ -3246,243 +2614,6 @@ const [copySuccess, setCopySuccess] = useState(false);
                     </Card>}
 
                     {/* 产品流转 Tab */}
-                    {/* 能量值管理 Tab */}
-                    {activeTab === "transfers" && <div className="space-y-3 md:space-y-6">
-                        {/* 统计卡片 */}
-                        <div className="grid grid-cols-3 gap-3 md:gap-4">
-                            <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
-                                <CardContent className="pt-3 pb-3 md:pt-4 md:pb-4">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <ArrowDownCircle className="w-4 h-4" />
-                                        <span className="text-xs md:text-sm opacity-80">累计转入</span>
-                                    </div>
-                                    <p className="text-xl md:text-2xl font-bold">{(energyStats.totalRecharge + energyStats.totalTransferIn).toLocaleString()}</p>
-                                </CardContent>
-                            </Card>
-                            <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white">
-                                <CardContent className="pt-3 pb-3 md:pt-4 md:pb-4">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <ArrowUpCircle className="w-4 h-4" />
-                                        <span className="text-xs md:text-sm opacity-80">累计转出</span>
-                                    </div>
-                                    <p className="text-xl md:text-2xl font-bold">{energyStats.totalTransferOut.toLocaleString()}</p>
-                                </CardContent>
-                            </Card>
-                            <Card className="bg-gradient-to-br from-red-500 to-red-600 text-white">
-                                <CardContent className="pt-3 pb-3 md:pt-4 md:pb-4">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <TrendingDown className="w-4 h-4" />
-                                        <span className="text-xs md:text-sm opacity-80">市场费消耗</span>
-                                    </div>
-                                    <p className="text-xl md:text-2xl font-bold">-{energyStats.totalConsume.toLocaleString()}</p>
-                                </CardContent>
-                            </Card>
-                        </div>
-
-                        {/* 操作按钮 */}
-                        <div className="flex gap-2">
-                            <Button
-                                onClick={() => setShowRechargeDialog(true)}
-                                className="bg-green-600 hover:bg-green-700 text-white flex-1"
-                            >
-                                <Zap className="w-4 h-4 mr-2" />申请能量值
-                            </Button>
-                            <Button
-                                onClick={() => setShowEnergyTransferDialog(true)}
-                                className="bg-blue-600 hover:bg-blue-700 text-white flex-1"
-                            >
-                                <ArrowRightLeft className="w-4 h-4 mr-2" />能量值互转
-                            </Button>
-                        </div>
-
-                        {/* 充值申请记录 */}
-                        {rechargeRequests.length > 0 && (
-                            <Card>
-                                <CardHeader className="pb-2">
-                                    <CardTitle className="text-sm flex items-center gap-2">
-                                        <Clock className="w-4 h-4" />
-                                        充值申请记录
-                                        {rechargeRequests.filter(r => r.status === 'pending').length > 0 && (
-                                            <Badge className="bg-orange-100 text-orange-700 text-xs">
-                                                {rechargeRequests.filter(r => r.status === 'pending').length} 待确认
-                                            </Badge>
-                                        )}
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-2">
-                                        {rechargeRequests.slice(0, 5).map((request) => (
-                                            <div key={request.id} className={`flex items-center justify-between p-3 border rounded-lg text-sm ${
-                                                request.status === 'pending' ? 'bg-yellow-50 border-yellow-200' :
-                                                request.status === 'approved' ? 'bg-green-50 border-green-200' :
-                                                'bg-red-50 border-red-200'
-                                            }`}>
-                                                <div className="flex items-center gap-2">
-                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs ${
-                                                        request.status === 'pending' ? 'bg-yellow-100 text-yellow-600' :
-                                                        request.status === 'approved' ? 'bg-green-100 text-green-600' :
-                                                        'bg-red-100 text-red-600'
-                                                    }`}>
-                                                        {request.status === 'pending' ? <Clock className="w-4 h-4" /> :
-                                                         request.status === 'approved' ? <CheckCircle className="w-4 h-4" /> :
-                                                         <AlertCircle className="w-4 h-4" />}
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-medium">充值申请</p>
-                                                        <p className="text-xs text-gray-500">{request.provider?.username || '服务商'} · {request.createdAt || request.created_at ? new Date(request.createdAt || request.created_at).toLocaleString('zh-CN') : ''}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-bold text-green-600">+{request.amount?.toLocaleString() || 0}</span>
-                                                    <Badge className={
-                                                        request.status === 'pending' ? 'bg-yellow-100 text-yellow-700 text-xs' :
-                                                        request.status === 'approved' ? 'bg-green-100 text-green-700 text-xs' :
-                                                        'bg-red-100 text-red-700 text-xs'
-                                                    }>
-                                                        {request.status === 'pending' ? '待确认' :
-                                                         request.status === 'approved' ? '已通过' : '已拒绝'}
-                                                    </Badge>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {/* 交易明细 */}
-                        <Card>
-                            <CardHeader className="pb-2">
-                                <div className="flex items-center justify-between">
-                                    <CardTitle className="text-lg flex items-center gap-2">
-                                        <History className="w-5 h-5" />
-                                        交易明细
-                                    </CardTitle>
-                                    <div className="flex gap-1 md:gap-2 flex-wrap">
-                                        <Button
-                                            size="sm"
-                                            variant={energyRecordFilter === 'all' ? 'default' : 'outline'}
-                                            onClick={() => setEnergyRecordFilter('all')}
-                                            className={`text-xs ${energyRecordFilter === 'all' ? 'bg-green-600' : ''}`}
-                                        >
-                                            全部
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant={energyRecordFilter === 'transfer_in' ? 'default' : 'outline'}
-                                            onClick={() => setEnergyRecordFilter('transfer_in')}
-                                            className={`text-xs ${energyRecordFilter === 'transfer_in' ? 'bg-blue-600' : ''}`}
-                                        >
-                                            转入
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant={energyRecordFilter === 'transfer_out' ? 'default' : 'outline'}
-                                            onClick={() => setEnergyRecordFilter('transfer_out')}
-                                            className={`text-xs ${energyRecordFilter === 'transfer_out' ? 'bg-orange-600' : ''}`}
-                                        >
-                                            转出
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant={energyRecordFilter === 'consume' ? 'default' : 'outline'}
-                                            onClick={() => setEnergyRecordFilter('consume')}
-                                            className={`text-xs ${energyRecordFilter === 'consume' ? 'bg-red-600' : ''}`}
-                                        >
-                                            市场费
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant={energyRecordFilter === 'recharge' ? 'default' : 'outline'}
-                                            onClick={() => setEnergyRecordFilter('recharge')}
-                                            className={`text-xs ${energyRecordFilter === 'recharge' ? 'bg-green-600' : ''}`}
-                                        >
-                                            充值
-                                        </Button>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                {energyRecordsLoading ? (
-                                    <div className="flex justify-center py-8">
-                                        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {energyRecords.length > 0 ? (
-                                            energyRecords
-                                                .filter(record => energyRecordFilter === 'all' || record.recordType === energyRecordFilter)
-                                                .map(record => (
-                                                    <div key={record.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                                                                ['recharge', 'transfer_in', 'convert_from_balance'].includes(record.recordType || '') ? 'bg-green-100 text-green-600' :
-                                                                ['transfer_out', 'consume', 'market_transfer', 'purchase', 'withdraw'].includes(record.recordType || '') ? 'bg-red-100 text-red-600' :
-                                                                'bg-orange-100 text-orange-600'
-                                                            }`}>
-                                                                {['recharge', 'transfer_in', 'convert_from_balance'].includes(record.recordType || '') ? (
-                                                                    <ArrowDownCircle className="w-5 h-5" />
-                                                                ) : ['transfer_out', 'consume', 'market_transfer', 'purchase', 'withdraw'].includes(record.recordType || '') ? (
-                                                                    <ArrowUpCircle className="w-5 h-5" />
-                                                                ) : (
-                                                                    <TrendingDown className="w-5 h-5" />
-                                                                )}
-                                                            </div>
-                                                            <div>
-                                                                <p className="font-medium">
-                                                                    {record.recordType === 'recharge' ? '能量值充值' :
-                                                                     record.recordType === 'transfer_in' ? '能量值转入' :
-                                                                     record.recordType === 'convert_from_balance' ? '收益转能量值' :
-                                                                     record.recordType === 'consume' ? '市场费消耗' :
-                                                                     record.recordType === 'market_transfer' ? '市场费支付' :
-                                                                     record.recordType === 'purchase' ? '购买产品支付' :
-                                                                     record.recordType === 'withdraw' ? '能量值变现' :
-                                                                     '能量值转出'}
-                                                                </p>
-                                                                <p className="text-sm text-gray-500">
-                                                                    {record.description || (record.recordType === 'recharge' ? '服务商充值能量值' : 
-                                                                        record.recordType === 'transfer_in' ? '从服务商转入' : 
-                                                                        record.recordType === 'convert_from_balance' ? '收益余额转入能量值' :
-                                                                        record.recordType === 'consume' ? '购买产品支付市场费' :
-                                                                        record.recordType === 'market_transfer' ? '产品市场费' :
-                                                                        record.recordType === 'purchase' ? '购买算力产品' :
-                                                                        record.recordType === 'withdraw' ? '申请变现提现' :
-                                                                        '转给服务商')}
-                                                                </p>
-                                                                <p className="text-xs text-gray-400 mt-1">
-                                                                    {new Date(record.createdAt || record.created_at || '').toLocaleString('zh-CN')}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <p className={`text-lg font-bold ${
-                                                                ['transfer_out', 'consume', 'market_transfer', 'purchase', 'withdraw'].includes(record.recordType || '') ? 'text-red-600' : 'text-green-600'
-                                                            }`}>
-                                                                {['transfer_out', 'consume', 'market_transfer', 'purchase', 'withdraw'].includes(record.recordType || '') ? '-' : '+'}{record.amount?.toLocaleString() || 0}
-                                                            </p>
-                                                            <Badge className={
-                                                                record.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                                                record.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                                                                'bg-gray-100 text-gray-700'
-                                                            }>
-                                                                {record.status === 'completed' ? '已完成' :
-                                                                 record.status === 'pending' ? '处理中' : record.status}
-                                                            </Badge>
-                                                        </div>
-                                                    </div>
-                                                ))
-                                        ) : (
-                                            <div className="text-center py-12">
-                                                <History className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                                                <p className="text-gray-500">暂无能量值记录</p>
-                                                <p className="text-sm text-gray-400 mt-1">请联系服务商充值能量值</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>}
 
                     {/* 消息通知 Tab */}
                     {activeTab === "notifications" && <Card>
@@ -3538,7 +2669,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                     <CardContent className="pt-4">
                                         <div className="flex items-center gap-2 mb-2">
                                             <Zap className="w-5 h-5" />
-                                            <span className="text-sm opacity-80">已转能量值</span>
+                                            <span className="text-sm opacity-80">已转入收益</span>
                                         </div>
                                         <p className="text-2xl font-bold">¥{profitStats.converted?.toLocaleString() || 0}</p>
                                     </CardContent>
@@ -3547,7 +2678,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                     <CardContent className="pt-4">
                                         <div className="flex items-center gap-2 mb-2">
                                             <Coins className="w-5 h-5" />
-                                            <span className="text-sm opacity-80">可转能量值</span>
+                                            <span className="text-sm opacity-80">可提现</span>
                                         </div>
                                         <p className="text-2xl font-bold">¥{profitStats.available?.toLocaleString() || 0}</p>
                                         {Number(profitStats.available) > 0 && (
@@ -3560,7 +2691,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                 }}
                                             >
                                                 <Zap className="w-4 h-4 mr-1" />
-                                                转为能量值
+                                                转入收益
                                             </Button>
                                         )}
                                     </CardContent>
@@ -3571,7 +2702,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                             <Card className="bg-slate-800/50 border-slate-700">
                                 <CardContent className="pt-4">
                                     <p className="text-sm text-gray-400 text-center">
-                                        产品到期卖出后，本金和收益将进入您的收益账户，可随时转为能量值用于购买更多产品
+                                        产品到期卖出后，本金和收益将进入您的收益账户，可随时转入收益用于购买更多产品
                                     </p>
                                 </CardContent>
                             </Card>
@@ -3607,12 +2738,12 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                             </div>
                                                         </div>
                                                         <Badge variant={record.status === 'pending' ? 'secondary' : 'default'}>
-                                                            {record.status === 'pending' ? '待处理' : record.status === 'converted' ? '已转能量值' : record.status === 'withdrawn' ? '已提现' : record.status}
+                                                            {record.status === 'pending' ? '待处理' : record.status === 'converted' ? '已转入收益' : record.status === 'withdrawn' ? '已提现' : record.status}
                                                         </Badge>
                                                     </div>
                                                     {Number(record.converted_to_energy) > 0 && (
                                                         <p className="text-xs text-green-600 mt-2">
-                                                            已转能量值: {Number(record.converted_to_energy).toLocaleString()}
+                                                            已转入收益: {Number(record.converted_to_energy).toLocaleString()}
                                                         </p>
                                                     )}
                                                 </div>
@@ -3665,7 +2796,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             variant={profitDetailFilter === 'convert_to_energy' ? "default" : "outline"}
                                             onClick={() => setProfitDetailFilter('convert_to_energy')}
                                         >
-                                            转能量值
+                                            转入收益
                                         </Button>
                                         <Button
                                             size="sm"
@@ -3688,7 +2819,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                 <p className="font-bold text-green-600">{Number(profitDetailsStats.totalProfit || 0).toLocaleString()}</p>
                                             </div>
                                             <div className="bg-purple-50 rounded-lg p-2 text-center">
-                                                <p className="text-xs text-purple-600">转能量值</p>
+                                                <p className="text-xs text-purple-600">转入收益</p>
                                                 <p className="font-bold text-purple-600">{Number(profitDetailsStats.totalConvert || 0).toLocaleString()}</p>
                                             </div>
                                             <div className="bg-amber-50 rounded-lg p-2 text-center">
@@ -3713,7 +2844,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                     {detail.type === 'withdraw' && <ArrowUpCircle className="w-4 h-4 text-amber-500" />}
                                                                     {detail.type === 'principal_return' ? '本金返还' : 
                                                                      detail.type === 'profit_in' ? '收益入账' : 
-                                                                     detail.type === 'convert_to_energy' ? '转为能量值' : 
+                                                                     detail.type === 'convert_to_energy' ? '转入收益' : 
                                                                      detail.type === 'withdraw' ? '收益提现' : detail.type}
                                                                 </p>
                                                                 {detail.description && (
@@ -3898,7 +3029,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                     <span className="text-sm opacity-80">我的积分</span>
                                 </div>
                                 <p className="text-3xl font-bold">{Number(user?.points || 0).toLocaleString()}</p>
-                                <span className="text-xs opacity-70 mt-1">收益转能量值时，5%自动转为积分，积分可兑换产品</span>
+                                <span className="text-xs opacity-70 mt-1">收益转入收益时，5%自动转为积分，积分可兑换产品</span>
                             </CardContent>
                         </Card>
 
@@ -3917,7 +3048,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                         <span className="font-medium text-amber-600">
                                                             +{Number(record.amount).toLocaleString()}
                                                         </span>
-                                                        <p className="text-xs text-muted-foreground">{record.note || '收益转能量值产生'}</p>
+                                                        <p className="text-xs text-muted-foreground">{record.note || '收益转入收益产生'}</p>
                                                     </div>
                                                 </div>
                                                 <p className="text-xs text-muted-foreground">
@@ -3930,7 +3061,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                     <div className="text-center py-8 text-gray-500">
                                         <Gift className="w-12 h-12 mx-auto mb-3 opacity-50" />
                                         <p>暂无积分记录</p>
-                                        <p className="text-sm mt-1">收益转能量值时自动产生积分</p>
+                                        <p className="text-sm mt-1">收益转入收益时自动产生积分</p>
                                     </div>
                                 )}
                             </CardContent>
@@ -4044,7 +3175,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                     <li>1. 点击上方"充值"按钮，填写充值金额</li>
                                     <li>2. 系统生成充值申请，等待服务商审核</li>
                                     <li>3. <strong>线下</strong>向服务商付款（支付宝/微信/银行转账）</li>
-                                    <li>4. 服务商确认收款后，能量值自动到账</li>
+                                    <li>4. 服务商确认收款后，收益自动到账</li>
                                 </ol>
                             </CardContent>
                         </Card>

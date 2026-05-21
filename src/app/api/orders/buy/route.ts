@@ -18,7 +18,7 @@ function parseNumeric(val: any): number {
   return 0;
 }
 
-// 购买产品接口（线下交易模式 + 能量值检查）
+// 购买产品接口（线下交易模式，无需能量值）
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -131,66 +131,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ========== 能量值检查 ==========
-    // 直接从产品记录读取 market_rate，不使用硬编码比例
-    const energyRate = parseNumeric(product.market_rate) / 100;
-    const marketFee = Math.ceil(productPrice * energyRate);
-    
-    let userEnergy = parseNumeric(user.energy_value);
-    try {
-      const energyAccount = await queryOne<any>(
-        `SELECT balance::float as balance FROM energy_accounts WHERE user_id = $1`,
-        [userId]
-      );
-      if (energyAccount) {
-        userEnergy = energyAccount.balance;
-      }
-    } catch (e) {
-      console.error('获取能量值账户失败，使用users表数据:', e);
-    }
-
-    if (userEnergy < marketFee) {
-      return NextResponse.json({
-        success: false,
-        error: '能量值不足，请联系服务商充值',
-        data: {
-          required: marketFee,
-          current: userEnergy,
-          short: marketFee - userEnergy,
-          productPrice,
-          energyRate: energyRate * 100,
-          period: product.period,
-        },
-      }, { status: 400 });
-    }
-
-    // ========== 执行购买 ==========
+    // ========== 执行购买（无需扣除能量值） ==========
     const providerId = product.provider_id;
 
-    // 1. 扣除能量值（市场费）
-    // 扣除 energy_accounts
-    await query(
-      `UPDATE energy_accounts SET balance = balance - $1, total_out = total_out + $1 WHERE user_id = $2`,
-      [marketFee, userId]
-    );
-    // 同步 users 表
-    await query(
-      `UPDATE users SET energy_value = energy_value - $1 WHERE id = $2`,
-      [marketFee, userId]
-    );
-    // 记录能量值流水
-    await query(
-      `INSERT INTO energy_transactions (id, user_id, type, amount, note, created_at)
-       VALUES ($1, $2, 'spend', $3, $4, NOW())`,
-      [crypto.randomUUID(), userId, marketFee, `购买产品 ${product.name} 支付市场费(${(energyRate * 100).toFixed(1)}%)`]
-    );
-
-    // 2. 创建 user_products 记录（pending_confirm 状态）
+    // 1. 创建 user_products 记录（pending_confirm 状态）
     const userProductId = crypto.randomUUID();
     const purchaseDate = new Date();
     const expireDate = new Date(purchaseDate.getTime() + product.period * 24 * 60 * 60 * 1000);
     const totalRate = parseNumeric(product.total_rate) / 100;
     const memberActualProfit = Math.floor(productPrice * totalRate);
+    const marketRate = parseNumeric(product.market_rate) / 100;
+    const marketFee = Math.ceil(productPrice * marketRate);
 
     await query(
       `INSERT INTO user_products (id, user_id, product_id, purchase_price, purchase_date, expire_date, status, expected_profit, market_fee, created_at, updated_at)
@@ -202,13 +153,13 @@ export async function POST(request: NextRequest) {
       ]
     );
 
-    // 3. 更新产品状态为 pending_sell
+    // 2. 更新产品状态为 pending_sell
     await query(
       `UPDATE products SET status = 'pending_sell', updated_at = NOW() WHERE id = $1`,
       [productId]
     );
 
-    // 4. 创建订单
+    // 3. 创建订单
     const orderId = crypto.randomUUID();
     await query(
       `INSERT INTO orders (id, user_id, user_product_id, product_id, order_type, amount, status, energy_cost, created_at)
@@ -216,7 +167,7 @@ export async function POST(request: NextRequest) {
       [orderId, userId, userProductId, productId, productPrice, marketFee]
     );
 
-    // 5. 发送通知给服务商
+    // 4. 发送通知给服务商
     if (providerId) {
       const notifId = crypto.randomUUID();
       await query(
@@ -243,8 +194,8 @@ export async function POST(request: NextRequest) {
         providerInfo: providerId ? (await queryOne<any>(
           `SELECT username, phone, real_name FROM users WHERE id = $1`, [providerId]
         )) : null,
-        energyCost: marketFee,
-        message: `购买申请已提交，已扣除 ${marketFee} 能量值(市场费)，请等待服务商确认收款后完成购买`,
+        marketFee,
+        message: `购买申请已提交，请等待服务商确认收款后完成购买`,
       },
     });
   } catch (error) {

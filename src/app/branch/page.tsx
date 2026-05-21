@@ -157,7 +157,7 @@ export default function BranchPage() {
   const [quotaApiResult, setQuotaApiResult] = useState<any>(null);
   const [energyTransactions, setEnergyTransactions] = useState<any[]>([]);
   
-  // 能量值互转相关状态
+  // 收益互转相关状态
   const [showTransferDialog, setShowTransferDialog] = useState(false);
   const [transferTargets, setTransferTargets] = useState<any[]>([]);
   const [transferMembers, setTransferMembers] = useState<any[]>([]);
@@ -192,10 +192,10 @@ export default function BranchPage() {
   const [editRealName, setEditRealName] = useState("");
   const [editAlipayAccount, setEditAlipayAccount] = useState("");
   
-  // 分公司能量值余额
+  // 分公司收益余额
   const [branchEnergyBalance, setBranchEnergyBalance] = useState(0);
   
-  // 分公司申请能量值
+  // 分公司申请收益
   const [branchApplyAmount, setBranchApplyAmount] = useState("");
   
   // 分公司列表（同级互转）
@@ -216,11 +216,11 @@ export default function BranchPage() {
   const [branchWithdrawRealName, setBranchWithdrawRealName] = useState("");
   const [showBranchWithdrawDialog, setShowBranchWithdrawDialog] = useState(false);
 
-  // 收益转能量值
+  // 收益转收益
   const [showConvertToEnergyDialog, setShowConvertToEnergyDialog] = useState(false);
   const [convertToEnergyAmount, setConvertToEnergyAmount] = useState("");
 
-  // 分公司能量值流转记录
+  // 分公司收益流转记录
   const [energyRecords, setEnergyRecords] = useState<any[]>([]);
   const [energyFilterType, setEnergyFilterType] = useState<string>('all');
   const [energyStats, setEnergyStats] = useState({
@@ -240,7 +240,7 @@ export default function BranchPage() {
   const [memberTotalPages, setMemberTotalPages] = useState(1);
   const [memberTotal, setMemberTotal] = useState(0);
 
-  // 加载能量值流转记录
+  // 加载收益流转记录
   const loadEnergyRecords = async (filterType: string = 'all') => {
     const branchId = localStorage.getItem('userId');
     if (!branchId) return;
@@ -253,21 +253,21 @@ export default function BranchPage() {
         setEnergyStats(data.data.stats || energyStats);
       }
     } catch (error) {
-      console.error('加载能量值记录失败:', error);
+      console.error('加载收益记录失败:', error);
     }
   };
 
-  // 能量值申请审批相关状态
+  // 收益申请审批相关状态
   const [energyRequests, setEnergyRequests] = useState<any[]>([]);
   
-  // 能量值管理子Tab
+  // 收益管理子Tab
   const [energySubTab, setEnergySubTab] = useState<string>('records'); // records, review, transfer
   
-  // 分公司向总公司申请能量值相关状态
+  // 分公司向总公司申请收益相关状态
   const [myEnergyRequests, setMyEnergyRequests] = useState<any[]>([]);
   const [myEnergyApplyPendingCount, setMyEnergyApplyPendingCount] = useState(0);
   
-  // 服务商向本分公司申请能量值相关状态
+  // 服务商向本分公司申请收益相关状态
   const [providerEnergyRequests, setProviderEnergyRequests] = useState<any[]>([]);
   
   // 分配额度表单
@@ -356,7 +356,7 @@ export default function BranchPage() {
 
       console.log('[loadData] overviewData:', JSON.stringify(overviewData).substring(0, 500));
 
-      // 更新分公司能量值余额
+      // 更新分公司收益余额
       if (energyStatsData.success && energyStatsData.data?.branch) {
         console.log('[loadData] energyStatsData SUCCESS - branch balance:', energyStatsData.data.branch.balance);
         setBranchEnergyBalance(energyStatsData.data.branch.balance || 0);
@@ -863,7 +863,7 @@ export default function BranchPage() {
     }
   };
 
-  // 分公司向总公司申请能量值
+  // 分公司向总公司申请收益
   const handleBranchApplyEnergy = async () => {
     const amount = parseFloat(branchApplyAmount);
     if (!amount || amount <= 0) {
@@ -872,7 +872,7 @@ export default function BranchPage() {
     }
 
     if (amount < 50) {
-      showMessage('error', '申请金额最低为50能量值');
+      showMessage('error', '申请金额最低为50收益');
       return;
     }
 
@@ -887,7 +887,7 @@ export default function BranchPage() {
         body: JSON.stringify({
           branchId: branchId,
           amount: amount,
-          note: '分公司申请能量值'
+          note: '分公司申请收益'
         })
       });
 
@@ -906,7 +906,7 @@ export default function BranchPage() {
     }
   };
 
-  // 分公司申请变现能量值
+  // 分公司申请变现收益
   const handleBranchWithdraw = async () => {
     const amount = parseFloat(withdrawAmount);
     if (!amount || amount <= 0) {
@@ -915,12 +915,12 @@ export default function BranchPage() {
     }
 
     if (amount < 50) {
-      showMessage('error', '最低变现金额为50能量值');
+      showMessage('error', '最低变现金额为50收益');
       return;
     }
 
     if (amount > branchEnergyBalance) {
-      showMessage('error', '能量值余额不足');
+      showMessage('error', '收益余额不足');
       return;
     }
 
@@ -1075,7 +1075,7 @@ export default function BranchPage() {
     }
   };
 
-  // 收益转能量值
+  // 收益转收益
   const handleConvertToEnergy = async () => {
     const amount = parseFloat(convertToEnergyAmount);
     if (!amount || amount < 10) {
@@ -1091,7 +1091,7 @@ export default function BranchPage() {
       });
       const data = await response.json();
       if (data.success) {
-        showMessage('success', data.message || `转换成功：${data.data?.energyAdded}元→能量值，${data.data?.pointsAdded}元→积分`);
+        showMessage('success', data.message || `转换成功：${data.data?.energyAdded}元→收益，${data.data?.pointsAdded}元→积分`);
         setShowConvertToEnergyDialog(false);
         setConvertToEnergyAmount('');
         // 更新本地用户数据
@@ -1128,7 +1128,7 @@ export default function BranchPage() {
     }
   };
 
-  // 加载能量值余额
+  // 加载收益余额
   const loadEnergyBalance = async () => {
     const branchId = localStorage.getItem('userId');
     if (!branchId) return;
@@ -1140,7 +1140,7 @@ export default function BranchPage() {
         setBranchEnergyBalance(data.data?.balance || 0);
       }
     } catch (error) {
-      console.error('加载能量值余额失败:', error);
+      console.error('加载收益余额失败:', error);
     }
   };
 
@@ -1193,7 +1193,7 @@ export default function BranchPage() {
     }
   };
 
-  // 处理能量值转账
+  // 处理收益转账
   const handleTransferEnergy = async () => {
     const branchId = localStorage.getItem('userId');
     if (!branchId || !transferUserId || !transferAmount) {
@@ -1238,7 +1238,7 @@ export default function BranchPage() {
     }
   };
 
-  // 向总公司申请能量值
+  // 向总公司申请收益
   const handleApplyEnergy = async () => {
     const branchId = localStorage.getItem('userId');
     if (!branchId || !energyApplyAmount) {
@@ -1281,7 +1281,7 @@ export default function BranchPage() {
     }
   };
 
-  // 加载能量值申请记录
+  // 加载收益申请记录
   const loadEnergyRequests = async () => {
     const branchId = localStorage.getItem('userId');
     if (!branchId) return;
@@ -1293,11 +1293,11 @@ export default function BranchPage() {
         setEnergyRequests(data.data || []);
       }
     } catch (error) {
-      console.error('加载能量值申请失败:', error);
+      console.error('加载收益申请失败:', error);
     }
   };
 
-  // 加载服务商向本分公司申请能量值的记录
+  // 加载服务商向本分公司申请收益的记录
   const loadProviderEnergyRequests = async () => {
     const branchId = localStorage.getItem('userId');
     if (!branchId) return;
@@ -1309,11 +1309,11 @@ export default function BranchPage() {
         setProviderEnergyRequests(data.data?.requests || []);
       }
     } catch (error) {
-      console.error('加载服务商能量值申请失败:', error);
+      console.error('加载服务商收益申请失败:', error);
     }
   };
 
-  // 加载分公司向总公司申请能量值的记录
+  // 加载分公司向总公司申请收益的记录
   const loadMyEnergyRequests = async () => {
     const branchId = localStorage.getItem('userId');
     if (!branchId) return;
@@ -1326,11 +1326,11 @@ export default function BranchPage() {
         setMyEnergyApplyPendingCount(data.data.stats?.pending?.count || 0);
       }
     } catch (error) {
-      console.error('加载能量值申请记录失败:', error);
+      console.error('加载收益申请记录失败:', error);
     }
   };
 
-  // 审核能量值申请
+  // 审核收益申请
   const handleApproveEnergyRequest = async (requestId: string, action: 'approve' | 'reject', note?: string) => {
     const branchId = localStorage.getItem('userId');
     if (!branchId) return;
@@ -1363,7 +1363,7 @@ export default function BranchPage() {
     }
   };
 
-  // 审核服务商能量值申请
+  // 审核服务商收益申请
   const handleApproveProviderEnergyRequestRequest = async (requestId: string, action: 'approve' | 'reject', note?: string) => {
     const branchId = localStorage.getItem('userId');
     if (!branchId) return;
@@ -1414,7 +1414,7 @@ export default function BranchPage() {
     }
   };
 
-  // 分公司能量值转账
+  // 分公司收益转账
   const handleTransfer = async (targetUserId: string, amount: number) => {
     if (!amount || amount <= 0) {
       showMessage('error', '请输入有效金额');
@@ -1433,7 +1433,7 @@ export default function BranchPage() {
           fromUserId: branchId,
           toUserId: targetUserId,
           amount: amount,
-          note: '分公司能量值转账'
+          note: '分公司收益转账'
         })
       });
 
@@ -1453,7 +1453,7 @@ export default function BranchPage() {
     }
   };
 
-  // 获取能量值记录
+  // 获取收益记录
   const fetchEnergyRecords = async () => {
     try {
       const userId = localStorage.getItem('userId');
@@ -1466,7 +1466,7 @@ export default function BranchPage() {
         setEnergyTransactions(data.data?.records || []);
       }
     } catch (error) {
-      console.error('获取能量值记录失败:', error);
+      console.error('获取收益记录失败:', error);
     }
   };
 
@@ -1659,7 +1659,7 @@ export default function BranchPage() {
             <CardContent className="pt-4">
               <div className="flex items-center gap-2">
                 <Zap className="w-5 h-5 text-yellow-500 mobile-icon" />
-                <span className="text-gray-500 text-sm mobile-label">会员总能量值</span>
+                <span className="text-gray-500 text-sm mobile-label">会员总收益</span>
               </div>
               <p className="text-2xl font-bold mt-2">{(stats.total_member_energy || 0).toLocaleString()}</p>
             </CardContent>
@@ -1740,7 +1740,7 @@ export default function BranchPage() {
                   activeTab === 'energy' ? 'bg-white text-purple-900 font-semibold shadow-md' : 'text-white/80 hover:text-white hover:bg-white/10'
                 }`}
               >
-                <Zap className="w-4 h-4" />能量值管理
+                <Zap className="w-4 h-4" />收益管理
                 {(energyRequests.filter((r: any) => r.status === 'pending').length + providerEnergyRequests.filter((r: any) => r.status === 'pending').length) > 0 && (
                   <Badge className="ml-1 bg-red-500 text-white text-xs">{energyRequests.filter((r: any) => r.status === 'pending').length + providerEnergyRequests.filter((r: any) => r.status === 'pending').length}</Badge>
                 )}
@@ -1823,7 +1823,7 @@ export default function BranchPage() {
                     <h3 className="font-medium text-lg border-b pb-2">账户信息</h3>
                     <div className="space-y-3">
                       <div className="flex items-center justify-between py-2 border-b">
-                        <span className="text-gray-500">能量值余额</span>
+                        <span className="text-gray-500">收益余额</span>
                         <span className="font-bold text-xl text-purple-600">{branchEnergyBalance.toLocaleString()}</span>
                       </div>
                       <div className="flex items-center justify-between py-2 border-b">
@@ -2430,7 +2430,7 @@ export default function BranchPage() {
                     <thead>
                       <tr className="border-b bg-gray-50">
                         <th className="text-left py-3 px-4">服务商</th>
-                        <th className="text-left py-3 px-4">能量值</th>
+                        <th className="text-left py-3 px-4">收益</th>
                         <th className="text-left py-3 px-4">余额</th>
                         <th className="text-left py-3 px-4">操作</th>
                       </tr>
@@ -2582,10 +2582,10 @@ export default function BranchPage() {
             </Card>
           )}
 
-          {/* 能量值申请记录 */}
+          {/* 收益申请记录 */}
           {activeTab === 'energy-apply' && (
             <div className="space-y-3 md:space-y-6">
-              {/* 能量值申请统计 */}
+              {/* 收益申请统计 */}
               <div className="grid grid-cols-4 gap-4">
                 <Card className="bg-gradient-to-br from-purple-500 to-indigo-500 text-white">
                   <CardContent className="pt-4">
@@ -2607,7 +2607,7 @@ export default function BranchPage() {
                     <p className="text-2xl font-bold mt-1">
                       {myEnergyRequests.filter(r => r.status === 'approved').reduce((sum, r) => sum + (r.amount || 0), 0).toLocaleString()}
                     </p>
-                    <p className="text-xs opacity-70 mt-1">能量值</p>
+                    <p className="text-xs opacity-70 mt-1">收益</p>
                   </CardContent>
                 </Card>
                 <Card className="bg-gradient-to-br from-gray-500 to-gray-600 text-white">
@@ -2619,13 +2619,13 @@ export default function BranchPage() {
                 </Card>
               </div>
 
-              {/* 能量值申请记录列表 */}
+              {/* 收益申请记录列表 */}
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
                       <Zap className="w-5 h-5 text-purple-600" />
-                      我的能量值申请记录
+                      我的收益申请记录
                     </CardTitle>
                     <div className="flex gap-2">
                       <Button
@@ -2634,7 +2634,7 @@ export default function BranchPage() {
                         className="bg-purple-600 hover:bg-purple-700"
                       >
                         <Zap className="w-4 h-4 mr-2" />
-                        申请能量值
+                        申请收益
                       </Button>
                     </div>
                   </div>
@@ -2648,7 +2648,7 @@ export default function BranchPage() {
                             <div>
                               <div className="flex items-center gap-3">
                                 <p className="font-medium text-lg">
-                                  申请能量值: 
+                                  申请收益: 
                                   <span className="text-purple-600 ml-2">{request.amount?.toLocaleString()}</span>
                                 </p>
                                 <Badge className={
@@ -2687,8 +2687,8 @@ export default function BranchPage() {
                   ) : (
                     <div className="py-12 text-center">
                       <Zap className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                      <p className="text-gray-500">暂无能量值申请记录</p>
-                      <p className="text-sm text-gray-400 mt-2">点击上方按钮向总公司申请能量值</p>
+                      <p className="text-gray-500">暂无收益申请记录</p>
+                      <p className="text-sm text-gray-400 mt-2">点击上方按钮向总公司申请收益</p>
                     </div>
                   )}
                 </CardContent>
@@ -2697,19 +2697,19 @@ export default function BranchPage() {
               {/* 申请说明 */}
               <Card className="bg-blue-50 border-blue-200">
                 <CardContent className="pt-6">
-                  <h4 className="font-semibold text-blue-800 mb-2">能量值申请说明</h4>
+                  <h4 className="font-semibold text-blue-800 mb-2">收益申请说明</h4>
                   <ul className="text-sm text-blue-700 space-y-1">
-                    <li>1. 分公司向总公司申请能量值，最低申请金额为 50 能量值</li>
+                    <li>1. 分公司向总公司申请收益，最低申请金额为 50 收益</li>
                     <li>2. 提交申请后，需要等待总公司审核</li>
-                    <li>3. 总公司审核通过后，能量值会自动发放到您的账户</li>
-                    <li>4. 能量值用于给服务商下发，服务商给会员充值后产生收益</li>
+                    <li>3. 总公司审核通过后，收益会自动发放到您的账户</li>
+                    <li>4. 收益用于给服务商下发，服务商给会员充值后产生收益</li>
                   </ul>
                 </CardContent>
               </Card>
             </div>
           )}
 
-          {/* 能量值管理 */}
+          {/* 收益管理 */}
           {activeTab === 'energy' && (
             <div className="space-y-3 md:space-y-6">
               {/* 子Tab导航 */}
@@ -2747,7 +2747,7 @@ export default function BranchPage() {
                     energySubTab === 'transfer' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-purple-50'
                   }`}
                 >
-                  能量值转账
+                  收益转账
                 </button>
               </div>
 
@@ -2759,7 +2759,7 @@ export default function BranchPage() {
                     <CardContent className="pt-4">
                       <p className="text-sm opacity-80">当前余额</p>
                       <p className="text-3xl font-bold mt-2">{branchEnergyBalance.toLocaleString()}</p>
-                      <p className="text-xs opacity-70 mt-2">能量值</p>
+                      <p className="text-xs opacity-70 mt-2">收益</p>
                     </CardContent>
                   </Card>
 
@@ -2768,7 +2768,7 @@ export default function BranchPage() {
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <Zap className="w-5 h-5 text-purple-600" />
-                        向总公司申请能量值
+                        向总公司申请收益
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -2810,8 +2810,8 @@ export default function BranchPage() {
                             <div key={`er-${request.id}`} className="p-4 border rounded-lg">
                               <div className="flex items-center justify-between">
                                 <div>
-                                  <p className="font-medium">申请能量值</p>
-                                  <p className="text-sm text-gray-500 mt-1">申请额度: {(parseFloat(String(request.amount || 0))).toLocaleString()} 能量值</p>
+                                  <p className="font-medium">申请收益</p>
+                                  <p className="text-sm text-gray-500 mt-1">申请额度: {(parseFloat(String(request.amount || 0))).toLocaleString()} 收益</p>
                                   <p className="text-xs text-gray-400 mt-1">{request.created_at ? new Date(request.created_at).toLocaleString() : '-'}</p>
                                 </div>
                                 <Badge className={request.status === 'pending' ? 'bg-yellow-500' : request.status === 'approved' ? 'bg-green-500' : 'bg-red-500'}>
@@ -2830,13 +2830,13 @@ export default function BranchPage() {
               {/* 流转记录 */}
               {energySubTab === 'records' && (
                 <>
-                  {/* 能量值概览 */}
+                  {/* 收益概览 */}
                   <div className="grid grid-cols-3 gap-4">
                 <Card className="bg-gradient-to-br from-purple-500 to-indigo-500 text-white">
                   <CardContent className="pt-4">
                     <p className="text-sm opacity-80">当前余额</p>
                     <p className="text-3xl font-bold mt-2">{branchEnergyBalance.toLocaleString()}</p>
-                    <p className="text-xs opacity-70 mt-2">能量值</p>
+                    <p className="text-xs opacity-70 mt-2">收益</p>
                   </CardContent>
                 </Card>
                 <Card className="bg-gradient-to-br from-green-500 to-emerald-500 text-white">
@@ -2855,13 +2855,13 @@ export default function BranchPage() {
                 </Card>
               </div>
 
-              {/* 能量值流转记录 */}
+              {/* 收益流转记录 */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Zap className="w-5 h-5 text-purple-600" />
-                      能量值流转记录
+                      收益流转记录
                     </div>
                     <div className="flex gap-2">
                       <Button size="sm" variant={energyFilterType === 'all' ? 'default' : 'outline'} onClick={() => { setEnergyFilterType('all'); loadEnergyRecords('all'); }}>全部</Button>
@@ -2901,13 +2901,13 @@ export default function BranchPage() {
               {/* 审核服务商申请 */}
               {energySubTab === 'review' && (
                 <>
-                  {/* 能量值概览 */}
+                  {/* 收益概览 */}
                   <div className="grid grid-cols-2 gap-4">
                     <Card className="bg-gradient-to-br from-purple-500 to-indigo-500 text-white">
                       <CardContent className="pt-4">
                         <p className="text-sm opacity-80">当前余额</p>
                         <p className="text-3xl font-bold mt-2">{branchEnergyBalance.toLocaleString()}</p>
-                        <p className="text-xs opacity-70 mt-2">能量值</p>
+                        <p className="text-xs opacity-70 mt-2">收益</p>
                       </CardContent>
                     </Card>
                     <Card className="bg-gradient-to-br from-orange-500 to-red-500 text-white">
@@ -2925,7 +2925,7 @@ export default function BranchPage() {
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                           <Badge className="bg-blue-600">服务商</Badge>
-                          服务商向分公司申请能量值
+                          服务商向分公司申请收益
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
@@ -2935,7 +2935,7 @@ export default function BranchPage() {
                               <div className="flex items-center justify-between">
                                 <div>
                                   <p className="font-medium">{request.provider?.name || request.provider?.username || request.providerName || '服务商'}</p>
-                                  <p className="text-sm text-gray-500 mt-1">申请额度: {(parseFloat(String(request.amount || request.requestedAmount || 0))).toLocaleString()} 能量值</p>
+                                  <p className="text-sm text-gray-500 mt-1">申请额度: {(parseFloat(String(request.amount || request.requestedAmount || 0))).toLocaleString()} 收益</p>
                                   <p className="text-xs text-gray-400 mt-1">{request.created_at ? new Date(request.created_at).toLocaleString() : '-'}</p>
                                 </div>
                                 <div className="flex gap-2 items-center">
@@ -2966,7 +2966,7 @@ export default function BranchPage() {
                 </>
               )}
 
-              {/* 能量值转账 */}
+              {/* 收益转账 */}
               {energySubTab === 'transfer' && (
                 <>
                   {/* 操作说明 */}
@@ -3067,7 +3067,7 @@ export default function BranchPage() {
                         />
                       </div>
                       <div className="mt-4 flex items-center justify-between">
-                        <p className="text-sm text-gray-500">当前余额: {branchEnergyBalance.toLocaleString()} 能量值</p>
+                        <p className="text-sm text-gray-500">当前余额: {branchEnergyBalance.toLocaleString()} 收益</p>
                         <Button 
                           className="bg-purple-600"
                           onClick={() => handleTransfer(transferTarget, parseFloat(transferAmount))}
@@ -3204,12 +3204,7 @@ export default function BranchPage() {
                       <p className="text-2xl font-bold text-green-600">¥{Number(branchRevenueStats.totalRevenue || 0).toLocaleString()}</p>
                     </div>
                     <div className="flex gap-2">
-                      <Button
-                        className="bg-blue-600 hover:bg-blue-700"
-                        onClick={() => setShowConvertToEnergyDialog(true)}
-                      >
-                        <Zap className="w-4 h-4 mr-1" /> 收益转能量值
-                      </Button>
+                      {/* 收益转收益按钮已禁用 */}
                       <Button
                         className="bg-green-600 hover:bg-green-700"
                         onClick={() => setShowBranchWithdrawDialog(true)}
@@ -3276,7 +3271,7 @@ export default function BranchPage() {
                   <CardContent className="pt-4">
                     <div className="flex items-center gap-2 mb-2">
                       <Zap className="w-5 h-5" />
-                      <span className="text-sm opacity-80">能量值总额</span>
+                      <span className="text-sm opacity-80">收益总额</span>
                     </div>
                     <p className="text-2xl font-bold">{memberList.reduce((sum: number, m: any) => sum + (m.energyValue || 0), 0).toLocaleString()}</p>
                   </CardContent>
@@ -3370,7 +3365,7 @@ export default function BranchPage() {
                           <div className="col-span-1">专属ID</div>
                           <div className="col-span-2">手机号</div>
                           <div className="col-span-2">隶属服务商</div>
-                          <div className="col-span-1">能量值</div>
+                          <div className="col-span-1">收益</div>
                           <div className="col-span-2">持有算力额度</div>
                           <div className="col-span-2">操作</div>
                         </div>
@@ -3396,7 +3391,7 @@ export default function BranchPage() {
                               <div className="col-span-2 hidden md:block">
                                 <Badge className="bg-blue-100 text-blue-700">{m.providerName || '-'}</Badge>
                               </div>
-                              {/* 能量值 */}
+                              {/* 收益 */}
                               <div className="col-span-1 hidden md:block">
                                 <span className="text-sm font-medium text-emerald-600">{(m.energyValue || 0).toLocaleString()}</span>
                               </div>
@@ -3476,8 +3471,8 @@ export default function BranchPage() {
               </div>
               <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
                 <p className="font-medium mb-1">💡 配比说明</p>
-                <p>分公司申请额度配比20%能量值</p>
-                <p className="text-xs mt-1">例如：申请100,000元额度，将配比20,000能量值</p>
+                <p>分公司申请额度配比20%收益</p>
+                <p className="text-xs mt-1">例如：申请100,000元额度，将配比20,000收益</p>
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setShowQuotaApplyDialog(false)}>取消</Button>
@@ -3495,20 +3490,20 @@ export default function BranchPage() {
         </div>
       )}
 
-      {/* 能量值转账对话框 */}
+      {/* 收益转账对话框 */}
       {showTransferDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="w-[500px]">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Zap className="w-5 h-5 text-blue-600" />
-                能量值转账
+                收益转账
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <p className="text-sm text-blue-700">
-                  <strong>说明：</strong>可向服务商和会员转账能量值，最低转账金额为50。
+                  <strong>说明：</strong>可向服务商和会员转账收益，最低转账金额为50。
                 </p>
               </div>
               
@@ -3540,7 +3535,7 @@ export default function BranchPage() {
                   <option value="">请选择{transferUserType === 'provider' ? '服务商' : '会员'}</option>
                   {(transferUserType === 'provider' ? transferTargets : transferMembers).map((p: any) => (
                     <option key={p.id} value={p.id}>
-                      {p.username} {p.unique_id ? `[${p.unique_id}]` : ''} {p.phone ? `(${p.phone})` : ''}（能量值: {p.energy_value || 0}）
+                      {p.username} {p.unique_id ? `[${p.unique_id}]` : ''} {p.phone ? `(${p.phone})` : ''}（收益: {p.energy_value || 0}）
                     </option>
                   ))}
                 </select>
@@ -3549,7 +3544,7 @@ export default function BranchPage() {
                 <Label>转账金额</Label>
                 <Input
                   type="number"
-                  placeholder="请输入转账能量值（最低50）"
+                  placeholder="请输入转账收益（最低50）"
                   value={transferAmount}
                   onChange={(e) => setTransferAmount(e.target.value)}
                   min="50"
@@ -3581,12 +3576,12 @@ export default function BranchPage() {
         </div>
       )}
 
-      {/* 向总公司申请能量值对话框 */}
+      {/* 向总公司申请收益对话框 */}
       {showEnergyApplyDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="w-full max-w-md bg-white">
             <CardHeader>
-              <CardTitle className="text-gray-900">向总公司申请能量值</CardTitle>
+              <CardTitle className="text-gray-900">向总公司申请收益</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -3801,14 +3796,14 @@ export default function BranchPage() {
         </div>
       )}
 
-      {/* 收益转能量值对话框 */}
-      {showConvertToEnergyDialog && (
+      {/* 收益转收益对话框 - 已禁用 */}
+      {false && showConvertToEnergyDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="w-full max-w-lg">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Zap className="w-5 h-5 text-blue-500" />
-                收益转能量值
+                收益转收益
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -3826,14 +3821,14 @@ export default function BranchPage() {
                 />
                 {convertToEnergyAmount && parseFloat(convertToEnergyAmount) > 0 && (
                   <p className="text-sm text-gray-500 mt-1">
-                    能量值: ¥{(parseFloat(convertToEnergyAmount) * 0.95).toFixed(2)} | 积分(5%): ¥{(parseFloat(convertToEnergyAmount) * 0.05).toFixed(2)}
+                    收益: ¥{(parseFloat(convertToEnergyAmount) * 0.95).toFixed(2)} | 积分(5%): ¥{(parseFloat(convertToEnergyAmount) * 0.05).toFixed(2)}
                   </p>
                 )}
               </div>
               <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-600">
                 <p>• 最低转换金额: ¥10</p>
-                <p>• 转换比例: 95%转为能量值，5%转为积分</p>
-                <p>• 转换后能量值可用于支付市场费</p>
+                <p>• 转换比例: 95%转为收益，5%转为积分</p>
+                <p>• 转换后收益可用于支付市场费</p>
               </div>
               <div className="flex justify-end gap-2 pt-4">
                 <Button variant="outline" onClick={() => { setShowConvertToEnergyDialog(false); setConvertToEnergyAmount(''); }}>取消</Button>
