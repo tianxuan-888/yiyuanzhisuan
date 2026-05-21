@@ -3770,7 +3770,7 @@ export default function ProviderPage() {
                                     <div>
                                         <p className="text-sm text-muted-foreground">我的收益</p>
                                         <p className="text-3xl font-bold text-purple-600">¥{(user?.balance || 0).toLocaleString()}</p>
-                                        <p className="text-xs text-muted-foreground mt-1">市场费分成等收益累计余额</p>
+                                        <p className="text-xs text-muted-foreground mt-1">产品分成等累计收益余额</p>
                                     </div>
                                     <div className="flex gap-2 flex-wrap">
                                         <Button onClick={() => { loadEnergyRequests(); setShowEnergyRequestDialog(true); }} variant="outline" size="sm" className="border-orange-300 text-orange-600">
@@ -3999,31 +3999,7 @@ export default function ProviderPage() {
                             </CardContent>
                         </Card>
 
-                        {/* 收益消耗规则 */}
-                        <Card className="bg-blue-50 border-blue-200">
-                            <CardHeader className="pb-2">
-                                <CardTitle className="text-blue-800 text-sm">收益消耗规则</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="text-left">
-                                            <th className="py-1">算力周期</th>
-                                            <th className="py-1">市场费比例</th>
-                                            <th className="py-1">示例（¥1000算力）</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="text-blue-700">
-                                        <tr><td className="py-1">3天</td><td>3%</td><td>¥30</td></tr>
-                                        <tr><td className="py-1">7天</td><td>5%</td><td>¥50</td></tr>
-                                        <tr><td className="py-1">15天</td><td>10%</td><td>¥100</td></tr>
-                                        <tr><td className="py-1">30天</td><td>22%</td><td>¥220</td></tr>
-                                        <tr><td className="py-1">90天</td><td>60%</td><td>¥600</td></tr>
-                                    </tbody>
-                                </table>
-                                <p className="text-xs text-blue-600 mt-2">会员购买算力时需要消耗相应收益作为市场费，购买产品只需支付本金。</p>
-                            </CardContent>
-                        </Card>
+
                     </div>}
 
                     {/* 收益管理 Tab */}
@@ -4084,7 +4060,7 @@ export default function ProviderPage() {
                                             <CardContent className="p-3 md:p-4">
                                                 <p className="text-xs opacity-80">产品分成收益</p>
                                                 <p className="text-lg md:text-xl font-bold">{Number(revenueStats.distSelfRevenue || 0).toLocaleString()}</p>
-                                                <p className="text-[10px] opacity-70">会员市场费70%+直推</p>
+                                                <p className="text-[10px] opacity-70">会员购买产品分成</p>
                                             </CardContent>
                                         </Card>
                                         <Card className="bg-gradient-to-br from-rose-500 to-pink-600 text-white">
@@ -4161,11 +4137,6 @@ export default function ProviderPage() {
                                                                         <p className="text-lg font-bold text-green-600">
                                                                             +{Number(record.amount || 0).toLocaleString()}
                                                                         </p>
-                                                                        {record.market_fee > 0 && (
-                                                                            <p className="text-xs text-muted-foreground">
-                                                                                市场费: {Number(record.market_fee).toLocaleString()}
-                                                                            </p>
-                                                                        )}
                                                                         {record.split_rate > 0 && (
                                                                             <p className="text-xs text-muted-foreground">
                                                                                 分成率: {(Number(record.split_rate) * 100).toFixed(1)}%
@@ -4181,7 +4152,7 @@ export default function ProviderPage() {
                                                 <div className="text-center py-6 text-muted-foreground">
                                                     <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
                                                     <p className="text-sm">暂无市场收益记录</p>
-                                                    <p className="text-xs mt-1">会员购买产品后，市场费收益将在这里显示</p>
+                                                    <p className="text-xs mt-1">会员购买产品后，收益将在这里显示</p>
                                                 </div>
                                             )}
                                         </CardContent>
@@ -4356,7 +4327,7 @@ export default function ProviderPage() {
                                             <ul className="list-disc list-inside space-y-0.5">
                                                 <li>收益余额转为收益：95% → 收益，5% → 积分</li>
                                                 <li>最低转换金额: ¥10</li>
-                                                <li>转换后收益可用于会员市场费支付</li>
+                                                <li>转换后收益可用于提现等操作</li>
                                             </ul>
                                         </CardContent>
                                     </Card>
@@ -4667,12 +4638,6 @@ export default function ProviderPage() {
                                                         <div className={`flex items-center justify-between p-2 md:p-2.5 rounded-lg mb-2 border ${tier.color === 'blue' ? 'bg-blue-500/10 border-blue-500/30' : tier.color === 'green' ? 'bg-green-500/10 border-green-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
                                                             <span className="text-[9px] md:text-sm text-slate-400">价格</span>
                                                             <span className="text-sm md:text-lg font-bold text-white">¥{product.price.toLocaleString()}</span>
-                                                        </div>
-
-                                                        {/* 市场费 */}
-                                                        <div className="mb-2 p-1.5 md:p-2.5 rounded-lg bg-orange-500/20 border border-orange-500/40 text-orange-300 text-center text-[9px] md:text-xs">
-                                                            <Zap className="w-3 h-3 inline mr-0.5" />
-                                                            市场费 {market_rate}% · 需收益 ¥{Math.round(product.price * market_rate / 100).toLocaleString()}
                                                         </div>
 
                                                         {/* 状态指示 */}
@@ -5755,10 +5720,6 @@ export default function ProviderPage() {
                                         <div className="flex justify-between">
                                             <span className="text-muted-foreground">产品价格</span>
                                             <span>¥{matchTargetProduct.price?.toLocaleString()}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-muted-foreground">需收益(市场费{matchTargetProduct.market_rate}%)</span>
-                                            <span>¥{Math.round(matchTargetProduct.price * matchTargetProduct.market_rate / 100)}</span>
                                         </div>
                                     </div>
                                 )}
