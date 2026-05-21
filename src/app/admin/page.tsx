@@ -94,6 +94,7 @@ const menuItems: MenuItem[] = [
   { id: 'providers', name: '服务商管理', icon: <UserCog className="w-5 h-5" /> },
   { id: 'members', name: '会员管理', icon: <Users className="w-5 h-5" /> },
   { id: 'income', name: '市场费分配', icon: <TrendingUp className="w-5 h-5" /> },
+  { id: 'finance', name: '财务管理', icon: <Wallet className="w-5 h-5" /> },
   { id: 'system-config', name: '系统设置', icon: <Settings className="w-5 h-5" /> },
 ];
 
@@ -7722,6 +7723,8 @@ export default function AdminPage() {
         return renderOverviewContent();
       case 'quota':
         return renderQuotaManagement();
+      case 'finance':
+        return <FinanceManagementPanel />;
       case 'members':
         return <MemberManagement />;
       case 'member-list':
