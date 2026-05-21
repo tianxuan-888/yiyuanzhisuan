@@ -16,7 +16,14 @@ if [ -z "$JWT_SECRET" ]; then
 fi
 
 # 确保依赖已安装
-pnpm install --no-frozen-lockfile 2>/dev/null || true
+echo "📦 安装依赖..."
+pnpm install --no-frozen-lockfile || {
+  echo "❌ pnpm install 失败，尝试 npm install..."
+  npm install || {
+    echo "❌ 依赖安装失败"
+    exit 1
+  }
+}
 
 # 构建（禁用 Turbopack）
 NEXT_TURBOPACK=0 ./node_modules/.bin/next build
