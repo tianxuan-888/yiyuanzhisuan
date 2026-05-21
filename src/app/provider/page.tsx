@@ -3952,18 +3952,6 @@ export default function ProviderPage() {
                                             <DollarSign className="w-4 h-4 mr-1" />
                                             申请提现
                                         </Button>
-                                        <Button
-                                            variant="outline"
-                                            className="ml-2"
-                                            onClick={() => {
-                                                setEnergyRequestNote("");
-                                                setShowEnergyRequestDialog(true);
-                                            }}
-                                        >
-                                            <DollarSign className="w-4 h-4 mr-1" />
-                                            申请收益
-                                        </Button>
-
                                         {/* 提现记录列表 */}
                                         <div className="mt-6">
                                             <h4 className="font-medium mb-3 flex items-center gap-2">
