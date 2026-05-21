@@ -2206,7 +2206,7 @@ export default function ProviderPage() {
                             <button
                                 onClick={() => setActiveTab("power")}
                                 className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "power" ? "bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-200" : "text-gray-600 hover:bg-purple-50"}`}>
-                                <Cpu className="w-4 h-4" />算力管理
+                                <Cpu className="w-4 h-4" />Token值管理
                             </button>
                             <button
                                 onClick={() => setActiveTab("applications")}
@@ -2775,7 +2775,7 @@ export default function ProviderPage() {
                                 <Database className="w-3.5 h-3.5 inline mr-1" />额度概览
                             </button>
                             <button onClick={() => { setPowerSubTab('products'); }} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${powerSubTab === 'products' ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-purple-50'}`}>
-                                <Package className="w-3.5 h-3.5 inline mr-1" />算力列表
+                                <Package className="w-3.5 h-3.5 inline mr-1" />Token列表
                             </button>
                             <button onClick={() => { setPowerSubTab('sales'); loadSalesRecords(); }} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${powerSubTab === 'sales' ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-purple-50'}`}>
                                 <TrendingUp className="w-3.5 h-3.5 inline mr-1" />销售记录
