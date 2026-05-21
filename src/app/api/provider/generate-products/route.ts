@@ -245,7 +245,7 @@ export async function POST(request: NextRequest) {
       const price = prices[i];
       const seq = (codeCounter++).toString().slice(-6);
       const productId = crypto.randomUUID();
-      const productName = `${template.period}天算力套餐-${seq}`;
+      const productName = `Token存储包-${seq}`;
       const productCode = `GPU-${template.period}D-${seq}`;
       
       try {
@@ -289,7 +289,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `成功生成 ${prices.length} 个算力产品，总计 ¥${usedAmount.toLocaleString()}`,
+      message: `成功生成 ${prices.length} 个Token存储包，总计 ¥${usedAmount.toLocaleString()}`,
       data: {
         products: prices.map(price => ({
           price,

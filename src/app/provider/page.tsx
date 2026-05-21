@@ -896,7 +896,8 @@ export default function ProviderPage() {
             const response = await authFetch("/api/product-templates");
             const data = await response.json();
             if (data.success) {
-                setAvailableTemplates(data.data || []);
+                // 只显示3天周期的模板
+                setAvailableTemplates((data.data || []).filter((t: any) => t.period === 3));
             }
         } catch {
             // 静默失败
@@ -5322,7 +5323,7 @@ export default function ProviderPage() {
                             <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">
                                     <Zap className="w-5 h-5 text-purple-600" />
-                                    生成算力产品
+                                    生成Token存储包
                                 </DialogTitle>
                             </DialogHeader>
                             <div className="space-y-6 py-4">
