@@ -50,30 +50,33 @@ export async function POST(request: NextRequest) {
     // 更新用户产品状态
     await client.from('user_products').update({ status: 'sold', sell_price: totalReturn, sell_date: new Date().toISOString() }).eq('id', order.user_product_id);
 
-    // ========== 市场费5方分配（写入balance，不是energy_value）==========
+    // ========== 市场费7方分配（按产品价格比例，写入balance）==========
+    // 会员2% + 直推0.3% + 服务商2% + 上级服务商0.3% + 高级服务商0.15% + 服务网点0.15% + 智算平台运营0.10% = 5%
     const distributionResult: Record<string, number> = {};
 
     if (marketFee > 0) {
-      const providerShare = Math.round(marketFee * 0.70 * 100) / 100;
-      const directReward = Math.round(marketFee * 0.10 * 100) / 100;
-      const parentShare = Math.round(marketFee * 0.10 * 100) / 100;
-      const branchShare = Math.round(marketFee * 0.05 * 100) / 100;
-      const companyShare = Math.round(marketFee * 0.05 * 100) / 100;
+      const memberShare = Math.round(purchasePrice * 0.02 * 100) / 100;
+      const directReward = Math.round(purchasePrice * 0.003 * 100) / 100;
+      const providerShare = Math.round(purchasePrice * 0.02 * 100) / 100;
+      const parentShare = Math.round(purchasePrice * 0.003 * 100) / 100;
+      const seniorShare = Math.round(purchasePrice * 0.0015 * 100) / 100;
+      const branchShare = Math.round(purchasePrice * 0.0015 * 100) / 100;
+      const companyShare = Math.round(purchasePrice * 0.001 * 100) / 100;
 
       const inviterId = userRow?.inviter_id;
       const provId = userRow?.provider_id;
 
-      // 1. 服务商70% → balance
-      if (providerShare > 0 && provId) {
-        const provRow = await queryOne('SELECT balance FROM users WHERE id = $1', [provId]);
-        if (provRow) {
-          const newProvBal = Math.round((parseFloat(String(provRow.balance)) + providerShare) * 100) / 100;
-          await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newProvBal, provId]);
+      // 1. 会员2% → balance
+      if (memberShare > 0) {
+        const mRow = await queryOne('SELECT balance FROM users WHERE id = $1', [userId]);
+        if (mRow) {
+          const newMBal = Math.round((parseFloat(String(mRow.balance)) + memberShare) * 100) / 100;
+          await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newMBal, userId]);
         }
       }
-      distributionResult.provider = providerShare;
+      distributionResult.member = memberShare;
 
-      // 2. 直推人10% → balance
+      // 2. 直推人0.3% → balance
       if (directReward > 0 && inviterId) {
         const invRow = await queryOne('SELECT balance FROM users WHERE id = $1', [inviterId]);
         if (invRow) {
@@ -83,7 +86,7 @@ export async function POST(request: NextRequest) {
       }
       distributionResult.direct = directReward;
 
-      // 3. 上级服务商10% → balance（无上级则归智算总台）
+      // 3. 上级服务商0.3% → balance（无上级则归智算平台运营）
       let parentProviderId: string | null = null;
       if (parentShare > 0 && provId) {
         const { data: provData } = await client.from('providers').select('parent_provider_id').eq('user_id', provId).maybeSingle();
@@ -95,23 +98,47 @@ export async function POST(request: NextRequest) {
             const newPPBal = Math.round((parseFloat(String(ppRow.balance)) + parentShare) * 100) / 100;
             await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newPPBal, parentProviderId]);
           }
-        } else {
-          // 无上级服务商，10%归服务网点（服务网点承担了第一代服务商的培养职责）
-          if (provId) {
-            const provInfo = await queryOne('SELECT branch_id FROM providers WHERE user_id = $1', [provId]);
-            if (provInfo?.branch_id) {
-              const brRow = await queryOne('SELECT balance FROM users WHERE id = $1', [provInfo.branch_id]);
-              if (brRow) {
-                const newBrBal = Math.round((parseFloat(String(brRow.balance)) + parentShare) * 100) / 100;
-                await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newBrBal, provInfo.branch_id]);
-              }
-            }
-          }
         }
       }
       distributionResult.parentProvider = parentShare;
 
-      // 4. 服务网点5% → balance
+      // 4. 高级服务商0.15% → balance（向上查找最近的高级服务商，无则归智算平台运营）
+      let seniorProviderId: string | null = null;
+      if (seniorShare > 0 && provId) {
+        const provInfo2 = await queryOne('SELECT id, parent_provider_id FROM providers WHERE user_id = $1', [provId]);
+        if (provInfo2?.parent_provider_id) {
+          let currentProviderId = provInfo2.parent_provider_id;
+          let depth = 0;
+          while (currentProviderId && depth < 20) {
+            const sp: any = await queryOne('SELECT id, user_id, parent_provider_id, is_senior FROM providers WHERE id = $1', [currentProviderId]);
+            if (!sp) break;
+            if (sp.is_senior) {
+              seniorProviderId = sp.user_id;
+              const spRow = await queryOne('SELECT balance FROM users WHERE id = $1', [sp.user_id]);
+              if (spRow) {
+                const newSPBal = Math.round((parseFloat(String(spRow.balance)) + seniorShare) * 100) / 100;
+                await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newSPBal, sp.user_id]);
+              }
+              break;
+            }
+            currentProviderId = sp.parent_provider_id;
+            depth++;
+          }
+        }
+      }
+      distributionResult.seniorProvider = seniorShare;
+
+      // 5. 服务商2% → balance
+      if (providerShare > 0 && provId) {
+        const provRow = await queryOne('SELECT balance FROM users WHERE id = $1', [provId]);
+        if (provRow) {
+          const newProvBal = Math.round((parseFloat(String(provRow.balance)) + providerShare) * 100) / 100;
+          await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newProvBal, provId]);
+        }
+      }
+      distributionResult.provider = providerShare;
+
+      // 6. 服务网点0.15% → balance
       if (branchShare > 0 && provId) {
         const { data: provData } = await client.from('providers').select('branch_id').eq('user_id', provId).maybeSingle();
         if (provData?.branch_id) {
@@ -124,8 +151,11 @@ export async function POST(request: NextRequest) {
       }
       distributionResult.branch = branchShare;
 
-      // 5. 智算总台5% → balance
-      if (companyShare > 0) {
+      // 7. 智算平台运营0.10%（+无上级服务商时的0.3% + 无高级服务商时的0.15%）→ balance
+      const noParentExtra = parentProviderId ? 0 : parentShare;
+      const noSeniorExtra = seniorProviderId ? 0 : seniorShare;
+      const finalCompanyShare = companyShare + noParentExtra + noSeniorExtra;
+      if (finalCompanyShare > 0) {
         const { data: adminUser } = await client.from('users').select('id').eq('role', 'admin').limit(1).maybeSingle();
         if (adminUser) {
           const adRow = await queryOne('SELECT balance FROM users WHERE id = $1', [adminUser.id]);

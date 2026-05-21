@@ -90,25 +90,20 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      // 2. 分配市场费到各角色收益(balance)
-      const providerShare = marketFee * 0.70;
-      const companyShare = marketFee * 0.05;
-      const directShare = marketFee * 0.10;
-      const parentProviderShare = marketFee * 0.10;
-      const branchShare = marketFee * 0.05;
+      // 2. 分配市场费到各角色收益(balance) —— 按产品价格比例分配
+      // 会员2% + 直推0.3% + 服务商2% + 上级服务商0.3% + 高级服务商0.15% + 服务网点0.15% + 智算平台运营0.10% = 5%
+      const memberShare = product.price * 0.02;
+      const directShare = product.price * 0.003;
+      const providerShare = product.price * 0.02;
+      const parentProviderShare = product.price * 0.003;
+      const seniorProviderShare = product.price * 0.0015;
+      const branchShare = product.price * 0.0015;
+      const companyShare = product.price * 0.001;
 
-      // 服务商收益
+      // 会员收益返还
       await supabase.rpc('rpc_execute', {
-        sql_query: `UPDATE users SET balance = COALESCE(balance, 0) + ${providerShare} WHERE id = '${user.userId}'`
+        sql_query: `UPDATE users SET balance = COALESCE(balance, 0) + ${memberShare} WHERE id = '${targetUser.id}'`
       });
-
-      // 智算总台收益
-      const { data: adminUser } = await supabase.from('users').select('id').eq('role', 'admin').limit(1);
-      if (adminUser && adminUser[0]) {
-        await supabase.rpc('rpc_execute', {
-          sql_query: `UPDATE users SET balance = COALESCE(balance, 0) + ${companyShare} WHERE id = '${adminUser[0].id}'`
-        });
-      }
 
       // 直推人收益
       const { data: prevHolder } = await supabase.from('users').select('inviter_id').eq('id', targetUser.id).single();
@@ -118,6 +113,11 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // 服务商收益
+      await supabase.rpc('rpc_execute', {
+        sql_query: `UPDATE users SET balance = COALESCE(balance, 0) + ${providerShare} WHERE id = '${user.userId}'`
+      });
+
       // 上级服务商收益
       const { data: targetUserData } = await supabase.from('users').select('provider_id').eq('id', targetUser.id).single();
       if (targetUserData?.provider_id && targetUserData.provider_id !== user.userId) {
@@ -126,11 +126,27 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // 高级服务商收益（服务商的上级服务商链中最近的高级服务商）
+      const { data: currentProviderData } = await supabase.from('users').select('provider_id').eq('id', user.userId).single();
+      if (currentProviderData?.provider_id) {
+        await supabase.rpc('rpc_execute', {
+          sql_query: `UPDATE users SET balance = COALESCE(balance, 0) + ${seniorProviderShare} WHERE id = '${currentProviderData.provider_id}'`
+        });
+      }
+
       // 服务网点收益
       const { data: providerData } = await supabase.from('providers').select('branch_id').eq('user_id', user.userId).single();
       if (providerData?.branch_id) {
         await supabase.rpc('rpc_execute', {
           sql_query: `UPDATE users SET balance = COALESCE(balance, 0) + ${branchShare} WHERE id = '${providerData.branch_id}'`
+        });
+      }
+
+      // 智算平台运营收益
+      const { data: adminUser } = await supabase.from('users').select('id').eq('role', 'admin').limit(1);
+      if (adminUser && adminUser[0]) {
+        await supabase.rpc('rpc_execute', {
+          sql_query: `UPDATE users SET balance = COALESCE(balance, 0) + ${companyShare} WHERE id = '${adminUser[0].id}'`
         });
       }
 

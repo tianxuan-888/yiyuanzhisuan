@@ -51,18 +51,22 @@ async function getIncomeOverview(supabase: any) {
 
   // 汇总各方真实收益
   let totalMarketFee = 0;
+  let totalMemberShare = 0;
   let totalProviderShare = 0;
   let totalDirectReward = 0;
   let totalParentProviderShare = 0;
+  let totalSeniorProviderShare = 0;
   let totalBranchShare = 0;
   let totalCompanyShare = 0;
   let totalProductPrice = 0;
 
   allDistributions.forEach((d: any) => {
     totalMarketFee += parseFloat(d.market_fee) || 0;
+    totalMemberShare += parseFloat(d.member_share) || 0;
     totalProviderShare += parseFloat(d.provider_share) || 0;
     totalDirectReward += parseFloat(d.direct_reward) || 0;
     totalParentProviderShare += parseFloat(d.parent_provider_share) || 0;
+    totalSeniorProviderShare += parseFloat(d.senior_provider_share) || 0;
     totalBranchShare += parseFloat(d.branch_share) || 0;
     totalCompanyShare += parseFloat(d.company_share) || 0;
     totalProductPrice += parseFloat(d.product_price) || 0;
@@ -198,11 +202,13 @@ async function getIncomeOverview(supabase: any) {
         todaySales,
       },
       shareBreakdown: {
-        provider: { amount: Math.round(totalProviderShare * 100) / 100, rate: '70%' },
-        directReward: { amount: Math.round(totalDirectReward * 100) / 100, rate: '10%' },
-        parentProvider: { amount: Math.round(totalParentProviderShare * 100) / 100, rate: '10%' },
-        branch: { amount: Math.round(totalBranchShare * 100) / 100, rate: '5%' },
-        company: { amount: Math.round(totalCompanyShare * 100) / 100, rate: '5%' },
+        member: { amount: Math.round(totalMemberShare * 100) / 100, rate: '2%' },
+        directReward: { amount: Math.round(totalDirectReward * 100) / 100, rate: '0.3%' },
+        provider: { amount: Math.round(totalProviderShare * 100) / 100, rate: '2%' },
+        parentProvider: { amount: Math.round(totalParentProviderShare * 100) / 100, rate: '0.3%' },
+        seniorProvider: { amount: Math.round(totalSeniorProviderShare * 100) / 100, rate: '0.15%' },
+        branch: { amount: Math.round(totalBranchShare * 100) / 100, rate: '0.15%' },
+        company: { amount: Math.round(totalCompanyShare * 100) / 100, rate: '0.10%' },
       },
       todayBreakdown: {
         providerShare: Math.round(todayDistributions.reduce((s: number, d: any) => s + (parseFloat(d.provider_share) || 0), 0) * 100) / 100,
@@ -252,13 +258,14 @@ async function getIncomeDetail(supabase: any, typeFilter: string, page: number, 
     }
 
     const marketFee = parseFloat(up.market_fee) || 0;
+    const purchasePrice = parseFloat(up.purchase_price) || 0;
     records.push({
       id: up.id,
       date: up.purchase_date,
       productName: product?.name || '-',
       productCode: product?.code || '-',
       period: product?.period,
-      purchasePrice: parseFloat(up.purchase_price) || 0,
+      purchasePrice,
       marketFee,
       marketRate: product?.market_rate,
       buyerName: buyer?.username || '-',
@@ -266,11 +273,13 @@ async function getIncomeDetail(supabase: any, typeFilter: string, page: number, 
       providerName,
       status: up.status,
       shareDetail: {
-        provider: Math.floor(marketFee * 0.70),
-        directReward: Math.floor(marketFee * 0.10),
-        parentProvider: Math.floor(marketFee * 0.10),
-        branch: Math.floor(marketFee * 0.05),
-        company: Math.floor(marketFee * 0.05),
+        member: Math.round(purchasePrice * 0.02 * 100) / 100,
+        directReward: Math.round(purchasePrice * 0.003 * 100) / 100,
+        provider: Math.round(purchasePrice * 0.02 * 100) / 100,
+        parentProvider: Math.round(purchasePrice * 0.003 * 100) / 100,
+        seniorProvider: Math.round(purchasePrice * 0.0015 * 100) / 100,
+        branch: Math.round(purchasePrice * 0.0015 * 100) / 100,
+        company: Math.round(purchasePrice * 0.001 * 100) / 100,
       }
     });
   }

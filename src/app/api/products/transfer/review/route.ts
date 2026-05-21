@@ -149,25 +149,28 @@ export async function POST(request: NextRequest) {
     }
 
     // ========== 市场费按比例分成到各角色balance ==========
+    // 按产品价格比例分配：会员2% + 直推0.3% + 服务商2% + 上级服务商0.3% + 高级服务商0.15% + 服务网点0.15% + 智算平台运营0.10% = 5%
     if (marketFee > 0) {
-      const providerShare = Math.floor(marketFee * 0.70);
-      const directReferralShare = Math.floor(marketFee * 0.10);
-      const upstreamProviderShare = Math.floor(marketFee * 0.10);
-      const branchShare = Math.floor(marketFee * 0.05);
-      const companyShare = Math.floor(marketFee * 0.05);
+      const memberShare = Math.floor(transferPrice * 0.02);
+      const directReferralShare = Math.floor(transferPrice * 0.003);
+      const providerShare = Math.floor(transferPrice * 0.02);
+      const upstreamProviderShare = Math.floor(transferPrice * 0.003);
+      const seniorProviderShare = Math.floor(transferPrice * 0.0015);
+      const branchShare = Math.floor(transferPrice * 0.0015);
+      const companyShare = Math.floor(transferPrice * 0.001);
 
       let distributionBranchId: string | null = null;
       let distributionParentProviderId: string | null = null;
 
-      // 1. 服务商获得70%
-      if (providerShare > 0 && product.provider_id) {
+      // 1. 会员收益返还2%
+      if (memberShare > 0) {
         await query(
           'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
-          [providerShare, product.provider_id]
+          [memberShare, transfer.to_user_id]
         );
       }
 
-      // 2. 直推人获得10%（买家的推荐人）
+      // 2. 直推人获得0.3%（买家的推荐人）
       if (directReferralShare > 0 && buyer.inviter_id) {
         await query(
           'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
@@ -175,7 +178,16 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 3. 上级服务商获得10%
+      // 3. 服务商获得2%
+      if (providerShare > 0 && product.provider_id) {
+        await query(
+          'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
+          [providerShare, product.provider_id]
+        );
+      }
+
+      // 4. 上级服务商获得0.3%
+      let distributionSeniorProviderId: string | null = null;
       if (upstreamProviderShare > 0 && product.provider_id) {
         const providerUser = await queryOne<any>(
           'SELECT provider_id FROM users WHERE id = $1',
@@ -190,7 +202,22 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 4. 服务网点获得5%
+      // 5. 高级服务商获得0.15%（服务商的上级服务商链中最近的高级服务商）
+      if (seniorProviderShare > 0 && product.provider_id) {
+        const currentProviderUser = await queryOne<any>(
+          'SELECT provider_id FROM users WHERE id = $1',
+          [product.provider_id]
+        );
+        if (currentProviderUser?.provider_id && currentProviderUser.provider_id !== distributionParentProviderId) {
+          distributionSeniorProviderId = currentProviderUser.provider_id;
+          await query(
+            'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
+            [seniorProviderShare, currentProviderUser.provider_id]
+          );
+        }
+      }
+
+      // 6. 服务网点获得0.15%
       if (branchShare > 0 && buyer.provider_id) {
         const providerInfo = await queryOne<any>(
           'SELECT branch_id FROM providers WHERE user_id = $1',
@@ -205,7 +232,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 5. 智算总台获得5%
+      // 7. 智算平台运营获得0.10%
       if (companyShare > 0) {
         const adminUser = await queryOne<any>(
           "SELECT id FROM users WHERE role = 'admin' LIMIT 1"
@@ -221,12 +248,13 @@ export async function POST(request: NextRequest) {
       // 记录市场费分配
       await query(
         `INSERT INTO provider_revenue_distribution 
-         (provider_id, member_id, product_id, product_price, market_fee, provider_share, direct_reward, direct_reward_to, parent_provider_share, parent_provider_id, branch_share, branch_id, company_share, status, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'completed', NOW(), NOW())`,
+         (provider_id, member_id, product_id, product_price, market_fee, provider_share, direct_reward, direct_reward_to, parent_provider_share, parent_provider_id, senior_provider_share, senior_provider_id, branch_share, branch_id, company_share, status, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'completed', NOW(), NOW())`,
         [
           product.provider_id, transfer.to_user_id, product.id, transferPrice, marketFee,
           providerShare, directReferralShare, buyer.inviter_id || null,
           upstreamProviderShare, distributionParentProviderId,
+          seniorProviderShare, distributionSeniorProviderId,
           branchShare, distributionBranchId,
           companyShare
         ]

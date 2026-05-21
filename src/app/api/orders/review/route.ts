@@ -2,25 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne, execute } from '@/storage/database/pg-client';
 import { randomUUID } from 'crypto';
 
-// 新的市场费分配比例（3%市场分配率，各角色占市场费的比例）
-const REVENUE_SHARE_RATIOS = {
-  provider: 2.0 / 3.0,           // 服务商 2.00% / 3.00% = 66.67%
-  parentProvider: 0.3 / 3.0,     // 上级服务商 0.30% / 3.00% = 10%
-  directReward: 0.3 / 3.0,       // 直推奖励 0.30% / 3.00% = 10%
-  seniorProvider: 0.15 / 3.0,    // 高级服务商 0.15% / 3.00% = 5%
-  branch: 0.15 / 3.0,            // 服务网点 0.15% / 3.00% = 5%
-  company: 0.10 / 3.0,           // 智算总台 0.10% / 3.00% = 3.33%
-};
-
-// 各角色占产品价格的直接比例
-const PRICE_RATIOS = {
-  memberProfit: 0.02,        // 会员实际到手 2%
-  providerShare: 0.02,       // 服务商 2%
-  parentProvider: 0.003,     // 上级服务商 0.3%
-  directReward: 0.003,       // 直推奖励 0.3%
-  seniorProvider: 0.0015,    // 高级服务商 0.15%
-  branch: 0.0015,            // 服务网点 0.15%
-  company: 0.001,            // 智算总台 0.1%
+// 市场费分配比例（各角色占产品价格的百分比，合计5%）
+const PRICE_SHARE_RATIOS = {
+  member: 0.02,             // 会员 2%
+  directReward: 0.003,      // 直推奖励 0.3%
+  provider: 0.02,           // 服务商 2%
+  parentProvider: 0.003,    // 上级服务商 0.3%
+  seniorProvider: 0.0015,   // 高级服务商 0.15%
+  branch: 0.0015,           // 服务网点 0.15%
+  company: 0.001,           // 智算平台运营 0.10%
 };
 
 // 增加用户余额（balance）并记录
@@ -232,24 +222,22 @@ export async function POST(request: NextRequest) {
         [product?.provider_id]
       );
 
-      // ===== 按新比例分配收益到各角色 balance =====
+      // ===== 按新比例分配市场费到各角色 balance（按产品价格比例） =====
       
-      // 1. 服务商收益 2%
-      const providerShare = Math.floor(productPrice * PRICE_RATIOS.providerShare);
       const providerUserId = product?.provider_id;
-      
-      if (providerUserId) {
-        await addBalance(
-          providerUserId,
-          providerShare,
-          'provider_share',
-          `会员购买产品收益分成 (2%)`
-        );
-      }
+
+      // 1. 会员收益返还 2%
+      const memberShare = Math.round(productPrice * PRICE_SHARE_RATIOS.member);
+      await addBalance(
+        order.user_id,
+        memberShare,
+        'member_share',
+        `购买产品收益返还 (2%)`
+      );
 
       // 2. 直推奖励 0.3%
       let directRewardTo: string | null = null;
-      const directRewardAmount = Math.floor(productPrice * PRICE_RATIOS.directReward);
+      const directRewardAmount = Math.round(productPrice * PRICE_SHARE_RATIOS.directReward);
       const inviterIsProvider = member?.inviter_id && member.inviter_id === providerUserId;
       
       if (member?.inviter_id && !inviterIsProvider) {
@@ -270,9 +258,21 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 3. 上级服务商 0.3%
+      // 3. 服务商收益 2%
+      const providerShare = Math.round(productPrice * PRICE_SHARE_RATIOS.provider);
+      
+      if (providerUserId) {
+        await addBalance(
+          providerUserId,
+          providerShare,
+          'provider_share',
+          `会员购买产品收益分成 (2%)`
+        );
+      }
+
+      // 4. 上级服务商 0.3%
       let parentProviderId: string | null = null;
-      const parentProviderShare = Math.floor(productPrice * PRICE_RATIOS.parentProvider);
+      const parentProviderShare = Math.round(productPrice * PRICE_SHARE_RATIOS.parentProvider);
       
       if (providerRecord?.parent_provider_id) {
         parentProviderId = providerRecord.parent_provider_id;
@@ -290,9 +290,9 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 4. 高级服务商 0.15%（向上查找最近的高级服务商）
+      // 5. 高级服务商 0.15%（向上查找最近的高级服务商）
       let seniorProviderId: string | null = null;
-      let seniorProviderShare = Math.floor(productPrice * PRICE_RATIOS.seniorProvider);
+      let seniorProviderShare = Math.round(productPrice * PRICE_SHARE_RATIOS.seniorProvider);
       let seniorProviderUserId: string | null = null;
       
       if (providerRecord?.id) {
@@ -309,12 +309,12 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      // 如果没有高级服务商，0.15%归智算总台
+      // 如果没有高级服务商，0.15%归智算平台运营
       const companyExtraIfNoSenior = seniorProviderId ? 0 : seniorProviderShare;
 
-      // 5. 服务网点 0.15%
+      // 6. 服务网点 0.15%
       const branchId = providerRecord?.branch_id || member?.branch_id;
-      const branchShare = Math.floor(productPrice * PRICE_RATIOS.branch);
+      const branchShare = Math.round(productPrice * PRICE_SHARE_RATIOS.branch);
       
       if (branchId) {
         const branchUser: any = await queryOne(
@@ -338,8 +338,8 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 6. 智算总台 0.1% + 无上级服务商时的0.3% + 无高级服务商时的0.15%
-      const companyBaseShare = Math.floor(productPrice * PRICE_RATIOS.company);
+      // 7. 智算平台运营 0.10% + 无上级服务商时的0.3% + 无高级服务商时的0.15%
+      const companyBaseShare = Math.round(productPrice * PRICE_SHARE_RATIOS.company);
       const noParentShare = parentProviderId ? 0 : parentProviderShare;
       const companyShare = companyBaseShare + noParentShare + companyExtraIfNoSenior;
       
@@ -349,7 +349,7 @@ export async function POST(request: NextRequest) {
           []
         );
         if (adminUser) {
-          const noteParts = [`运营0.1%`];
+          const noteParts = [`平台运营0.10%`];
           if (noParentShare > 0) noteParts.push(`上级服务商0.3%`);
           if (companyExtraIfNoSenior > 0) noteParts.push(`高级服务商0.15%`);
           

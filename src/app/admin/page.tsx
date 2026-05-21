@@ -3586,9 +3586,13 @@ export default function AdminPage() {
                 <TableHead>产品</TableHead>
                 <TableHead>购买价</TableHead>
                 <TableHead>市场费</TableHead>
-                <TableHead>服务商70%</TableHead>
-                <TableHead>服务网点5%</TableHead>
-                <TableHead>公司5%</TableHead>
+                <TableHead>会员2%</TableHead>
+                <TableHead>直推0.3%</TableHead>
+                <TableHead>服务商2%</TableHead>
+                <TableHead>上级0.3%</TableHead>
+                <TableHead>高级0.15%</TableHead>
+                <TableHead>网点0.15%</TableHead>
+                <TableHead>运营0.10%</TableHead>
                 <TableHead>买家</TableHead>
                 <TableHead>服务商</TableHead>
               </TableRow>
@@ -3603,15 +3607,19 @@ export default function AdminPage() {
                   </TableCell>
                   <TableCell className="font-medium">¥{(record.purchasePrice || 0).toLocaleString()}</TableCell>
                   <TableCell className="text-purple-600 font-medium">¥{(record.marketFee || 0).toLocaleString()}</TableCell>
+                  <TableCell className="text-purple-500">¥{(record.shareDetail?.member || 0).toLocaleString()}</TableCell>
+                  <TableCell className="text-purple-500">¥{(record.shareDetail?.directReward || 0).toLocaleString()}</TableCell>
                   <TableCell className="text-purple-500">¥{(record.shareDetail?.provider || 0).toLocaleString()}</TableCell>
-                  <TableCell className="text-teal-500">¥{(record.shareDetail?.branch || 0).toLocaleString()}</TableCell>
+                  <TableCell className="text-teal-500">¥{(record.shareDetail?.parentProvider || 0).toLocaleString()}</TableCell>
+                  <TableCell className="text-teal-500">¥{(record.shareDetail?.seniorProvider || 0).toLocaleString()}</TableCell>
+                  <TableCell className="text-emerald-500">¥{(record.shareDetail?.branch || 0).toLocaleString()}</TableCell>
                   <TableCell className="text-emerald-500">¥{(record.shareDetail?.company || 0).toLocaleString()}</TableCell>
                   <TableCell className="text-sm">{record.buyerName || '-'}</TableCell>
                   <TableCell className="text-sm">{record.providerName || '-'}</TableCell>
                 </TableRow>
               )) : (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-gray-400 py-8">
+                  <TableCell colSpan={12} className="text-center text-gray-400 py-8">
                     {incomeLoading ? '加载中...' : '暂无收益记录'}
                   </TableCell>
                 </TableRow>
