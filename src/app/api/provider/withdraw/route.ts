@@ -69,8 +69,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '提现金额无效' }, { status: 400 });
     }
 
-    if (withdrawAmount < 50) {
-      return NextResponse.json({ error: '最小提现金额为 50 元' }, { status: 400 });
+    if (withdrawAmount < 100) {
+      return NextResponse.json({ error: '最小提现金额为 100 元' }, { status: 400 });
     }
 
     const fee = Math.round(withdrawAmount * 0.05 * 100) / 100;

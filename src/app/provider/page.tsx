@@ -1335,8 +1335,8 @@ export default function ProviderPage() {
             return;
         }
 
-        if (amount < 50) {
-            showMessage("error", "转账金额不能少于50");
+        if (amount < 100) {
+            showMessage("error", "转账金额不能少于100");
             return;
         }
 
@@ -3940,7 +3940,7 @@ export default function ProviderPage() {
                                             <p className="text-2xl font-bold text-green-600">¥{revenueStats.balance?.toLocaleString() || 0}</p>
                                         </div>
                                         <div className="text-sm text-gray-500 bg-gray-50 rounded-lg p-3">
-                                            <strong>说明：</strong>收益提现到服务网点，手续费5%，最低提现金额50元。提现后等待服务网点审核打款。
+                                            <strong>说明：</strong>提现手续费5%，提现申请后等到平台审核通过，最低提现金额100元。
                                         </div>
                                         <Button
                                             className="bg-green-600 hover:bg-green-700 text-white"
@@ -4666,7 +4666,7 @@ export default function ProviderPage() {
                             <div className="space-y-4 py-4">
                                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                                     <p className="text-sm text-yellow-700">
-                                        <strong>说明：</strong>收益提现到服务网点，手续费5%，最低提现金额50元。提现后等待服务网点审核打款。
+                                        <strong>说明：</strong>提现手续费5%，提现申请后等到平台审核通过，最低提现金额100元。
                                     </p>
                                 </div>
                                 <div>
@@ -4677,7 +4677,7 @@ export default function ProviderPage() {
                                     <label className="text-sm font-medium mb-2 block">提现金额</label>
                                     <Input
                                         type="number"
-                                        placeholder="请输入提现金额（最低50）"
+                                        placeholder="请输入提现金额（最低100）"
                                         value={withdrawAmount}
                                         onChange={(e) => setWithdrawAmount(e.target.value)}
                                         min="50"
@@ -4706,8 +4706,8 @@ export default function ProviderPage() {
                                     className="w-full bg-yellow-500 hover:bg-yellow-600" 
                                     onClick={async () => {
                                         const amount = parseFloat(withdrawAmount);
-                                        if (!amount || amount < 50) {
-                                            showMessage("error", "最低提现金额为50元");
+                                        if (!amount || amount < 100) {
+                                            showMessage("error", "最低提现金额为100元");
                                             return;
                                         }
                                         if (!withdrawAlipay.trim()) {
@@ -4747,7 +4747,7 @@ export default function ProviderPage() {
                                             setSubmitting(false);
                                         }
                                     }}
-                                    disabled={submitting || !withdrawAmount || parseFloat(withdrawAmount) < 50}
+                                    disabled={submitting || !withdrawAmount || parseFloat(withdrawAmount) < 100}
                                 >
                                     {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <DollarSign className="w-4 h-4 mr-2" />}
                                     确认提现
