@@ -319,6 +319,7 @@ export default function ProviderPage() {
 
     // 收益记录相关状态
     const [revenueRecords, setRevenueRecords] = useState<any[]>([]);
+    const [withdrawalRecords, setWithdrawalRecords] = useState<any[]>([]);
     const [revenueStats, setRevenueStats] = useState<any>({
         totalRevenue: 0,
         energyRevenue: 0,
@@ -426,6 +427,19 @@ export default function ProviderPage() {
             }
         } catch (error) {
             console.error('加载收益记录失败:', error);
+        }
+    };
+
+    // 加载服务商提现记录
+    const loadWithdrawalRecords = async () => {
+        try {
+            const response = await authFetch(`/api/provider/withdraw`);
+            const data = await response.json();
+            if (data.success) {
+                setWithdrawalRecords(data.data || []);
+            }
+        } catch (error) {
+            console.error('加载提现记录失败:', error);
         }
     };
 
@@ -1813,8 +1827,9 @@ export default function ProviderPage() {
             loadEnergyRequests(),
             loadPointsRecords(),
             loadConvertRecords(),
+            loadWithdrawalRecords(),
         ]);
-    }, [refreshUser, loadData, loadRevenueRecords, loadTransferRecords, loadWithdrawRecords, loadWithdrawalData, loadEnergyRequests, loadPointsRecords, loadConvertRecords]);
+    }, [refreshUser, loadData, loadRevenueRecords, loadTransferRecords, loadWithdrawRecords, loadWithdrawalData, loadEnergyRequests, loadPointsRecords, loadConvertRecords, loadWithdrawalRecords]);
 
     // 积分转入收益
     const handlePointsToEnergy = async () => {
@@ -2185,7 +2200,7 @@ export default function ProviderPage() {
                                 <span className="text-[10px] md:text-xs font-medium text-purple-200 bg-white/10 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full backdrop-blur">收益</span>
                             </div>
                             <p className="text-lg md:text-2xl font-bold mt-1 md:mt-2 text-white">¥{(user?.balance || 0).toLocaleString()}</p>
-                            <p className="text-[10px] md:text-xs text-purple-200 mt-0.5 md:mt-1">累计收益余额</p>
+                            <p className="text-[10px] md:text-xs text-purple-200 mt-0.5 md:mt-1">累计智算金</p>
                         </CardContent>
                     </Card>
 
@@ -3835,12 +3850,12 @@ export default function ProviderPage() {
                                 <CardContent className="pt-4">
                                     <div className="flex items-center gap-2 mb-2">
                                         <Wallet className="w-5 h-5" />
-                                        <span className="text-sm opacity-80">收益余额</span>
+                                        <span className="text-sm opacity-80">智算金</span>
                                     </div>
                                     <p className="text-3xl font-bold">¥{revenueStats.balance?.toLocaleString() || 0}</p>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
                                         <div className="bg-white/10 rounded-lg p-2">
-                                            <p className="text-xs opacity-70">总奖励</p>
+                                            <p className="text-xs opacity-70">业务奖励</p>
                                             <p className="text-sm font-bold">¥{revenueStats.totalRevenue?.toLocaleString() || 0}</p>
                                         </div>
                                         <div className="bg-white/10 rounded-lg p-2">
@@ -3921,7 +3936,7 @@ export default function ProviderPage() {
                                     </CardHeader>
                                     <CardContent className="space-y-4">
                                         <div>
-                                            <label className="text-sm font-medium mb-2 block">我的收益余额</label>
+                                            <label className="text-sm font-medium mb-2 block">我的智算金</label>
                                             <p className="text-2xl font-bold text-green-600">¥{revenueStats.balance?.toLocaleString() || 0}</p>
                                         </div>
                                         <div className="text-sm text-gray-500 bg-gray-50 rounded-lg p-3">
@@ -3948,6 +3963,46 @@ export default function ProviderPage() {
                                             <DollarSign className="w-4 h-4 mr-1" />
                                             申请收益
                                         </Button>
+
+                                        {/* 提现记录列表 */}
+                                        <div className="mt-6">
+                                            <h4 className="font-medium mb-3 flex items-center gap-2">
+                                                <FileText className="w-4 h-4" />
+                                                提现记录
+                                            </h4>
+                                            {withdrawalRecords.length === 0 ? (
+                                                <div className="text-center text-gray-400 py-6 text-sm">暂无提现记录</div>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    {withdrawalRecords.map((record: any) => (
+                                                        <div key={record.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                                            <div className="flex-1">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="font-medium text-red-600">-¥{Number(record.amount || 0).toLocaleString()}</span>
+                                                                    <Badge className={
+                                                                        record.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                                                        record.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                                                                        record.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                                                        'bg-gray-100 text-gray-700'
+                                                                    }>
+                                                                        {record.status === 'completed' ? '提现成功' :
+                                                                         record.status === 'pending' ? '待审核' :
+                                                                         record.status === 'rejected' ? '已拒绝' : record.status}
+                                                                    </Badge>
+                                                                </div>
+                                                                <div className="text-xs text-gray-400 mt-1">
+                                                                    {record.created_at ? new Date(record.created_at).toLocaleString('zh-CN') : '-'}
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <div className="text-sm text-gray-500">到账</div>
+                                                                <div className="font-medium text-green-600">¥{Number(record.actual_amount || 0).toLocaleString()}</div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
                                     </CardContent>
                                 </Card>
                             )}
@@ -4542,7 +4597,7 @@ export default function ProviderPage() {
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="bg-slate-100 rounded-lg p-3">
-                                        <p className="text-xs text-gray-500">收益余额</p>
+                                        <p className="text-xs text-gray-500">智算金</p>
                                         <p className="text-xl font-bold text-green-600">¥{revenueStats.balance?.toLocaleString() || 0}</p>
                                     </div>
                                     <div className="bg-slate-100 rounded-lg p-3">
@@ -4615,7 +4670,7 @@ export default function ProviderPage() {
                                     </p>
                                 </div>
                                 <div>
-                                    <label className="text-sm font-medium mb-2 block">我的收益余额</label>
+                                    <label className="text-sm font-medium mb-2 block">我的智算金</label>
                                     <p className="text-2xl font-bold text-green-600">¥{revenueStats.balance?.toLocaleString() || 0}</p>
                                 </div>
                                 <div>
@@ -4682,6 +4737,7 @@ export default function ProviderPage() {
                                                 setWithdrawAlipay("");
                                                 setWithdrawAlipayName("");
                                                 loadData();
+                                                loadWithdrawalRecords();
                                             } else {
                                                 showMessage("error", data.error || "提现失败");
                                             }
