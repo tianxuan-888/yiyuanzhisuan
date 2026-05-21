@@ -3333,7 +3333,7 @@ export default function ProviderPage() {
                                     <table className="w-full">
                                         <thead>
                                             <tr className="border-b bg-gray-50">
-                                                <th className="text-left py-3 px-4">产品名称</th>
+                                                <th className="text-left py-3 px-4">Token存储包</th>
                                                 <th className="text-left py-3 px-4">价格</th>
                                                 <th className="text-left py-3 px-4">周期</th>
                                                 <th className="text-left py-3 px-4">状态</th>
