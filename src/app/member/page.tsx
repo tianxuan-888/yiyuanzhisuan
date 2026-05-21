@@ -1103,8 +1103,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                     </DialogHeader>
                     {selectedProduct && <div className="space-y-4 py-4">
                         <div className="p-4 bg-purple-50 rounded-lg">
-                            <h4 className="font-medium text-lg">{selectedProduct.name}</h4>
-                            <p className="text-sm text-gray-500">{selectedProduct.code}</p>
+                            <h4 className="font-medium text-lg">Token存储包 {selectedProduct.code}</h4>
                         </div>
                         <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
@@ -1149,8 +1148,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                     </DialogHeader>
                     {selectedUserProduct && <div className="space-y-4 py-4">
                         <div className="p-4 bg-purple-50 rounded-lg">
-                            <h4 className="font-medium text-lg">{selectedUserProduct.products?.name}</h4>
-                            <p className="text-sm text-gray-500">{selectedUserProduct.products?.code}</p>
+                            <h4 className="font-medium text-lg">Token存储包 {selectedUserProduct.products?.code}</h4>
                         </div>
                         <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>

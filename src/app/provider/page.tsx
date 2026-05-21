@@ -3048,7 +3048,7 @@ export default function ProviderPage() {
                                                             }} className="w-4 h-4" />
                                                         </td>
                                                         <td className="py-3 px-4">
-                                                            <div><p className="font-medium">{product.name}</p><p className="text-sm text-gray-500">{product.code}</p></div>
+                                                            <div><p className="font-medium">Token存储包 {product.code}</p></div>
                                                         </td>
                                                         <td className="py-3 px-4 text-green-600 font-medium">¥{(product.price || 0).toLocaleString()}</td>
                                                         <td className="py-3 px-4">{product.period}天</td>
@@ -3126,7 +3126,7 @@ export default function ProviderPage() {
                                                             }} className="w-4 h-4" />
                                                         </td>
                                                         <td className="py-3 px-4">
-                                                            <div><p className="font-medium">{product.name}</p><p className="text-sm text-gray-500">{product.code}</p></div>
+                                                            <div><p className="font-medium">Token存储包 {product.code}</p></div>
                                                         </td>
                                                         <td className="py-3 px-4 text-green-600 font-medium">¥{(product.price || 0).toLocaleString()}</td>
                                                         <td className="py-3 px-4">{product.period}天</td>
@@ -3191,7 +3191,7 @@ export default function ProviderPage() {
                                                 {soldProducts.map((product: any) => (
                                                     <tr key={product.id} className="border-b hover:bg-gray-50">
                                                         <td className="py-3 px-4">
-                                                            <div><p className="font-medium">{product.name}</p><p className="text-sm text-gray-500">{product.code}</p></div>
+                                                            <div><p className="font-medium">Token存储包 {product.code}</p></div>
                                                         </td>
                                                         <td className="py-3 px-4 text-green-600 font-medium">¥{(product.price || 0).toLocaleString()}</td>
                                                         <td className="py-3 px-4">{product.period}天</td>
@@ -5104,7 +5104,7 @@ export default function ProviderPage() {
                                 </DialogTitle>
                                 <DialogDescription>
                                     {matchTargetProduct && (
-                                        <span>产品: {matchTargetProduct.name} | 价格: ¥{matchTargetProduct.price?.toLocaleString()}</span>
+                                        <span>Token存储包 {matchTargetProduct.code} | 价格: ¥{matchTargetProduct.price?.toLocaleString()}</span>
                                     )}
                                 </DialogDescription>
                             </DialogHeader>

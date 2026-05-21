@@ -1045,8 +1045,7 @@ export default function ProviderDashboard() {
                   <tbody className="divide-y">
                     {products.map((product) => (
                       <tr key={product.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3">{product.name}</td>
-                        <td className="px-4 py-3 text-gray-500">{product.code}</td>
+                        <td className="px-4 py-3">{product.name} #{product.code}</td>
                         <td className="px-4 py-3 font-medium">{formatCurrency(product.price)}</td>
                         <td className="px-4 py-3">{product.period}天</td>
                         <td className="px-4 py-3 text-green-600">+{product.total_rate}%</td>
@@ -1776,8 +1775,7 @@ export default function ProviderDashboard() {
                           <div className="flex-1 space-y-2">
                             <div className="flex items-center gap-2">
                               <Package className="w-4 h-4 text-gray-500" />
-                              <span className="font-semibold text-gray-900">{product.name}</span>
-                              <Badge variant="outline" className="text-xs">{product.code}</Badge>
+                              <span className="font-semibold text-gray-900">{product.name} #{product.code}</span>
                               <Badge className={isAssigned ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}>
                                 {isAssigned ? '待确认匹配' : '待匹配'}
                               </Badge>
