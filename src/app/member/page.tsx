@@ -1066,11 +1066,11 @@ const [copySuccess, setCopySuccess] = useState(false);
 
     // 分享到微信
     const handleShareToWechat = () => {
-        const shareText = `我在艺元智算投资GPU算力，收益稳定可靠！使用我的邀请码 ${inviteCode} 注册，一起赚取更多收益！`;
+        const shareText = `我在艺元智算投资Token存储包，收益稳定可靠！使用我的邀请码 ${inviteCode} 注册，一起赚取更多收益！`;
         
         if (navigator.share) {
             navigator.share({
-                title: '艺元智算 - GPU算力投资平台',
+                title: '艺元智算 - Token投资平台',
                 text: shareText,
                 url: `${window.location.origin}/?invite=${inviteCode}`,
             }).catch(() => {});
@@ -1108,11 +1108,11 @@ const [copySuccess, setCopySuccess] = useState(false);
                         </div>
                         <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
-                                <Label className="text-gray-500">算力价格</Label>
+                                <Label className="text-gray-500">价格</Label>
                                 <p className="text-xl font-bold text-green-600">¥{selectedProduct.price.toLocaleString()}</p>
                             </div>
                             <div>
-                                <Label className="text-gray-500">算力周期</Label>
+                                <Label className="text-gray-500">周期</Label>
                                 <p className="text-xl font-bold">{selectedProduct.period}天</p>
                             </div>
                             <div>
@@ -1277,8 +1277,8 @@ const [copySuccess, setCopySuccess] = useState(false);
                                 <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
                                     <p className="font-medium mb-1">成为服务商的权益：</p>
                                     <ul className="list-disc list-inside space-y-1 text-xs">
-                                        <li>获得算力额度，生成产品上架销售</li>
-                                        <li>享受会员购买产品时市场费收益</li>
+                                        <li>获得Token值，生成Token存储包上架销售</li>
+                                        <li>享受会员购买产品时收益分成</li>
                                         <li>可发展下级服务商，获得团队收益分成</li>
                                         <li>管理会员产品购买与流转</li>
                                     </ul>
@@ -1321,7 +1321,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                             </div>
                             <div>
                                 <h1 className="text-base md:text-xl font-bold text-gray-900">艺元智算</h1>
-                                <p className="text-xs text-gray-500 hidden md:block">GPU算力收益平台</p>
+                                <p className="text-xs text-gray-500 hidden md:block">Token收益平台</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2 md:gap-4">
@@ -1354,7 +1354,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                         <CardContent className="pt-4">
                             <div className="flex items-center gap-2">
                                 <Package className="w-5 h-5 mobile-icon" />
-                                <span className="opacity-80 text-sm mobile-label">持有算力</span>
+                                <span className="opacity-80 text-sm mobile-label">持有Token</span>
                             </div>
                             <p className="text-2xl font-bold mt-2 mobile-num">¥{stats.total_holding?.toLocaleString() || 0}</p>
                         </CardContent>
@@ -1379,7 +1379,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                         <button
                             onClick={() => setActiveTab("products")}
                             className={`px-4 py-2 border-b-2 transition-colors flex-shrink-0 ${activeTab === "products" ? "border-green-500 text-green-600" : "border-transparent text-gray-500"}`}>
-                            <ShoppingCart className="w-4 h-4 inline mr-2" />购买算力
+                            <ShoppingCart className="w-4 h-4 inline mr-2" />购买Token
                         </button>
                         <button
                             onClick={() => setActiveTab("holdings")}
@@ -1840,7 +1840,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                     </li>
                                                     <li className="flex items-start gap-2">
                                                         <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                                                        <span>好友购买算力时，您可获得好友交易额的一定比例作为奖励</span>
+                                                        <span>好友购买Token时，您可获得好友交易额的一定比例作为奖励</span>
                                                     </li>
                                                     <li className="flex items-start gap-2">
                                                         <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
@@ -2160,8 +2160,8 @@ const [copySuccess, setCopySuccess] = useState(false);
                                 <div className="flex items-center gap-3">
                                     <Zap className="w-6 h-6 text-yellow-400" />
                                     <div>
-                                        <p className="font-medium text-white">服务商上架了 {products.length}个新算力</p>
-                                        <p className="text-sm text-green-200">选择适合您的算力进行购买</p>
+                                        <p className="font-medium text-white">服务商上架了 {products.length}个Token存储包</p>
+                                        <p className="text-sm text-green-200">选择适合您的Token存储包进行购买</p>
                                     </div>
                                 </div>
                             </CardContent>
@@ -2271,7 +2271,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                         {/* GPU芯片图标 */}
                                         <div className="absolute inset-0 flex items-center justify-center">
                                             <div className={`w-14 h-14 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-gradient-to-br ${tier.iconBg} border-2 ${tier.iconBorder} flex flex-col items-center justify-center backdrop-blur-sm shadow-2xl`}>
-                                                <span className={`text-lg md:text-2xl font-black ${tier.iconColor}`}>GPU</span>
+                                                <span className={`text-lg md:text-2xl font-black ${tier.iconColor}`}>TK</span>
                                                 <span className={`text-[8px] md:text-[10px] font-bold mt-0.5 md:mt-1 ${tier.iconColor}`}>{product.period === 3 ? '3天' : '7天'}</span>
                                             </div>
                                         </div>
@@ -2293,7 +2293,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                         {/* 产品编码 */}
                                         <div className="absolute bottom-2 right-2 md:bottom-3 md:right-3">
                                             <span className="px-1.5 py-0.5 bg-slate-900/80 rounded text-[9px] md:text-xs text-slate-300 font-mono backdrop-blur-sm">
-                                                {product.code || `GPU-${product.id.slice(0, 6).toUpperCase()}`}
+                                                {product.code || `TK-${product.id.slice(0, 6).toUpperCase()}`}
                                             </span>
                                         </div>
                                     </div>
@@ -2307,33 +2307,23 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                 {product.period}天
                                             </Badge>
                                             <Badge variant="outline" className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] md:text-xs px-1.5 md:px-2.5">
-                                                到期+{total_rate}%
+                                                收益{profit_rate}%
                                             </Badge>
                                         </div>
 
-                                        {/* 核心参数 - 移动端单行 */}
+                                        {/* 核心参数 */}
                                         <div className="flex gap-2 mb-2 md:hidden">
-                                            <div className={`flex-1 p-2 rounded-lg border ${tier.color === 'blue' ? 'bg-blue-500/10 border-blue-500/30' : tier.color === 'green' ? 'bg-green-500/10 border-green-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
-                                                <p className={`text-base font-bold ${tier.color === 'blue' ? 'text-blue-400' : tier.color === 'green' ? 'text-green-400' : 'text-amber-400'}`}>+{total_rate}%</p>
-                                                <p className="text-[9px] text-slate-500">总收益</p>
-                                            </div>
                                             <div className="flex-1 p-2 bg-slate-800/50 rounded-lg border border-slate-700/50">
                                                 <p className="text-base font-bold text-emerald-400">{profit_rate}%</p>
-                                                <p className="text-[9px] text-slate-500">到手</p>
+                                                <p className="text-[9px] text-slate-500">收益</p>
                                             </div>
                                         </div>
 
-                                        {/* 核心参数 - 桌面端双列 */}
-                                        <div className="hidden md:grid grid-cols-2 gap-3 mb-4">
-                                            <div className={`p-3 rounded-xl border ${tier.color === 'blue' ? 'bg-blue-500/10 border-blue-500/30' : tier.color === 'green' ? 'bg-green-500/10 border-green-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
-                                                <p className="text-xs text-slate-400 mb-1">预期收益</p>
-                                                <p className={`text-xl font-bold ${tier.color === 'blue' ? 'text-blue-400' : tier.color === 'green' ? 'text-green-400' : 'text-amber-400'}`}>+{total_rate}%</p>
-                                                <p className="text-xs text-slate-500">总收益率</p>
-                                            </div>
+                                        {/* 核心参数 - 桌面端 */}
+                                        <div className="hidden md:block mb-4">
                                             <div className="p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
-                                                <p className="text-xs text-slate-400 mb-1">会员到手</p>
+                                                <p className="text-xs text-slate-400 mb-1">收益</p>
                                                 <p className="text-xl font-bold text-emerald-400">{profit_rate}%</p>
-                                                <p className="text-xs text-slate-500">实际收益</p>
                                             </div>
                                         </div>
 
@@ -2410,8 +2400,8 @@ const [copySuccess, setCopySuccess] = useState(false);
                             })}
                             {products.length === 0 && <div className="col-span-3 text-center py-12">
                                 <Package className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                                <p className="text-gray-500">暂无可购买的算力</p>
-                                <p className="text-sm text-gray-400">请等待服务商上架算力</p>
+                                <p className="text-gray-500">暂无可购买的Token存储包</p>
+                                <p className="text-sm text-gray-400">请等待服务商上架Token存储包</p>
                             </div>}
                         </div>
                     </div>}
@@ -2468,7 +2458,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             <div key={period} className="mb-6">
                                                 <div className="flex items-center gap-3 mb-3">
                                                     <h3 className="font-bold text-lg">
-                                                        {period}天算力套餐
+                                                        Token存储包
                                                     </h3>
                                                     <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200">
                                                         {groupedProducts[period].length} 个
@@ -2478,10 +2468,9 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                     <thead>
                                                         <tr className="border-b bg-gray-50">
                                                             <th className="text-left py-3 px-4">购买时间</th>
-                                                            <th className="text-left py-3 px-4">算力</th>
+                                                            <th className="text-left py-3 px-4">Token</th>
                                                             <th className="text-left py-3 px-4">购买价格</th>
-                                                            <th className="text-left py-3 px-4">预期收益</th>
-                                                            <th className="text-left py-3 px-4">市场费</th>
+                                                            <th className="text-left py-3 px-4">收益</th>
                                                             <th className="text-left py-3 px-4">可卖出</th>
                                                             <th className="text-left py-3 px-4">状态</th>
                                                             <th className="text-left py-3 px-4">操作</th>
@@ -2518,9 +2507,6 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                             <td className="py-3 px-4 text-green-600 font-medium">¥{up.purchase_price.toLocaleString()}
                                                             </td>
                                                             <td className="py-3 px-4 text-blue-600">+¥{up.expected_profit.toLocaleString()}
-                                                            </td>
-                                                            <td className="py-3 px-4 text-orange-600">
-                                                                {up.market_fee || 0}市场费
                                                             </td>
                                                             <td className="py-3 px-4">
                                                                 {up.status === "pending_confirm" ? (
@@ -2608,7 +2594,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                         </>
                                     );
                                 })()}
-                                {userProducts.filter(up => !['cancelled', 'sold', 'transferred', 'repurchased'].includes(up.status)).length === 0 && <div className="py-8 text-center text-gray-500">暂无持仓，请先购买算力</div>}
+                                {userProducts.filter(up => !['cancelled', 'sold', 'transferred', 'repurchased'].includes(up.status)).length === 0 && <div className="py-8 text-center text-gray-500">暂无持仓，请先购买Token存储包</div>}
                             </div>
                         </CardContent>
                     </Card>}
