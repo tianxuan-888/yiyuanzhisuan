@@ -93,9 +93,7 @@ const menuItems: MenuItem[] = [
   { id: 'branches', name: '服务网点管理', icon: <Building2 className="w-5 h-5" /> },
   { id: 'providers', name: '服务商管理', icon: <UserCog className="w-5 h-5" /> },
   { id: 'members', name: '会员管理', icon: <Users className="w-5 h-5" /> },
-  { id: 'energy', name: '市场费分配', icon: <Zap className="w-5 h-5" /> },
   { id: 'income', name: '市场费分配', icon: <TrendingUp className="w-5 h-5" /> },
-  { id: 'finance', name: '财务管理', icon: <Wallet className="w-5 h-5" /> },
   { id: 'system-config', name: '系统设置', icon: <Settings className="w-5 h-5" /> },
 ];
 
@@ -7769,10 +7767,6 @@ export default function AdminPage() {
       case 'income-detail':
       case 'income-withdraw':
         return incomeTab === 'withdraw' ? renderWithdrawManagement() : (incomeTab === 'detail' ? renderIncomeDetail() : renderIncomeOverview());
-      case 'finance':
-        return <FinanceManagementPanel />;
-      case 'energy':
-        return <EnergyManagement />;
       case 'branches':
         return <BranchesManagement />;
       case 'providers':
