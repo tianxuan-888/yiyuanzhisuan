@@ -976,7 +976,7 @@ export default function ProviderPage() {
             console.log('[generate] 响应数据:', JSON.stringify(data).substring(0, 500));
 
             if (data.success) {
-                showMessage("success", data.message || `成功生成 ${data.data?.stats?.total} 个算力`);
+                showMessage("success", data.message || `成功生成 ${data.data?.stats?.total} 个Token`);
                 setShowQuotaGenerateDialog(false);
                 refreshAll();
             } else {
@@ -1026,7 +1026,7 @@ export default function ProviderPage() {
             const data = await response.json();
 
             if (data.success) {
-                showMessage("success", data.message || `成功生成 ${data.data?.stats?.total} 个算力`);
+                showMessage("success", data.message || `成功生成 ${data.data?.stats?.total} 个Token`);
                 refreshAll();
             } else {
                 showMessage("error", data.error || "生成失败");
@@ -2132,7 +2132,7 @@ export default function ProviderPage() {
                                 <span className="text-[10px] md:text-xs font-medium text-yellow-600 bg-yellow-100 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full">待上架</span>
                             </div>
                             <p className="text-lg md:text-2xl font-bold mt-1 md:mt-2 text-gradient bg-gradient-to-r from-yellow-600 to-amber-600">{stats.pending_count}</p>
-                            <p className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1">待上架算力</p>
+                            <p className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1">待上架Token</p>
                         </CardContent>
                     </Card>
                     <Card className="mobile-compact-card bg-gradient-to-br from-white to-green-50 border-green-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
@@ -2144,7 +2144,7 @@ export default function ProviderPage() {
                                 <span className="text-[10px] md:text-xs font-medium text-green-600 bg-green-100 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full">已上架</span>
                             </div>
                             <p className="text-lg md:text-2xl font-bold mt-1 md:mt-2 text-gradient bg-gradient-to-r from-green-600 to-emerald-600">{stats.available_count}</p>
-                            <p className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1">可售算力</p>
+                            <p className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1">可售Token</p>
                         </CardContent>
                     </Card>
                     <Card className="mobile-compact-card bg-gradient-to-br from-white to-blue-50 border-blue-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
@@ -2157,7 +2157,7 @@ export default function ProviderPage() {
                             </div>
                             <p className="text-lg md:text-2xl font-bold mt-1 md:mt-2 text-gradient bg-gradient-to-r from-blue-600 to-indigo-600">¥{(stats.total_value || 0).toLocaleString()}
                             </p>
-                            <p className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1">算力总值</p>
+                            <p className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1">Token总值</p>
                         </CardContent>
                     </Card>
                     {/* 收益卡片 */}
@@ -2184,8 +2184,8 @@ export default function ProviderPage() {
                                     <AlertCircle className="w-6 h-6 text-white" />
                                 </div>
                                 <div>
-                                    <p className="font-bold text-lg text-yellow-800">您有 {stats.pending_count}个待上架算力</p>
-                                    <p className="text-sm text-yellow-600">点击一键上架，让会员可以购买您的算力</p>
+                                    <p className="font-bold text-lg text-yellow-800">您有 {stats.pending_count}个待上架Token</p>
+                                    <p className="text-sm text-yellow-600">点击一键上架，让会员可以购买您的Token</p>
                                 </div>
                             </div>
                             <Button
@@ -2714,13 +2714,13 @@ export default function ProviderPage() {
                                 <div className="space-y-3">
                                     {(stats.available_quota || 0) >= 100 && <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl border border-blue-200">
                                         <p className="text-sm text-blue-700 font-medium mb-2">您有可用的额度: ¥{(stats.available_quota || 0).toLocaleString()}</p>
-                                        <p className="text-xs text-blue-500">前往额度管理，一键生成算力</p>
+                                        <p className="text-xs text-blue-500">前往额度管理，一键生成Token</p>
                                     </div>}
                                     {stats.pending_count > 0 && <Button
                                         onClick={handleListAllProducts}
                                         className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-lg"
                                         disabled={submitting}>
-                                        <CheckCircle className="w-4 h-4 mr-2" />一键上架 {stats.pending_count}个算力
+                                        <CheckCircle className="w-4 h-4 mr-2" />一键上架 {stats.pending_count}个Token
                                                               </Button>}
                                     <Button
                                         onClick={() => { setActiveTab("power"); setPowerSubTab("quota"); }}
@@ -2732,7 +2732,7 @@ export default function ProviderPage() {
                                         onClick={() => { setActiveTab("power"); setPowerSubTab("products"); }}
                                         variant="outline"
                                         className="w-full border-fuchsia-300 text-fuchsia-600 hover:bg-fuchsia-50">
-                                        <Package className="w-4 h-4 mr-2" />管理算力
+                                        <Package className="w-4 h-4 mr-2" />管理Token
                                                             </Button>
                                 </div>
                             </CardContent>
@@ -2740,7 +2740,7 @@ export default function ProviderPage() {
                         <Card className="mobile-compact-card bg-gradient-to-br from-white to-purple-50 border-purple-200 shadow-lg">
                             <CardHeader className="pb-2">
                                 <h3 className="font-bold text-lg flex items-center gap-2 text-purple-700">
-                                    <TrendingUp className="w-5 h-5" />算力流转说明
+                                    <TrendingUp className="w-5 h-5" />Token流转说明
                                 </h3>
                             </CardHeader>
                             <CardContent className="pt-2">
@@ -2750,15 +2750,15 @@ export default function ProviderPage() {
                                             className="w-6 h-6 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center flex-shrink-0">1</div>
                                         <div>
                                             <p className="font-medium">收到额度分配</p>
-                                            <p className="text-gray-500">分公司为您分配算力额度</p>
+                                            <p className="text-gray-500">分公司为您分配Token额度</p>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-3">
                                         <div
                                             className="w-6 h-6 rounded-full bg-purple-500 text-white text-xs flex items-center justify-center flex-shrink-0">2</div>
                                         <div>
-                                            <p className="font-medium">生成算力</p>
-                                            <p className="text-gray-500">5万额度生成15个价格不等的算力</p>
+                                            <p className="font-medium">生成Token</p>
+                                            <p className="text-gray-500">5万额度生成15个价格不等的Token</p>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-3">
@@ -2766,7 +2766,7 @@ export default function ProviderPage() {
                                             className="w-6 h-6 rounded-full bg-green-500 text-white text-xs flex items-center justify-center flex-shrink-0">3</div>
                                         <div>
                                             <p className="font-medium">一键上架</p>
-                                            <p className="text-gray-500">算力上架后会员即可购买</p>
+                                            <p className="text-gray-500">Token上架后会员即可购买</p>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-3">
@@ -2783,7 +2783,7 @@ export default function ProviderPage() {
                     </div>}
                     {}
                     {activeTab === "power" && <div className="space-y-3 md:space-y-6">
-                        {/* 算力管理子Tab导航 */}
+                        {/* Token管理子Tab导航 */}
                         <div className="flex flex-wrap gap-2">
                             <button onClick={() => setPowerSubTab('quota')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${powerSubTab === 'quota' ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-purple-50'}`}>
                                 <Database className="w-3.5 h-3.5 inline mr-1" />Token值概览
@@ -2845,14 +2845,14 @@ export default function ProviderPage() {
                                             </div>
                                             <div>
                                                 <p className="font-bold text-lg text-purple-800">可用额度 ¥{(stats.available_quota || 0).toLocaleString()}</p>
-                                                <p className="text-sm text-purple-600">选择模板和金额生成算力产品</p>
+                                                <p className="text-sm text-purple-600">选择模板和金额生成Token产品</p>
                                             </div>
                                         </div>
                                         <Button
                                             onClick={openGenerateDialog}
                                             className="bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-700 hover:to-fuchsia-700 shadow-lg px-6"
                                         >
-                                            <Plus className="w-4 h-4 mr-2" />生成算力
+                                            <Plus className="w-4 h-4 mr-2" />生成Token
                                         </Button>
                                     </div>
                                 </CardContent>
@@ -2984,7 +2984,7 @@ export default function ProviderPage() {
                     {powerSubTab === "products" && <Card>
                         <CardHeader>
                             <div className="flex items-center justify-between flex-wrap gap-3">
-                                <CardTitle>我的算力</CardTitle>
+                                <CardTitle>我的Token</CardTitle>
                                 <div className="flex items-center gap-3 flex-wrap">
                                     <div className="flex items-center gap-4 text-sm">
                                         <span className="text-gray-500">产品总数：<span className="text-purple-600 font-bold">{products.length}</span></span>
@@ -3050,7 +3050,7 @@ export default function ProviderPage() {
                                             <thead>
                                                 <tr className="border-b bg-gray-50">
                                                     <th className="text-left py-3 px-4 w-10"></th>
-                                                    <th className="text-left py-3 px-4">算力名称</th>
+                                                    <th className="text-left py-3 px-4">Token名称</th>
                                                     <th className="text-left py-3 px-4">价格</th>
                                                     <th className="text-left py-3 px-4">周期</th>
                                                     <th className="text-left py-3 px-4">收益率</th>
@@ -3128,7 +3128,7 @@ export default function ProviderPage() {
                                             <thead>
                                                 <tr className="border-b bg-gray-50">
                                                     <th className="text-left py-3 px-4 w-10"></th>
-                                                    <th className="text-left py-3 px-4">算力名称</th>
+                                                    <th className="text-left py-3 px-4">Token名称</th>
                                                     <th className="text-left py-3 px-4">价格</th>
                                                     <th className="text-left py-3 px-4">周期</th>
                                                     <th className="text-left py-3 px-4">收益率</th>
@@ -3198,7 +3198,7 @@ export default function ProviderPage() {
                                         <table className="w-full">
                                             <thead>
                                                 <tr className="border-b bg-gray-50">
-                                                    <th className="text-left py-3 px-4">算力名称</th>
+                                                    <th className="text-left py-3 px-4">Token名称</th>
                                                     <th className="text-left py-3 px-4">价格</th>
                                                     <th className="text-left py-3 px-4">周期</th>
                                                     <th className="text-left py-3 px-4">收益率</th>
@@ -5231,7 +5231,7 @@ export default function ProviderPage() {
                             <div className="space-y-4 py-4">
                                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
                                     <p className="text-sm text-orange-700">
-                                        <strong>说明：</strong>服务商初始额度为0，需要向分公司申请额度后才能生成算力产品。
+                                        <strong>说明：</strong>服务商初始额度为0，需要向分公司申请额度后才能生成Token产品。
                                     </p>
                                 </div>
                                 <div>
