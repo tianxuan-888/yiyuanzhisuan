@@ -1500,7 +1500,7 @@ export default function BranchPage() {
               {/* 说明 */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
                 <p className="font-medium mb-1">操作说明</p>
-                <p>选择服务商并输入分配的额度金额，服务商获得额度后可直接选择总公司设定的产品模板生成算力产品。</p>
+                <p>选择服务商并输入分配的额度金额，服务商获得额度后可直接选择总公司设定的产品模板生成Token存储包。</p>
               </div>
               {/* 分公司额度信息 */}
               <div className="bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 rounded-lg p-3">
@@ -1579,7 +1579,7 @@ export default function BranchPage() {
                   placeholder="输入额度金额"
                   className="mt-1"
                 />
-                <p className="text-sm text-gray-500 mt-1">服务商获得额度后，可自主选择产品模板生成算力产品</p>
+                <p className="text-sm text-gray-500 mt-1">服务商获得额度后，可自主选择产品模板生成Token存储包</p>
                 {/* 额度不足提示 */}
                 {quotaAmount && parseFloat(quotaAmount) > (stats.available_quota || 0) && (
                   <div className="mt-1 flex items-center gap-1 text-red-600 text-sm">

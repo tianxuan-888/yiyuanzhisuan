@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
     // ========== 4. 收益说明 ==========
     const revenueDescription = {
       source: '产品持有收益',
-      description: '会员通过持有GPU算力产品，按周期收益率获得收益。具体收益率以产品设定的total_rate为准。',
+      description: '会员通过持有Token存储包，按周期收益率获得收益。具体收益率以产品设定的total_rate为准。',
       timing: '产品到期卖出时，本金和收益进入收益账户',
       difference: '与服务商/分公司收益不同：服务商分公司收益来自市场业务（市场费分成），会员收益来自产品持有时长产生的回报',
     };

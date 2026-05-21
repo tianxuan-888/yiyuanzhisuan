@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     template: '%s | 艺元智算',
   },
   description:
-    '艺元智算 - 专业算力服务平台，提供算力包选购、流转交易、推广裂变等全生命周期管理服务。',
+    '艺元智算 - 专业Token服务平台，提供Token存储包选购、流转交易、推广裂变等全生命周期管理服务。',
   keywords: [
     '艺元智算',
     '算力流转',

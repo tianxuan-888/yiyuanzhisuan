@@ -181,7 +181,7 @@ function CreateProductsContent() {
       
       newProducts.push({
         id: `auto-${Date.now()}-${i}`,
-        name: `算力产品-${period}天周期-${i + 1}`,
+        name: `Token存储包-${period}天周期-${i + 1}`,
         price,
         period,
         ...cycleRates

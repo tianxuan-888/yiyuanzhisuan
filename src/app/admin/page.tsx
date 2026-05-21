@@ -4106,7 +4106,7 @@ export default function AdminPage() {
               {[1, 2, 3].map(i => (
                 <tr key={i} className="border-b hover:bg-gray-50">
                   <td className="py-3 px-4 font-mono">WH{String(i).padStart(6, '0')}</td>
-                  <td className="py-3 px-4">GPU算力套餐 {i}</td>
+                  <td className="py-3 px-4">Token存储包 {i}</td>
                   <td className="py-3 px-4">{i * 10} 份</td>
                   <td className="py-3 px-4"><Badge className="bg-green-100 text-green-700">可匹配</Badge></td>
                   <td className="py-3 px-4 text-sm text-gray-500">2026-04-0{i}</td>
@@ -4191,7 +4191,7 @@ export default function AdminPage() {
                 <tr key={i} className="border-b hover:bg-gray-50">
                   <td className="py-3 px-4 font-mono">RSV{String(i).padStart(6, '0')}</td>
                   <td className="py-3 px-4">user00{i}</td>
-                  <td className="py-3 px-4">GPU套餐 {i}</td>
+                  <td className="py-3 px-4">Token存储包 {i}</td>
                   <td className="py-3 px-4 text-green-600">¥{(i * 5000).toLocaleString()}</td>
                   <td className="py-3 px-4"><Badge className="bg-blue-100 text-blue-700">等待中</Badge></td>
                   <td className="py-3 px-4 text-sm text-gray-500">2026-04-0{i}</td>
@@ -7808,7 +7808,7 @@ export default function AdminPage() {
                   <Input 
                     value={templateForm.name}
                     onChange={(e) => setTemplateForm({...templateForm, name: e.target.value})}
-                    placeholder="如: 周算力套餐"
+                    placeholder="如: Token存储包"
                     className="mt-1"
                   />
                 </div>

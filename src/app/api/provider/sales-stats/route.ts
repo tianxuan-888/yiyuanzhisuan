@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne } from '@/storage/database/pg-client';
 
 /**
- * 服务商后台 - 算力产品售卖统计
+ * 服务商后台 - Token存储包售卖统计
  */
 export async function GET(request: NextRequest) {
   try {

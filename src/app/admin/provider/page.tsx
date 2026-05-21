@@ -982,7 +982,7 @@ export default function ProviderDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">我的产品</h1>
-                <p className="text-gray-500 text-sm mt-1">管理您的算力产品</p>
+                <p className="text-gray-500 text-sm mt-1">管理您的Token存储包</p>
               </div>
               <div className="flex items-center gap-4">
                 <select 
