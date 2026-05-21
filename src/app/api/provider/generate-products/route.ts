@@ -245,7 +245,7 @@ export async function POST(request: NextRequest) {
       const price = prices[i];
       const seq = (codeCounter++).toString().slice(-6);
       const productId = crypto.randomUUID();
-      const productName = `Token存储包-${seq}`;
+      const productName = `Token存储包`;
       const productCode = `GPU-${template.period}D-${seq}`;
       
       try {
