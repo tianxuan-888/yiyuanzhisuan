@@ -3744,6 +3744,11 @@ export default function AdminPage() {
     const [feeStats, setFeeStats] = useState<any>({});
     const [financeLoading, setFinanceLoading] = useState(false);
     const [financeSubTab, setFinanceSubTab] = useState<'overview' | 'withdraw-review' | 'fee-records'>('overview');
+    const [feeTypeFilter, setFeeTypeFilter] = useState<string>('all');
+    const [feeRoleFilter, setFeeRoleFilter] = useState<string>('all');
+    const [feeDateFrom, setFeeDateFrom] = useState<string>('');
+    const [feeDateTo, setFeeDateTo] = useState<string>('');
+    const [feeSearch, setFeeSearch] = useState<string>('');
 
     const loadFinanceData = async () => {
       setFinanceLoading(true);
@@ -3933,20 +3938,85 @@ export default function AdminPage() {
           </Card>
         )}
 
-        {financeSubTab === 'fee-records' && (
+        {financeSubTab === 'fee-records' && (() => {
+          // 筛选逻辑（使用组件级state）
+          const filteredFeeRecords = feeRecords.filter((r: any) => {
+            if (feeTypeFilter !== 'all') {
+              if (feeTypeFilter === 'withdrawal_fee' && r.type !== 'withdrawal_fee') return false;
+              if (feeTypeFilter === 'market_fee_ops' && r.type !== 'market_fee_ops') return false;
+            }
+            if (feeRoleFilter !== 'all' && r.source_role !== feeRoleFilter) return false;
+            if (feeDateFrom && r.created_at && new Date(r.created_at) < new Date(feeDateFrom)) return false;
+            if (feeDateTo && r.created_at && new Date(r.created_at) > new Date(feeDateTo + 'T23:59:59')) return false;
+            if (feeSearch) {
+              const s = feeSearch.toLowerCase();
+              const matchNote = (r.note || '').toLowerCase().includes(s);
+              const matchAmount = String(r.amount).includes(s);
+              const matchRole = (r.source_role === 'member' ? '会员' : r.source_role === 'provider' ? '服务商' : r.source_role === 'branch' ? '服务网点' : r.source_role || '').includes(s);
+              if (!matchNote && !matchAmount && !matchRole) return false;
+            }
+            return true;
+          });
+
+          // 统计筛选结果
+          const filteredTotal = filteredFeeRecords.reduce((sum: number, r: any) => sum + Number(r.amount), 0);
+          const filteredWithdrawFee = filteredFeeRecords.filter((r: any) => r.type === 'withdrawal_fee').reduce((sum: number, r: any) => sum + Number(r.amount), 0);
+          const filteredMarketFee = filteredFeeRecords.filter((r: any) => r.type === 'market_fee_ops').reduce((sum: number, r: any) => sum + Number(r.amount), 0);
+
+          return (
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <CardTitle>手续费沉淀记录</CardTitle>
-                <div className="flex gap-2">
-                  <div className="bg-green-50 px-3 py-1 rounded text-sm text-green-700">总沉淀: ¥{totalFee.toLocaleString()}</div>
-                  <div className="bg-blue-50 px-3 py-1 rounded text-sm text-blue-700">提现手续费: ¥{withdrawFee.toLocaleString()}</div>
-                  <div className="bg-orange-50 px-3 py-1 rounded text-sm text-orange-700">市场费运营: ¥{marketFeeOps.toLocaleString()}</div>
+                <div className="flex gap-2 flex-wrap">
+                  <div className="bg-green-50 px-3 py-1 rounded text-sm text-green-700">筛选合计: ¥{filteredTotal.toLocaleString()}</div>
+                  <div className="bg-blue-50 px-3 py-1 rounded text-sm text-blue-700">提现手续费: ¥{filteredWithdrawFee.toLocaleString()}</div>
+                  <div className="bg-orange-50 px-3 py-1 rounded text-sm text-orange-700">市场费运营: ¥{filteredMarketFee.toLocaleString()}</div>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              {feeRecords.length > 0 ? (
+              {/* 筛选栏 */}
+              <div className="mb-4 p-4 bg-gray-50 rounded-lg space-y-3">
+                <div className="flex flex-wrap gap-3 items-end">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-gray-500 font-medium">类型筛选</label>
+                    <select value={feeTypeFilter} onChange={(e) => setFeeTypeFilter(e.target.value)} className="border rounded-md px-3 py-1.5 text-sm bg-white">
+                      <option value="all">全部类型</option>
+                      <option value="withdrawal_fee">提现手续费</option>
+                      <option value="market_fee_ops">市场费运营</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-gray-500 font-medium">来源角色</label>
+                    <select value={feeRoleFilter} onChange={(e) => setFeeRoleFilter(e.target.value)} className="border rounded-md px-3 py-1.5 text-sm bg-white">
+                      <option value="all">全部角色</option>
+                      <option value="member">会员</option>
+                      <option value="provider">服务商</option>
+                      <option value="branch">服务网点</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-gray-500 font-medium">开始日期</label>
+                    <input type="date" value={feeDateFrom} onChange={(e) => setFeeDateFrom(e.target.value)} className="border rounded-md px-3 py-1.5 text-sm bg-white" />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-gray-500 font-medium">结束日期</label>
+                    <input type="date" value={feeDateTo} onChange={(e) => setFeeDateTo(e.target.value)} className="border rounded-md px-3 py-1.5 text-sm bg-white" />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-gray-500 font-medium">搜索</label>
+                    <div className="relative">
+                      <Search className="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input type="text" placeholder="金额/说明/角色" value={feeSearch} onChange={(e) => setFeeSearch(e.target.value)} className="border rounded-md pl-8 pr-3 py-1.5 text-sm bg-white w-40" />
+                    </div>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => { setFeeTypeFilter('all'); setFeeRoleFilter('all'); setFeeDateFrom(''); setFeeDateTo(''); setFeeSearch(''); }} className="h-8">重置</Button>
+                </div>
+                <div className="text-xs text-gray-400">共 {filteredFeeRecords.length} 条记录</div>
+              </div>
+
+              {filteredFeeRecords.length > 0 ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -3958,7 +4028,7 @@ export default function AdminPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {feeRecords.map((r: any) => (
+                    {filteredFeeRecords.map((r: any) => (
                       <TableRow key={r.id}>
                         <TableCell className="text-sm">{r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</TableCell>
                         <TableCell>{r.type === 'withdrawal_fee' ? '提现手续费' : r.type === 'market_fee_ops' ? '市场费运营' : r.type}</TableCell>
@@ -3970,11 +4040,12 @@ export default function AdminPage() {
                   </TableBody>
                 </Table>
               ) : (
-                <p className="text-gray-500 text-center py-8">暂无手续费记录</p>
+                <p className="text-gray-500 text-center py-8">暂无匹配的手续费记录</p>
               )}
             </CardContent>
           </Card>
-        )}
+          );
+        })()}
       </div>
     );
   });
