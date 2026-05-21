@@ -2786,7 +2786,7 @@ export default function ProviderPage() {
                         {/* 算力管理子Tab导航 */}
                         <div className="flex flex-wrap gap-2">
                             <button onClick={() => setPowerSubTab('quota')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${powerSubTab === 'quota' ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-purple-50'}`}>
-                                <Database className="w-3.5 h-3.5 inline mr-1" />额度概览
+                                <Database className="w-3.5 h-3.5 inline mr-1" />Token值概览
                             </button>
                             <button onClick={() => { setPowerSubTab('products'); }} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${powerSubTab === 'products' ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-purple-50'}`}>
                                 <Package className="w-3.5 h-3.5 inline mr-1" />Token列表
@@ -2810,25 +2810,25 @@ export default function ProviderPage() {
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
                             <Card className="bg-gradient-to-br from-purple-500 to-fuchsia-600 text-white">
                                 <CardContent className="p-3 md:py-4">
-                                    <p className="text-purple-100 text-xs md:text-sm">总分配额度</p>
+                                    <p className="text-purple-100 text-xs md:text-sm">Token总值</p>
                                     <p className="text-lg md:text-2xl font-bold mt-0.5 md:mt-1">¥{(stats.total_quota || 0).toLocaleString()}</p>
                                 </CardContent>
                             </Card>
                             <Card className="bg-gradient-to-br from-blue-500 to-cyan-600 text-white">
                                 <CardContent className="p-3 md:py-4">
-                                    <p className="text-blue-100 text-xs md:text-sm">已使用额度</p>
+                                    <p className="text-blue-100 text-xs md:text-sm">已使用Token值</p>
                                     <p className="text-lg md:text-2xl font-bold mt-0.5 md:mt-1">¥{(stats.used_quota || 0).toLocaleString()}</p>
                                 </CardContent>
                             </Card>
                             <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
                                 <CardContent className="p-3 md:py-4">
-                                    <p className="text-green-100 text-xs md:text-sm">可用额度</p>
+                                    <p className="text-green-100 text-xs md:text-sm">闲置Token值</p>
                                     <p className="text-lg md:text-2xl font-bold mt-0.5 md:mt-1">¥{(stats.available_quota || 0).toLocaleString()}</p>
                                 </CardContent>
                             </Card>
                             <Card className="bg-gradient-to-br from-orange-500 to-amber-600 text-white">
                                 <CardContent className="p-3 md:py-4">
-                                    <p className="text-orange-100 text-xs md:text-sm">可生成额度</p>
+                                    <p className="text-orange-100 text-xs md:text-sm">可生成Token存储包</p>
                                     <p className="text-lg md:text-2xl font-bold mt-0.5 md:mt-1">¥{(stats.available_quota || 0).toLocaleString()}</p>
                                 </CardContent>
                             </Card>
