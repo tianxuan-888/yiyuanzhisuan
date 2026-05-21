@@ -4065,16 +4065,16 @@ export default function ProviderPage() {
                                         </Card>
                                         <Card className="bg-gradient-to-br from-rose-500 to-pink-600 text-white">
                                             <CardContent className="p-3 md:p-4">
-                                                <p className="text-xs opacity-80">下级分成</p>
+                                                <p className="text-xs opacity-80">高级服务商收益</p>
                                                 <p className="text-lg md:text-xl font-bold">{Number(revenueStats.subordinateRevenue || 0).toLocaleString()}</p>
-                                                <p className="text-[10px] opacity-70">0.3%~0.5%</p>
+                                                <p className="text-[10px] opacity-70">0.15%</p>
                                             </CardContent>
                                         </Card>
                                         <Card className="bg-gradient-to-br from-amber-500 to-orange-500 text-white">
                                             <CardContent className="p-3 md:p-4">
-                                                <p className="text-xs opacity-80">上级服务商分成</p>
+                                                <p className="text-xs opacity-80">培育奖励</p>
                                                 <p className="text-lg md:text-xl font-bold">{Number(revenueStats.distParentShare || 0).toLocaleString()}</p>
-                                                <p className="text-[10px] opacity-70">下级交易额分成</p>
+                                                <p className="text-[10px] opacity-70">培养服务商奖励</p>
                                             </CardContent>
                                         </Card>
                                         <Card className="bg-gradient-to-br from-purple-500 to-violet-600 text-white">
