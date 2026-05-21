@@ -4,7 +4,7 @@ import { authenticateRequest } from '@/lib/auth';
 import { execute, queryOne } from '@/lib/pg-client';
 
 /**
- * 服务商给会员充值能量值
+ * 服务商给会员充值收益
  * POST /api/provider/energy/recharge
  */
 export async function POST(request: NextRequest) {
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
 
     const currentProviderBalance = parseFloat(provider.energy_value) || 0;
     if (currentProviderBalance < amount) {
-      return NextResponse.json({ error: '能量值余额不足' }, { status: 400 });
+      return NextResponse.json({ error: '收益余额不足' }, { status: 400 });
     }
 
     // 验证会员存在
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     // 执行充值（使用SQL直接更新，确保写入成功）
     const newProviderBalance = currentProviderBalance - amount;
 
-    // 扣除服务商能量值
+    // 扣除服务商收益
     await execute(
       `UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2`,
       [newProviderBalance, providerId]
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
       [amount, providerId]
     );
 
-    // 增加会员能量值
+    // 增加会员收益
     await execute(
       `UPDATE users SET energy_value = energy_value + $1, updated_at = NOW() WHERE id = $2`,
       [amount, memberId]
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
     // 记录服务商支出
     await execute(
       `INSERT INTO energy_transactions (id, user_id, type, amount, from_user_id, to_user_id, note, status, created_at) VALUES (gen_random_uuid(), $1, 'transfer_out', $2, $1, $3, $4, 'completed', NOW())`,
-      [providerId, amount, memberId, note || '给会员充值能量值']
+      [providerId, amount, memberId, note || '给会员充值收益']
     );
 
     // 记录会员收入
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `已成功充值 ${amount} 能量值给 ${member.username}`,
+      message: `已成功充值 ${amount} 收益给 ${member.username}`,
       data: {
         amount,
         memberName: member.username,

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, execute, queryOne } from '@/storage/database/pg-client';
 import { generateUUID } from '@/lib/utils';
 
-// 服务商能量值提现申请
+// 服务商收益提现申请
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
 
     const withdrawAmount = parseFloat(amount);
     if (withdrawAmount < 50) {
-      return NextResponse.json({ error: '最低提现金额为50能量值' }, { status: 400 });
+      return NextResponse.json({ error: '最低提现金额为50收益' }, { status: 400 });
     }
 
     // 获取服务商信息
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
 
     const currentEnergy = parseFloat(String(provider.energy_value)) || 0;
     if (currentEnergy < withdrawAmount) {
-      return NextResponse.json({ error: '能量值余额不足' }, { status: 400 });
+      return NextResponse.json({ error: '收益余额不足' }, { status: 400 });
     }
 
     // 计算手续费和实际到账

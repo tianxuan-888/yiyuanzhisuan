@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
     // 卖家收益 = 本金 × profit_rate%
     const sellerProfit = Math.floor(transferPrice * profitRate / 100);
 
-    // ========== 扣除买家能量值（市场费） ==========
+    // ========== 扣除买家收益（市场费） ==========
     const buyer = await queryOne<any>(
       'SELECT id, username, energy_value, provider_id, inviter_id FROM users WHERE id = $1',
       [transfer.to_user_id]
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
 
     if (marketFee > 0 && parseFloat(buyer.energy_value) < marketFee) {
       return NextResponse.json({ 
-        error: `买家能量值不足（需 ${marketFee}，当前 ${parseFloat(buyer.energy_value)}），无法完成流转`,
+        error: `买家收益不足（需 ${marketFee}，当前 ${parseFloat(buyer.energy_value)}），无法完成流转`,
       }, { status: 400 });
     }
 
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
         [marketFee, transfer.to_user_id]
       );
 
-      // 记录能量值流水
+      // 记录收益流水
       await query(
         `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, status, created_at)
          VALUES ($1, 'transfer_out', $2, $1, NULL, $3, 'completed', NOW())`,

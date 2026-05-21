@@ -72,7 +72,7 @@ export default function BranchPage() {
   const [activeMainTab, setActiveMainTab] = useState('quota');
   // 额度管理子Tab状态
   const [activeQuotaSubTab, setActiveQuotaSubTab] = useState('allocation');
-  // 能量值管理子Tab状态
+  // 收益管理子Tab状态
   const [activeEnergySubTab, setActiveEnergySubTab] = useState('withdraw-review');
   
   // 额度管理相关状态
@@ -105,14 +105,14 @@ export default function BranchPage() {
   const [paymentMethod, setPaymentMethod] = useState<'alipay' | 'wechat'>('alipay');
   const [paymentAccount, setPaymentAccount] = useState('');
   
-  // 服务网点向智算总台申请能量值相关状态
+  // 服务网点向智算总台申请收益相关状态
   const [branchEnergyRequests, setBranchEnergyRequests] = useState<any[]>([]);
   const [branchEnergyRequestsLoading, setBranchEnergyRequestsLoading] = useState(true);
   const [showApplyEnergyDialog, setShowApplyEnergyDialog] = useState(false);
   const [applyEnergyAmount, setApplyEnergyAmount] = useState('');
   const [applyEnergyNote, setApplyEnergyNote] = useState('');
   
-  // 能量值状态
+  // 收益状态
   const [energyValue, setEnergyValue] = useState(0);
   
   // 服务商管理相关状态
@@ -132,7 +132,7 @@ export default function BranchPage() {
   // 确认转账成功状态
   const [transferSuccess, setTransferSuccess] = useState<{show: boolean; requestId: string; fee: number}>({show: false, requestId: '', fee: 0});
 
-  // 能量值申请相关状态
+  // 收益申请相关状态
   const [energyRequests, setEnergyRequests] = useState<any[]>([]);
   const [energyRequestLoading, setEnergyRequestLoading] = useState(true);
   const [showEnergyReviewDialog, setShowEnergyReviewDialog] = useState(false);
@@ -173,7 +173,7 @@ export default function BranchPage() {
     const userId = user.id;
     
     const loadData = async () => {
-      // 加载服务网点信息 - 同时获取用户信息和能量值余额
+      // 加载服务网点信息 - 同时获取用户信息和收益余额
       try {
         const [userResponse, energyStatsResponse] = await Promise.all([
           authFetch(`/api/auth/login`, {
@@ -190,7 +190,7 @@ export default function BranchPage() {
           setEnergyValue(userResult.data.energy_value ?? 0);
         }
         
-        // 从 energy_accounts 表获取正确的能量值余额
+        // 从 energy_accounts 表获取正确的收益余额
         if (energyStatsResult.success && energyStatsResult.data?.branch) {
           setEnergyValue(energyStatsResult.data.branch.balance ?? 0);
         }
@@ -198,7 +198,7 @@ export default function BranchPage() {
         console.error('加载服务网点信息失败:', error);
       }
       
-      // 加载服务网点向智算总台申请能量值记录
+      // 加载服务网点向智算总台申请收益记录
       setBranchEnergyRequestsLoading(true);
       try {
         const response = await fetch(`/api/energy/branch-request?branchId=${userId}`);
@@ -207,7 +207,7 @@ export default function BranchPage() {
           setBranchEnergyRequests(result.data.records || []);
         }
       } catch (error) {
-        console.error('加载能量值申请记录失败:', error);
+        console.error('加载收益申请记录失败:', error);
       }
       setBranchEnergyRequestsLoading(false);
       
@@ -344,14 +344,14 @@ export default function BranchPage() {
     }
   }, [user?.id, activeMainTab]);
 
-  // 能量值管理tab切换时加载数据
+  // 收益管理tab切换时加载数据
   useEffect(() => {
     if (user?.id && activeMainTab === 'energy') {
       loadEnergyRequestsRef.current?.();
     }
   }, [user?.id, activeMainTab]);
 
-  // 加载能量值申请列表
+  // 加载收益申请列表
   const loadEnergyRequests = useCallback(async () => {
     if (!user?.id) return;
     setEnergyRequestLoading(true);
@@ -362,7 +362,7 @@ export default function BranchPage() {
         setEnergyRequests(result.data || []);
       }
     } catch (error) {
-      console.error('加载能量值申请失败:', error);
+      console.error('加载收益申请失败:', error);
     }
     setEnergyRequestLoading(false);
   }, [user?.id]);
@@ -372,7 +372,7 @@ export default function BranchPage() {
     loadEnergyRequestsRef.current = loadEnergyRequests;
   }, [loadEnergyRequests]);
 
-  // 审核能量值申请
+  // 审核收益申请
   const handleEnergyReview = async () => {
     if (!selectedEnergyRequest) return;
 
@@ -395,10 +395,10 @@ export default function BranchPage() {
       });
       const result = await response.json();
       if (result.success) {
-        alert(energyReviewAction === 'approve' ? '审核通过，能量值已发放！' : '已拒绝该申请');
+        alert(energyReviewAction === 'approve' ? '审核通过，收益已发放！' : '已拒绝该申请');
         setShowEnergyReviewDialog(false);
         loadEnergyRequests();
-        // 刷新服务网点能量值
+        // 刷新服务网点收益
         const userResponse = await authFetch(`/api/auth/login`, {
           method: 'POST',
           body: JSON.stringify({ username: user?.name || '', password: '' }),
@@ -424,7 +424,7 @@ export default function BranchPage() {
 
     const amount = parseFloat(transferAmount);
     if (amount > energyValue) {
-      alert('能量值余额不足');
+      alert('收益余额不足');
       return;
     }
 
@@ -452,7 +452,7 @@ export default function BranchPage() {
         setShowTransferDialog(false);
         setTransferAmount('');
         setSelectedTransferTarget(null);
-        // 刷新能量值
+        // 刷新收益
         if (result.data) {
           setEnergyValue(result.data.branchEnergy);
         }
@@ -464,10 +464,10 @@ export default function BranchPage() {
     }
   };
 
-  // 服务网点向智算总台申请能量值
+  // 服务网点向智算总台申请收益
   const handleApplyEnergy = async () => {
     if (!applyEnergyAmount || parseFloat(applyEnergyAmount) < 50) {
-      alert('申请金额最低为50能量值');
+      alert('申请金额最低为50收益');
       return;
     }
     
@@ -489,7 +489,7 @@ export default function BranchPage() {
       });
       const result = await response.json();
       if (result.success) {
-        alert('能量值申请已提交，等待智算总台审核！');
+        alert('收益申请已提交，等待智算总台审核！');
         setShowApplyEnergyDialog(false);
         setApplyEnergyAmount('');
         setApplyEnergyNote('');
@@ -593,7 +593,7 @@ export default function BranchPage() {
   };
 
   const handleConfirmTransfer = async (request: WithdrawRequest) => {
-    if (!confirm(`确认已向 ${request.requesterName} 转账 ${request.actualAmount} 能量值？\n转账后将扣除服务商能量值并记录沉淀。`)) return;
+    if (!confirm(`确认已向 ${request.requesterName} 转账 ${request.actualAmount} 收益？\n转账后将扣除服务商收益并记录沉淀。`)) return;
 
     const authFetch = async (url: string, options: RequestInit = {}) => {
       const token = localStorage.getItem('token');
@@ -629,7 +629,7 @@ export default function BranchPage() {
           console.error('刷新提现申请失败:', error);
         }
         setWithdrawLoading(false);
-        // 刷新服务网点能量值
+        // 刷新服务网点收益
         const userResponse = await fetch(`/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -650,11 +650,11 @@ export default function BranchPage() {
   const handleBranchWithdraw = async () => {
     const amount = parseFloat(withdrawAmount);
     if (!amount || amount < 100) {
-      alert('最低变现金额为 100 能量值');
+      alert('最低变现金额为 100 收益');
       return;
     }
     if (amount > energyValue) {
-      alert('能量值余额不足');
+      alert('收益余额不足');
       return;
     }
     if (!paymentAccount) {
@@ -771,7 +771,7 @@ export default function BranchPage() {
               <div>
                 <p className="text-green-400 font-semibold">转账确认成功！</p>
                 <p className="text-green-400/80 text-sm">
-                  已向服务商转账，该服务商能量值已扣除，{transferSuccess.fee} 能量值已沉淀到您的账户
+                  已向服务商转账，该服务商收益已扣除，{transferSuccess.fee} 收益已沉淀到您的账户
                 </p>
               </div>
             </div>
@@ -850,7 +850,7 @@ export default function BranchPage() {
                 className="data-[state=active]:bg-blue-500 flex items-center gap-2"
               >
                 <Zap className="w-4 h-4" />
-                能量值管理
+                收益管理
               </TabsTrigger>
             </TabsList>
 
@@ -1005,7 +1005,7 @@ export default function BranchPage() {
                       </div>
                     </div>
                     <p className="text-gray-500 text-sm">
-                      说明：申请一万算力额度，配比能量值 2000（1万额度 = 2000能量值）
+                      说明：申请一万算力额度，配比收益 2000（1万额度 = 2000收益）
                     </p>
                   </div>
                   
@@ -1120,7 +1120,7 @@ export default function BranchPage() {
                       <TableHead className="text-gray-400">额度</TableHead>
                       <TableHead className="text-gray-400">已用额度</TableHead>
                       <TableHead className="text-gray-400">剩余额度</TableHead>
-                      <TableHead className="text-gray-400">能量值</TableHead>
+                      <TableHead className="text-gray-400">收益</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1181,7 +1181,7 @@ export default function BranchPage() {
                       <TableHead className="text-gray-400">所属服务商</TableHead>
                       <TableHead className="text-gray-400">总投资金额</TableHead>
                       <TableHead className="text-gray-400">持仓产品</TableHead>
-                      <TableHead className="text-gray-400">能量值</TableHead>
+                      <TableHead className="text-gray-400">收益</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1202,9 +1202,9 @@ export default function BranchPage() {
           </Card>
         </TabsContent>
 
-        {/* 能量值管理 - 包含子Tab */}
+        {/* 收益管理 - 包含子Tab */}
         <TabsContent value="energy">
-          {/* 能量值管理统计卡片 */}
+          {/* 收益管理统计卡片 */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <Card className="bg-slate-800 border-slate-700">
               <CardContent className="p-4">
@@ -1213,7 +1213,7 @@ export default function BranchPage() {
                     <Zap className="w-5 h-5 text-yellow-400" />
                   </div>
                   <div>
-                    <p className="text-gray-400 text-sm">能量值余额</p>
+                    <p className="text-gray-400 text-sm">收益余额</p>
                     <p className="text-2xl font-bold text-white">{(energyValue || 0).toLocaleString()}</p>
                   </div>
                 </div>
@@ -1263,11 +1263,11 @@ export default function BranchPage() {
             </Card>
           </div>
 
-          {/* 能量值管理子Tab */}
+          {/* 收益管理子Tab */}
           <Tabs value={activeEnergySubTab} onValueChange={setActiveEnergySubTab} className="space-y-4">
             <TabsList className="bg-slate-800 border-slate-700 grid grid-cols-6">
               <TabsTrigger value="apply-energy" className="data-[state=active]:bg-blue-500">
-                申请能量值
+                申请收益
               </TabsTrigger>
               <TabsTrigger value="withdraw-review" className="data-[state=active]:bg-blue-500">
                 提现审核
@@ -1282,25 +1282,25 @@ export default function BranchPage() {
                 提现记录
               </TabsTrigger>
               <TabsTrigger value="branch-withdraw" className="data-[state=active]:bg-blue-500">
-                能量值兑换
+                收益兑换
               </TabsTrigger>
             </TabsList>
 
-          {/* 申请能量值 - 服务网点向智算总台申请 */}
+          {/* 申请收益 - 服务网点向智算总台申请 */}
           <TabsContent value="apply-energy">
             <Card className="bg-slate-800 border-slate-700">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-white flex items-center gap-2">
                     <Zap className="w-5 h-5 text-yellow-400" />
-                    向智算总台申请能量值
+                    向智算总台申请收益
                   </CardTitle>
                   <Button 
                     className="bg-green-500 hover:bg-green-600"
                     onClick={() => setShowApplyEnergyDialog(true)}
                   >
                     <ArrowUpRight className="w-4 h-4 mr-2" />
-                    申请能量值
+                    申请收益
                   </Button>
                 </div>
               </CardHeader>
@@ -1308,7 +1308,7 @@ export default function BranchPage() {
                 {/* 申请统计 */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                   <div className="p-4 rounded-lg bg-slate-700/50">
-                    <p className="text-gray-400 text-sm">可用能量值</p>
+                    <p className="text-gray-400 text-sm">可用收益</p>
                     <p className="text-2xl font-bold text-yellow-400">{energyValue.toLocaleString()}</p>
                   </div>
                   <div className="p-4 rounded-lg bg-slate-700/50">
@@ -1468,7 +1468,7 @@ export default function BranchPage() {
             </Card>
           </TabsContent>
 
-          {/* 能量值充值审核 */}
+          {/* 收益充值审核 */}
           <TabsContent value="energy-request-review">
             <Card className="bg-slate-800 border-slate-700">
               <CardHeader>
@@ -1564,7 +1564,7 @@ export default function BranchPage() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-white flex items-center gap-2">
                     <ArrowUpRight className="w-5 h-5 text-green-400" />
-                    直接转账能量值
+                    直接转账收益
                   </CardTitle>
                   <div className="text-right">
                     <p className="text-gray-400 text-sm">可用余额</p>
@@ -1658,7 +1658,7 @@ export default function BranchPage() {
                     </Button>
                   </div>
                   <p className="text-gray-500 text-sm">
-                    当前余额：{energyValue.toLocaleString()} 能量值
+                    当前余额：{energyValue.toLocaleString()} 收益
                   </p>
                 </div>
 
@@ -1722,14 +1722,14 @@ export default function BranchPage() {
             </Card>
           </TabsContent>
 
-          {/* 服务网点能量值变现 */}
+          {/* 服务网点收益变现 */}
           <TabsContent value="branch-withdraw">
             <Card className="bg-slate-800 border-slate-700">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-white flex items-center gap-2">
                     <TrendingUp className="w-5 h-5 text-yellow-400" />
-                    能量值变现
+                    收益变现
                   </CardTitle>
                   <Button 
                     className="bg-green-500 hover:bg-green-600"
@@ -1743,7 +1743,7 @@ export default function BranchPage() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <div className="p-4 rounded-lg bg-slate-700/50">
-                    <p className="text-gray-400 text-sm">可用能量值</p>
+                    <p className="text-gray-400 text-sm">可用收益</p>
                     <p className="text-2xl font-bold text-yellow-400">{energyValue.toLocaleString()}</p>
                   </div>
                   <div className="p-4 rounded-lg bg-slate-700/50">
@@ -1861,19 +1861,19 @@ export default function BranchPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 申请能量值弹窗 */}
+      {/* 申请收益弹窗 */}
       <Dialog open={showApplyEnergyDialog} onOpenChange={setShowApplyEnergyDialog}>
         <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md">
           <DialogHeader>
-            <DialogTitle>向智算总台申请能量值</DialogTitle>
+            <DialogTitle>向智算总台申请收益</DialogTitle>
             <DialogDescription className="text-gray-400">
-              提交申请后等待智算总台审核，通过后能量值将直接到账
+              提交申请后等待智算总台审核，通过后收益将直接到账
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
-              <label className="text-gray-400 text-sm">当前能量值余额</label>
+              <label className="text-gray-400 text-sm">当前收益余额</label>
               <p className="text-2xl font-bold text-yellow-400 mt-1">{energyValue.toLocaleString()}</p>
             </div>
 
@@ -1881,12 +1881,12 @@ export default function BranchPage() {
               <label className="text-gray-400 text-sm">申请金额</label>
               <Input
                 type="number"
-                placeholder="最低50能量值"
+                placeholder="最低50收益"
                 value={applyEnergyAmount}
                 onChange={(e) => setApplyEnergyAmount(e.target.value)}
                 className="bg-slate-700 border-slate-600 text-white mt-1"
               />
-              <p className="text-gray-500 text-xs mt-1">最低申请金额：50能量值</p>
+              <p className="text-gray-500 text-xs mt-1">最低申请金额：50收益</p>
             </div>
 
             <div>
@@ -1915,15 +1915,15 @@ export default function BranchPage() {
       <Dialog open={showWithdrawDialog} onOpenChange={setShowWithdrawDialog}>
         <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md">
           <DialogHeader>
-            <DialogTitle>能量值变现</DialogTitle>
+            <DialogTitle>收益变现</DialogTitle>
             <DialogDescription className="text-gray-400">
-              将能量值变现，等待智算总台转账
+              将收益变现，等待智算总台转账
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
-              <label className="text-gray-400 text-sm">可用能量值</label>
+              <label className="text-gray-400 text-sm">可用收益</label>
               <p className="text-2xl font-bold text-yellow-400 mt-1">{energyValue.toLocaleString()}</p>
             </div>
 
@@ -1936,7 +1936,7 @@ export default function BranchPage() {
                 onChange={(e) => setWithdrawAmount(e.target.value)}
                 className="bg-slate-700 border-slate-600 text-white mt-2"
               />
-              <p className="text-gray-500 text-xs mt-1">最低变现 100 能量值</p>
+              <p className="text-gray-500 text-xs mt-1">最低变现 100 收益</p>
             </div>
 
             <div>
@@ -2062,7 +2062,7 @@ export default function BranchPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 能量值充值审核弹窗 */}
+      {/* 收益充值审核弹窗 */}
       <Dialog open={showEnergyReviewDialog} onOpenChange={setShowEnergyReviewDialog}>
         <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md">
           <DialogHeader>
@@ -2096,7 +2096,7 @@ export default function BranchPage() {
               <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
                 <p className="text-yellow-400 text-sm">
                   <AlertCircle className="w-4 h-4 inline mr-1" />
-                  通过后将从您的能量值余额中扣除 {selectedEnergyRequest?.requestedAmount?.toLocaleString()} 能量值
+                  通过后将从您的收益余额中扣除 {selectedEnergyRequest?.requestedAmount?.toLocaleString()} 收益
                 </p>
               </div>
             )}

@@ -1655,15 +1655,7 @@ export default function BranchPage() {
               <p className="text-2xl font-bold mt-2">{stats.member_count}</p>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2">
-                <Zap className="w-5 h-5 text-yellow-500 mobile-icon" />
-                <span className="text-gray-500 text-sm mobile-label">会员总收益</span>
-              </div>
-              <p className="text-2xl font-bold mt-2">{(stats.total_member_energy || 0).toLocaleString()}</p>
-            </CardContent>
-          </Card>
+
           <Card>
             <CardContent className="pt-4">
               <div className="flex items-center gap-2">
@@ -1734,17 +1726,6 @@ export default function BranchPage() {
                 )}
               </button>
 
-              <button
-                onClick={() => { loadEnergyBalance(); loadEnergyRecords('all'); setActiveTab('energy'); setEnergySubTab('records'); }}
-                className={`px-4 py-2 rounded-md transition-all flex items-center gap-1 ${
-                  activeTab === 'energy' ? 'bg-white text-purple-900 font-semibold shadow-md' : 'text-white/80 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                <Zap className="w-4 h-4" />收益管理
-                {(energyRequests.filter((r: any) => r.status === 'pending').length + providerEnergyRequests.filter((r: any) => r.status === 'pending').length) > 0 && (
-                  <Badge className="ml-1 bg-red-500 text-white text-xs">{energyRequests.filter((r: any) => r.status === 'pending').length + providerEnergyRequests.filter((r: any) => r.status === 'pending').length}</Badge>
-                )}
-              </button>
               <button
                 onClick={() => { loadPendingWithdrawals(); setActiveTab('withdraw-review'); }}
                 className={`px-4 py-2 rounded-md transition-all flex items-center gap-1 ${
@@ -2439,7 +2420,6 @@ export default function BranchPage() {
                       {providers.map(provider => (
                         <tr key={provider.id} className="border-b hover:bg-gray-50">
                           <td className="py-3 px-4 font-medium">{provider.username}</td>
-                          <td className="py-3 px-4 text-orange-600">{(provider.energy_value || 0).toLocaleString()}</td>
                           <td className="py-3 px-4 text-green-600">¥{(provider.balance || 0).toLocaleString()}</td>
                           <td className="py-3 px-4">
                             <Button
@@ -2582,11 +2562,7 @@ export default function BranchPage() {
             </Card>
           )}
 
-          {/* 收益申请记录 */}
-          {activeTab === 'energy-apply' && (
-            <div className="space-y-3 md:space-y-6">
-              {/* 收益申请统计 */}
-              <div className="grid grid-cols-4 gap-4">
+          {/* 收益管理 */}              <div className="grid grid-cols-4 gap-4">
                 <Card className="bg-gradient-to-br from-purple-500 to-indigo-500 text-white">
                   <CardContent className="pt-4">
                     <p className="text-sm opacity-80">总申请次数</p>
@@ -2709,379 +2685,7 @@ export default function BranchPage() {
             </div>
           )}
 
-          {/* 收益管理 */}
-          {activeTab === 'energy' && (
-            <div className="space-y-3 md:space-y-6">
-              {/* 子Tab导航 */}
-              <div className="flex gap-2 bg-white p-1 rounded-lg shadow-sm">
-                <button
-                  onClick={() => { setEnergySubTab('apply'); }}
-                  className={`px-4 py-2 rounded-md transition-all ${
-                    energySubTab === 'apply' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-purple-50'
-                  }`}
-                >
-                  向智算总台申请
-                </button>
-                <button
-                  onClick={() => { setEnergySubTab('records'); loadEnergyRecords(energyFilterType); }}
-                  className={`px-4 py-2 rounded-md transition-all ${
-                    energySubTab === 'records' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-purple-50'
-                  }`}
-                >
-                  流转记录
-                </button>
-                <button
-                  onClick={() => { setEnergySubTab('review'); loadProviderEnergyRequests(); }}
-                  className={`px-4 py-2 rounded-md transition-all flex items-center gap-2 ${
-                    energySubTab === 'review' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-purple-50'
-                  }`}
-                >
-                  审核服务商申请
-                  {providerEnergyRequests.filter(r => r.status === 'pending').length > 0 && (
-                    <Badge className="bg-red-500 text-white text-xs">{providerEnergyRequests.filter(r => r.status === 'pending').length}</Badge>
-                  )}
-                </button>
-                <button
-                  onClick={() => { setEnergySubTab('transfer'); loadTransferTargets(); }}
-                  className={`px-4 py-2 rounded-md transition-all ${
-                    energySubTab === 'transfer' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-purple-50'
-                  }`}
-                >
-                  收益转账
-                </button>
-              </div>
 
-              {/* 向智算总台申请 */}
-              {energySubTab === 'apply' && (
-                <>
-                  {/* 当前余额 */}
-                  <Card className="bg-gradient-to-br from-purple-500 to-indigo-500 text-white">
-                    <CardContent className="pt-4">
-                      <p className="text-sm opacity-80">当前余额</p>
-                      <p className="text-3xl font-bold mt-2">{branchEnergyBalance.toLocaleString()}</p>
-                      <p className="text-xs opacity-70 mt-2">收益</p>
-                    </CardContent>
-                  </Card>
-
-                  {/* 申请表单 */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Zap className="w-5 h-5 text-purple-600" />
-                        向智算总台申请收益
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium mb-2">申请金额</label>
-                          <input
-                            type="number"
-                            value={branchApplyAmount}
-                            onChange={(e) => setBranchApplyAmount(e.target.value)}
-                            placeholder="输入申请金额"
-                            className="w-full p-2 border rounded-lg"
-                          />
-                          <p className="text-sm text-gray-500 mt-1">申请后需等待智算总台审核</p>
-                        </div>
-                        <Button 
-                          className="bg-purple-600"
-                          onClick={handleBranchApplyEnergy}
-                          disabled={!branchApplyAmount || submitting}
-                        >
-                          提交申请
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* 服务网点向智算总台申请记录 */}
-                  {energyRequests.length > 0 && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <Badge className="bg-purple-600">智算总台</Badge>
-                          申请记录（等待智算总台审核）
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          {energyRequests.map((request) => (
-                            <div key={`er-${request.id}`} className="p-4 border rounded-lg">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="font-medium">申请收益</p>
-                                  <p className="text-sm text-gray-500 mt-1">申请额度: {(parseFloat(String(request.amount || 0))).toLocaleString()} 收益</p>
-                                  <p className="text-xs text-gray-400 mt-1">{request.created_at ? new Date(request.created_at).toLocaleString() : '-'}</p>
-                                </div>
-                                <Badge className={request.status === 'pending' ? 'bg-yellow-500' : request.status === 'approved' ? 'bg-green-500' : 'bg-red-500'}>
-                                  {request.status === 'pending' ? '等待智算总台审核' : request.status === 'approved' ? '已通过' : '已拒绝'}
-                                </Badge>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                </>
-              )}
-
-              {/* 流转记录 */}
-              {energySubTab === 'records' && (
-                <>
-                  {/* 收益概览 */}
-                  <div className="grid grid-cols-3 gap-4">
-                <Card className="bg-gradient-to-br from-purple-500 to-indigo-500 text-white">
-                  <CardContent className="pt-4">
-                    <p className="text-sm opacity-80">当前余额</p>
-                    <p className="text-3xl font-bold mt-2">{branchEnergyBalance.toLocaleString()}</p>
-                    <p className="text-xs opacity-70 mt-2">收益</p>
-                  </CardContent>
-                </Card>
-                <Card className="bg-gradient-to-br from-green-500 to-emerald-500 text-white">
-                  <CardContent className="pt-4">
-                    <p className="text-sm opacity-80">累计收入</p>
-                    <p className="text-2xl font-bold mt-2">{energyStats.totalIn.toLocaleString()}</p>
-                    <p className="text-xs opacity-70 mt-2">充值 + 转入</p>
-                  </CardContent>
-                </Card>
-                <Card className="bg-gradient-to-br from-orange-500 to-red-500 text-white">
-                  <CardContent className="pt-4">
-                    <p className="text-sm opacity-80">累计支出</p>
-                    <p className="text-2xl font-bold mt-2">{energyStats.totalOut.toLocaleString()}</p>
-                    <p className="text-xs opacity-70 mt-2">转出 + 提现</p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* 收益流转记录 */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Zap className="w-5 h-5 text-purple-600" />
-                      收益流转记录
-                    </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant={energyFilterType === 'all' ? 'default' : 'outline'} onClick={() => { setEnergyFilterType('all'); loadEnergyRecords('all'); }}>全部</Button>
-                      <Button size="sm" variant={energyFilterType === 'transfer_in' ? 'default' : 'outline'} onClick={() => { setEnergyFilterType('transfer_in'); loadEnergyRecords('transfer_in'); }}>转入</Button>
-                      <Button size="sm" variant={energyFilterType === 'transfer_out' ? 'default' : 'outline'} onClick={() => { setEnergyFilterType('transfer_out'); loadEnergyRecords('transfer_out'); }}>转出</Button>
-                    </div>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {energyRecords.length > 0 ? (
-                    <div className="space-y-3">
-                      {energyRecords.map((record, idx) => (
-                        <div key={`er-${record.id || idx}`} className="p-4 border rounded-lg flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${record.isIncome ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
-                              <Zap className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <p className="font-medium">{record.isIncome ? '转入' : '转出'} {record.description || record.note || ''}</p>
-                              <p className="text-xs text-gray-400">{record.created_at ? new Date(record.created_at).toLocaleString() : '-'}</p>
-                            </div>
-                          </div>
-                          <div className={`text-xl font-bold ${record.isIncome ? 'text-green-600' : 'text-orange-600'}`}>
-                            {record.isIncome ? '+' : '-'}{record.amount?.toLocaleString() || 0}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="py-8 text-center text-gray-500">暂无流转记录</div>
-                  )}
-                </CardContent>
-              </Card>
-                </>
-              )}
-
-              {/* 审核服务商申请 */}
-              {energySubTab === 'review' && (
-                <>
-                  {/* 收益概览 */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <Card className="bg-gradient-to-br from-purple-500 to-indigo-500 text-white">
-                      <CardContent className="pt-4">
-                        <p className="text-sm opacity-80">当前余额</p>
-                        <p className="text-3xl font-bold mt-2">{branchEnergyBalance.toLocaleString()}</p>
-                        <p className="text-xs opacity-70 mt-2">收益</p>
-                      </CardContent>
-                    </Card>
-                    <Card className="bg-gradient-to-br from-orange-500 to-red-500 text-white">
-                      <CardContent className="pt-4">
-                        <p className="text-sm opacity-80">待审核</p>
-                        <p className="text-3xl font-bold mt-2">{providerEnergyRequests.filter(r => r.status === 'pending').length}</p>
-                        <p className="text-xs opacity-70 mt-2">服务商申请</p>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* 服务商向服务网点申请记录 */}
-                  {providerEnergyRequests.length > 0 ? (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <Badge className="bg-blue-600">服务商</Badge>
-                          服务商向服务网点申请收益
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          {providerEnergyRequests.map((request, idx) => (
-                            <div key={`per-${request.id}`} className="p-4 border rounded-lg">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="font-medium">{request.provider?.name || request.provider?.username || request.providerName || '服务商'}</p>
-                                  <p className="text-sm text-gray-500 mt-1">申请额度: {(parseFloat(String(request.amount || request.requestedAmount || 0))).toLocaleString()} 收益</p>
-                                  <p className="text-xs text-gray-400 mt-1">{request.created_at ? new Date(request.created_at).toLocaleString() : '-'}</p>
-                                </div>
-                                <div className="flex gap-2 items-center">
-                                  {request.status === 'pending' ? (
-                                    <>
-                                      <Button size="sm" className="bg-green-600" onClick={() => handleApproveProviderEnergyRequestRequest(request.id, 'approve')} disabled={submitting}>通过</Button>
-                                      <Button size="sm" variant="destructive" onClick={() => handleApproveProviderEnergyRequestRequest(request.id, 'reject')} disabled={submitting}>拒绝</Button>
-                                    </>
-                                  ) : (
-                                    <Badge className={request.status === 'approved' ? 'bg-green-500' : 'bg-red-500'}>
-                                      {request.status === 'approved' ? '已通过' : '已拒绝'}
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <Card>
-                      <CardContent className="py-8 text-center text-gray-500">
-                        暂无需要审核的服务商申请
-                      </CardContent>
-                    </Card>
-                  )}
-                </>
-              )}
-
-              {/* 收益转账 */}
-              {energySubTab === 'transfer' && (
-                <>
-                  {/* 操作说明 */}
-                  <Card className="bg-purple-50 border-purple-200">
-                    <CardContent className="pt-4">
-                      <div className="text-sm text-purple-800 space-y-1">
-                        <p><strong>转账规则：</strong></p>
-                        <p>• 给服务商转账：直接转账，不扣手续费</p>
-                        <p>• 给会员转账：直接转账，不扣手续费</p>
-                        <p>• 同级服务网点互转：不扣手续费</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* 操作按钮 */}
-                  <div className="flex gap-4">
-                    <Button className="bg-purple-600" onClick={() => { loadTransferTargets(); loadBranchList(); }}>转账</Button>
-                  </div>
-
-                  {/* 转账区域 */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Zap className="w-5 h-5 text-purple-600" />
-                        转账给下级
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="mb-4 flex gap-2 flex-wrap">
-                        <button
-                          onClick={() => setTransferUserType('provider')}
-                          className={`px-4 py-2 rounded-lg transition-colors ${
-                            transferUserType === 'provider'
-                              ? 'bg-purple-600 text-white'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
-                        >
-                          服务商 ({transferTargets.length})
-                        </button>
-                        <button
-                          onClick={() => setTransferUserType('member')}
-                          className={`px-4 py-2 rounded-lg transition-colors ${
-                            transferUserType === 'member'
-                              ? 'bg-purple-600 text-white'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
-                        >
-                          会员 ({transferMembers.length})
-                        </button>
-                        <button
-                          onClick={() => setTransferUserType('branch')}
-                          className={`px-4 py-2 rounded-lg transition-colors ${
-                            transferUserType === 'branch'
-                              ? 'bg-purple-600 text-white'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
-                        >
-                          同级服务网点 ({branchList.length})
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium mb-2">
-                            选择{transferUserType === 'provider' ? '服务商' : transferUserType === 'member' ? '会员' : '服务网点'}
-                          </label>
-                          <select
-                            value={transferTarget}
-                            onChange={(e) => setTransferTarget(e.target.value)}
-                            className="w-full p-2 border rounded-lg"
-                          >
-                            <option value="">选择{transferUserType === 'provider' ? '服务商' : transferUserType === 'member' ? '会员' : '服务网点'}</option>
-                            {(transferUserType === 'provider' ? transferTargets : transferUserType === 'member' ? transferMembers : branchList).map((target) => (
-                              <option key={target.id} value={target.id}>
-                                {target.username} ({target.role === 'provider' ? '服务商' : target.role === 'member' ? '会员' : target.role === 'branch' ? '服务网点' : target.role})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium mb-2">转账金额</label>
-                          <input
-                            type="number"
-                            value={transferAmount}
-                            onChange={(e) => setTransferAmount(e.target.value)}
-                            placeholder="输入转账金额"
-                            className="w-full p-2 border rounded-lg"
-                          />
-                        </div>
-                      </div>
-                      <div className="mt-4">
-                        <label className="block text-sm font-medium mb-2">备注</label>
-                        <input
-                          type="text"
-                          value={transferNote}
-                          onChange={(e) => setTransferNote(e.target.value)}
-                          placeholder="备注说明（可选）"
-                          className="w-full p-2 border rounded-lg"
-                        />
-                      </div>
-                      <div className="mt-4 flex items-center justify-between">
-                        <p className="text-sm text-gray-500">当前余额: {branchEnergyBalance.toLocaleString()} 收益</p>
-                        <Button 
-                          className="bg-purple-600"
-                          onClick={() => handleTransfer(transferTarget, parseFloat(transferAmount))}
-                          disabled={!transferTarget || !transferAmount || submitting}
-                        >
-                          确认转账
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </>
-              )}
-            </div>
-          )}
 
           {/* 提现审核 Tab */}
           {activeTab === 'withdraw-review' && (
@@ -3267,20 +2871,12 @@ export default function BranchPage() {
                     <p className="text-2xl font-bold">{memberTotal}</p>
                   </CardContent>
                 </Card>
-                <Card className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
-                  <CardContent className="pt-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Zap className="w-5 h-5" />
-                      <span className="text-sm opacity-80">收益总额</span>
-                    </div>
-                    <p className="text-2xl font-bold">{memberList.reduce((sum: number, m: any) => sum + (m.energyValue || 0), 0).toLocaleString()}</p>
-                  </CardContent>
-                </Card>
+
                 <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white">
                   <CardContent className="pt-4">
                     <div className="flex items-center gap-2 mb-2">
                       <Package className="w-5 h-5" />
-                      <span className="text-sm opacity-80">持有算力额度</span>
+                      <span className="text-sm opacity-80">持有Token额度</span>
                     </div>
                     <p className="text-2xl font-bold">¥{memberList.reduce((sum: number, m: any) => sum + (m.totalInvestment || 0), 0).toLocaleString()}</p>
                   </CardContent>
@@ -3366,7 +2962,7 @@ export default function BranchPage() {
                           <div className="col-span-2">手机号</div>
                           <div className="col-span-2">隶属服务商</div>
                           <div className="col-span-1">收益</div>
-                          <div className="col-span-2">持有算力额度</div>
+                          <div className="col-span-2">持有Token额度</div>
                           <div className="col-span-2">操作</div>
                         </div>
 
@@ -3393,9 +2989,9 @@ export default function BranchPage() {
                               </div>
                               {/* 收益 */}
                               <div className="col-span-1 hidden md:block">
-                                <span className="text-sm font-medium text-emerald-600">{(m.energyValue || 0).toLocaleString()}</span>
+                                <span className="text-sm font-medium text-emerald-600">{(m.balance || 0).toLocaleString()}</span>
                               </div>
-                              {/* 持有算力额度 */}
+                              {/* 持有Token额度 */}
                               <div className="col-span-2 hidden md:block">
                                 <div>
                                   <span className="text-sm font-semibold text-orange-600">¥{(m.totalInvestment || 0).toLocaleString()}</span>
@@ -3490,136 +3086,7 @@ export default function BranchPage() {
         </div>
       )}
 
-      {/* 收益转账对话框 */}
-      {showTransferDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-[500px]">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Zap className="w-5 h-5 text-blue-600" />
-                收益转账
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-sm text-blue-700">
-                  <strong>说明：</strong>可向服务商和会员转账收益，最低转账金额为50。
-                </p>
-              </div>
-              
-              {/* 转账类型切换 */}
-              <div className="flex gap-2">
-                <Button
-                  variant={transferUserType === 'provider' ? 'default' : 'outline'}
-                  onClick={() => { setTransferUserType('provider'); setTransferUserId(''); }}
-                  className={transferUserType === 'provider' ? 'bg-blue-600' : ''}
-                >
-                  转给服务商 ({transferTargets.length})
-                </Button>
-                <Button
-                  variant={transferUserType === 'member' ? 'default' : 'outline'}
-                  onClick={() => { setTransferUserType('member'); setTransferUserId(''); }}
-                  className={transferUserType === 'member' ? 'bg-purple-600' : ''}
-                >
-                  转给会员 ({transferMembers.length})
-                </Button>
-              </div>
-              
-              <div>
-                <Label>选择{transferUserType === 'provider' ? '服务商' : '会员'}</Label>
-                <select
-                  className="w-full mt-1 p-2 border rounded-md bg-white"
-                  value={transferUserId}
-                  onChange={(e) => setTransferUserId(e.target.value)}
-                >
-                  <option value="">请选择{transferUserType === 'provider' ? '服务商' : '会员'}</option>
-                  {(transferUserType === 'provider' ? transferTargets : transferMembers).map((p: any) => (
-                    <option key={p.id} value={p.id}>
-                      {p.username} {p.unique_id ? `[${p.unique_id}]` : ''} {p.phone ? `(${p.phone})` : ''}（收益: {p.energy_value || 0}）
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <Label>转账金额</Label>
-                <Input
-                  type="number"
-                  placeholder="请输入转账收益（最低50）"
-                  value={transferAmount}
-                  onChange={(e) => setTransferAmount(e.target.value)}
-                  min="50"
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label>备注（可选）</Label>
-                <Input
-                  placeholder="如: 业务合作转账"
-                  value={transferNote}
-                  onChange={(e) => setTransferNote(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-4">
-                <Button variant="outline" onClick={() => setShowTransferDialog(false)}>取消</Button>
-                <Button 
-                  className="bg-blue-600"
-                  onClick={handleTransferEnergy}
-                  disabled={submitting || !transferUserId || !transferAmount}
-                >
-                  {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
-                  确认转账
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
-      {/* 向智算总台申请收益对话框 */}
-      {showEnergyApplyDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md bg-white">
-            <CardHeader>
-              <CardTitle className="text-gray-900">向智算总台申请收益</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="energyAmount" className="text-gray-700">申请金额</Label>
-                <Input
-                  id="energyAmount"
-                  type="number"
-                  value={energyApplyAmount}
-                  onChange={(e) => setEnergyApplyAmount(e.target.value)}
-                  placeholder="请输入申请金额"
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="energyNote" className="text-gray-700">备注（可选）</Label>
-                <Input
-                  id="energyNote"
-                  value={energyApplyNote}
-                  onChange={(e) => setEnergyApplyNote(e.target.value)}
-                  placeholder="请输入备注信息"
-                  className="mt-1"
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-4">
-                <Button variant="outline" onClick={() => setShowEnergyApplyDialog(false)}>取消</Button>
-                <Button
-                  className="bg-purple-600 hover:bg-purple-700"
-                  onClick={handleApplyEnergy}
-                  disabled={submitting || !energyApplyAmount}
-                >
-                  {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
-                  确认申请
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
       {/* 会员隶属关系转移对话框 */}
       {showMemberTransferDialog && (

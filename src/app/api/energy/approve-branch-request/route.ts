@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 
-// 智算总台审核服务网点能量值申请
+// 智算总台审核服务网点收益申请
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     const requestAmount = Number(requestRecord.amount);
 
     if (action === 'approve') {
-      // 检查智算总台能量值余额
+      // 检查智算总台收益余额
       const adminAccount = await query(
         `SELECT ea.balance::text as balance 
          FROM energy_accounts ea 
@@ -61,12 +61,12 @@ export async function POST(request: NextRequest) {
 
       if (adminBalance < requestAmount) {
         return NextResponse.json(
-          { success: false, error: `智算总台能量值余额不足（余额：${adminBalance.toLocaleString()}）` },
+          { success: false, error: `智算总台收益余额不足（余额：${adminBalance.toLocaleString()}）` },
           { status: 400 }
         );
       }
 
-      // 1. 扣除智算总台能量值
+      // 1. 扣除智算总台收益
       await query(
         `UPDATE energy_accounts 
          SET balance = balance - $1,
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
         [requestAmount]
       );
 
-      // 2. 增加服务网点能量值
+      // 2. 增加服务网点收益
       await query(
         `INSERT INTO energy_accounts (user_id, balance, total_in, total_out, created_at, updated_at)
          VALUES ($1, 0, 0, 0, NOW(), NOW())
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
         [branchId, requestAmount]
       );
 
-      // 3. 记录能量值流水（从智算总台转出）
+      // 3. 记录收益流水（从智算总台转出）
       await query(
         `INSERT INTO energy_transactions
          (id, user_id, type, amount, energy_before, energy_after, note, status, created_at)
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
           requestAmount,
           adminBalance.toString(),
           (adminBalance - requestAmount).toString(),
-          `向服务网点 ${requestRecord.branch_name} 下发能量值 ${requestAmount.toLocaleString()}`
+          `向服务网点 ${requestRecord.branch_name} 下发收益 ${requestAmount.toLocaleString()}`
         ]
       );
 
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
       );
       const branchBalance = branchAccount.length > 0 ? Number(branchAccount[0].balance || 0) : 0;
 
-      // 5. 记录服务网点能量值流水（从智算总台转入）
+      // 5. 记录服务网点收益流水（从智算总台转入）
       await query(
         `INSERT INTO energy_transactions
          (id, user_id, type, amount, energy_before, energy_after, note, status, created_at)
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
           requestAmount,
           (branchBalance - requestAmount).toString(),
           branchBalance.toString(),
-          `收到智算总台下发能量值 ${requestAmount.toLocaleString()}`
+          `收到智算总台下发收益 ${requestAmount.toLocaleString()}`
         ]
       );
 
@@ -127,12 +127,12 @@ export async function POST(request: NextRequest) {
       await query(
         `INSERT INTO notifications 
          (id, receiver_id, receiver_role, sender_id, type, title, content, created_at)
-         VALUES ($1, $2, 'branch', $3, 'energy_granted', '能量值已到账', $4, NOW())`,
+         VALUES ($1, $2, 'branch', $3, 'energy_granted', '收益已到账', $4, NOW())`,
         [
           crypto.randomUUID(),
           branchId,
           adminId,
-          `您的能量值申请已通过，已到账 ${requestAmount.toLocaleString()} 能量值`
+          `您的收益申请已通过，已到账 ${requestAmount.toLocaleString()} 收益`
         ]
       );
     }
@@ -147,8 +147,8 @@ export async function POST(request: NextRequest) {
 
     const actionText = action === 'approve' ? '通过' : '拒绝';
     const message = action === 'approve' 
-      ? `已通过申请，已向 ${requestRecord.branch_name} 下发 ${requestAmount.toLocaleString()} 能量值`
-      : `已拒绝 ${requestRecord.branch_name} 的能量值申请`;
+      ? `已通过申请，已向 ${requestRecord.branch_name} 下发 ${requestAmount.toLocaleString()} 收益`
+      : `已拒绝 ${requestRecord.branch_name} 的收益申请`;
 
     return NextResponse.json({
       success: true,
@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('审核能量值申请失败:', error);
+    console.error('审核收益申请失败:', error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : '审核失败' },
       { status: 500 }

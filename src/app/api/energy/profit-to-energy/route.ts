@@ -3,7 +3,7 @@ import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { authenticateRequest } from '@/lib/auth';
 import { execute, queryOne } from '@/lib/pg-client';
 
-// 收益转能量值
+// 收益转收益
 export async function POST(request: NextRequest) {
   try {
     // 鉴权：需要登录
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 使用 SQL 直接更新余额和能量值（原子操作，确保写入成功）
+    // 使用 SQL 直接更新余额和收益（原子操作，确保写入成功）
     const newBalance = userBalance - amount;
     const newEnergy = (parseFloat(String(userData.energy_value)) || 0) + amount;
 
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       user_id: userId,
       type: 'profit_to_energy',
       amount: amount,
-      note: '收益转换为能量值'
+      note: '收益转换为收益'
     });
 
     return NextResponse.json({
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       data: { newBalance, newEnergy, amount }
     });
   } catch (error) {
-    console.error('收益转能量值失败:', error);
+    console.error('收益转收益失败:', error);
     return NextResponse.json({ error: '服务器错误' }, { status: 500 });
   }
 }

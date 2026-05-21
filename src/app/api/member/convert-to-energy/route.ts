@@ -4,7 +4,7 @@ import { authenticateRequest } from '@/lib/auth';
 import { addEnergy, getEnergyBalance } from '@/lib/energy-util';
 import { execute, queryOne } from '@/lib/pg-client';
 
-// 收益转能量值（5%变积分，95%变能量值）
+// 收益转收益（5%变积分，95%变收益）
 export async function POST(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);
@@ -29,9 +29,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '最小转换金额为 10 元' }, { status: 400 });
     }
 
-    // 计算积分和能量值
+    // 计算积分和收益
     const pointsAmount = Math.round(convertAmount * 0.05 * 100) / 100; // 5% → 积分
-    const energyAmount = convertAmount - pointsAmount; // 95% → 能量值
+    const energyAmount = convertAmount - pointsAmount; // 95% → 收益
 
     const supabase = getSupabase();
 
@@ -54,18 +54,18 @@ export async function POST(request: NextRequest) {
     const newBalance = (currentBalance - convertAmount).toFixed(2);
     const newPoints = ((parseFloat(user.points) || 0) + pointsAmount).toFixed(2);
 
-    // 1. 更新用户余额和积分（能量值由 addEnergy 更新）- 使用 SQL 直接执行
+    // 1. 更新用户余额和积分（收益由 addEnergy 更新）- 使用 SQL 直接执行
     await execute('UPDATE users SET balance = $1, points = $2, updated_at = NOW() WHERE id = $3', [newBalance, newPoints, userId]);
 
-    // 2. 使用 addEnergy 增加能量值（自动同步 users + energy_accounts + 流水）
+    // 2. 使用 addEnergy 增加收益（自动同步 users + energy_accounts + 流水）
     const addResult = await addEnergy(userId, energyAmount, 'convert_from_balance', {
-      note: `收益转能量值: ${energyAmount.toFixed(2)}元`,
+      note: `收益转收益: ${energyAmount.toFixed(2)}元`,
     });
 
     if (!addResult.success) {
       // 回滚用户余额 - 使用 SQL 直接执行
       await execute('UPDATE users SET balance = $1, points = $2, updated_at = NOW() WHERE id = $3', [currentBalance.toFixed(2), user.points, userId]);
-      return NextResponse.json({ error: '转换能量值失败: ' + addResult.error }, { status: 500 });
+      return NextResponse.json({ error: '转换收益失败: ' + addResult.error }, { status: 500 });
     }
 
     // 3. 记录积分流水
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
         type: 'convert',
         amount: pointsAmount.toFixed(2),
         balance_after: newPoints,
-        note: `收益转能量值产生积分5%: ${pointsAmount}元`,
+        note: `收益转收益产生积分5%: ${pointsAmount}元`,
         created_at: new Date().toISOString(),
       });
     } catch (e) {
@@ -93,10 +93,10 @@ export async function POST(request: NextRequest) {
         energyValue: addResult.newBalance?.toFixed(2),
         points: newPoints,
       },
-      message: `转换成功：${energyAmount.toFixed(2)}元→能量值，${pointsAmount.toFixed(2)}元→积分`,
+      message: `转换成功：${energyAmount.toFixed(2)}元→收益，${pointsAmount.toFixed(2)}元→积分`,
     });
   } catch (error: any) {
-    console.error('收益转能量值失败:', error);
+    console.error('收益转收益失败:', error);
     const statusCode = error.statusCode || 500;
     return NextResponse.json(
       { error: error.message || '转换失败' },

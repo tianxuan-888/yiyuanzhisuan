@@ -12,7 +12,7 @@ function getAdminSupabase() {
   return createClient(url, key);
 }
 
-// 获取能量值申请列表
+// 获取收益申请列表
 // - 如果有 branchId 参数：供服务网点查看所有服务商申请
 // - 如果有 userId 参数：供服务商查看自己的申请记录
 export async function GET(request: NextRequest) {
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
       throw new Error(`查询失败: ${error.message}`);
     }
     
-    // 过滤出能量值申请记录（description 中包含 request_type: 'energy_request'）
+    // 过滤出收益申请记录（description 中包含 request_type: 'energy_request'）
     let energyRequests = (allRecords || []).filter(record => {
       if (!record.description) return false;
       try {
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
       { status: 400 }
     );
   } catch (error) {
-    console.error('获取能量值申请列表失败:', error);
+    console.error('获取收益申请列表失败:', error);
     return NextResponse.json(
       { success: false, error: '服务器错误' },
       { status: 500 }
@@ -151,7 +151,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 服务商申请能量值
+// 服务商申请收益
 export async function POST(request: NextRequest) {
   try {
     const supabase = getAdminSupabase();
@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
     // 验证是服务商角色
     if (user.role !== 'provider') {
       return NextResponse.json(
-        { error: '只有服务商才能申请能量值' },
+        { error: '只有服务商才能申请收益' },
         { status: 403 }
       );
     }
@@ -221,7 +221,7 @@ export async function POST(request: NextRequest) {
     // 插入申请记录到 energy_transactions 表，使用 type = 'recharge'
     const requestId = crypto.randomUUID();
     const description = JSON.stringify({
-      request_type: 'energy_request',  // 标识这是能量值申请
+      request_type: 'energy_request',  // 标识这是收益申请
       requestedAmount: requestedAmount,
       note: note || '',
       providerName: user.username,
@@ -251,7 +251,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: '能量值申请已提交，等待服务网点审核',
+      message: '收益申请已提交，等待服务网点审核',
       data: {
         requestId: requestId,
         requestedAmount: requestedAmount
@@ -259,7 +259,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('能量值申请错误:', error);
+    console.error('收益申请错误:', error);
     const errorMessage = error?.message || '服务器错误';
     return NextResponse.json(
       { error: '服务器错误: ' + errorMessage },

@@ -3,7 +3,7 @@ import { getSupabase } from '@/lib/supabase-client';
 import { authenticateRequest } from '@/lib/auth';
 import { addEnergy, deductEnergy, getEnergyBalance } from '@/lib/energy-util';
 
-// 服务商审核会员能量值转账申请
+// 服务商审核会员收益转账申请
 export async function POST(request: NextRequest) {
   try {
     const user = authenticateRequest(request);
@@ -60,15 +60,15 @@ export async function POST(request: NextRequest) {
     const toUserId = transferRequest.to_user_id;  // 服务商
 
     if (action === 'reject') {
-      // 拒绝：退还能量值给会员
-      // 1. 退还能量值给会员（addEnergy 会同步更新 users + energy_accounts + 流水）
+      // 拒绝：退还收益给会员
+      // 1. 退还收益给会员（addEnergy 会同步更新 users + energy_accounts + 流水）
       const refundResult = await addEnergy(fromUserId, transferAmount, 'refund', {
         fromUserId: toUserId,
-        note: '转账被拒绝，能量值退还',
+        note: '转账被拒绝，收益退还',
       });
 
       if (!refundResult.success) {
-        return NextResponse.json({ error: '退还能量值失败: ' + refundResult.error }, { status: 500 });
+        return NextResponse.json({ error: '退还收益失败: ' + refundResult.error }, { status: 500 });
       }
 
       // 2. 更新申请状态（用execute SQL避免REST API静默失败）
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
 
       // 3. 更新会员的 pending 流水为 cancelled（用execute SQL）
       const { error: txCancelErr } = await supabase.rpc('rpc_execute', {
-        sql_query: `UPDATE energy_transactions SET status = 'cancelled', note = '能量值转账被拒绝' WHERE user_id = '${fromUserId}' AND type = 'transfer_out' AND status = 'pending'`
+        sql_query: `UPDATE energy_transactions SET status = 'cancelled', note = '收益转账被拒绝' WHERE user_id = '${fromUserId}' AND type = 'transfer_out' AND status = 'pending'`
       });
 
       if (txCancelErr) {
@@ -91,20 +91,20 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: '已拒绝转账，能量值已退还给会员',
+        message: '已拒绝转账，收益已退还给会员',
         data: { newEnergy: refundResult.newBalance }
       });
     }
 
     // 批准转账
-    // 1. 给服务商增加能量值（addEnergy 会同步更新 users + energy_accounts + 流水）
+    // 1. 给服务商增加收益（addEnergy 会同步更新 users + energy_accounts + 流水）
     const addResult = await addEnergy(toUserId, transferAmount, 'transfer_in', {
       fromUserId,
-      note: '会员能量值转入（审核通过）',
+      note: '会员收益转入（审核通过）',
     });
 
     if (!addResult.success) {
-      return NextResponse.json({ error: '服务商增加能量值失败: ' + addResult.error }, { status: 500 });
+      return NextResponse.json({ error: '服务商增加收益失败: ' + addResult.error }, { status: 500 });
     }
 
     // 2. 更新申请状态（用execute SQL避免REST API静默失败）
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
 
     // 3. 更新会员的 pending 流水为 completed（用execute SQL）
     const { error: txCompleteErr } = await supabase.rpc('rpc_execute', {
-      sql_query: `UPDATE energy_transactions SET status = 'completed', note = '能量值转账给服务商（已审核通过）' WHERE user_id = '${fromUserId}' AND type = 'transfer_out' AND status = 'pending'`
+      sql_query: `UPDATE energy_transactions SET status = 'completed', note = '收益转账给服务商（已审核通过）' WHERE user_id = '${fromUserId}' AND type = 'transfer_out' AND status = 'pending'`
     });
 
     if (txCompleteErr) {
@@ -127,11 +127,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: '转账审核通过，能量值已转入您的账户',
+      message: '转账审核通过，收益已转入您的账户',
       data: { newToEnergy: addResult.newBalance }
     });
   } catch (error) {
-    console.error('审核能量值转账失败:', error);
+    console.error('审核收益转账失败:', error);
     return NextResponse.json({ error: '服务器错误' }, { status: 500 });
   }
 }

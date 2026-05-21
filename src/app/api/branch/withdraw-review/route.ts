@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
         const actualAmount = parseFloat(withdrawal.actual_amount) || 0;
 
         if (userRole === 'provider') {
-          // 服务商提现：退还能量值
+          // 服务商提现：退还收益
           const userRes = await client.query(
             'SELECT energy_value FROM users WHERE id = $1',
             [userId]
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
              WHERE user_id = $2`,
             [amount.toFixed(2), userId]
           );
-          // 删除能量值冻结流水
+          // 删除收益冻结流水
           await client.query(
             `DELETE FROM energy_transactions WHERE from_user_id = $1 AND type = 'withdraw_freeze' AND note LIKE '%提现冻结%' AND created_at >= (SELECT created_at FROM withdrawals WHERE id = $2)`,
             [userId, withdrawalId]

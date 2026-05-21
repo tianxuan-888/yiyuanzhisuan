@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase-client';
 
-// 会员视角：能量值统计
+// 会员视角：收益统计
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: '无效的用户ID' }, { status: 400 });
     }
 
-    // 能量值账户
+    // 收益账户
     const { data: accountData } = await supabase
       .from('energy_accounts')
       .select('*')
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     const totalIn = accountData ? Number(accountData.total_in) || 0 : 0;
     const totalOut = accountData ? Number(accountData.total_out) || 0 : 0;
 
-    // 能量值交易记录（所有类型）
+    // 收益交易记录（所有类型）
     const { data: txData } = await supabase
       .from('energy_transactions')
       .select('*')
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
       if (tp === 'recharge') {
         totalRecharge += amt;
       } else if (['transfer_in', 'convert_from_balance'].includes(tp)) {
-        // 注意：provider_share/direct_reward/branch_share等是收益(balance)，不是能量值
+        // 注意：provider_share/direct_reward/branch_share等是收益(balance)，不是收益
         totalTransferIn += amt;
       } else if (tp === 'transfer_out') {
         totalTransferOut += amt;
@@ -124,7 +124,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error('获取会员能量值统计失败:', error);
+    console.error('获取会员收益统计失败:', error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

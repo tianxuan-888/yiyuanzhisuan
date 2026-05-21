@@ -161,8 +161,8 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * 会员收益转能量值
- * 将已入账的收益转为能量值（1:1）
+ * 会员收益转收益
+ * 将已入账的收益转为收益（1:1）
  */
 export async function POST(request: NextRequest) {
   try {
@@ -227,14 +227,14 @@ export async function POST(request: NextRequest) {
       remaining -= deductAmount;
     }
 
-    // 更新用户能量值 - 使用 SQL 直接更新确保写入成功
+    // 更新用户收益 - 使用 SQL 直接更新确保写入成功
     const userRow = await queryOne('SELECT energy_value FROM users WHERE id = $1', [userId]);
     const currentEnergy = parseFloat(String(userRow?.energy_value)) || 0;
     const newEnergy = currentEnergy + convertAmount;
 
     await execute('UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2', [newEnergy, userId]);
 
-    // 更新能量值账户 - 使用 SQL 直接更新
+    // 更新收益账户 - 使用 SQL 直接更新
     const accRow = await queryOne('SELECT balance, total_in FROM energy_accounts WHERE user_id = $1', [userId]);
     if (accRow) {
       await execute(
@@ -254,11 +254,11 @@ export async function POST(request: NextRequest) {
         amount: convertAmount,
         balance_before: currentEnergy,
         balance_after: newEnergy,
-        description: `收益转为能量值`,
+        description: `收益转为收益`,
         created_at: new Date().toISOString(),
       });
 
-    // 记录能量值交易
+    // 记录收益交易
     await client
       .from('energy_transactions')
       .insert({
@@ -269,20 +269,20 @@ export async function POST(request: NextRequest) {
         from_user_id: null,
         to_user_id: null,
         status: 'completed',
-        description: `产品收益转为能量值`,
+        description: `产品收益转为收益`,
         created_at: new Date().toISOString(),
       });
 
     return NextResponse.json({
       success: true,
-      message: '收益已转为能量值',
+      message: '收益已转为收益',
       data: {
         convertAmount,
         newEnergy,
       }
     });
   } catch (error) {
-    console.error('收益转能量值失败:', error);
+    console.error('收益转收益失败:', error);
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : '服务器错误'

@@ -16,7 +16,7 @@ function bytesToUuid(bytes: any): string {
   return '';
 }
 
-// 获取服务网点能量值账户信息
+// 获取服务网点收益账户信息
 async function getBranchEnergyAccount(branchId: string) {
   if (!client) return null;
 
@@ -25,7 +25,7 @@ async function getBranchEnergyAccount(branchId: string) {
     .select('*');
 
   if (error) {
-    console.error('查询能量值账户失败:', error);
+    console.error('查询收益账户失败:', error);
     return null;
   }
 
@@ -36,7 +36,7 @@ async function getBranchEnergyAccount(branchId: string) {
   return account || null;
 }
 
-// 获取服务网点相关的能量值流水记录
+// 获取服务网点相关的收益流水记录
 async function getBranchEnergyRecords(branchId: string, type: string = 'all') {
   if (!client) return [];
 
@@ -49,7 +49,7 @@ async function getBranchEnergyRecords(branchId: string, type: string = 'all') {
     .limit(200);
 
   if (error) {
-    console.error('查询能量值记录失败:', error);
+    console.error('查询收益记录失败:', error);
     return [];
   }
 
@@ -57,7 +57,7 @@ async function getBranchEnergyRecords(branchId: string, type: string = 'all') {
     .filter((record: any) => {
       if (type === 'all') return true;
       if (type === 'transfer_in') {
-        // 转入：充值、转入、额度匹配、收益转能量值
+        // 转入：充值、转入、额度匹配、收益转收益
         return ['recharge', 'transfer_in', 'quota_match', 'convert_from_balance', 'purchase', 'create'].includes(record.type);
       }
       if (type === 'transfer_out') {
@@ -91,34 +91,34 @@ async function getBranchEnergyRecords(branchId: string, type: string = 'all') {
         const fromUser = bytesToUuid(record.from_user_id);
         switch (record.type) {
           case 'quota_match':
-            description = '智算总台下发算力额度，同步配套能量值';
+            description = '智算总台下发算力额度，同步配套收益';
             break;
           case 'transfer_in':
-            description = '智算总台分配额度，获得赠送能量值';
+            description = '智算总台分配额度，获得赠送收益';
             break;
           case 'transfer_out':
-            description = toUser ? '审核通过服务商能量值申请，发放能量值' : '能量值转出';
+            description = toUser ? '审核通过服务商收益申请，发放收益' : '收益转出';
             break;
           case 'withdraw_freeze':
-            description = '提现冻结能量值';
+            description = '提现冻结收益';
             break;
           case 'withdraw':
-            description = '提现发放能量值';
+            description = '提现发放收益';
             break;
           case 'burn':
-            description = '能量值销毁';
+            description = '收益销毁';
             break;
           case 'purchase':
-            description = '购买能量值';
+            description = '购买收益';
             break;
           case 'create':
-            description = '系统创建能量值';
+            description = '系统创建收益';
             break;
           case 'convert_from_balance':
-            description = '余额转能量值';
+            description = '余额转收益';
             break;
           default:
-            description = '能量值变动';
+            description = '收益变动';
         }
       }
 
@@ -176,7 +176,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('获取能量值记录失败:', error);
+    console.error('获取收益记录失败:', error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : '获取失败' },
       { status: 500 }

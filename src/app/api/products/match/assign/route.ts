@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: '该会员不属于您' }, { status: 400 });
     }
 
-    // 预检查能量值是否足够
+    // 预检查收益是否足够
     const marketFee = product.price * (product.market_rate / 100);
     const energySufficient = targetUser.energy_value >= marketFee;
 
@@ -87,8 +87,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: energySufficient
-        ? `已指定匹配给 ${targetUser.username}，能量值充足，可确认匹配`
-        : `已指定匹配给 ${targetUser.username}，但该会员能量值不足(${targetUser.energy_value}/${marketFee})，确认时将失败`,
+        ? `已指定匹配给 ${targetUser.username}，收益充足，可确认匹配`
+        : `已指定匹配给 ${targetUser.username}，但该会员收益不足(${targetUser.energy_value}/${marketFee})，确认时将失败`,
       data: {
         productId,
         targetUserId,

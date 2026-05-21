@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
 
     if (amount < 50) {
       return NextResponse.json(
-        { error: '最低充值金额为50能量值' },
+        { error: '最低充值金额为50收益' },
         { status: 400 }
       );
     }
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
         user_id: providerId,
         type: 'recharge_request',
         title: '新的充值申请',
-        content: `会员发起充值申请，金额：${amount} 能量值`,
+        content: `会员发起充值申请，金额：${amount} 收益`,
         is_read: false,
         created_at: now,
       });

@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 服务网点申请配比20%能量值
+    // 服务网点申请配比20%收益
     const energyRatio = requesterType === 'branch' ? 0.2 : 0;
     const multiplier = 1.0; // 额度本身不变
 
@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
         ? '服务网点额度申请' 
         : '服务商额度申请';
       const content = requesterType === 'branch'
-        ? `服务网点【${requester?.real_name || requester?.username}】申请额度 ¥${requestedAmount.toLocaleString()}，将配比 ¥${Math.floor(requestedAmount * energyRatio).toLocaleString()} 能量值`
+        ? `服务网点【${requester?.real_name || requester?.username}】申请额度 ¥${requestedAmount.toLocaleString()}，将配比 ¥${Math.floor(requestedAmount * energyRatio).toLocaleString()} 收益`
         : `服务商【${requester?.real_name || requester?.username}】申请额度 ¥${requestedAmount.toLocaleString()}`;
 
       await client

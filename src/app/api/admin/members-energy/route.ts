@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 
     const membersData = (members || []) as Member[];
 
-    // 获取所有能量值账户
+    // 获取所有收益账户
     const memberIds = membersData.map(m => m.id);
     let energyAccounts: Record<string, EnergyAccount> = {};
     

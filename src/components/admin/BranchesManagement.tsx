@@ -202,7 +202,7 @@ export function BranchesManagement() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm opacity-80">能量值额度</p>
+                <p className="text-sm opacity-80">收益额度</p>
                 <p className="text-2xl font-bold mt-1">{formatEnergy(summary.totalEnergyBalance)}</p>
                 <p className="text-xs opacity-70 mt-1">
                   服务网点: {formatEnergy(summary.totalEnergyBranchBalance)} | 服务商: {formatEnergy(summary.totalEnergyProviderBalance)} | 会员: {formatEnergy(summary.totalEnergyMemberBalance)}
@@ -276,7 +276,7 @@ export function BranchesManagement() {
                         <div className="text-lg font-bold text-blue-600">{formatEnergy(branch.stats.quotaTotal)}</div>
                       </div>
                       <div className="bg-indigo-50 rounded-lg p-3">
-                        <div className="text-xs text-gray-500">能量值额度</div>
+                        <div className="text-xs text-gray-500">收益额度</div>
                         <div className="text-lg font-bold text-indigo-600">{formatEnergy(branch.stats.energyBalance)}</div>
                       </div>
                       <div className="bg-purple-50 rounded-lg p-3">
@@ -293,10 +293,10 @@ export function BranchesManagement() {
                       </div>
                     </div>
 
-                    {/* 能量值分布 */}
+                    {/* 收益分布 */}
                     <div className="mt-3 pt-3 border-t">
                       <div className="flex justify-between text-xs text-gray-500 mb-1">
-                        <span>能量值分布</span>
+                        <span>收益分布</span>
                       </div>
                       <div className="grid grid-cols-3 gap-2 text-xs">
                         <div className="bg-blue-50 rounded p-2 text-center">
@@ -369,7 +369,7 @@ export function BranchesManagement() {
                       <TableHead className="text-right">算力额度</TableHead>
                       <TableHead className="text-right">已分配</TableHead>
                       <TableHead className="text-right">服务商</TableHead>
-                      <TableHead className="text-right">能量值额度</TableHead>
+                      <TableHead className="text-right">收益额度</TableHead>
                       <TableHead className="text-right">已售产品</TableHead>
                       <TableHead className="text-right">会员</TableHead>
                       <TableHead className="text-right">销售额</TableHead>

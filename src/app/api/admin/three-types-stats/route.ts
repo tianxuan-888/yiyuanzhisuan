@@ -162,9 +162,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // ============ 第三类：能量值流转统计 ============
+    // ============ 第三类：收益流转统计 ============
     const energyStats = {
-      // 各角色能量值持有
+      // 各角色收益持有
       holdings: {
         admin: 0,
         branch: 0,
@@ -172,7 +172,7 @@ export async function GET(request: NextRequest) {
         member: 0,
         total: 0,
       },
-      // 能量值来源统计
+      // 收益来源统计
       sources: {
         create: 0,        // 智算总台创建
         quotaMatch: 0,   // 额度匹配下发
@@ -180,7 +180,7 @@ export async function GET(request: NextRequest) {
         transferIn: 0,  // 市场转入
         total: 0,
       },
-      // 能量值消耗统计
+      // 收益消耗统计
       consumption: {
         transferOut: 0,   // 市场转出
         withdraw: 0,      // 变现发放
@@ -199,7 +199,7 @@ export async function GET(request: NextRequest) {
     };
 
     if (type === 'all' || type === 'energy') {
-      // 各角色能量值持有
+      // 各角色收益持有
       const energyHoldings = await query<{ role: string; balance: string }>(
         `SELECT u.role, COALESCE(ea.balance, 0)::text as balance
          FROM users u
@@ -216,7 +216,7 @@ export async function GET(request: NextRequest) {
         energyStats.holdings.total += balance;
       });
 
-      // 能量值来源统计
+      // 收益来源统计
       const sourceStats = await query<{ type: string; total: string }>(
         `SELECT type, SUM(ABS(amount))::text as total 
          FROM energy_transactions 
@@ -233,7 +233,7 @@ export async function GET(request: NextRequest) {
         energyStats.sources.total += amount;
       });
 
-      // 能量值消耗统计
+      // 收益消耗统计
       const consumptionStats = await query<{ type: string; total: string }>(
         `SELECT type, SUM(ABS(amount))::text as total 
          FROM energy_transactions 
@@ -282,7 +282,7 @@ export async function GET(request: NextRequest) {
         users: userStats,
         // 第二类：算力额度流转
         quota: quotaStats,
-        // 第三类：能量值流转
+        // 第三类：收益流转
         energy: energyStats,
         // 汇总
         summary: {

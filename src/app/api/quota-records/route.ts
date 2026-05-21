@@ -125,17 +125,17 @@ export async function POST(request: NextRequest) {
         [toUserId, amount, amount]
       );
       
-      // 查询转入方角色，只有服务网点才同步发放20%能量值
+      // 查询转入方角色，只有服务网点才同步发放20%收益
       const toUserResult = await query(
         `SELECT role FROM users WHERE id = $1`,
         [toUserId]
       );
       const toUserRole = toUserResult.length > 0 ? toUserResult[0].role : null;
       
-      // 只有下发对象是服务网点时才同步发放20%能量值，服务商只给算力额度
+      // 只有下发对象是服务网点时才同步发放20%收益，服务商只给算力额度
       const energyBonus = toUserRole === 'branch' ? Math.floor(Number(amount) * 0.2) : 0;
       if (energyBonus > 0 && fromUserId) {
-        // 1. 扣除智算总台能量值
+        // 1. 扣除智算总台收益
         await query(
           `INSERT INTO energy_accounts (user_id, balance, total_in, total_out, created_at, updated_at)
            VALUES ($1, 0, 0, $2, NOW(), NOW())
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
           [fromUserId, energyBonus]
         );
         
-        // 2. 增加服务网点能量值
+        // 2. 增加服务网点收益
         await query(
           `INSERT INTO energy_accounts (user_id, balance, total_in, total_out, created_at, updated_at)
            VALUES ($1, $2, $3, 0, NOW(), NOW())
@@ -157,11 +157,11 @@ export async function POST(request: NextRequest) {
           [toUserId, energyBonus, energyBonus]
         );
         
-        // 3. 记录能量值流水（使用 quota_match 类型，算力额度匹配能量值）
+        // 3. 记录收益流水（使用 quota_match 类型，算力额度匹配收益）
         await query(
           `INSERT INTO energy_transactions (user_id, from_user_id, to_user_id, amount, type, note, created_at)
            VALUES ($1, $2, $3, $4, 'quota_match', $5, NOW())`,
-          [toUserId, fromUserId, toUserId, energyBonus, `智算总台下发算力额度 ${amount} 元，同步配套20%能量值 ${energyBonus}`]
+          [toUserId, fromUserId, toUserId, energyBonus, `智算总台下发算力额度 ${amount} 元，同步配套20%收益 ${energyBonus}`]
         );
       }
     }

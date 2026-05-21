@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase-client';
 
-// 获取用户能量值记录
+// 获取用户收益记录
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
     const supabase = getSupabase();
 
-    // 1. 查询能量值交易记录
+    // 1. 查询收益交易记录
     const { data: txData, error: txErr } = await supabase
       .from('energy_transactions')
       .select('*')
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
       .limit(100);
 
     if (txErr) {
-      console.error('查询能量值记录失败:', txErr.message);
+      console.error('查询收益记录失败:', txErr.message);
     }
 
     const records = (txData || []).map((r: any) => {
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
     // totalTransferIn: 转入类(convert_from_balance, transfer_in, 各种分成)
     // 总计转入 = totalRecharge + totalTransferIn
 
-    // 3. 获取能量值余额
+    // 3. 获取收益余额
     let balance = 0;
 
     // 优先读 energy_accounts
@@ -121,10 +121,10 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('获取能量值记录失败:', error);
+    console.error('获取收益记录失败:', error);
     return NextResponse.json({
       success: false,
-      error: '获取能量值记录失败'
+      error: '获取收益记录失败'
     }, { status: 500 });
   }
 }

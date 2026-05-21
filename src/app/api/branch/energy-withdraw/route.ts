@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 检查能量值余额
+    // 检查收益余额
     const account = await query(
       `SELECT balance FROM energy_accounts WHERE user_id::text = $1`,
       [branchId]
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
 
     if (currentBalance < withdrawAmount) {
       return NextResponse.json(
-        { success: false, error: `能量值余额不足（当前余额：${currentBalance.toLocaleString()}）` },
+        { success: false, error: `收益余额不足（当前余额：${currentBalance.toLocaleString()}）` },
         { status: 400 }
       );
     }
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
       [id, branchId, withdrawAmount, paymentMethod, paymentAccount, fee, actualAmount]
     );
 
-    // 记录能量值变动（冻结）
+    // 记录收益变动（冻结）
     await query(
       `INSERT INTO energy_transactions
        (id, user_id, type, amount, energy_before, energy_after, note, status, created_at)
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
       [crypto.randomUUID(), branchId, withdrawAmount, currentBalance.toFixed(2), `申请变现 ${withdrawAmount.toLocaleString()}，手续费 ${fee.toLocaleString()}，实际到账 ${actualAmount.toLocaleString()}`]
     );
 
-    // 扣除能量值
+    // 扣除收益
     await query(
       `INSERT INTO energy_accounts (user_id, balance, total_in, total_out, created_at, updated_at)
        VALUES ($1, 0, 0, $2, NOW(), NOW())

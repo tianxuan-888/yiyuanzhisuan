@@ -93,8 +93,8 @@ const menuItems: MenuItem[] = [
   { id: 'branches', name: '服务网点管理', icon: <Building2 className="w-5 h-5" /> },
   { id: 'providers', name: '服务商管理', icon: <UserCog className="w-5 h-5" /> },
   { id: 'members', name: '会员管理', icon: <Users className="w-5 h-5" /> },
-  { id: 'energy', name: '收益管理', icon: <Zap className="w-5 h-5" /> },
-  { id: 'income', name: '收益管理', icon: <TrendingUp className="w-5 h-5" /> },
+  { id: 'energy', name: '市场费分配', icon: <Zap className="w-5 h-5" /> },
+  { id: 'income', name: '市场费分配', icon: <TrendingUp className="w-5 h-5" /> },
   { id: 'finance', name: '财务管理', icon: <Wallet className="w-5 h-5" /> },
   { id: 'system-config', name: '系统设置', icon: <Settings className="w-5 h-5" /> },
 ];
@@ -234,7 +234,7 @@ export default function AdminPage() {
   const [createEnergyNote, setCreateEnergyNote] = useState('');
   const [transferTo, setTransferTo] = useState('');
   
-  // 收益管理子 Tab 状态
+  // 市场费分配子 Tab 状态
   const [incomeTab, setIncomeTab] = useState<'overview' | 'detail' | 'withdraw' | 'provider' | 'member' | 'branch'>('overview');
   const [incomeStats, setIncomeStats] = useState<any>({
     totalIncome: 0,
@@ -306,7 +306,7 @@ export default function AdminPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [withdrawNote, setWithdrawNote] = useState('');
 
-  // 收益管理相关状态
+  // 市场费分配相关状态
   const [energyTab, setEnergyTab] = useState<'overview' | 'accounts' | 'transactions' | 'request' | 'withdraw'>('overview');
   const [energyData, setEnergyData] = useState<any>(null);
   const [energyAccounts, setEnergyAccounts] = useState<any[]>([]);
@@ -742,7 +742,7 @@ export default function AdminPage() {
     }
   }, []);
 
-  // 加载收益管理数据
+  // 加载市场费分配数据
   const loadIncomeData = useCallback(async (subType: string = 'overview') => {
     try {
       setIncomeLoading(true);
@@ -798,7 +798,7 @@ export default function AdminPage() {
     }
   }, [authLoading, user, loadData]);
 
-  // 收益管理 tab 切换时加载数据
+  // 市场费分配 tab 切换时加载数据
   useEffect(() => {
     if (activeMenu === 'income' && user) {
       loadIncomeData(incomeTab === 'withdraw' ? 'withdraw' : incomeTab === 'detail' ? 'detail' : 'overview');
@@ -2689,12 +2689,12 @@ export default function AdminPage() {
       </Card>
     );
 
-    // 收益管理Tab
+    // 市场费分配Tab
     const renderEnergyManageTab = () => (
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>收益管理</CardTitle>
+            <CardTitle>市场费分配</CardTitle>
             <Button variant="outline" onClick={handleRefreshEnergyList}>
               <RefreshCw className="w-4 h-4 mr-2" />刷新
             </Button>
@@ -3194,7 +3194,7 @@ export default function AdminPage() {
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            收益管理
+            市场费分配
           </button>
           <button
             onClick={() => setMemberTab('stats')}
@@ -3319,7 +3319,7 @@ export default function AdminPage() {
         {/* 左侧标题 */}
         <div className="flex items-center gap-3 px-6 py-4 bg-purple-950/50">
           <TrendingUp className="w-5 h-5 text-white" />
-          <span className="text-white font-semibold text-lg">收益管理</span>
+          <span className="text-white font-semibold text-lg">市场费分配</span>
         </div>
         {/* 右侧Tab选项 - 简化版3Tab */}
         <div className="flex items-center gap-1 px-4">
@@ -3535,7 +3535,7 @@ export default function AdminPage() {
         {/* 左侧标题 */}
         <div className="flex items-center gap-3 px-6 py-4 bg-purple-950/50">
           <TrendingUp className="w-5 h-5 text-white" />
-          <span className="text-white font-semibold text-lg">收益管理</span>
+          <span className="text-white font-semibold text-lg">市场费分配</span>
         </div>
         {/* 右侧Tab选项 - 简化版3Tab */}
         <div className="flex items-center gap-1 px-4">
@@ -3623,7 +3623,7 @@ export default function AdminPage() {
     </div>
   );
 
-  // 渲染提现管理（收益管理Tab）
+  // 渲染提现管理（市场费分配Tab）
   const renderWithdrawManagement = () => (
     <div className="space-y-3 md:space-y-6">
       {/* 统计卡片 */}
@@ -5532,7 +5532,7 @@ export default function AdminPage() {
     );
   };
 
-  // 智算总台 - 收益管理（独立组件）
+  // 智算总台 - 市场费分配（独立组件）
   const EnergyManagement = () => {
     const [energyTab, setEnergyTab] = useState<'overview' | 'accounts' | 'transactions' | 'request' | 'withdraw' | 'fee'>('overview');
     const [energyData, setEnergyData] = useState<any>(null);
@@ -7359,7 +7359,7 @@ export default function AdminPage() {
           {/* 左侧标题 */}
           <div className="flex items-center gap-3 px-6 py-4 bg-purple-950/50">
             <Zap className="w-5 h-5 text-white" />
-            <span className="text-white font-semibold text-lg">收益管理</span>
+            <span className="text-white font-semibold text-lg">市场费分配</span>
           </div>
           {/* 右侧Tab选项 */}
           <div className="flex items-center gap-1 px-4">

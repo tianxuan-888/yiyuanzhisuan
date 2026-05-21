@@ -12,7 +12,7 @@ function getAdminSupabase() {
   return createClient(url, key);
 }
 
-// 服务商查看自己的额度/能量值申请记录
+// 服务商查看自己的额度/收益申请记录
 export async function GET(request: NextRequest) {
   try {
     const supabase = getAdminSupabase();
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 从 energy_transactions 表读取能量值申请记录
+    // 从 energy_transactions 表读取收益申请记录
     // type = 'recharge' 且 description 中包含 request_type = 'energy_request'
     const { data: allRecords, error } = await supabase
       .from('energy_transactions')
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       throw new Error(`查询失败: ${error.message}`);
     }
 
-    // 过滤出能量值申请记录
+    // 过滤出收益申请记录
     let requests = (allRecords || []).filter(record => {
       if (!record.description) return false;
       try {

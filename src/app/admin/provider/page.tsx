@@ -100,7 +100,7 @@ export default function ProviderDashboard() {
   const [recharging, setRecharging] = useState(false);
   const [rechargeSuccess, setRechargeSuccess] = useState('');
   
-  // 向服务网点申请能量值状态
+  // 向服务网点申请收益状态
   const [branchRequestAmount, setBranchRequestAmount] = useState('');
   const [branchRequestNote, setBranchRequestNote] = useState('');
   const [requestingBranch, setRequestingBranch] = useState(false);
@@ -116,10 +116,10 @@ export default function ProviderDashboard() {
   const [quotaRequests, setQuotaRequests] = useState<any[]>([]);
   const [quotaBranchName, setQuotaBranchName] = useState('');
   
-  // 能量值提现记录
+  // 收益提现记录
   const [energyWithdrawRecords, setEnergyWithdrawRecords] = useState<any[]>([]);
   
-  // 能量值提现状态
+  // 收益提现状态
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawSuccess, setWithdrawSuccess] = useState('');
@@ -265,7 +265,7 @@ export default function ProviderDashboard() {
     }
   }, [token, getHeaders]);
 
-  // 获取能量值信息
+  // 获取收益信息
   const fetchEnergy = useCallback(async () => {
     if (!token) return;
     try {
@@ -283,7 +283,7 @@ export default function ProviderDashboard() {
         setEnergyRecords(data.data.records);
       }
     } catch (err) {
-      console.error('获取能量值失败:', err);
+      console.error('获取收益失败:', err);
     }
   }, [token, getHeaders]);
 
@@ -404,7 +404,7 @@ export default function ProviderDashboard() {
         const successCount = results.filter((r: { success: boolean }) => r.success).length;
         const failCount = results.filter((r: { success: boolean }) => !r.success).length;
         let msg = `${successCount}个产品匹配成功`;
-        if (failCount > 0) msg += `，${failCount}个因能量值不足匹配失败`;
+        if (failCount > 0) msg += `，${failCount}个因收益不足匹配失败`;
         setToast({ message: msg, type: successCount > 0 ? 'success' : 'error' });
         fetchMatchProducts();
         setSelectedMatchIds([]);
@@ -452,7 +452,7 @@ export default function ProviderDashboard() {
       if (data.success) {
         const result = data.data?.results;
         if (result?.failed > 0) {
-          setToast({ message: `成功匹配${result.succeeded}个，${result.failed}个因能量值不足匹配失败`, type: 'error' });
+          setToast({ message: `成功匹配${result.succeeded}个，${result.failed}个因收益不足匹配失败`, type: 'error' });
         } else {
           setToast({ message: `成功匹配${result.succeeded}个产品`, type: 'success' });
         }
@@ -496,7 +496,7 @@ export default function ProviderDashboard() {
       return;
     }
     if (parseFloat(rechargeAmount) > energyBalance.energyValue) {
-      setToast({ message: '能量值余额不足', type: 'error' });
+      setToast({ message: '收益余额不足', type: 'error' });
       return;
     }
 
@@ -529,7 +529,7 @@ export default function ProviderDashboard() {
     setRecharging(false);
   };
 
-  // 向服务网点申请能量值
+  // 向服务网点申请收益
   const handleBranchRequest = async () => {
     if (!branchRequestAmount || parseFloat(branchRequestAmount) <= 0) {
       setToast({ message: '请输入正确的申请金额', type: 'error' });
@@ -579,11 +579,11 @@ export default function ProviderDashboard() {
     }
   };
 
-  // 能量值提现
+  // 收益提现
   const handleEnergyWithdraw = async () => {
     const amount = parseFloat(withdrawAmount);
     if (!amount || amount < 100) {
-      setToast({ message: '最低提现金额为 100 能量值', type: 'error' });
+      setToast({ message: '最低提现金额为 100 收益', type: 'error' });
       return;
     }
 
@@ -599,7 +599,7 @@ export default function ProviderDashboard() {
       });
       const data = await res.json();
       if (data.success) {
-        setWithdrawSuccess(`提现成功！实际到账: ${data.data.actualAmount} 能量值 (扣除手续费 ${data.data.fee} 能量值)`);
+        setWithdrawSuccess(`提现成功！实际到账: ${data.data.actualAmount} 收益 (扣除手续费 ${data.data.fee} 收益)`);
         setWithdrawAmount('');
         fetchEnergyWithdrawRecords(); // 刷新提现记录
         fetchEnergy(); // 刷新余额
@@ -664,7 +664,7 @@ export default function ProviderDashboard() {
     }
   };
 
-  // 获取能量值提现记录
+  // 获取收益提现记录
   const fetchEnergyWithdrawRecords = async () => {
     if (!token) return;
     try {
@@ -674,7 +674,7 @@ export default function ProviderDashboard() {
         setEnergyWithdrawRecords(data.data || []);
       }
     } catch (err) {
-      console.error('获取能量值提现记录失败:', err);
+      console.error('获取收益提现记录失败:', err);
     }
   };
 
@@ -712,7 +712,7 @@ export default function ProviderDashboard() {
     { id: 'repurchase', name: '回购管理', icon: RefreshCw, badge: 0 },
     { id: 'transfer', name: '产品匹配', icon: ArrowRightLeft, badge: matchProducts.filter(p => p.status === 'pending_match').length },
     { id: 'quota', name: '算力额度', icon: Database, badge: 0 },
-    { id: 'energy', name: '能量值管理', icon: Coins, badge: 0 },
+    { id: 'energy', name: '收益管理', icon: Coins, badge: 0 },
     { id: 'product-showcase', name: '产品展示', icon: Package, badge: 0 },
   ];
 
@@ -726,7 +726,7 @@ export default function ProviderDashboard() {
     repurchase: '回购管理',
     transfer: '产品流转',
     quota: '算力额度',
-    energy: '能量值管理',
+    energy: '收益管理',
     'product-showcase': '产品展示',
   };
 
@@ -813,7 +813,7 @@ export default function ProviderDashboard() {
                     <Input value={user?.unique_id || ''} disabled className="mt-1 bg-gray-100" />
                   </div>
                   <div>
-                    <Label className="text-gray-500">能量值</Label>
+                    <Label className="text-gray-500">收益</Label>
                     <Input value={user?.energy_value || 0} disabled className="mt-1 bg-gray-100" />
                   </div>
                 </div>
@@ -881,7 +881,7 @@ export default function ProviderDashboard() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-500">能量值余额</p>
+                      <p className="text-sm text-gray-500">收益余额</p>
                       <p className="text-3xl font-bold mt-1">{user?.energy_value || 0}</p>
                     </div>
                     <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white">
@@ -1105,7 +1105,7 @@ export default function ProviderDashboard() {
                           <tr>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">用户名</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">手机号</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">能量值</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">收益</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">累计投资</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">持仓产品</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">注册时间</th>
@@ -1276,15 +1276,15 @@ export default function ProviderDashboard() {
         return (
           <div className="space-y-6">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">能量值管理</h1>
-              <p className="text-gray-500 text-sm mt-1">管理您的能量值，为会员充值</p>
+              <h1 className="text-2xl font-bold text-gray-900">收益管理</h1>
+              <p className="text-gray-500 text-sm mt-1">管理您的收益，为会员充值</p>
             </div>
             
-            {/* 能量值统计卡片 */}
+            {/* 收益统计卡片 */}
             <div className="grid grid-cols-4 gap-6">
               <Card className="border-amber-200">
                 <CardContent className="p-6">
-                  <p className="text-sm text-gray-500">能量值余额</p>
+                  <p className="text-sm text-gray-500">收益余额</p>
                   <p className="text-3xl font-bold mt-1 text-amber-600">{energyBalance.energyValue}</p>
                 </CardContent>
               </Card>
@@ -1313,9 +1313,9 @@ export default function ProviderDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Zap className="w-5 h-5 text-purple-500" />
-                  给会员充值能量值
+                  给会员充值收益
                 </CardTitle>
-                <CardDescription>服务商线下收款后，在此为会员充值能量值</CardDescription>
+                <CardDescription>服务商线下收款后，在此为会员充值收益</CardDescription>
               </CardHeader>
               <CardContent>
                 {rechargeSuccess && (
@@ -1343,7 +1343,7 @@ export default function ProviderDashboard() {
                     />
                     {rechargeMember && (
                       <p className="text-sm text-green-600 mt-1">
-                        已选择: {rechargeMember.username} (当前能量值: {rechargeMember.energy_value})
+                        已选择: {rechargeMember.username} (当前收益: {rechargeMember.energy_value})
                       </p>
                     )}
                   </div>
@@ -1351,7 +1351,7 @@ export default function ProviderDashboard() {
                     <Label>充值金额</Label>
                     <Input 
                       type="number"
-                      placeholder="输入能量值数量"
+                      placeholder="输入收益数量"
                       value={rechargeAmount}
                       onChange={(e) => setRechargeAmount(e.target.value)}
                       className="mt-1"
@@ -1378,14 +1378,14 @@ export default function ProviderDashboard() {
               </CardContent>
             </Card>
 
-            {/* 向服务网点申请能量值 */}
+            {/* 向服务网点申请收益 */}
             <Card className="border-blue-200">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Database className="w-5 h-5 text-blue-500" />
-                  向服务网点申请能量值
+                  向服务网点申请收益
                 </CardTitle>
-                <CardDescription>向所属服务网点申请能量值配额，等待审核后发放</CardDescription>
+                <CardDescription>向所属服务网点申请收益配额，等待审核后发放</CardDescription>
               </CardHeader>
               <CardContent>
                 {branchRequestSuccess && (
@@ -1406,7 +1406,7 @@ export default function ProviderDashboard() {
                     <Label>申请金额</Label>
                     <Input 
                       type="number"
-                      placeholder="输入申请能量值数量"
+                      placeholder="输入申请收益数量"
                       value={branchRequestAmount}
                       onChange={(e) => setBranchRequestAmount(e.target.value)}
                       className="mt-1"
@@ -1461,14 +1461,14 @@ export default function ProviderDashboard() {
               </CardContent>
             </Card>
 
-            {/* 能量值提现 */}
+            {/* 收益提现 */}
             <Card className="border-red-200">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingDown className="w-5 h-5 text-red-500" />
-                  能量值提现
+                  收益提现
                 </CardTitle>
-                <CardDescription>将能量值提现，最低100起，手续费5%</CardDescription>
+                <CardDescription>将收益提现，最低100起，手续费5%</CardDescription>
               </CardHeader>
               <CardContent>
                 {withdrawSuccess && (
@@ -1478,7 +1478,7 @@ export default function ProviderDashboard() {
                 )}
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <Label>可提现能量值</Label>
+                    <Label>可提现收益</Label>
                     <Input 
                       value={energyBalance.energyValue}
                       disabled
@@ -1506,20 +1506,20 @@ export default function ProviderDashboard() {
                     </Button>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">手续费5%，最低提现金额100能量值</p>
+                <p className="text-xs text-gray-500 mt-2">手续费5%，最低提现金额100收益</p>
               </CardContent>
             </Card>
 
-            {/* 能量值记录 */}
+            {/* 收益记录 */}
             <Card>
               <CardHeader>
-                <CardTitle>能量值记录</CardTitle>
+                <CardTitle>收益记录</CardTitle>
               </CardHeader>
               <CardContent>
                 {energyRecords.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     <Coins className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                    <p>暂无能量值记录</p>
+                    <p>暂无收益记录</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -1552,10 +1552,10 @@ export default function ProviderDashboard() {
               </CardContent>
             </Card>
 
-            {/* 能量值提现记录 */}
+            {/* 收益提现记录 */}
             <Card>
               <CardHeader>
-                <CardTitle>能量值提现记录</CardTitle>
+                <CardTitle>收益提现记录</CardTitle>
               </CardHeader>
               <CardContent>
                 {withdrawSuccess && (
@@ -1619,7 +1619,7 @@ export default function ProviderDashboard() {
           <div className="space-y-6">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">充值审核</h1>
-              <p className="text-gray-500 text-sm mt-1">会员能量值充值申请</p>
+              <p className="text-gray-500 text-sm mt-1">会员收益充值申请</p>
             </div>
             <div className="text-center py-12 text-gray-500">
               <Zap className="w-16 h-16 mx-auto mb-4 text-gray-300" />
@@ -1798,7 +1798,7 @@ export default function ProviderDashboard() {
                                     匹配会员: <span className="text-blue-700 font-medium">{product.pending_match_name || '未知'}</span>
                                   </div>
                                   <div className="text-gray-500">
-                                    会员能量值: <span className={`font-medium ${(product.pending_match_energy || 0) >= product.price * product.market_rate / 100 ? 'text-green-600' : 'text-red-600'}`}>
+                                    会员收益: <span className={`font-medium ${(product.pending_match_energy || 0) >= product.price * product.market_rate / 100 ? 'text-green-600' : 'text-red-600'}`}>
                                       {product.pending_match_energy || 0}
                                     </span>
                                     <span className="text-xs text-gray-400 ml-1">（需{Math.floor(product.price * product.market_rate / 100)}）</span>
@@ -1850,7 +1850,7 @@ export default function ProviderDashboard() {
                   <DialogDescription>
                     产品：{matchTargetProduct?.name}（¥{matchTargetProduct?.price.toLocaleString()}）
                     <br />
-                    需要会员能量值：{matchTargetProduct ? Math.floor(matchTargetProduct.price * matchTargetProduct.market_rate / 100) : 0}
+                    需要会员收益：{matchTargetProduct ? Math.floor(matchTargetProduct.price * matchTargetProduct.market_rate / 100) : 0}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-3 max-h-80 overflow-y-auto">
@@ -1873,7 +1873,7 @@ export default function ProviderDashboard() {
                         </div>
                         <div className="text-right">
                           <div className={`text-sm font-medium ${member.energy_value >= (matchTargetProduct?.price || 0) * (matchTargetProduct?.market_rate || 0) / 100 ? 'text-green-600' : 'text-red-500'}`}>
-                            能量值: {member.energy_value}
+                            收益: {member.energy_value}
                           </div>
                         </div>
                       </div>
@@ -2101,7 +2101,7 @@ export default function ProviderDashboard() {
                         {/* 市场费 */}
                         <div className="mb-2 md:mb-3 p-2 md:p-3 rounded-lg bg-orange-500/20 border border-orange-500/40 text-orange-300 text-center text-xs md:text-sm">
                           <Zap className="w-3 h-3 md:w-4 md:h-4 inline mr-1" />
-                          市场费 {market_rate}% · 需能量值 ¥{Math.round(product.price * market_rate / 100).toLocaleString()}
+                          市场费 {market_rate}% · 需收益 ¥{Math.round(product.price * market_rate / 100).toLocaleString()}
                         </div>
 
                         {/* 状态指示 - 已售时显示持有人信息提示 */}

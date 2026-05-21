@@ -3,7 +3,7 @@ import { getSupabase } from '@/lib/supabase-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 import { deductEnergy, addEnergy, getEnergyBalance, transferEnergy } from '@/lib/energy-util';
 
-// 服务商给会员充值能量值
+// 服务商给会员充值收益
 export async function POST(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);
@@ -26,11 +26,11 @@ export async function POST(request: NextRequest) {
 
     const supabase = getSupabase();
 
-    // 验证服务商身份和能量值
+    // 验证服务商身份和收益
     const providerBalance = await getEnergyBalance(providerId);
     if (providerBalance < rechargeAmount) {
       return NextResponse.json({
-        error: '服务商能量值不足',
+        error: '服务商收益不足',
         data: { required: rechargeAmount, current: providerBalance },
       }, { status: 400 });
     }
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `成功为会员 ${member.username} 充值能量值 ${rechargeAmount}`,
+      message: `成功为会员 ${member.username} 充值收益 ${rechargeAmount}`,
       data: {
         provider: {
           id: providerId,
@@ -89,9 +89,9 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('充值能量值失败:', error);
+    console.error('充值收益失败:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : '充值能量值失败' },
+      { error: error instanceof Error ? error.message : '充值收益失败' },
       { status: 500 }
     );
   }

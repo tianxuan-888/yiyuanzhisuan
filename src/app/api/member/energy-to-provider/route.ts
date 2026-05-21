@@ -3,7 +3,7 @@ import { getSupabase } from '@/lib/supabase-client';
 import { authenticateRequest } from '@/lib/auth';
 import { getEnergyBalance, transferEnergy } from '@/lib/energy-util';
 
-// 能量值转给服务商（直接到账，非审核流程）
+// 收益转给服务商（直接到账，非审核流程）
 export async function POST(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);
@@ -23,11 +23,11 @@ export async function POST(request: NextRequest) {
 
     const energyAmount = parseFloat(amount);
     if (isNaN(energyAmount) || energyAmount <= 0) {
-      return NextResponse.json({ error: '能量值数量无效' }, { status: 400 });
+      return NextResponse.json({ error: '收益数量无效' }, { status: 400 });
     }
 
     if (energyAmount < 50) {
-      return NextResponse.json({ error: '最小转账金额为 50 能量值' }, { status: 400 });
+      return NextResponse.json({ error: '最小转账金额为 50 收益' }, { status: 400 });
     }
 
     const supabase = getSupabase();
@@ -41,12 +41,12 @@ export async function POST(request: NextRequest) {
     // 验证会员余额
     const currentEnergy = await getEnergyBalance(userId);
     if (currentEnergy < energyAmount) {
-      return NextResponse.json({ error: `能量值不足，当前只有 ${currentEnergy}` }, { status: 400 });
+      return NextResponse.json({ error: `收益不足，当前只有 ${currentEnergy}` }, { status: 400 });
     }
 
     // 使用 transferEnergy 执行原子转账
     const result = await transferEnergy(userId, providerId, energyAmount, {
-      note: `能量值转给服务商: ${provider.username}`,
+      note: `收益转给服务商: ${provider.username}`,
     });
 
     if (!result.success) {
@@ -58,13 +58,13 @@ export async function POST(request: NextRequest) {
       data: {
         energy_value: result.fromNewBalance.toFixed(2),
       },
-      message: `成功转出 ${energyAmount} 能量值给服务商`,
+      message: `成功转出 ${energyAmount} 收益给服务商`,
     });
   } catch (error: any) {
-    console.error('能量值转账失败:', error);
+    console.error('收益转账失败:', error);
     const statusCode = error.statusCode || 500;
     return NextResponse.json(
-      { error: error.message || '能量值转账失败' },
+      { error: error.message || '收益转账失败' },
       { status: statusCode }
     );
   }

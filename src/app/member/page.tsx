@@ -538,7 +538,7 @@ const [copySuccess, setCopySuccess] = useState(false);
         const hasPendingConfirm = userProducts.some(up => up.status === 'pending_confirm');
         const hasPendingOrders = pendingOrders.length > 0;
         const hasPendingRecharge = pendingRechargeCount > 0;
-        const hasPendingTransfer = false; // 能量值互转已移除
+        const hasPendingTransfer = false; // 收益互转已移除
 
         if (!hasPendingConfirm && !hasPendingOrders && !hasPendingRecharge && !hasPendingTransfer) return;
 

@@ -14,7 +14,7 @@ function getAdminSupabase() {
 
 /**
  * 获取会员收益明细流水
- * 包含：本金返还、收益入账、转能量值、提现
+ * 包含：本金返还、收益入账、转收益、提现
  */
 export async function GET(request: NextRequest) {
   try {

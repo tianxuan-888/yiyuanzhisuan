@@ -18,7 +18,7 @@ function parseNumeric(val: any): number {
   return 0;
 }
 
-// 购买产品接口（线下交易模式，无需能量值）
+// 购买产品接口（线下交易模式，无需收益）
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ========== 执行购买（无需扣除能量值） ==========
+    // ========== 执行购买（无需扣除收益） ==========
     const providerId = product.provider_id;
 
     // 1. 创建 user_products 记录（pending_confirm 状态）

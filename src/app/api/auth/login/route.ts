@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 从 energy_accounts 表获取最新的能量值
+      // 从 energy_accounts 表获取最新的收益
       let energyValue = 0;
       try {
         const eaAccount = await queryOne(
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
           energyValue = parseNumeric(eaAccount.balance);
         }
       } catch (eaError) {
-        console.error('获取能量值失败:', eaError);
+        console.error('获取收益失败:', eaError);
         // 如果获取失败，使用用户表的默认值
         energyValue = parseNumeric(user.energy_value);
       }

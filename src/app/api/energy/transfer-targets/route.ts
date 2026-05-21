@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     const currentUser = currentUsers[0];
 
-    // 从 energy_accounts 表获取最新的能量值
+    // 从 energy_accounts 表获取最新的收益
     const energyAccounts = await query(
       'SELECT balance FROM energy_accounts WHERE user_id = $1',
       [userId]
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       transfer_targets: {},
     };
 
-    // 辅助函数：从 energy_accounts 表批量获取用户能量值
+    // 辅助函数：从 energy_accounts 表批量获取用户收益
     const getEnergyValues = async (userIds: string[]): Promise<Map<string, number>> => {
       if (userIds.length === 0) return new Map();
       const placeholders = userIds.map((_, i) => `$${i + 1}`).join(',');

@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
 
     if (updateError) throw new Error(`更新订单失败: ${updateError.message}`);
 
-    // ========== 扣除会员能量值（旧流程：审核时才扣除）==========
+    // ========== 扣除会员收益（旧流程：审核时才扣除）==========
     if (energyCost > 0) {
       await execute('UPDATE users SET energy_value = COALESCE(energy_value, 0) - $1, updated_at = NOW() WHERE id = $2', [energyCost, order.user_id]);
       await execute('UPDATE energy_accounts SET balance = balance - $1, total_out = total_out + $1 WHERE user_id = $2', [energyCost, order.user_id]);

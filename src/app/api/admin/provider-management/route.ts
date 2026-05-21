@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
        FROM providers`
     );
 
-    // 5. 查询服务商的收益统计（从能量值流水）
+    // 5. 查询服务商的收益统计（从收益流水）
     const profitStats = await query<{ user_id: string; total_profit: string }>(
       `SELECT et.related_user_id as user_id,
               COALESCE(SUM(ABS(et.amount)), 0)::text as total_profit

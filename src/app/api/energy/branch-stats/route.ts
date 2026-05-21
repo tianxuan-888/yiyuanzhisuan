@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 
-// 服务网点视角：能量值统计
+// 服务网点视角：收益统计
 // 支持使用 branchId 或 username 来查询
 export async function GET(request: NextRequest) {
   try {
@@ -34,14 +34,14 @@ export async function GET(request: NextRequest) {
     const currentBranch = branch[0];
     const actualBranchId = currentBranch.id;
     
-    // 从 energy_accounts 表获取服务网点的能量值余额
+    // 从 energy_accounts 表获取服务网点的收益余额
     const branchAccount = await query(
       `SELECT balance FROM energy_accounts WHERE user_id::text = '${actualBranchId}'`,
       []
     );
     const branchBalance = branchAccount.length > 0 ? Number(branchAccount[0].balance || 0) : 0;
 
-    // 下级服务商能量值分布 - 只查询属于当前服务网点的服务商
+    // 下级服务商收益分布 - 只查询属于当前服务网点的服务商
     const providers = await query(
       `SELECT u.id, u.username, u.phone, 
               COALESCE((SELECT ea.balance FROM energy_accounts ea WHERE ea.user_id::text = u.id), 0) as balance
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
       0
     );
 
-    // 下级会员能量值分布
+    // 下级会员收益分布
     const members = await query(
       `SELECT u.id, u.username, u.phone,
               COALESCE((SELECT ea.balance FROM energy_accounts ea WHERE ea.user_id::text = u.id), 0) as balance
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
       0
     );
 
-    // 最近30天能量值变化趋势
+    // 最近30天收益变化趋势
     const trend = await query(
       `SELECT DATE(created_at) as date,
               SUM(CASE WHEN type IN ('transfer_in', 'create', 'recharge') THEN amount ELSE 0 END) as inflow,
@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error('获取服务网点能量值统计失败:', error);
+    console.error('获取服务网点收益统计失败:', error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

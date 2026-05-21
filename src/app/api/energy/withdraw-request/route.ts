@@ -4,7 +4,7 @@ import { authenticateRequest, authorizeRole } from '@/lib/auth';
 import { generateUUID } from '@/lib/utils';
 import { deductEnergy } from '@/lib/energy-util';
 
-// 申请变现能量值（服务商/服务网点）
+// 申请变现收益（服务商/服务网点）
 export async function POST(request: NextRequest) {
   try {
     const user = authenticateRequest(request);
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     const { amount, targetUserId, note } = body;
 
     if (!amount || amount < 50) {
-      return NextResponse.json({ error: '最低变现金额为50能量值' }, { status: 400 });
+      return NextResponse.json({ error: '最低变现金额为50收益' }, { status: 400 });
     }
 
     const withdrawAmount = parseFloat(amount);
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         approver_id: approverId,
         approver_role: approverRole,
         status: 'pending',
-        note: note || `用户申请变现 ${withdrawAmount} 能量值`,
+        note: note || `用户申请变现 ${withdrawAmount} 收益`,
         created_at: new Date().toISOString(),
       });
 
@@ -72,15 +72,15 @@ export async function POST(request: NextRequest) {
       throw new Error(`创建申请失败: ${insertError.message}`);
     }
 
-    // 冻结能量值：使用 deductEnergy 扣减（双表同步 + 流水）
+    // 冻结收益：使用 deductEnergy 扣减（双表同步 + 流水）
     const subResult = await deductEnergy(user.userId, withdrawAmount, 'withdraw_freeze', {
-      note: `申请变现冻结 ${withdrawAmount} 能量值`,
+      note: `申请变现冻结 ${withdrawAmount} 收益`,
     });
 
     if (!subResult.success) {
       // 如果扣减失败，删除刚创建的申请记录
       await supabase.from('energy_withdraw_requests').delete().eq('id', requestId);
-      return NextResponse.json({ error: subResult.error || '能量值余额不足' }, { status: 400 });
+      return NextResponse.json({ error: subResult.error || '收益余额不足' }, { status: 400 });
     }
 
     return NextResponse.json({

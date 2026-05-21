@@ -488,7 +488,7 @@ export function MyProfile() {
                     <h4 className="font-medium text-amber-800 mb-2">邀请奖励规则</h4>
                     <ul className="text-sm text-amber-700 space-y-1">
                       <li>• 邀请好友注册，好友将绑定到您的名下</li>
-                      <li>• 好友成功购买产品，您可获得能量值奖励</li>
+                      <li>• 好友成功购买产品，您可获得收益奖励</li>
                       <li>• 邀请越多，奖励越多</li>
                     </ul>
                   </div>

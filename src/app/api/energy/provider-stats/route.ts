@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 
-// 服务商视角：能量值统计
+// 服务商视角：收益统计
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 服务商能量值账户
+    // 服务商收益账户
     const providerAccount = await query(
       'SELECT * FROM energy_accounts WHERE user_id = $1',
       [providerId]
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     const providerTotalIn = providerAccount.length > 0 ? Number(providerAccount[0].total_in || 0) : 0;
     const providerTotalOut = providerAccount.length > 0 ? Number(providerAccount[0].total_out || 0) : 0;
 
-    // 下级会员能量值分布
+    // 下级会员收益分布
     const members = await query(
       `SELECT u.id, u.username, u.phone, 
               COALESCE(ea.balance, 0) as balance,
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
       0
     );
 
-    // 最近30天能量值变化趋势
+    // 最近30天收益变化趋势
     const trend = await query(
       `SELECT DATE(created_at) as date,
               SUM(CASE WHEN from_user_id = $1 THEN amount ELSE 0 END) as outflow,
@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error('获取服务商能量值统计失败:', error);
+    console.error('获取服务商收益统计失败:', error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

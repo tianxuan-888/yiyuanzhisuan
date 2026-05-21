@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase-client';
 import { transferEnergy } from '@/lib/energy-util';
 
-// 能量值充值（服务商给会员充值）
+// 收益充值（服务商给会员充值）
 // 使用 transferEnergy 确保双表同步 + 双条流水
 export async function POST(request: NextRequest) {
   try {
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '服务商不存在' }, { status: 404 });
     }
     if (provider.role !== 'provider' && provider.role !== 'admin') {
-      return NextResponse.json({ error: '只有服务商才能充值能量值' }, { status: 403 });
+      return NextResponse.json({ error: '只有服务商才能充值收益' }, { status: 403 });
     }
 
     // 验证会员
@@ -35,12 +35,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '会员不存在' }, { status: 404 });
     }
 
-    // 检查服务商能量值是否足够
+    // 检查服务商收益是否足够
     const providerEnergy = parseFloat(String(provider.energy_value)) || 0;
     if (providerEnergy < rechargeAmount) {
       return NextResponse.json({
         success: false,
-        error: '服务商能量值不足',
+        error: '服务商收益不足',
         data: {
           required: rechargeAmount,
           current: providerEnergy,
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     const result = await transferEnergy(providerId, memberId, rechargeAmount, {
       fromType: 'transfer_out',
       toType: 'recharge',
-      note: `给会员充值能量值`,
+      note: `给会员充值收益`,
     });
 
     if (!result.success) {
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `成功为会员 ${member.username} 充值能量值 ${rechargeAmount}`,
+      message: `成功为会员 ${member.username} 充值收益 ${rechargeAmount}`,
       data: {
         provider: {
           id: providerId,
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('能量值充值失败:', error);
+    console.error('收益充值失败:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : '充值失败' },
       { status: 500 }

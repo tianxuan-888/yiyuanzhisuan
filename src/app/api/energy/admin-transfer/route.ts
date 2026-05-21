@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 
-// 智算总台向任意用户转账能量值
+// 智算总台向任意用户转账收益
 export async function POST(request: NextRequest) {
   try {
     // 鉴权：仅管理员可操作
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 获取转出方当前能量值（从 energy_accounts 表）
+    // 获取转出方当前收益（从 energy_accounts 表）
     const fromAccount = await query(
       'SELECT balance FROM energy_accounts WHERE user_id = $1',
       [fromUserId]
@@ -80,12 +80,12 @@ export async function POST(request: NextRequest) {
 
     if (fromEnergyValue < transferAmount) {
       return NextResponse.json(
-        { error: `能量值不足，当前余额 ${fromEnergyValue.toLocaleString()}` },
+        { error: `收益不足，当前余额 ${fromEnergyValue.toLocaleString()}` },
         { status: 400 }
       );
     }
 
-    // 获取转入方当前能量值（从 energy_accounts 表）
+    // 获取转入方当前收益（从 energy_accounts 表）
     const toAccount = await query(
       'SELECT balance FROM energy_accounts WHERE user_id = $1',
       [toUserId]
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
     const toEnergyValue = toAccount.length > 0 ? Number(toAccount[0].balance || 0) : 0;
 
     // 执行转账操作
-    // 1. 扣除转出方能量值
+    // 1. 扣除转出方收益
     await query(
       `INSERT INTO energy_accounts (user_id, balance, total_in, total_out, created_at, updated_at)
        VALUES ($1, 0, 0, $2, NOW(), NOW())
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
       [fromUserId, transferAmount]
     );
 
-    // 2. 增加转入方能量值
+    // 2. 增加转入方收益
     await query(
       `INSERT INTO energy_accounts (user_id, balance, total_in, total_out, created_at, updated_at)
        VALUES ($1, $2, $3, 0, NOW(), NOW())
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
       [toUserId, transferAmount, transferAmount]
     );
 
-    // 3. 记录转出方的能量值变动
+    // 3. 记录转出方的收益变动
     await query(
       `INSERT INTO energy_transactions 
        (id, user_id, type, amount, energy_before, energy_after, related_user_id, note, status, from_user_id, to_user_id, created_at) 
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
       ]
     );
 
-    // 4. 记录转入方的能量值变动
+    // 4. 记录转入方的收益变动
     await query(
       `INSERT INTO energy_transactions 
        (id, user_id, type, amount, energy_before, energy_after, related_user_id, note, status, from_user_id, to_user_id, created_at) 
@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `成功向 ${toUser[0].username} 转账 ${transferAmount.toLocaleString()} 能量值`,
+      message: `成功向 ${toUser[0].username} 转账 ${transferAmount.toLocaleString()} 收益`,
       data: {
         from_user: {
           id: fromUserId,

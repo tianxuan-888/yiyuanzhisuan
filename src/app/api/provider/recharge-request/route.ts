@@ -125,11 +125,11 @@ export async function POST(request: NextRequest) {
     const memberId = record.member_id;
 
     if (action === 'approve') {
-      // 1. 检查服务商能量值是否充足
+      // 1. 检查服务商收益是否充足
       const providerBalance = await getEnergyBalance(providerId);
 
       if (providerBalance < amount) {
-        return NextResponse.json({ error: '服务商能量值不足，无法充值' }, { status: 400 });
+        return NextResponse.json({ error: '服务商收益不足，无法充值' }, { status: 400 });
       }
 
       // 2. 获取会员信息（用于流水描述）
@@ -139,30 +139,30 @@ export async function POST(request: NextRequest) {
         .eq('id', memberId)
         .single();
 
-      // 3. 扣减服务商能量值（自动更新 users.energy_value + energy_accounts + energy_transactions）
+      // 3. 扣减服务商收益（自动更新 users.energy_value + energy_accounts + energy_transactions）
       const deductResult = await deductEnergy(providerId, amount, 'transfer_out', {
         toUserId: memberId,
-        note: `给会员${member?.username || ''}充值能量值`,
+        note: `给会员${member?.username || ''}充值收益`,
       });
 
       if (!deductResult.success) {
-        return NextResponse.json({ error: '扣减服务商能量值失败: ' + deductResult.error }, { status: 500 });
+        return NextResponse.json({ error: '扣减服务商收益失败: ' + deductResult.error }, { status: 500 });
       }
 
-      // 4. 增加会员能量值（自动更新 users.energy_value + energy_accounts + energy_transactions）
+      // 4. 增加会员收益（自动更新 users.energy_value + energy_accounts + energy_transactions）
       const addResult = await addEnergy(memberId, amount, 'recharge', {
         fromUserId: providerId,
-        note: '服务商充值能量值',
+        note: '服务商充值收益',
       });
 
       if (!addResult.success) {
         // 会员增加失败，回滚服务商扣减
-        console.error('[recharge-request] 会员增加能量值失败，回滚服务商');
+        console.error('[recharge-request] 会员增加收益失败，回滚服务商');
         await addEnergy(providerId, amount, 'refund', {
           fromUserId: memberId,
           note: '充值失败退款',
         });
-        return NextResponse.json({ error: '增加会员能量值失败: ' + addResult.error }, { status: 500 });
+        return NextResponse.json({ error: '增加会员收益失败: ' + addResult.error }, { status: 500 });
       }
 
       // 5. 更新充值记录状态
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: `已成功充值 ${amount} 能量值给 ${member?.username || '会员'}`,
+        message: `已成功充值 ${amount} 收益给 ${member?.username || '会员'}`,
         data: {
           amount,
           memberEnergy: addResult.newBalance,

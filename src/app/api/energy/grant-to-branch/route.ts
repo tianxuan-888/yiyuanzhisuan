@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 
-// 获取服务网点的能量值发放记录
+// 获取服务网点的收益发放记录
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       data: records,
     });
   } catch (error) {
-    console.error('获取能量值记录失败:', error);
+    console.error('获取收益记录失败:', error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : '获取记录失败' },
       { status: 500 }
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 服务网点向智算总台申请能量值（只记录申请，不实际转账）
+// 服务网点向智算总台申请收益（只记录申请，不实际转账）
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
 
     if (branch[0].role !== 'branch') {
       return NextResponse.json(
-        { success: false, error: '只有服务网点才能申请能量值' },
+        { success: false, error: '只有服务网点才能申请收益' },
         { status: 403 }
       );
     }
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     // 验证最低申请金额
     if (applyAmount < 50) {
       return NextResponse.json(
-        { success: false, error: '最低申请金额为 50 能量值' },
+        { success: false, error: '最低申请金额为 50 收益' },
         { status: 400 }
       );
     }
@@ -120,18 +120,18 @@ export async function POST(request: NextRequest) {
     const notifId = crypto.randomUUID();
     await query(
       `INSERT INTO notifications (id, receiver_id, receiver_role, sender_id, type, title, content, related_id, created_at)
-       VALUES ($1, '00000000-0000-0000-0000-000000000001', 'admin', $2, 'energy_request_pending', '新的能量值申请', $3, $4, NOW())`,
+       VALUES ($1, '00000000-0000-0000-0000-000000000001', 'admin', $2, 'energy_request_pending', '新的收益申请', $3, $4, NOW())`,
       [
         notifId,
         branchId,
-        `服务网点 ${branch[0].username} 申请能量值 ${applyAmount.toLocaleString()}，请前往审核。`,
+        `服务网点 ${branch[0].username} 申请收益 ${applyAmount.toLocaleString()}，请前往审核。`,
         requestId
       ]
     );
 
     return NextResponse.json({
       success: true,
-      message: `能量值申请已提交，等待智算总台审核`,
+      message: `收益申请已提交，等待智算总台审核`,
       data: {
         requestId,
         amount: applyAmount,
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('服务网点申请能量值失败:', error);
+    console.error('服务网点申请收益失败:', error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : '申请失败' },
       { status: 500 }

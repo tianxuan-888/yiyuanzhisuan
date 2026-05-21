@@ -3,7 +3,7 @@ import { getSupabase } from '@/lib/supabase-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 import { getEnergyBalance, transferEnergy } from '@/lib/energy-util';
 
-// 能量值互转接口（服务商之间互转）
+// 收益互转接口（服务商之间互转）
 export async function POST(request: NextRequest) {
   try {
     const user = authenticateRequest(request);
@@ -47,12 +47,12 @@ export async function POST(request: NextRequest) {
     // 验证余额
     const fromEnergy = await getEnergyBalance(fromProviderId);
     if (fromEnergy < transferAmount) {
-      return NextResponse.json({ error: `能量值不足，当前只有 ${fromEnergy}` }, { status: 400 });
+      return NextResponse.json({ error: `收益不足，当前只有 ${fromEnergy}` }, { status: 400 });
     }
 
     // 使用 transferEnergy 执行原子转账（双表同步 + 双条流水）
     const result = await transferEnergy(fromProviderId, toProviderId, transferAmount, {
-      note: note || '服务商间能量值转账',
+      note: note || '服务商间收益转账',
     });
 
     if (!result.success) {
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('能量值转账失败:', error);
+    console.error('收益转账失败:', error);
     return NextResponse.json({ error: '服务器错误' }, { status: 500 });
   }
 }

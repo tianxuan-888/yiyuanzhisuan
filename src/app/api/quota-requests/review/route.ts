@@ -144,11 +144,11 @@ export async function POST(request: NextRequest) {
         // 不回滚，因为申请状态还没更新，可以重试
       }
 
-      // 服务网点申请配比20%能量值
+      // 服务网点申请配比20%收益
       const energyAmount = Math.floor(approvedAmount * 0.2);
       if (energyAmount > 0) {
         try {
-          // 给服务网点增加能量值
+          // 给服务网点增加收益
           const { data: energyAccount } = await client
             .from('energy_accounts')
             .select('*')
@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
               });
           }
 
-          // 记录能量值流水
+          // 记录收益流水
           await client
             .from('energy_transactions')
             .insert({
@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
             await execute('UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2', [currentEv + energyAmount, quotaRequest.requester_id]);
           }
         } catch (energyError) {
-          console.error('更新服务网点能量值失败:', energyError);
+          console.error('更新服务网点收益失败:', energyError);
         }
       }
     }

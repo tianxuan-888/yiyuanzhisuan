@@ -284,7 +284,7 @@ export default function ProviderPage() {
     const [wechatAccount, setWechatAccount] = useState("");
     const [paymentQRCode, setPaymentQRCode] = useState<string | null>(null);
 
-    // 能量充值相关状态
+    // 收益充值相关状态
     const [energyMembers, setEnergyMembers] = useState<any[]>([]);
     const [showRechargeDialog, setShowRechargeDialog] = useState(false);
     const [rechargeMemberId, setRechargeMemberId] = useState("");
@@ -4313,7 +4313,7 @@ export default function ProviderPage() {
                     </Dialog>
 
                     {/* 收益转入收益对话框 */}
-                    <Dialog open={showConvertDialog} onOpenChange={setShowConvertDialog}>
+                    <Dialog open={false && showConvertDialog} onOpenChange={setShowConvertDialog}>
                         <DialogContent>
                             <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">
@@ -4488,7 +4488,7 @@ export default function ProviderPage() {
                     </Dialog>
 
                     {/* 收益申请对话框 */}
-                    <Dialog open={showEnergyRequestDialog} onOpenChange={setShowEnergyRequestDialog}>
+                    <Dialog open={false && showEnergyRequestDialog} onOpenChange={setShowEnergyRequestDialog}>
                         <DialogContent>
                             <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">
@@ -4539,7 +4539,7 @@ export default function ProviderPage() {
                     </Dialog>
 
                     {/* 收益申请记录完整列表对话框 */}
-                    <Dialog open={showEnergyRequestListDialog} onOpenChange={setShowEnergyRequestListDialog}>
+                    <Dialog open={false && showEnergyRequestListDialog} onOpenChange={setShowEnergyRequestListDialog}>
                         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                             <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">
@@ -4945,7 +4945,7 @@ export default function ProviderPage() {
                     </Dialog>
 
                     {/* 积分转入收益对话框 */}
-                    <Dialog open={showPointsToEnergyDialog} onOpenChange={setShowPointsToEnergyDialog}>
+                    <Dialog open={false && showPointsToEnergyDialog} onOpenChange={setShowPointsToEnergyDialog}>
                         <DialogContent>
                             <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">

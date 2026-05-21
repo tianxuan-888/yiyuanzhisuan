@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 查询服务网点信息（从 energy_accounts 表获取能量值）
+    // 查询服务网点信息（从 energy_accounts 表获取收益）
     const branch = await queryOne<{
       id: string;
       username: string;

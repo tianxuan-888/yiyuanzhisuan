@@ -17,7 +17,7 @@ function parseNumeric(val: any): number {
   return 0;
 }
 
-// 会员收益转能量值
+// 会员收益转收益
 export async function POST(request: NextRequest) {
   try {
     // 支持带userId参数的无认证调用（用于测试）
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     );
     const balanceBefore = beforeResult ? parseNumeric(beforeResult.balance) : 0;
 
-    // 更新能量值账户 (1:1 转换) - 使用增量方式更新
+    // 更新收益账户 (1:1 转换) - 使用增量方式更新
     await query(
       `INSERT INTO energy_accounts (id, user_id, balance, total_in, total_out, created_at, updated_at)
        VALUES ($1, $2, $3, $4, 0, NOW(), NOW())
@@ -139,11 +139,11 @@ export async function POST(request: NextRequest) {
         convertAmount,
         afterTotalProfit + convertAmount,
         afterTotalProfit,
-        `收益转为能量值`
+        `收益转为收益`
       ]
     );
 
-    // 记录能量值交易（写入 transactions 表）
+    // 记录收益交易（写入 transactions 表）
     await query(
       `INSERT INTO transactions (id, user_id, order_id, type, amount, balance_before, balance_after, description, status, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'completed', NOW())`,
@@ -155,11 +155,11 @@ export async function POST(request: NextRequest) {
         convertAmount,
         balanceBefore,
         balanceBefore + convertAmount,
-        `产品收益转为能量值`
+        `产品收益转为收益`
       ]
     );
 
-    // 记录能量值交易（写入 energy_transactions 表 - 用于会员端能量值记录显示）
+    // 记录收益交易（写入 energy_transactions 表 - 用于会员端收益记录显示）
     await query(
       `INSERT INTO energy_transactions (id, user_id, type, amount, from_user_id, status, description, created_at)
        VALUES ($1, $2, 'transfer_in', $3, $4, 'completed', $5, NOW())`,
@@ -168,13 +168,13 @@ export async function POST(request: NextRequest) {
         userId,
         convertAmount,
         null,
-        `产品收益转为能量值`
+        `产品收益转为收益`
       ]
     );
 
     return NextResponse.json({
       success: true,
-      message: `转换成功，获得 ${convertAmount} 能量值`,
+      message: `转换成功，获得 ${convertAmount} 收益`,
       data: {
         convertAmount,
         energyBalance: balanceBefore + convertAmount,
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('收益转能量值失败:', error);
+    console.error('收益转收益失败:', error);
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : '服务器错误'

@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
     // 从 member_revenue 获取已到账收益（卖出后实际入账的收益）
     let realizedProfit = 0; // 已到账收益总额
     let realizedPrincipal = 0; // 已收回本金
-    let convertedProfit = 0; // 已转为能量值的收益
+    let convertedProfit = 0; // 已转为收益的收益
     try {
       const { data: revenueRecords } = await client
         .from('member_revenue')
@@ -142,10 +142,10 @@ export async function GET(request: NextRequest) {
 
     // 持仓预期收益 = 持有中产品的预期收益
     const holdingExpectedProfit = holdingProducts.reduce((sum, p) => sum + parseFloat(p.expected_profit || '0'), 0);
-    // 剩余可转收益 = 已到账收益 - 已转为能量值的收益
+    // 剩余可转收益 = 已到账收益 - 已转为收益的收益
     const availableProfit = realizedProfit - convertedProfit;
 
-    // 优先从 energy_accounts 表获取能量值余额
+    // 优先从 energy_accounts 表获取收益余额
     let energyValue = parseNumeric(user.energy_value);
     try {
       const { data: energyAccount } = await client
@@ -157,7 +157,7 @@ export async function GET(request: NextRequest) {
         energyValue = parseNumeric(energyAccount.balance);
       }
     } catch (e) {
-      console.error('获取能量值账户失败，使用users表数据:', e);
+      console.error('获取收益账户失败，使用users表数据:', e);
     }
 
     // 返回用户信息（不包含密码）

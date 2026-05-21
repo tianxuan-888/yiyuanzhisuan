@@ -129,7 +129,7 @@ export function ProviderManagement({ branchId, onBack }: Props) {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Card>
                 <CardContent className="pt-6">
-                  <div className="text-sm text-gray-500">能量值余额</div>
+                  <div className="text-sm text-gray-500">收益余额</div>
                   <div className="text-2xl font-bold text-purple-600">
                     {formatEnergy(selectedProvider.account.energyBalance)}
                   </div>
@@ -198,7 +198,7 @@ export function ProviderManagement({ branchId, onBack }: Props) {
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Zap className="w-5 h-5 text-purple-600" />
-                    能量值账户
+                    收益账户
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -338,7 +338,7 @@ export function ProviderManagement({ branchId, onBack }: Props) {
                       <Zap className="w-8 h-8 text-orange-600" />
                       <div>
                         <div className="font-medium">累计收益</div>
-                        <div className="text-sm text-gray-500">从能量值流转中获得的收益</div>
+                        <div className="text-sm text-gray-500">从收益流转中获得的收益</div>
                       </div>
                     </div>
                     <div className="text-2xl font-bold text-orange-600">
@@ -410,7 +410,7 @@ export function ProviderManagement({ branchId, onBack }: Props) {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm opacity-80">能量值总额</p>
+                <p className="text-sm opacity-80">收益总额</p>
                 <p className="text-2xl font-bold">{formatEnergy(summary.totalEnergyBalance)}</p>
               </div>
               <Zap className="w-10 h-10 opacity-50" />
@@ -464,7 +464,7 @@ export function ProviderManagement({ branchId, onBack }: Props) {
                   <TableHead>服务商名称</TableHead>
                   <TableHead>联系方式</TableHead>
                   <TableHead>所属服务网点</TableHead>
-                  <TableHead className="text-right">能量值</TableHead>
+                  <TableHead className="text-right">收益</TableHead>
                   <TableHead className="text-right">可用额度</TableHead>
                   <TableHead className="text-right">会员数</TableHead>
                   <TableHead className="text-right">累计销售</TableHead>

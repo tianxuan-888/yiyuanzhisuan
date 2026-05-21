@@ -3,7 +3,7 @@ import { getSupabase } from '@/lib/supabase-client';
 import { authenticateRequest } from '@/lib/auth';
 import { addEnergy } from '@/lib/energy-util';
 
-// 积分转能量值（同步更新 users + energy_accounts + energy_transactions）
+// 积分转收益（同步更新 users + energy_accounts + energy_transactions）
 export async function POST(request: NextRequest) {
   try {
     const user = authenticateRequest(request);
@@ -57,9 +57,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '更新积分失败: ' + updErr.message }, { status: 500 });
     }
 
-    // 2. 增加能量值（双表同步 + 流水）
+    // 2. 增加收益（双表同步 + 流水）
     const addResult = await addEnergy(userId, pointsAmount, 'convert_from_balance', {
-      note: `积分转能量值: ${pointsAmount}`,
+      note: `积分转收益: ${pointsAmount}`,
     });
 
     if (!addResult.success) {
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       type: 'exchange',
       amount: pointsAmount.toFixed(2),
       balance_after: newPoints.toFixed(2),
-      note: `积分转能量值: -${pointsAmount}`,
+      note: `积分转收益: -${pointsAmount}`,
       created_at: new Date().toISOString(),
     });
 
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
       }
     });
   } catch (error: any) {
-    console.error('积分转能量值失败:', error);
+    console.error('积分转收益失败:', error);
     const statusCode = error.statusCode || 500;
     return NextResponse.json(
       { error: error.message || '服务器错误' },

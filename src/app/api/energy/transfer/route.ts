@@ -3,7 +3,7 @@ import { getSupabase } from '@/lib/supabase-client';
 import { authenticateRequest } from '@/lib/auth';
 import { deductEnergy, addEnergy, getEnergyBalance, transferEnergy } from '@/lib/energy-util';
 
-// 能量值互转接口（支持多角色）
+// 收益互转接口（支持多角色）
 // 会员→服务商：创建审核记录（服务商线下打款后审核通过）
 // 其他角色：即时转账
 export async function POST(request: NextRequest) {
@@ -49,11 +49,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '转出方用户不存在' }, { status: 404 });
     }
 
-    // 获取转出方能量值余额
+    // 获取转出方收益余额
     const fromEnergyValue = await getEnergyBalance(from_user_id);
 
     if (fromEnergyValue < transferAmount) {
-      return NextResponse.json({ error: `能量值不足，当前只有 ${fromEnergyValue}` }, { status: 400 });
+      return NextResponse.json({ error: `收益不足，当前只有 ${fromEnergyValue}` }, { status: 400 });
     }
 
     // 查询接收方用户信息
@@ -88,15 +88,15 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: '请输入真实姓名' }, { status: 400 });
       }
 
-      // 1. 冻结会员能量值（扣减，如果审核拒绝会退还，status设为pending等待审核）
+      // 1. 冻结会员收益（扣减，如果审核拒绝会退还，status设为pending等待审核）
       const deductResult = await deductEnergy(from_user_id, transferAmount, 'transfer_out', {
         toUserId: to_user_id,
-        note: '能量值转账（待服务商审核）',
+        note: '收益转账（待服务商审核）',
         status: 'pending',
       });
 
       if (!deductResult.success) {
-        return NextResponse.json({ error: '冻结能量值失败: ' + deductResult.error }, { status: 500 });
+        return NextResponse.json({ error: '冻结收益失败: ' + deductResult.error }, { status: 500 });
       }
 
       // 2. 创建审核记录
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
           alipay_account,
           withdraw_type: 'transfer',
           to_user_id,
-          note: note || '会员能量值转账给服务商',
+          note: note || '会员收益转账给服务商',
           created_at: now,
           updated_at: now,
         })
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
 
       if (wdErr) {
         console.error('[energy-transfer] 创建审核记录失败:', wdErr.message);
-        // 退还能量值
+        // 退还收益
         await addEnergy(from_user_id, transferAmount, 'refund', {
           fromUserId: to_user_id,
           note: '创建审核记录失败，退还',
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
 
     // 执行即时转账（使用 energy-util 的 transferEnergy）
     const result = await transferEnergy(from_user_id, to_user_id, transferAmount, {
-      note: note || '能量值转账',
+      note: note || '收益转账',
     });
 
     if (!result.success) {
@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('能量值转账失败:', error);
+    console.error('收益转账失败:', error);
     return NextResponse.json({ error: '服务器错误' }, { status: 500 });
   }
 }

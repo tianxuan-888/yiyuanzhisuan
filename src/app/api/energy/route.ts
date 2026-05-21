@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 
-// 获取能量值总览（五大板块统计）
+// 获取收益总览（五大板块统计）
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type'); // quota_match, purchase, market, withdraw, all
 
-    // 板块1：算力额度比例匹配能量值（智算总台→服务网点）
+    // 板块1：算力额度比例匹配收益（智算总台→服务网点）
     const quotaMatchRecords = await query(
       `SELECT et.*, 
               fu.username as from_username,
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     );
     const quotaMatchTotal = quotaMatchRecords.reduce((sum, r) => sum + Number(r.amount), 0);
 
-    // 板块2：能量值购买记录（服务网点→智算总台）
+    // 板块2：收益购买记录（服务网点→智算总台）
     const purchaseRecords = await query(
       `SELECT et.*, 
               fu.username as from_username,
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     );
     const purchaseTotal = purchaseRecords.reduce((sum, r) => sum + Number(r.amount), 0);
 
-    // 板块3：服务商/会员能量值分布
+    // 板块3：服务商/会员收益分布
     const marketAccounts = await query(
       `SELECT ea.*, u.username, u.role
        FROM energy_accounts ea
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     );
     const marketTransferTotal = marketTransferRecords.reduce((sum, r) => sum + Number(r.amount), 0);
 
-    // 板块5：服务网点向智算总台提现/变现能量值（包含 burn + withdraw 流水）
+    // 板块5：服务网点向智算总台提现/变现收益（包含 burn + withdraw 流水）
     const withdrawAndBurnRecords = await query(
       `SELECT et.*, 
               fu.username as from_username,
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
     let withdrawPendingCount = 0;
     let withdrawPendingAmount = 0;
     let withdrawApprovedAmount = 0; // 实际到账金额
-    let burnAmount = 0; // 销毁金额（用户申请变现时扣除的总能量值）
+    let burnAmount = 0; // 销毁金额（用户申请变现时扣除的总收益）
     let feeAmount = 0; // 手续费（沉淀）
 
     withdrawStats.forEach((r: any) => {
@@ -100,14 +100,14 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // 智算总台能量值账户 - 从 energy_accounts 表获取
+    // 智算总台收益账户 - 从 energy_accounts 表获取
     const adminAccount = await query(
       `SELECT ea.balance FROM energy_accounts ea 
        JOIN users u ON u.id = ea.user_id 
        WHERE u.role = 'admin' LIMIT 1`
     );
 
-    // 智算总台能量值余额 - 统一从 energy_accounts 表获取
+    // 智算总台收益余额 - 统一从 energy_accounts 表获取
     const adminEnergyBalance = adminAccount.length > 0 ? Number(adminAccount[0].balance || 0) : 0;
 
     return NextResponse.json({
@@ -118,12 +118,12 @@ export async function GET(request: NextRequest) {
           records: quotaMatchRecords,
           total: quotaMatchTotal,
         },
-        // 板块2：能量值购买
+        // 板块2：收益购买
         purchase: {
           records: purchaseRecords,
           total: purchaseTotal,
         },
-        // 板块3：市场能量值分布
+        // 板块3：市场收益分布
         marketDistribution: {
           accounts: marketAccounts,
           total: marketTotal,
@@ -144,12 +144,12 @@ export async function GET(request: NextRequest) {
           pendingCount: withdrawPendingCount,
           pendingAmount: withdrawPendingAmount,
         },
-        // 智算总台能量值余额
+        // 智算总台收益余额
         adminBalance: adminEnergyBalance,
       },
     });
   } catch (error: any) {
-    console.error('获取能量值总览失败:', error);
+    console.error('获取收益总览失败:', error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

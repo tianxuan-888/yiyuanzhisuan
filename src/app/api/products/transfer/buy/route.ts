@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '买家用户不存在' }, { status: 404 });
     }
 
-    // 预验证买家能量值是否足够支付市场费（仅提示，不扣费）
+    // 预验证买家收益是否足够支付市场费（仅提示，不扣费）
     const energyEnough = parseFloat(buyer.energy_value) >= marketFee;
 
     // ========== 更新流转记录状态为 awaiting_payment ==========

@@ -55,7 +55,7 @@ export interface GPUProduct {
   price: number;
   profitRate: number; // 收益率
   cycleDays: number;
-  minEnergyValue: number; // 最低能量值要求
+  minEnergyValue: number; // 最低收益要求
   totalQuantity: number; // 总量
   availableQuantity: number; // 可用量
   image: string;
@@ -347,7 +347,7 @@ const createProducts = (): GPUProduct[] => {
       price: intermediatePrices[i],
       profitRate: 20, // 15天周期总收益20%
       cycleDays: 15,
-      minEnergyValue: Math.floor(intermediatePrices[i] * 0.1), // 能量值10%
+      minEnergyValue: Math.floor(intermediatePrices[i] * 0.1), // 收益10%
       totalQuantity: 50,
       availableQuantity: 0, // 未起售，无库存
       image: gpuChips[chip].image,
@@ -379,7 +379,7 @@ const createProducts = (): GPUProduct[] => {
       price: advancedPrices[i],
       profitRate: 44, // 30天周期总收益44%
       cycleDays: 30,
-      minEnergyValue: Math.floor(advancedPrices[i] * 0.22), // 能量值22%
+      minEnergyValue: Math.floor(advancedPrices[i] * 0.22), // 收益22%
       totalQuantity: 20,
       availableQuantity: 0, // 未起售，无库存
       image: gpuChips[chip].image,
@@ -445,7 +445,7 @@ export const calculateProductProfit = (product: GPUProduct): {
 export const getCycleProfitRates = (cycleDays: number): {
   totalProfitRate: number; // 总收益率
   memberProfitRate: number; // 会员实际到手
-  energyValueRate: number; // 能量值支付比例
+  energyValueRate: number; // 收益支付比例
 } => {
   if (cycleDays <= 3) return { totalProfitRate: 5, memberProfitRate: 2, energyValueRate: 3 };
   if (cycleDays <= 7) return { totalProfitRate: 10, memberProfitRate: 5, energyValueRate: 5 };
@@ -460,7 +460,7 @@ export const calculatePurchasePayment = (product: GPUProduct, quantity: number =
   totalPay: number; // 实付 = 本金
   totalProfit: number; // 总收益
   memberProfit: number; // 会员实际到手
-  energyValueNeeded: number; // 卖出时需支付的能量值
+  energyValueNeeded: number; // 卖出时需支付的收益
   cycleDays: number;
 } => {
   const productAmount = product.price * quantity;

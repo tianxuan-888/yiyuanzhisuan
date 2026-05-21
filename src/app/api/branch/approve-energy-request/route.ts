@@ -3,7 +3,7 @@ import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 import { execute } from '@/lib/pg-client';
 
-// 服务网点审核能量值申请
+// 服务网点审核收益申请
 export async function POST(request: NextRequest) {
   try {
     // 鉴权：仅管理员和服务网点可审核
@@ -56,9 +56,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: '该申请已被处理' }, { status: 400 });
     }
 
-    // 验证是否是能量值申请
+    // 验证是否是收益申请
     if (description.request_type !== 'energy_request') {
-      return NextResponse.json({ success: false, error: '该记录不是能量值申请' }, { status: 400 });
+      return NextResponse.json({ success: false, error: '该记录不是收益申请' }, { status: 400 });
     }
 
     // 验证服务网点是否有权限审核
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     const amount = description.requestedAmount as number || 0;
 
     if (action === 'approve') {
-      // 查询服务网点能量值
+      // 查询服务网点收益
       const { data: branch, error: branchError } = await client
         .from('users')
         .select('id, username, energy_value')
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
 
       const branchEnergy = parseFloat(branch.energy_value || '0');
       if (branchEnergy < amount) {
-        return NextResponse.json({ success: false, error: '服务网点能量值余额不足' }, { status: 400 });
+        return NextResponse.json({ success: false, error: '服务网点收益余额不足' }, { status: 400 });
       }
 
       // 查询服务商
@@ -100,38 +100,38 @@ export async function POST(request: NextRequest) {
       const providerEnergy = parseFloat(provider.energy_value || '0');
 
       // 使用 SQL 直接更新，确保写入成功
-      // 扣除服务网点能量值
+      // 扣除服务网点收益
       await execute(
         `UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2`,
         [branchEnergy - amount, branchId]
       );
-      console.log(`[approve-energy] 服务网点 ${branchId} 能量值: ${branchEnergy} -> ${branchEnergy - amount}`);
+      console.log(`[approve-energy] 服务网点 ${branchId} 收益: ${branchEnergy} -> ${branchEnergy - amount}`);
 
-      // 增加服务商能量值
+      // 增加服务商收益
       await execute(
         `UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2`,
         [providerEnergy + amount, providerId]
       );
-      console.log(`[approve-energy] 服务商 ${providerId} 能量值: ${providerEnergy} -> ${providerEnergy + amount}`);
+      console.log(`[approve-energy] 服务商 ${providerId} 收益: ${providerEnergy} -> ${providerEnergy + amount}`);
 
       // 更新申请状态
       await client.from('energy_transactions').update({
         description: JSON.stringify({ ...description, status: 'approved', reviewed_at: new Date().toISOString() })
       }).eq('id', requestId);
 
-      // 记录能量值流转
+      // 记录收益流转
       await execute(
         `INSERT INTO energy_transactions (user_id, type, amount, description, created_at) VALUES ($1, 'transfer_out', $2, $3, NOW())`,
-        [branchId, amount, JSON.stringify({ to_user_id: providerId, reason: '审核通过：服务商能量值申请' })]
+        [branchId, amount, JSON.stringify({ to_user_id: providerId, reason: '审核通过：服务商收益申请' })]
       );
       await execute(
         `INSERT INTO energy_transactions (user_id, type, amount, description, created_at) VALUES ($1, 'transfer_in', $2, $3, NOW())`,
-        [providerId, amount, JSON.stringify({ from_user_id: branchId, reason: '审核通过：服务商能量值申请' })]
+        [providerId, amount, JSON.stringify({ from_user_id: branchId, reason: '审核通过：服务商收益申请' })]
       );
 
       return NextResponse.json({
         success: true,
-        message: '审核通过，能量值已发放',
+        message: '审核通过，收益已发放',
         data: { providerId, amount, branchEnergy: branchEnergy - amount, providerEnergy: providerEnergy + amount }
       });
     }
@@ -143,12 +143,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, message: '已拒绝申请' });
   } catch (error) {
-    console.error('审核能量值申请失败:', error);
+    console.error('审核收益申请失败:', error);
     return NextResponse.json({ success: false, error: '服务器错误' }, { status: 500 });
   }
 }
 
-// 获取服务网点下服务商的能量值申请列表
+// 获取服务网点下服务商的收益申请列表
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -178,7 +178,7 @@ export async function GET(request: NextRequest) {
     const providerIds = providers.map(p => p.id);
     const providerMap = new Map(providers.map(p => [p.id, p.username]));
 
-    // 查询这些服务商的能量值申请 - 从 energy_transactions 表
+    // 查询这些服务商的收益申请 - 从 energy_transactions 表
     const { data: requests, error } = await client
       .from('energy_transactions')
       .select('*')
@@ -213,7 +213,7 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // 只保留能量值申请
+    // 只保留收益申请
     formattedRequests = formattedRequests.filter(r => r.status !== 'unknown');
 
     // 按状态过滤
@@ -230,7 +230,7 @@ export async function GET(request: NextRequest) {
       data: formattedRequests,
     });
   } catch (error: any) {
-    console.error('获取能量值申请列表失败:', error);
+    console.error('获取收益申请列表失败:', error);
     return NextResponse.json(
       { success: false, error: error.message || '获取失败' },
       { status: 500 }

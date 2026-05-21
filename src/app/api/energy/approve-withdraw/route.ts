@@ -54,9 +54,9 @@ export async function POST(request: NextRequest) {
     const applicantId = withdrawRequest.user_id;
 
     if (action === 'reject') {
-      // 拒绝：返还冻结的能量值
+      // 拒绝：返还冻结的收益
       const addResult = await addEnergy(applicantId, amount, 'withdraw_return', {
-        note: `变现申请被拒绝，返还冻结能量值 ${amount}`,
+        note: `变现申请被拒绝，返还冻结收益 ${amount}`,
       });
 
       if (!addResult.success) {
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: '已拒绝申请，能量值已返还',
+        message: '已拒绝申请，收益已返还',
       });
     }
 
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', requestId);
 
-    // 2. 给申请人返还95%能量值（变现到账）
+    // 2. 给申请人返还95%收益（变现到账）
     const addResult = await addEnergy(applicantId, actualAmount, 'withdraw_complete', {
       note: `变现完成：获得${actualAmount}（原申请${amount}，扣除手续费${feeAmount}）`,
     });
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `审核通过，用户获得 ${actualAmount} 能量值（已扣除5%手续费 ${feeAmount}）`,
+      message: `审核通过，用户获得 ${actualAmount} 收益（已扣除5%手续费 ${feeAmount}）`,
       data: {
         amount,
         actualAmount,

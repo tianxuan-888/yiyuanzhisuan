@@ -23,9 +23,9 @@ interface NotificationCenterProps {
 
 const defaultNotifications: Notification[] = [
   { id: '1', type: 'profit', title: '收益到账', message: '您的Token存储包已到期，收益 +¥500 已到账', time: '5分钟前', read: false },
-  { id: '2', type: 'gift', title: '能量值赠送', message: '您的直推会员购买成功，获得 50 能量值奖励', time: '1小时前', read: false },
+  { id: '2', type: 'gift', title: '收益赠送', message: '您的直推会员购买成功，获得 50 收益奖励', time: '1小时前', read: false },
   { id: '3', type: 'info', title: '新产品上架', message: 'Token存储包已更新，快去查看吧', time: '2小时前', read: true },
-  { id: '4', type: 'warning', title: '能量值不足', message: '您的能量值余额不足，请及时充值', time: '1天前', read: true },
+  { id: '4', type: 'warning', title: '收益不足', message: '您的收益余额不足，请及时充值', time: '1天前', read: true },
   { id: '5', type: 'success', title: '流转成功', message: '您购买的产品已成功流转', time: '2天前', read: true },
 ];
 

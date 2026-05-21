@@ -15,7 +15,7 @@ function getAdminSupabase() {
 }
 
 // 服务商确认收款接口
-// 新流程：购买时已创建 user_products(pending_confirm) + 扣除能量值
+// 新流程：购买时已创建 user_products(pending_confirm) + 扣除收益
 // 确认时：更新 user_products → holding, 产品 → sold, 分配收益
 export async function POST(request: NextRequest) {
   try {

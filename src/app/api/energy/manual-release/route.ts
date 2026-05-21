@@ -3,7 +3,7 @@ import { query, withTransaction } from '@/lib/pg-client';
 import { generateUUID } from '@/lib/utils';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 
-// 人工释放能量值（智算总台释放给服务网点）
+// 人工释放收益（智算总台释放给服务网点）
 export async function POST(request: NextRequest) {
   try {
     // 鉴权：仅管理员可操作
@@ -27,12 +27,12 @@ export async function POST(request: NextRequest) {
     const fromUser = await query('SELECT * FROM users WHERE id = $1', [fromUserId]);
     if (fromUser.length === 0 || fromUser[0].role !== 'admin') {
       return NextResponse.json(
-        { success: false, error: '只有智算总台管理员可以释放能量值' },
+        { success: false, error: '只有智算总台管理员可以释放收益' },
         { status: 403 }
       );
     }
 
-    // 检查智算总台能量值余额
+    // 检查智算总台收益余额
     const fromAccount = await query(
       'SELECT * FROM energy_accounts WHERE user_id = $1',
       [fromUserId]
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     if (fromBalance < amount) {
       return NextResponse.json(
-        { success: false, error: '智算总台能量值余额不足' },
+        { success: false, error: '智算总台收益余额不足' },
         { status: 400 }
       );
     }
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     // 使用事务执行
     await withTransaction(async (client) => {
-      // 扣除智算总台能量值
+      // 扣除智算总台收益
       if (fromAccount.length > 0) {
         await client.query(
           `UPDATE energy_accounts 
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 增加服务网点能量值
+      // 增加服务网点收益
       if (toAccount.length > 0) {
         await client.query(
           `UPDATE energy_accounts 
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
         `INSERT INTO energy_transactions 
          (id, type, amount, from_user_id, to_user_id, note, status)
          VALUES ($1, 'manual', $2, $3, $4, $5, 'completed')`,
-        [txId, amount, fromUserId, toUserId, note || '人工释放能量值']
+        [txId, amount, fromUserId, toUserId, note || '人工释放收益']
       );
     });
 
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: '能量值释放成功',
+      message: '收益释放成功',
       data: {
         amount,
         fromBalance: Number(newFromAccount[0]?.balance || 0),
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('人工释放能量值失败:', error);
+    console.error('人工释放收益失败:', error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

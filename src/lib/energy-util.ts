@@ -1,7 +1,7 @@
 /**
- * 能量值操作工具
+ * 收益操作工具
  * 
- * 所有能量值相关的数据库操作必须通过此工具执行，
+ * 所有收益相关的数据库操作必须通过此工具执行，
  * 确保 users.energy_value 和 energy_accounts 双表同步 + energy_transactions 流水记录。
  * 
  * 使用 execute(SQL) 直接SQL执行，绕过 Supabase REST API 的潜在静默失败问题。
@@ -10,7 +10,7 @@
 import { execute, queryOne } from './pg-client';
 
 /**
- * 获取用户当前能量值余额（优先从 energy_accounts 读取，兜底从 users 读取）
+ * 获取用户当前收益余额（优先从 energy_accounts 读取，兜底从 users 读取）
  */
 export async function getEnergyBalance(userId: string): Promise<number> {
   // 1. 从 energy_accounts 读取
@@ -67,7 +67,7 @@ async function syncEnergyAccounts(userId: string, balance: number): Promise<void
 }
 
 /**
- * 能量值变动类型
+ * 收益变动类型
  */
 export type EnergyChangeType = 
   | 'create'           // 智算总台创建
@@ -77,7 +77,7 @@ export type EnergyChangeType =
   | 'transfer_in'      // 转入
   | 'transfer_out'     // 转出
   | 'convert'          // 余额转换
-  | 'convert_from_balance' // 余额转能量值
+  | 'convert_from_balance' // 余额转收益
   | 'withdraw_freeze'  // 变现冻结
   | 'withdraw_return'  // 变现退回（审核拒绝）
   | 'withdraw_complete' // 变现到账
@@ -98,7 +98,7 @@ export type EnergyChangeType =
   | 'subordinate_split';  // 下级分成
 
 /**
- * 增加用户能量值
+ * 增加用户收益
  * 同时更新 users.energy_value + energy_accounts + energy_transactions
  * 使用 SQL 直接执行确保写入成功
  */
@@ -166,7 +166,7 @@ export async function addEnergy(
 }
 
 /**
- * 扣减用户能量值
+ * 扣减用户收益
  * 同时更新 users.energy_value + energy_accounts + energy_transactions
  * 使用 SQL 直接执行确保写入成功
  */
@@ -191,7 +191,7 @@ export async function deductEnergy(
     const currentBalance = await getEnergyBalance(userId);
     
     if (currentBalance < amount) {
-      return { success: false, newBalance: currentBalance, error: '能量值余额不足' };
+      return { success: false, newBalance: currentBalance, error: '收益余额不足' };
     }
     
     const newBalance = currentBalance - amount;
@@ -241,7 +241,7 @@ export async function deductEnergy(
 }
 
 /**
- * 能量值转账（从A扣减，给B增加）
+ * 收益转账（从A扣减，给B增加）
  * 原子操作：确保双方数据一致
  */
 export async function transferEnergy(
@@ -306,7 +306,7 @@ export async function transferEnergy(
 }
 
 /**
- * 对账：验证并修复所有用户的能量值数据一致性
+ * 对账：验证并修复所有用户的收益数据一致性
  * 从 energy_transactions 重新计算正确余额，修正 users.energy_value 和 energy_accounts
  */
 export async function reconcileEnergy(): Promise<{

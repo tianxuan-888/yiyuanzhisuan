@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 
-// 服务商确认能量值转账接口
+// 服务商确认收益转账接口
 export async function POST(request: NextRequest) {
   try {
     // 鉴权：仅服务商可确认
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     const transferAmount = parseFloat(transfer.amount);
 
     if (action === 'reject') {
-      // 拒绝转账：退还能量值给会员
+      // 拒绝转账：退还收益给会员
       const { data: userData } = await client
         .from('users')
         .select('energy_value')
@@ -85,11 +85,11 @@ export async function POST(request: NextRequest) {
         receiver_role: 'member',
         sender_id: providerId,
         type: 'energy_transfer_rejected',
-        title: '能量值转账已拒绝',
-        content: `您的 ${transferAmount} 能量值转账申请已被拒绝，能量值已退还`
+        title: '收益转账已拒绝',
+        content: `您的 ${transferAmount} 收益转账申请已被拒绝，收益已退还`
       });
 
-      return NextResponse.json({ success: true, message: '已拒绝转账，能量值已退还' });
+      return NextResponse.json({ success: true, message: '已拒绝转账，收益已退还' });
     }
 
     // 批准转账
@@ -107,8 +107,8 @@ export async function POST(request: NextRequest) {
       receiver_role: 'member',
       sender_id: providerId,
       type: 'energy_transfer_completed',
-      title: '能量值转账已完成',
-      content: `您的 ${transferAmount} 能量值已转入服务商账户`
+      title: '收益转账已完成',
+      content: `您的 ${transferAmount} 收益已转入服务商账户`
     });
 
     return NextResponse.json({ success: true, message: '转账确认成功' });

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, execute, queryOne } from '@/storage/database/pg-client';
 import { generateUUID } from '@/lib/utils';
 
-// 充值能量值申请
+// 充值收益申请
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (rechargeAmount < 50) {
-      return NextResponse.json({ error: '最低充值金额为50能量值' }, { status: 400 });
+      return NextResponse.json({ error: '最低充值金额为50收益' }, { status: 400 });
     }
 
     // 查询用户信息

@@ -15,7 +15,7 @@ function getAdminSupabase() {
 
 /**
  * 拒绝购买订单
- * 新流程：将 user_products(pending_confirm) → cancelled，产品(pending_sell) → available，退还能量值
+ * 新流程：将 user_products(pending_confirm) → cancelled，产品(pending_sell) → available，退还收益
  */
 export async function POST(request: NextRequest) {
   try {
@@ -101,14 +101,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 3. 退还会员能量值（购买时已扣除的 market_fee）- 使用 SQL 直接更新
+    // 3. 退还会员收益（购买时已扣除的 market_fee）- 使用 SQL 直接更新
     if (order.energy_cost && order.energy_cost > 0) {
       const memberRow = await queryOne('SELECT energy_value FROM users WHERE id = $1', [order.user_id]);
       if (memberRow) {
         const newBalance = (parseFloat(String(memberRow.energy_value)) || 0) + order.energy_cost;
         await execute('UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2', [newBalance, order.user_id]);
 
-        // 记录能量值退还流水
+        // 记录收益退还流水
         await client
           .from('energy_transactions')
           .insert({
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
             from_user_id: null,
             to_user_id: null,
             status: 'completed',
-            description: '订单被拒绝，退还市场费能量值',
+            description: '订单被拒绝，退还市场费收益',
             created_at: new Date().toISOString(),
           });
       }
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
           sender_name: '系统通知',
           type: 'buy_rejected',
           title: '购买申请被拒绝',
-          content: `您购买的产品 ${product?.name || ''} 申请已被拒绝，能量值已退还`,
+          content: `您购买的产品 ${product?.name || ''} 申请已被拒绝，收益已退还`,
           amount: order.energy_cost || 0,
           related_id: order.product_id,
         });
@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: '订单已拒绝，能量值已退还'
+      message: '订单已拒绝，收益已退还'
     });
   } catch (error) {
     console.error('拒绝订单失败:', error);

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 
-// 获取用户能量值账户信息
+// 获取用户收益账户信息
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 从 energy_accounts 表获取能量值余额
+    // 从 energy_accounts 表获取收益余额
     const result = await query(
       `SELECT ea.*, u.username, u.role
        FROM energy_accounts ea
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     );
 
     if (result.length === 0) {
-      // 用户还没有能量值账户，返回0
+      // 用户还没有收益账户，返回0
       return NextResponse.json({
         success: true,
         data: {
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error('获取能量值账户失败:', error);
+    console.error('获取收益账户失败:', error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

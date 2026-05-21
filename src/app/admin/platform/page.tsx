@@ -144,7 +144,7 @@ function Sidebar({
     { id: 'providers', label: '服务商管理', icon: UserCog },
     { id: 'members', label: '会员管理', icon: User },
     { id: 'orders', label: '订单管理', icon: ShoppingCart },
-    { id: 'energy', label: '能量值管理', icon: Zap },
+    { id: 'energy', label: '收益管理', icon: Zap },
     { id: 'income', label: '收益管理', icon: TrendingUpIcon },
     { id: 'quota', label: '额度管理', icon: DatabaseIcon },
     { id: 'settings', label: '系统设置', icon: Settings2 },
@@ -340,7 +340,7 @@ function OverviewGlobal({
           <CardContent className="pt-4">
             <div className="flex items-center gap-2">
               <Coins className="w-5 h-5 text-green-400" />
-              <span className="text-gray-400 text-sm">总能量值</span>
+              <span className="text-gray-400 text-sm">总收益</span>
             </div>
             <p className="text-2xl font-bold text-white mt-2">{(stats?.total_energy || 0).toLocaleString()}</p>
             <p className="text-gray-500 text-sm mt-1">全系统</p>
@@ -400,7 +400,7 @@ function OverviewGlobal({
       {/* 服务网点分布 */}
       <Card className="bg-slate-800/50 border-slate-700">
         <CardHeader>
-          <CardTitle className="text-white">服务网点能量值分布</CardTitle>
+          <CardTitle className="text-white">服务网点收益分布</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-8">
@@ -554,7 +554,7 @@ function OverviewBranch({
           <CardContent className="pt-4">
             <div className="flex items-center gap-2">
               <Coins className="w-5 h-5 text-green-400" />
-              <span className="text-gray-400 text-sm">能量值余额</span>
+              <span className="text-gray-400 text-sm">收益余额</span>
             </div>
             <p className="text-2xl font-bold text-white mt-2">{(branch.energy_value || 0).toLocaleString()}</p>
           </CardContent>
@@ -590,7 +590,7 @@ function OverviewBranch({
                     </div>
                     <div>
                       <p className="text-white font-medium">{provider.username}</p>
-                      <p className="text-gray-400 text-xs">能量值: {provider.energy_value.toLocaleString()}</p>
+                      <p className="text-gray-400 text-xs">收益: {provider.energy_value.toLocaleString()}</p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -617,7 +617,7 @@ function OverviewBranch({
               <TableHeader>
                 <TableRow className="border-slate-700">
                   <TableHead className="text-gray-400">会员</TableHead>
-                  <TableHead className="text-gray-400">能量值</TableHead>
+                  <TableHead className="text-gray-400">收益</TableHead>
                   <TableHead className="text-gray-400 text-right">余额</TableHead>
                   <TableHead className="text-gray-400">状态</TableHead>
                 </TableRow>
@@ -784,7 +784,7 @@ function BranchesPage({
                 <TableHeader>
                   <TableRow className="border-slate-700">
                     <TableHead className="text-gray-400">会员</TableHead>
-                    <TableHead className="text-gray-400">能量值</TableHead>
+                    <TableHead className="text-gray-400">收益</TableHead>
                     <TableHead className="text-gray-400 text-right">余额</TableHead>
                     <TableHead className="text-gray-400">状态</TableHead>
                   </TableRow>
@@ -851,7 +851,7 @@ function BranchesPage({
                 <TableHead className="text-gray-400 text-center">服务商数</TableHead>
                 <TableHead className="text-gray-400 text-center">会员数</TableHead>
                 <TableHead className="text-gray-400 text-right">销售额</TableHead>
-                <TableHead className="text-gray-400 text-right">能量值</TableHead>
+                <TableHead className="text-gray-400 text-right">收益</TableHead>
                 <TableHead className="text-gray-400">状态</TableHead>
                 <TableHead className="text-gray-400">操作</TableHead>
               </TableRow>
@@ -979,7 +979,7 @@ function ProvidersPage({
                 <TableHead className="text-gray-400 text-right">已用额度</TableHead>
                 <TableHead className="text-gray-400 text-right">销售额</TableHead>
                 <TableHead className="text-gray-400 text-center">会员数</TableHead>
-                <TableHead className="text-gray-400">能量值</TableHead>
+                <TableHead className="text-gray-400">收益</TableHead>
                 <TableHead className="text-gray-400">状态</TableHead>
                 <TableHead className="text-gray-400">操作</TableHead>
               </TableRow>
@@ -1135,7 +1135,7 @@ function MembersPage({
                 <TableHead className="text-gray-400">会员</TableHead>
                 <TableHead className="text-gray-400">所属服务商</TableHead>
                 <TableHead className="text-gray-400">所属服务网点</TableHead>
-                <TableHead className="text-gray-400">能量值</TableHead>
+                <TableHead className="text-gray-400">收益</TableHead>
                 <TableHead className="text-gray-400 text-right">余额</TableHead>
                 <TableHead className="text-gray-400 text-right">积分</TableHead>
                 <TableHead className="text-gray-400">状态</TableHead>
@@ -1295,7 +1295,7 @@ function OrdersPage({
   );
 }
 
-// 能量值管理页面
+// 收益管理页面
 function EnergyPage({
   view,
   branchId,
@@ -1309,7 +1309,7 @@ function EnergyPage({
   providers: Provider[];
   members: Member[];
 }) {
-  // 计算能量值分布
+  // 计算收益分布
   const totalEnergy = branches.reduce((sum, b) => sum + (b.energy_value || 0), 0) +
     providers.reduce((sum, p) => sum + p.energy_value, 0) +
     members.reduce((sum, m) => sum + m.energy_value, 0);
@@ -1323,21 +1323,21 @@ function EnergyPage({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-white">能量值管理</h2>
-        <p className="text-gray-400">能量值统计与分布</p>
+        <h2 className="text-xl font-bold text-white">收益管理</h2>
+        <p className="text-gray-400">收益统计与分布</p>
       </div>
 
       {/* 统计卡片 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="bg-slate-800/50 border-slate-700">
           <CardContent className="pt-4">
-            <p className="text-gray-400 text-sm">系统总能量值</p>
+            <p className="text-gray-400 text-sm">系统总收益</p>
             <p className="text-2xl font-bold text-white mt-2">{totalEnergy.toLocaleString()}</p>
           </CardContent>
         </Card>
         <Card className="bg-slate-800/50 border-slate-700">
           <CardContent className="pt-4">
-            <p className="text-gray-400 text-sm">服务网点能量值</p>
+            <p className="text-gray-400 text-sm">服务网点收益</p>
             <p className="text-2xl font-bold text-purple-400 mt-2">
               {branches.reduce((sum, b) => sum + (b.energy_value || 0), 0).toLocaleString()}
             </p>
@@ -1345,7 +1345,7 @@ function EnergyPage({
         </Card>
         <Card className="bg-slate-800/50 border-slate-700">
           <CardContent className="pt-4">
-            <p className="text-gray-400 text-sm">服务商能量值</p>
+            <p className="text-gray-400 text-sm">服务商收益</p>
             <p className="text-2xl font-bold text-yellow-400 mt-2">
               {providers.reduce((sum, p) => sum + p.energy_value, 0).toLocaleString()}
             </p>
@@ -1353,7 +1353,7 @@ function EnergyPage({
         </Card>
         <Card className="bg-slate-800/50 border-slate-700">
           <CardContent className="pt-4">
-            <p className="text-gray-400 text-sm">会员能量值</p>
+            <p className="text-gray-400 text-sm">会员收益</p>
             <p className="text-2xl font-bold text-cyan-400 mt-2">
               {members.reduce((sum, m) => sum + m.energy_value, 0).toLocaleString()}
             </p>
@@ -1364,7 +1364,7 @@ function EnergyPage({
       {/* 分布图表 */}
       <Card className="bg-slate-800/50 border-slate-700">
         <CardHeader>
-          <CardTitle className="text-white">能量值分布</CardTitle>
+          <CardTitle className="text-white">收益分布</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-8">
@@ -1408,14 +1408,14 @@ function EnergyPage({
       {/* 服务网点详情 */}
       <Card className="bg-slate-800/50 border-slate-700">
         <CardHeader>
-          <CardTitle className="text-white">服务网点能量值详情</CardTitle>
+          <CardTitle className="text-white">服务网点收益详情</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow className="border-slate-700">
                 <TableHead className="text-gray-400">服务网点</TableHead>
-                <TableHead className="text-gray-400 text-right">能量值</TableHead>
+                <TableHead className="text-gray-400 text-right">收益</TableHead>
                 <TableHead className="text-gray-400 text-right">占比</TableHead>
                 <TableHead className="text-gray-400">服务商数</TableHead>
                 <TableHead className="text-gray-400">会员数</TableHead>
@@ -1571,7 +1571,7 @@ function QuotaPage({
 
       const data = await res.json();
       if (data.success) {
-        alert(`分配成功！已分配 ${parseFloat(allocateAmount).toLocaleString()} 元，赠送 ${data.data.bonus_energy.toLocaleString()} 能量值`);
+        alert(`分配成功！已分配 ${parseFloat(allocateAmount).toLocaleString()} 元，赠送 ${data.data.bonus_energy.toLocaleString()} 收益`);
         setAllocateDialog(false);
         setAllocateBranchId('');
         setAllocateAmount('');
@@ -1679,7 +1679,7 @@ function QuotaPage({
           <DialogHeader>
             <DialogTitle className="text-white">分配额度</DialogTitle>
             <DialogDescription className="text-gray-400">
-              选择服务网点并分配额度，分配时自动赠送30%能量值
+              选择服务网点并分配额度，分配时自动赠送30%收益
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -1706,7 +1706,7 @@ function QuotaPage({
                 className="mt-1 bg-slate-900 border-slate-700 text-white"
               />
               <p className="text-blue-400 text-sm mt-2">
-                将赠送 {(parseFloat(allocateAmount || '0') * 0.2).toLocaleString()} 能量值（20%）
+                将赠送 {(parseFloat(allocateAmount || '0') * 0.2).toLocaleString()} 收益（20%）
               </p>
             </div>
           </div>
@@ -1765,7 +1765,7 @@ function SettingsPage() {
           <div className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg">
             <div>
               <p className="text-white">服务商分成比例</p>
-              <p className="text-gray-400 text-sm">会员卖出时服务商获得的能量值比例</p>
+              <p className="text-gray-400 text-sm">会员卖出时服务商获得的收益比例</p>
             </div>
             <div className="flex items-center gap-2">
               <Input className="w-24 bg-slate-900 border-slate-700 text-white text-right" defaultValue="60" />
@@ -1783,7 +1783,7 @@ function SettingsPage() {
           <div className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg">
             <div>
               <p className="text-white">额度赠送比例</p>
-              <p className="text-gray-400 text-sm">智算总台分配额度时的能量值赠送比例</p>
+              <p className="text-gray-400 text-sm">智算总台分配额度时的收益赠送比例</p>
             </div>
             <div className="flex items-center gap-2">
               <Input className="w-24 bg-slate-900 border-slate-700 text-white text-right" defaultValue="30" />

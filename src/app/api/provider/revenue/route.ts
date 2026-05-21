@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
       totalWithdrawn = 0;
     }
 
-    // 4. 已转为能量值金额
+    // 4. 已转为收益金额
     let totalConverted = 0;
     try {
       const convertedSql = `
@@ -147,7 +147,7 @@ export async function GET(request: NextRequest) {
     // 总收益 = 产品分成 + 直推奖励 + 上级分成 + 下级分成
     const totalRevenue = distSelfRevenue + distDirectReward + distParentShare + subordinateRevenue;
 
-    // 可用收益 = 总收益 - 已提现 - 已转能量值
+    // 可用收益 = 总收益 - 已提现 - 已转收益
     const availableRevenue = Math.max(0, totalRevenue - totalWithdrawn - totalConverted);
 
     // 合并所有记录并按时间排序

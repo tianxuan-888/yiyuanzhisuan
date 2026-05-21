@@ -39,12 +39,12 @@ export async function POST(request: NextRequest) {
     // 根据类型清除数据
     switch (clearType) {
       case 'energy':
-        // 只清除能量值相关数据
+        // 只清除收益相关数据
         await execute('DELETE FROM energy_transactions');
         await execute('DELETE FROM energy_withdraw_requests');
         await execute('DELETE FROM energy_accounts');
         await execute(`UPDATE users SET energy_value = 0, updated_at = NOW()`);
-        results.energy = { success: true, note: '能量值数据已清除' };
+        results.energy = { success: true, note: '收益数据已清除' };
         break;
         
       case 'quota':

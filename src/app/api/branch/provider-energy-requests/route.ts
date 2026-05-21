@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 
-// 获取服务网点下的服务商能量值申请列表
+// 获取服务网点下的服务商收益申请列表
 export async function GET(request: NextRequest) {
   try {
     // 验证用户身份
@@ -65,8 +65,8 @@ export async function GET(request: NextRequest) {
     // 获取服务商ID列表
     const providerIds = (providers as any[]).map((p) => p.id);
 
-    // 查询服务商向该服务网点发起的能量值申请
-    // 能量值申请使用 type = 'recharge' + description 中包含 request_type = 'energy_request'
+    // 查询服务商向该服务网点发起的收益申请
+    // 收益申请使用 type = 'recharge' + description 中包含 request_type = 'energy_request'
     let query = client
       .from('energy_transactions')
       .select('*')
@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // 过滤：只保留能量值申请（request_type = 'energy_request'）
+    // 过滤：只保留收益申请（request_type = 'energy_request'）
     const energyRequests = processedRequests.filter(r => r.request_type === 'energy_request');
 
     // 过滤状态（默认显示全部，包括已审核的记录）
@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
     }
     // 默认不过滤，显示全部记录（包括pending、approved、rejected）
 
-    // 统计（基于所有能量值申请）
+    // 统计（基于所有收益申请）
     const stats = {
       total: energyRequests.length,
       pending: energyRequests.filter(r => r.status === 'pending').length,
@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error('获取能量值申请列表失败:', error);
+    console.error('获取收益申请列表失败:', error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

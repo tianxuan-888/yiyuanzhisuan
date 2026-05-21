@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 
-// 智算总台创建能量值（不能超过下发给服务网点额度总和的30%）
+// 智算总台创建收益（不能超过下发给服务网点额度总和的30%）
 export async function POST(request: NextRequest) {
   try {
     // 鉴权：仅管理员可操作
@@ -82,14 +82,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 获取当前能量值（从 energy_accounts 表）
+    // 获取当前收益（从 energy_accounts 表）
     const currentAccount = await query(
       'SELECT balance FROM energy_accounts WHERE user_id = $1',
       [userId]
     );
     const currentEnergy = currentAccount.length > 0 ? Number(currentAccount[0].balance || 0) : 0;
 
-    // 增加能量值（使用 energy_accounts 表）
+    // 增加收益（使用 energy_accounts 表）
     await query(
       `INSERT INTO energy_accounts (user_id, balance, total_in, total_out, created_at, updated_at)
        VALUES ($1, $2, $3, 0, NOW(), NOW())
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
       [userId, createAmount, createAmount]
     );
 
-    // 记录能量值创建流水（类型为 create）
+    // 记录收益创建流水（类型为 create）
     await query(
       `INSERT INTO energy_transactions 
        (id, user_id, type, amount, energy_before, energy_after, related_user_id, note, status, created_at) 
@@ -113,14 +113,14 @@ export async function POST(request: NextRequest) {
         currentEnergy.toFixed(2),
         (currentEnergy + createAmount).toFixed(2),
         userId,
-        note || '智算总台创建能量值',
+        note || '智算总台创建收益',
         'completed'
       ]
     );
 
     return NextResponse.json({
       success: true,
-      message: `成功创建 ${createAmount.toLocaleString()} 能量值`,
+      message: `成功创建 ${createAmount.toLocaleString()} 收益`,
       data: {
         user: {
           id: userId,
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('创建能量值失败:', error);
+    console.error('创建收益失败:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : '创建失败' },
       { status: 500 }

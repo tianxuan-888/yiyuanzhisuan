@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 import { execute, queryOne } from '@/lib/pg-client';
 
-// 能量值下发（智算总台 → 服务网点 → 服务商）
+// 收益下发（智算总台 → 服务网点 → 服务商）
 export async function POST(request: NextRequest) {
   try {
     // 鉴权：仅管理员和服务网点可操作
@@ -34,9 +34,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: '转出方用户不存在' }, { status: 404 });
     }
 
-    // 验证角色权限：只有 admin 和 branch 可以释放能量值
+    // 验证角色权限：只有 admin 和 branch 可以释放收益
     if (fromUser.role !== 'admin' && fromUser.role !== 'branch') {
-      return NextResponse.json({ success: false, error: '只有智算总台和服务网点可以释放能量值' }, { status: 403 });
+      return NextResponse.json({ success: false, error: '只有智算总台和服务网点可以释放收益' }, { status: 403 });
     }
 
     // 查询接收方用户信息
@@ -49,25 +49,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: '接收方用户不存在' }, { status: 404 });
     }
 
-    // 检查能量值是否足够
+    // 检查收益是否足够
     const fromEnergy = parseFloat(fromUser.energy_value || '0');
     if (fromEnergy < amount) {
       return NextResponse.json({
         success: false,
-        error: '能量值余额不足',
+        error: '收益余额不足',
         data: { required: amount, current: fromEnergy, short: amount - fromEnergy }
       }, { status: 400 });
     }
 
     const toEnergy = parseFloat(toUser.energy_value || '0');
 
-    // 扣除转出方能量值（使用SQL直接更新）
+    // 扣除转出方收益（使用SQL直接更新）
     await execute(
       `UPDATE users SET energy_value = energy_value - $1, updated_at = NOW() WHERE id = $2`,
       [amount, fromUserId]
     );
 
-    // 增加接收方能量值
+    // 增加接收方收益
     await execute(
       `UPDATE users SET energy_value = energy_value + $1, updated_at = NOW() WHERE id = $2`,
       [amount, toUserId]
@@ -87,12 +87,12 @@ export async function POST(request: NextRequest) {
     // 记录流水
     await execute(
       `INSERT INTO energy_transactions (id, type, amount, from_user_id, to_user_id, note, status, created_at) VALUES (gen_random_uuid(), 'release', $1, $2, $3, $4, 'completed', NOW())`,
-      [amount, fromUserId, toUserId, note || '能量值下发']
+      [amount, fromUserId, toUserId, note || '收益下发']
     );
 
     return NextResponse.json({
       success: true,
-      message: '能量值下发成功',
+      message: '收益下发成功',
       data: {
         fromEnergy: fromEnergy - amount,
         toEnergy: toEnergy + amount,
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('能量值下发失败:', error);
+    console.error('收益下发失败:', error);
     return NextResponse.json({ success: false, error: '服务器错误' }, { status: 500 });
   }
 }

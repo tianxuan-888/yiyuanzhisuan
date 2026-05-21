@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, withTransaction } from '@/lib/pg-client';
 import { authenticateRequest } from '@/lib/auth';
 
-// 服务商能量值提现申请
+// 服务商收益提现申请
 export async function POST(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (withdrawAmount < 50) {
-      return NextResponse.json({ error: '最低提现金额为50能量值' }, { status: 400 });
+      return NextResponse.json({ error: '最低提现金额为50收益' }, { status: 400 });
     }
 
     // 计算手续费和到账金额
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       const currentEnergy = parseFloat(provider.energy_value) || 0;
 
       if (currentEnergy < withdrawAmount) {
-        throw Object.assign(new Error('能量值余额不足'), { statusCode: 400 });
+        throw Object.assign(new Error('收益余额不足'), { statusCode: 400 });
       }
 
       // 获取服务网点ID
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
         throw Object.assign(new Error('未找到所属服务网点，无法提现'), { statusCode: 400 });
       }
 
-      // 2. 冻结/扣减服务商能量值
+      // 2. 冻结/扣减服务商收益
       const newEnergy = currentEnergy - withdrawAmount;
       await client.query(
         'UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2',
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
       const withdrawalRes = await client.query(
         `INSERT INTO withdrawals (user_id, user_role, amount, fee, actual_amount, alipay_account, real_name, status, note, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, NOW(), NOW()) RETURNING id`,
-        [providerId, 'provider', withdrawAmount.toFixed(2), fee.toFixed(2), actualAmount.toFixed(2), alipayAccount || null, realName || null, note || `服务商能量值提现: ${withdrawAmount}，到账${actualAmount}`]
+        [providerId, 'provider', withdrawAmount.toFixed(2), fee.toFixed(2), actualAmount.toFixed(2), alipayAccount || null, realName || null, note || `服务商收益提现: ${withdrawAmount}，到账${actualAmount}`]
       );
 
       const withdrawalId = withdrawalRes.rows[0].id;
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       await client.query(
         `INSERT INTO branch_revenue_records (branch_id, type, amount, related_user_id, related_withdrawal_id, status, note, created_at)
          VALUES ($1, 'provider_withdraw', $2, $3, $4, 'received', $5, NOW())`,
-        [branchId, actualAmount.toFixed(2), providerId, withdrawalId, `服务商提现: ${withdrawAmount}能量值，到账${actualAmount}元`]
+        [branchId, actualAmount.toFixed(2), providerId, withdrawalId, `服务商提现: ${withdrawAmount}收益，到账${actualAmount}元`]
       );
 
       // 5. 手续费沉淀到智算总台
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
         [fee.toFixed(2), providerId, withdrawalId, `服务商提现手续费5%: ${fee}元`]
       );
 
-      // 6. 记录能量值流水（withdraw_freeze）
+      // 6. 记录收益流水（withdraw_freeze）
       const adminRes = await client.query(
         'SELECT id FROM users WHERE role = $1 LIMIT 1',
         ['admin']
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
       await client.query(
         `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, created_at)
          VALUES ($2, 'withdraw_freeze', $1, $2, $3, $4, NOW())`,
-        [withdrawAmount.toFixed(2), providerId, adminId, `服务商提现冻结: ${withdrawAmount}能量值`]
+        [withdrawAmount.toFixed(2), providerId, adminId, `服务商提现冻结: ${withdrawAmount}收益`]
       );
 
       return { withdrawalId, newEnergy, fee, actualAmount, branchId };

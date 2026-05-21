@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 
-// 获取能量值流水记录
+// 获取收益流水记录
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error('获取能量值流水失败:', error);
+    console.error('获取收益流水失败:', error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

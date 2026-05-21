@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 
-// 获取能量值流水记录
+// 获取收益流水记录
 // 统一使用 PostgreSQL 直连
 export async function GET(request: NextRequest) {
   try {
@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('获取能量值流水记录失败:', error);
+    console.error('获取收益流水记录失败:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : '获取失败' },
       { status: 500 }

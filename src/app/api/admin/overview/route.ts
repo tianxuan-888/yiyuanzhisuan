@@ -217,13 +217,13 @@ export async function GET(request: NextRequest) {
     };
 
     if (type === 'all' || type === 'energy') {
-      // 从 energy_accounts 表获取所有用户的能量值数据
+      // 从 energy_accounts 表获取所有用户的收益数据
       const energyAccounts = await query<{
         user_id: string;
         balance: string;
       }>(`SELECT user_id, balance FROM energy_accounts`);
 
-      // 建立用户ID到能量值的映射
+      // 建立用户ID到收益的映射
       const energyMap = new Map<string, number>();
       energyAccounts.forEach(ea => {
         energyMap.set(ea.user_id, parseFloat(ea.balance) || 0);
@@ -237,7 +237,7 @@ export async function GET(request: NextRequest) {
         created_at: string;
       }>(`SELECT id, username, role, created_at FROM users`);
 
-      // 统计各类能量值
+      // 统计各类收益
       let branchEnergyTotal = 0;
       let providerEnergyTotal = 0;
       let memberEnergyTotal = 0;
@@ -262,7 +262,7 @@ export async function GET(request: NextRequest) {
         }
       });
 
-      // 能力值总额 = 服务网点 + 服务商 + 会员 + 智算总台能量值
+      // 能力值总额 = 服务网点 + 服务商 + 会员 + 智算总台收益
       energyStats.totalEnergy = branchEnergyTotal + providerEnergyTotal + memberEnergyTotal + adminEnergy;
       energyStats.energyDistribution.admin = adminEnergy;
       energyStats.energyDistribution.branch = branchEnergyTotal;
@@ -273,7 +273,7 @@ export async function GET(request: NextRequest) {
       energyStats.energyDistribution.byProvider = { total: providerEnergyTotal };
       energyStats.energyDistribution.byMember = { total: memberEnergyTotal };
 
-      // Top 10 能量值用户
+      // Top 10 收益用户
       energyStats.topEnergyUsers = users
         .filter(u => (energyMap.get(u.id) || 0) > 0)
         .map(u => ({
@@ -284,7 +284,7 @@ export async function GET(request: NextRequest) {
         .sort((a, b) => b.energyValue - a.energyValue)
         .slice(0, 10);
 
-      // 近7天能量值趋势
+      // 近7天收益趋势
       const trendMap = new Map<string, number>();
       for (let i = 6; i >= 0; i--) {
         const date = new Date();
@@ -293,7 +293,7 @@ export async function GET(request: NextRequest) {
         trendMap.set(dateStr, 0);
       }
 
-      // 查询能量值交易记录
+      // 查询收益交易记录
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       const energyTransactions = await query<{
@@ -306,7 +306,7 @@ export async function GET(request: NextRequest) {
         [sevenDaysAgo.toISOString()]
       );
 
-      // 计算每日能量值变化
+      // 计算每日收益变化
       if (energyTransactions && energyTransactions.length > 0) {
         energyTransactions.forEach(tx => {
           const dateStr = tx.created_at.split('T')[0];
@@ -317,7 +317,7 @@ export async function GET(request: NextRequest) {
           }
         });
 
-        // 今日能量值变化
+        // 今日收益变化
         const today = new Date().toISOString().split('T')[0];
         energyStats.todayEnergyChange = trendMap.get(today) || 0;
       }

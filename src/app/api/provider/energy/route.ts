@@ -3,7 +3,7 @@ import { query } from '@/lib/pg-client';
 import { authenticateRequest } from '@/lib/auth';
 
 /**
- * 获取服务商能量值统计
+ * 获取服务商收益统计
  * GET /api/provider/energy
  */
 export async function GET(request: NextRequest) {
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
     const providerId = user.userId;
 
-    // 获取服务商能量值余额
+    // 获取服务商收益余额
     const userResult = await query(
       'SELECT energy_value, balance FROM users WHERE id = $1',
       [providerId]
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
       [providerId]
     );
 
-    // 获取能量值交易记录
+    // 获取收益交易记录
     const searchParams = request.nextUrl.searchParams;
     const type = searchParams.get('type'); // recharge, transfer_in, transfer_out
     const page = parseInt(searchParams.get('page') || '1');
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
       [...params, pageSize, offset]
     );
 
-    // 获取能量值统计
+    // 获取收益统计
     const statsResult = await query(
       `SELECT 
         COALESCE(SUM(CASE WHEN type = 'recharge' THEN amount ELSE 0 END), 0) as total_recharge,
@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('获取能量值信息失败:', error);
+    console.error('获取收益信息失败:', error);
     return NextResponse.json({ error: '获取失败' }, { status: 500 });
   }
 }

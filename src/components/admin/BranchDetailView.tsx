@@ -176,7 +176,7 @@ export function BranchDetailView({ branchId, branchName, onBack }: Props) {
               <div>
                 <p className="text-sm opacity-80">服务商</p>
                 <p className="text-2xl font-bold mt-1">{branchData.stats.providerCount}</p>
-                <p className="text-xs opacity-70 mt-1">能量值额度: {formatEnergy(branchData.stats.providerQuotaTotal)}</p>
+                <p className="text-xs opacity-70 mt-1">收益额度: {formatEnergy(branchData.stats.providerQuotaTotal)}</p>
               </div>
               <Users className="w-10 h-10 opacity-50" />
             </div>
@@ -216,7 +216,7 @@ export function BranchDetailView({ branchId, branchName, onBack }: Props) {
           <TabsTrigger value="providers">服务商详情</TabsTrigger>
           <TabsTrigger value="members">会员购买</TabsTrigger>
           <TabsTrigger value="overview">算力统计</TabsTrigger>
-          <TabsTrigger value="energy">能量值统计</TabsTrigger>
+          <TabsTrigger value="energy">收益统计</TabsTrigger>
         </TabsList>
 
         {/* 服务商详情Tab */}
@@ -548,8 +548,8 @@ export function BranchDetailView({ branchId, branchName, onBack }: Props) {
                   </div>
                   <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
                     <div>
-                      <div className="font-medium">能量值持有</div>
-                      <div className="text-sm text-gray-500">体系内能量值</div>
+                      <div className="font-medium">收益持有</div>
+                      <div className="text-sm text-gray-500">体系内收益</div>
                     </div>
                     <div className="text-2xl font-bold text-green-600">
                       {formatEnergy(branchData.stats.energyBalance)}
@@ -561,16 +561,16 @@ export function BranchDetailView({ branchId, branchName, onBack }: Props) {
           </div>
         </TabsContent>
 
-        {/* 能量值统计Tab */}
+        {/* 收益统计Tab */}
         <TabsContent value="energy">
           <div className="space-y-6">
-            {/* 能量值概览卡片 */}
+            {/* 收益概览卡片 */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Card className="bg-gradient-to-br from-yellow-500 to-orange-500 text-white">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm opacity-80">能量值总额</p>
+                      <p className="text-sm opacity-80">收益总额</p>
                       <p className="text-2xl font-bold mt-1">{formatEnergy(branchData.stats.energyBalance)}</p>
                       <p className="text-xs opacity-70 mt-1">服务网点体系总和</p>
                     </div>
@@ -583,7 +583,7 @@ export function BranchDetailView({ branchId, branchName, onBack }: Props) {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm opacity-80">服务网点能量值</p>
+                      <p className="text-sm opacity-80">服务网点收益</p>
                       <p className="text-2xl font-bold mt-1">{formatEnergy(branchData.stats.energyBranchBalance)}</p>
                       <p className="text-xs opacity-70 mt-1">服务网点持有</p>
                     </div>
@@ -596,7 +596,7 @@ export function BranchDetailView({ branchId, branchName, onBack }: Props) {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm opacity-80">服务商能量值</p>
+                      <p className="text-sm opacity-80">服务商收益</p>
                       <p className="text-2xl font-bold mt-1">{formatEnergy(branchData.stats.energyProviderBalance)}</p>
                       <p className="text-xs opacity-70 mt-1">服务商持有</p>
                     </div>
@@ -609,7 +609,7 @@ export function BranchDetailView({ branchId, branchName, onBack }: Props) {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm opacity-80">会员能量值</p>
+                      <p className="text-sm opacity-80">会员收益</p>
                       <p className="text-2xl font-bold mt-1">{formatEnergy(branchData.stats.energyMemberBalance)}</p>
                       <p className="text-xs opacity-70 mt-1">会员持有</p>
                     </div>
@@ -619,14 +619,14 @@ export function BranchDetailView({ branchId, branchName, onBack }: Props) {
               </Card>
             </div>
 
-            {/* 能量值分布图表 */}
+            {/* 收益分布图表 */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* 能量值构成 */}
+              {/* 收益构成 */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Zap className="w-5 h-5 text-yellow-500" />
-                    能量值构成
+                    收益构成
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -694,12 +694,12 @@ export function BranchDetailView({ branchId, branchName, onBack }: Props) {
                 </CardContent>
               </Card>
 
-              {/* 能量值占比 */}
+              {/* 收益占比 */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <TrendingUp className="w-5 h-5 text-green-600" />
-                    能量值占比
+                    收益占比
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -765,12 +765,12 @@ export function BranchDetailView({ branchId, branchName, onBack }: Props) {
                 <div className="flex items-start gap-3">
                   <TrendingUp className="w-5 h-5 text-amber-600 mt-0.5" />
                   <div>
-                    <h4 className="font-medium text-amber-800">能量值统计说明</h4>
+                    <h4 className="font-medium text-amber-800">收益统计说明</h4>
                     <ul className="text-sm text-amber-700 mt-2 space-y-1">
-                      <li>• 能量值总额：服务网点体系内所有能量值之和（服务网点 + 服务商 + 会员）</li>
-                      <li>• 服务网点能量值：服务网点自身持有的能量值</li>
-                      <li>• 服务商能量值：该服务网点下所有服务商的能量值之和</li>
-                      <li>• 会员能量值：该服务网点体系下所有会员的能量值之和</li>
+                      <li>• 收益总额：服务网点体系内所有收益之和（服务网点 + 服务商 + 会员）</li>
+                      <li>• 服务网点收益：服务网点自身持有的收益</li>
+                      <li>• 服务商收益：该服务网点下所有服务商的收益之和</li>
+                      <li>• 会员收益：该服务网点体系下所有会员的收益之和</li>
                     </ul>
                   </div>
                 </div>

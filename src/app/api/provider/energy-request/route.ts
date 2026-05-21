@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
-// 服务商申请能量值
+// 服务商申请收益
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
     if (provider.role !== 'provider') {
       return NextResponse.json(
-        { success: false, error: '只有服务商可以申请能量值' },
+        { success: false, error: '只有服务商可以申请收益' },
         { status: 403 }
       );
     }
@@ -61,13 +61,13 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
     const requestId = crypto.randomUUID();
 
-    // 创建能量值申请记录（只记录，等待服务网点审核）
+    // 创建收益申请记录（只记录，等待服务网点审核）
     const { error: insertError } = await client
       .from('transactions')
       .insert({
         id: requestId,
         user_id: providerId,
-        type: 'energy_request', // 能量值申请
+        type: 'energy_request', // 收益申请
         amount: amount,
         description: JSON.stringify({
           action: 'energy_request',
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: '能量值申请已提交，等待服务网点审核',
+      message: '收益申请已提交，等待服务网点审核',
       data: {
         requestId,
         providerName: provider.username,
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error('能量值申请失败:', error);
+    console.error('收益申请失败:', error);
     return NextResponse.json(
       { success: false, error: error.message || '申请失败' },
       { status: 500 }
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 获取服务商能量值申请记录
+// 获取服务商收益申请记录
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

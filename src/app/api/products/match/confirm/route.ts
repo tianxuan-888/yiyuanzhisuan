@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      // 检查目标会员能量值
+      // 检查目标会员收益
       const { data: targetUser } = await supabase
         .from('users')
         .select('id, username, energy_value, balance, provider_id')
@@ -70,23 +70,23 @@ export async function POST(request: NextRequest) {
       const profitAmount = product.price * (product.profit_rate / 100);
 
       if (targetUser.energy_value < marketFee) {
-        // 能量值不足，清除匹配，回到待匹配列表
+        // 收益不足，清除匹配，回到待匹配列表
         await supabase.rpc('rpc_execute', {
           sql_query: `UPDATE products SET pending_match_user_id = NULL WHERE id = '${product.id}'`
         });
-        results.push({ productId: product.id, success: false, message: `${targetUser.username}能量值不足(${targetUser.energy_value}/${marketFee})` });
+        results.push({ productId: product.id, success: false, message: `${targetUser.username}收益不足(${targetUser.energy_value}/${marketFee})` });
         continue;
       }
 
       // === 匹配成功，执行所有操作 ===
 
-      // 1. 扣除目标会员能量值
+      // 1. 扣除目标会员收益
       const { error: deductError } = await supabase.rpc('rpc_execute', {
         sql_query: `UPDATE users SET energy_value = energy_value - ${marketFee} WHERE id = '${targetUser.id}' AND energy_value >= ${marketFee}`
       });
       if (deductError) {
-        console.error('[MATCH CONFIRM] 扣除能量值失败:', deductError);
-        results.push({ productId: product.id, success: false, message: '扣除能量值失败' });
+        console.error('[MATCH CONFIRM] 扣除收益失败:', deductError);
+        results.push({ productId: product.id, success: false, message: '扣除收益失败' });
         continue;
       }
 
@@ -189,7 +189,7 @@ export async function POST(request: NextRequest) {
         receiver_role: 'member',
         type: 'product_matched',
         title: '产品匹配成功',
-        content: `您已成功匹配产品「${product.name}」，金额¥${product.price}，能量值已扣除${marketFee}`,
+        content: `您已成功匹配产品「${product.name}」，金额¥${product.price}，收益已扣除${marketFee}`,
         is_read: false
       });
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 import { authenticateRequest } from '@/lib/auth';
 
-// 服务网点向智算总台申请能量值
+// 服务网点向智算总台申请收益
 export async function POST(request: NextRequest) {
   try {
     // 获取认证用户
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const requestAmount = parseFloat(amount);
     if (isNaN(requestAmount) || requestAmount < 50) {
       return NextResponse.json(
-        { success: false, error: '申请金额最低为50能量值' },
+        { success: false, error: '申请金额最低为50收益' },
         { status: 400 }
       );
     }
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     if (branchResult[0].role !== 'branch') {
       return NextResponse.json(
-        { success: false, error: '只有服务网点才能申请能量值' },
+        { success: false, error: '只有服务网点才能申请收益' },
         { status: 403 }
       );
     }
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: '能量值申请已提交，等待智算总台审核',
+      message: '收益申请已提交，等待智算总台审核',
       data: {
         requestId: id,
         branchId: branchId,
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('服务网点申请能量值失败:', error);
+    console.error('服务网点申请收益失败:', error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : '申请失败' },
       { status: 500 }
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 获取服务网点能量值申请记录
+// 获取服务网点收益申请记录
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -198,7 +198,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('获取能量值申请记录失败:', error);
+    console.error('获取收益申请记录失败:', error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : '获取失败' },
       { status: 500 }

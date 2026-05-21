@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 import { authenticateRequest } from '@/lib/auth';
 
-// 获取会员详细记录（购买记录、能量值流水、持仓信息）
+// 获取会员详细记录（购买记录、收益流水、持仓信息）
 export async function GET(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
       LIMIT 50
     `, [userId]);
 
-    // 4. 获取能量值流水
+    // 4. 获取收益流水
     const energyRecords = await query<any>(`
       SELECT id, type, amount, from_user_id, to_user_id, created_at, note
       FROM energy_transactions
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
       WHERE user_id = $1
     `, [userId]);
 
-    // 获取能量值账户信息
+    // 获取收益账户信息
     const energyAccountRows = await query<any>(`
       SELECT balance, total_in, total_out
       FROM energy_accounts

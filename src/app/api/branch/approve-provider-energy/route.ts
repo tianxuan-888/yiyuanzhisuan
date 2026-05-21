@@ -3,7 +3,7 @@ import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 import { execute, queryOne } from '@/lib/pg-client';
 
-// 审批服务商向服务网点申请的能量值
+// 审批服务商向服务网点申请的收益
 export async function POST(request: NextRequest) {
   try {
     // 验证用户身份
@@ -94,12 +94,12 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', requestId);
 
-      // 2. 扣除服务网点能量值
+      // 2. 扣除服务网点收益
       const branchId = userId; // 当前服务网点ID
       const amount = desc.requestedAmount || Number((transaction as any).amount) || 0;
       const providerId = (transaction as any).user_id;
       
-      // 查询服务网点能量值账户
+      // 查询服务网点收益账户
       const { data: branchEa } = await client
         .from('energy_accounts')
         .select('balance, total_out')
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
               status: 'completed',
               source: 'approve_provider_request',
               to_user_id: providerId,
-              note: `审核通过服务商能量值申请，发放 ${amount} 能量值`
+              note: `审核通过服务商收益申请，发放 ${amount} 收益`
             }),
             from_user_id: branchId,
             to_user_id: providerId,
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
           });
       }
       
-      // 3. 给服务商增加能量值 - 使用 SQL 直接更新
+      // 3. 给服务商增加收益 - 使用 SQL 直接更新
       if (providerId && amount > 0) {
         const ea = await queryOne('SELECT balance, total_in FROM energy_accounts WHERE user_id = $1', [providerId]);
         
@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
               status: 'completed',
               source: 'branch_approved',
               parent_id: userId,
-              note: '服务网点审核通过，获得能量值'
+              note: '服务网点审核通过，获得收益'
             }),
             from_user_id: userId,
             to_user_id: providerId,
@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: '已批准能量值申请，能量值已发放给服务商'
+        message: '已批准收益申请，收益已发放给服务商'
       });
     } else if (action === 'reject') {
       // 更新申请状态为rejected（保留记录，状态变更）
@@ -189,7 +189,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: '已拒绝能量值申请'
+        message: '已拒绝收益申请'
       });
     } else {
       return NextResponse.json(
@@ -198,7 +198,7 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error: any) {
-    console.error('审批能量值申请失败:', error);
+    console.error('审批收益申请失败:', error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

@@ -3,7 +3,7 @@ import { getSupabase } from '@/lib/supabase-client';
 import { authenticateRequest } from '@/lib/auth';
 import { getEnergyBalance, transferEnergy } from '@/lib/energy-util';
 
-// 服务网点直接转账能量值给服务商或会员
+// 服务网点直接转账收益给服务商或会员
 export async function POST(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     // 验证服务网点余额
     const branchEnergy = await getEnergyBalance(branchId);
     if (branchEnergy < transferAmount) {
-      return NextResponse.json({ error: `能量值余额不足，当前余额: ${branchEnergy}` }, { status: 400 });
+      return NextResponse.json({ error: `收益余额不足，当前余额: ${branchEnergy}` }, { status: 400 });
     }
 
     // 使用 transferEnergy 执行原子转账
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `成功转账 ${transferAmount} 能量值给 ${target.username}`,
+      message: `成功转账 ${transferAmount} 收益给 ${target.username}`,
       data: {
         branchId,
         targetId,

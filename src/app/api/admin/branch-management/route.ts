@@ -82,9 +82,9 @@ export async function GET(request: NextRequest) {
     console.log('[BranchManagement] quotaAccountBalances:', quotaAccountBalances);
     console.log('[BranchManagement] branches:', branches.map(b => b.id));
 
-    // 6. 查询每个服务网点及其体系下的能量值总和
-    // 包括：服务网点自己的能量值 + 该服务网点下所有服务商的能量值 + 所有会员的能量值
-    // 先查询所有用户的能量值
+    // 6. 查询每个服务网点及其体系下的收益总和
+    // 包括：服务网点自己的收益 + 该服务网点下所有服务商的收益 + 所有会员的收益
+    // 先查询所有用户的收益
     const allUserEnergy = await query<{ 
       user_id: string;
       branch_id: string | null;
@@ -100,13 +100,13 @@ export async function GET(request: NextRequest) {
        LEFT JOIN users u ON ea.user_id::text = u.id`
     );
 
-    // 在内存中计算每个服务网点的能量值总和
+    // 在内存中计算每个服务网点的收益总和
     const branchEnergyMap = new Map<string, { branch: number; provider: number; member: number; total: number }>();
     
     allUserEnergy.forEach(e => {
       const balance = parseFloat(e.balance || '0');
       
-      // 服务网点能量值 - 服务网点的 branch_id 为 NULL，所以用 user_id 作为 key
+      // 服务网点收益 - 服务网点的 branch_id 为 NULL，所以用 user_id 作为 key
       if (e.role === 'branch') {
         const key = e.user_id;  // 用 user_id 作为服务网点的 key
         const existing = branchEnergyMap.get(key) || { branch: 0, provider: 0, member: 0, total: 0 };
@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
         branchEnergyMap.set(key, existing);
       }
       
-      // 服务商能量值 - 通过 providers 表获取 branch_id
+      // 服务商收益 - 通过 providers 表获取 branch_id
       if (e.role === 'provider') {
         const providerData = allUserEnergy.filter(p => p.user_id === e.user_id);
         // 需要从 providers 表获取 branch_id
@@ -133,7 +133,7 @@ export async function GET(request: NextRequest) {
       userToBranchMap.set(p.user_id, p.branch_id);
     });
 
-    // 再次遍历所有用户，计算服务商和会员的能量值
+    // 再次遍历所有用户，计算服务商和会员的收益
     allUserEnergy.forEach(e => {
       const branchId = userToBranchMap.get(e.user_id);
       // 如果没有通过 providers 表找到 branch_id，且角色是 branch，则用 user_id 本身作为 branch_id
@@ -331,7 +331,7 @@ export async function GET(request: NextRequest) {
       const userCount = userCountMap.get(branch.id) || { providers: 0, members: 0 };
       const quotaApproved = quotaRequestMap.get(branch.id) || 0;
       const quotaBalance = quotaBalanceMap.get(branch.id) || { balance: 0, totalIn: 0 };
-      // 服务网点体系下所有能量值（服务网点+服务商+会员）
+      // 服务网点体系下所有收益（服务网点+服务商+会员）
       const energyStats = branchEnergyMap.get(branch.id) || { branch: 0, provider: 0, member: 0, total: 0 };
       const salesInfo = orderStatsMap.get(branch.id) || { total: 0, count: 0 };
       const providers = providerStatsMap.get(branch.id) || [];
@@ -363,7 +363,7 @@ export async function GET(request: NextRequest) {
           providerQuotaTotal: providerSummary.totalQuota,
           providerQuotaUsed: providerSummary.usedQuota,
           providerQuotaAvailable: providerSummary.availableQuota,
-          // 服务网点体系能量值（服务网点+服务商+会员）
+          // 服务网点体系收益（服务网点+服务商+会员）
           energyBalance: energyStats.total,
           energyBranchBalance: energyStats.branch,
           energyProviderBalance: energyStats.provider,
@@ -390,7 +390,7 @@ export async function GET(request: NextRequest) {
     const summary = {
       totalBranches: branchData.length,
       totalQuotaApplied: branchData.reduce((sum, b) => sum + b.stats.quotaApplied, 0),
-      // 所有服务网点体系能量值总和（服务网点+服务商+会员）
+      // 所有服务网点体系收益总和（服务网点+服务商+会员）
       totalEnergyBalance: branchData.reduce((sum, b) => sum + b.stats.energyBalance, 0),
       totalEnergyBranchBalance: branchData.reduce((sum, b) => sum + (b.stats.energyBranchBalance || 0), 0),
       totalEnergyProviderBalance: branchData.reduce((sum, b) => sum + (b.stats.energyProviderBalance || 0), 0),

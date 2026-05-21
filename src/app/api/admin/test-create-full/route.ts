@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
       members.push({ id: memberId, username: memberName });
     }
 
-    // 5. 创建能量值账户（初始为0）
+    // 5. 创建收益账户（初始为0）
     const allUserIds = [branchId, provider1Id, provider2Id, ...members.map(m => m.id)];
     const energyAccounts = allUserIds.map(userId => ({
       user_id: userId,
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
       .insert(energyAccounts);
 
     if (energyError) {
-      console.warn('创建能量值账户失败（可能已存在）:', energyError.message);
+      console.warn('创建收益账户失败（可能已存在）:', energyError.message);
     }
 
     return NextResponse.json({

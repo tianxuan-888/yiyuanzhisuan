@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 import { authenticateRequest } from '@/lib/auth';
 
-// 智算总台调整会员能量值
+// 智算总台调整会员收益
 export async function POST(request: NextRequest) {
   try {
     const authUser = await authenticateRequest(request);
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: '金额必须大于0' }, { status: 400 });
     }
 
-    // 查询用户当前能量值
+    // 查询用户当前收益
     const userResult = await query('SELECT id, username, energy_value, role FROM users WHERE id = $1', [userId]);
     if (!userResult || userResult.length === 0) {
       return NextResponse.json({ success: false, error: '用户不存在' }, { status: 404 });
@@ -31,15 +31,15 @@ export async function POST(request: NextRequest) {
     const currentEnergy = Number(user.energy_value) || 0;
 
     if (action === 'deduct' && currentEnergy < amount) {
-      return NextResponse.json({ success: false, error: `能量值不足，当前仅 ${currentEnergy}` }, { status: 400 });
+      return NextResponse.json({ success: false, error: `收益不足，当前仅 ${currentEnergy}` }, { status: 400 });
     }
 
     const newEnergy = action === 'add' ? currentEnergy + amount : currentEnergy - amount;
 
-    // 更新用户能量值
+    // 更新用户收益
     await query('UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2', [newEnergy, userId]);
 
-    // 更新或创建能量值账户
+    // 更新或创建收益账户
     const accountResult = await query('SELECT id, balance, total_in, total_out FROM energy_accounts WHERE user_id = $1', [userId]);
     if (accountResult && accountResult.length > 0) {
       const account = accountResult[0];
@@ -57,8 +57,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 记录能量值流水
-    const adjustNote = note || `智算总台${action === 'add' ? '增加' : '扣减'}能量值 ${amount}`;
+    // 记录收益流水
+    const adjustNote = note || `智算总台${action === 'add' ? '增加' : '扣减'}收益 ${amount}`;
     await query(
       `INSERT INTO energy_transactions (type, amount, from_user_id, to_user_id, note)
        VALUES ($1, $2, $3, $4, $5)`,
@@ -79,15 +79,15 @@ export async function POST(request: NextRequest) {
         userId,
         user.role,
         'energy_adjust',
-        '能量值调整',
-        `智算总台${action === 'add' ? '增加' : '扣减'}了您 ${amount} 能量值${note ? '，原因：' + note : ''}`,
+        '收益调整',
+        `智算总台${action === 'add' ? '增加' : '扣减'}了您 ${amount} 收益${note ? '，原因：' + note : ''}`,
         'unread'
       ]
     );
 
     return NextResponse.json({
       success: true,
-      message: `已${action === 'add' ? '增加' : '扣减'} ${amount} 能量值`,
+      message: `已${action === 'add' ? '增加' : '扣减'} ${amount} 收益`,
       data: {
         userId,
         previousEnergy: currentEnergy,
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
       }
     });
   } catch (error: any) {
-    console.error('能量值调整失败:', error);
+    console.error('收益调整失败:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

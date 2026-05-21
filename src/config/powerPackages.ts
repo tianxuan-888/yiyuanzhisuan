@@ -4,15 +4,15 @@
 // 
 // 【商业模式】
 // 会员购买GPU产品，只付本金
-// 到期卖出时需用能量值支付市场费（没有能量值需找服务商充值）
-// 能量值按比例分配给服务商、运营、上级、服务网点、直推
+// 到期卖出时需用收益支付市场费（没有收益需找服务商充值）
+// 收益按比例分配给服务商、运营、上级、服务网点、直推
 // 
 // 【角色层级】
 // 智算总台 → 服务网点 → 服务商 → 会员
 //
 // 【核心机制】
-// - 能量值：卖出时支付市场费，可找服务商充值
-// - 积分：到期收益，可转能量值
+// - 收益：卖出时支付市场费，可找服务商充值
+// - 积分：到期收益，可转收益
 // - 产品流转：会员间转让，服务商担保
 //
 // ============================================
@@ -56,7 +56,7 @@ export interface BaseUser {
 export interface Member extends BaseUser {
   role: 'member';
   memberLevel: MemberLevel;
-  energyValue: number; // 能量值
+  energyValue: number; // 收益
   points: number; // 积分
   providerId: string; // 归属服务商ID
   directReferrals: number; // 直推人数
@@ -77,7 +77,7 @@ export interface Provider extends BaseUser {
   branchId?: string; // 归属服务网点ID（无则归智算总台）
   parentProviderId?: string; // 上级服务商ID（拆分出来的来源）
   childProviderIds?: string[]; // 下级服务商ID列表（拆分出去的）
-  energyValue: number; // 能量值
+  energyValue: number; // 收益
   status: 'active' | 'suspended' | 'bankrupt' | 'pending_split'; // 状态
   lastSaleDate: string; // 最后销售日期
   canUpgrade: boolean; // 是否可升级为服务网点
@@ -92,7 +92,7 @@ export interface Branch extends BaseUser {
   discount: number; // 拿货折扣70%
   directProviders: number; // 直推服务商数
   totalSales: number; // 总销售额
-  energyValue: number; // 能量值
+  energyValue: number; // 收益
   status: 'active' | 'suspended' | 'bankrupt'; // 状态
 }
 
@@ -105,7 +105,7 @@ export interface ProductCycleConfig {
   cycleDays: number;
   totalProfitRate: number; // 总收益率
   memberProfitRate: number; // 会员实际到手收益率
-  energyValueRate: number; // 能量值支付比例（市场费）
+  energyValueRate: number; // 收益支付比例（市场费）
   minPrice: number;
   maxPrice: number;
 }
@@ -129,7 +129,7 @@ export interface UserProduct {
   amount: number; // 购买金额（本金）
   totalProfit: number; // 总收益
   memberProfit: number; // 会员实际到手收益
-  energyValueNeeded: number; // 卖出时需支付的能量值
+  energyValueNeeded: number; // 卖出时需支付的收益
   status: ProductStatus;
   startDate: string;
   endDate: string;
@@ -171,7 +171,7 @@ export const productCycleConfig: Record<ProductCycle, ProductCycleConfig> = {
     cycleDays: 3,
     totalProfitRate: 5, // 总收益5%
     memberProfitRate: 2, // 会员到手2%
-    energyValueRate: 3, // 能量值支付3%
+    energyValueRate: 3, // 收益支付3%
     minPrice: 1000, // ¥1,000-5,000
     maxPrice: 5000,
   },
@@ -181,7 +181,7 @@ export const productCycleConfig: Record<ProductCycle, ProductCycleConfig> = {
     cycleDays: 7,
     totalProfitRate: 10, // 总收益10%
     memberProfitRate: 5, // 会员到手5%
-    energyValueRate: 5, // 能量值支付5%
+    energyValueRate: 5, // 收益支付5%
     minPrice: 1000, // ¥1,000-10,000
     maxPrice: 10000,
   },
@@ -191,7 +191,7 @@ export const productCycleConfig: Record<ProductCycle, ProductCycleConfig> = {
     cycleDays: 15,
     totalProfitRate: 20, // 总收益20%
     memberProfitRate: 10, // 会员到手10%
-    energyValueRate: 10, // 能量值支付10%
+    energyValueRate: 10, // 收益支付10%
     minPrice: 5000,
     maxPrice: 30000,
   },
@@ -201,7 +201,7 @@ export const productCycleConfig: Record<ProductCycle, ProductCycleConfig> = {
     cycleDays: 30,
     totalProfitRate: 44, // 总收益44%
     memberProfitRate: 22, // 会员到手22%
-    energyValueRate: 22, // 能量值支付22%
+    energyValueRate: 22, // 收益支付22%
     minPrice: 10000,
     maxPrice: 100000,
   },
@@ -211,7 +211,7 @@ export const productCycleConfig: Record<ProductCycle, ProductCycleConfig> = {
     cycleDays: 90,
     totalProfitRate: 120, // 总收益120%
     memberProfitRate: 60, // 会员到手60%
-    energyValueRate: 60, // 能量值支付60%
+    energyValueRate: 60, // 收益支付60%
     minPrice: 30000,
     maxPrice: 500000,
   },
@@ -237,7 +237,7 @@ export const productTierConfig: Record<ProductTier, ProductConfig> = {
   },
 };
 
-// 能量值（市场费）分配配置
+// 收益（市场费）分配配置
 export const energyValueDistribution = {
   provider: 70, // 服务商 70%
   company: 5, // 公司运营 5%
@@ -418,7 +418,7 @@ export interface SellRequest {
   productNo: string;
   amount: number; // 产品金额
   profit: number; // 收益
-  energyValueNeeded: number; // 需支付能量值
+  energyValueNeeded: number; // 需支付收益
   providerId: string;
   providerName: string;
   status: SellReviewStatus;
@@ -466,7 +466,7 @@ export function calculateProductProfitByCycle(
   cycle: ProductCycle;
   totalProfit: number; // 总收益
   memberProfit: number; // 会员实际到手
-  energyValueNeeded: number; // 卖出时需支付的能量值
+  energyValueNeeded: number; // 卖出时需支付的收益
   cycleDays: number;
 } {
   const config = productCycleConfig[cycle];
@@ -480,7 +480,7 @@ export function calculateProductProfitByCycle(
   };
 }
 
-// 计算能量值分配
+// 计算收益分配
 export function calculateEnergyValueDistribution(energyValue: number): {
   total: number;
   provider: number;
@@ -547,7 +547,7 @@ export function calculateTotalPay(amount: number, cycle: ProductCycle): {
   totalPay: number; // 实付 = 本金
   totalProfit: number; // 总收益
   memberProfit: number; // 会员实际到手
-  energyValueNeeded: number; // 卖出时需支付的能量值
+  energyValueNeeded: number; // 卖出时需支付的收益
   cycleDays: number;
 } {
   const profitInfo = calculateProductProfitByCycle(amount, cycle);

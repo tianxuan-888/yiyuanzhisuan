@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase-client';
 import { authenticateRequest } from '@/lib/auth';
 
-// 获取服务商的收益转能量值记录
+// 获取服务商的收益转收益记录
 export async function GET(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     const userId = authUser.userId;
     const supabase = getSupabase();
 
-    // 查询能量值转换记录
+    // 查询收益转换记录
     const { data: energyRecords, error: eErr } = await supabase
       .from('energy_transactions')
       .select('id, amount, note, energy_before, energy_after, created_at')
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     // 合并记录：按时间匹配（同一次转换的energy和points记录时间接近）
     const records = (energyRecords || []).map((er: any) => {
       const energyAmount = parseFloat(String(er.amount)) || 0;
-      // 能量值占95%，所以总转换金额 = 能量值 / 0.95
+      // 收益占95%，所以总转换金额 = 收益 / 0.95
       const totalAmount = Math.round(energyAmount / 0.95 * 100) / 100;
       const pointsAmount = Math.round((totalAmount - energyAmount) * 100) / 100;
 

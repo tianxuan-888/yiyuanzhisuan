@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
-// 获取能量值转账记录接口
+// 获取收益转账记录接口
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
