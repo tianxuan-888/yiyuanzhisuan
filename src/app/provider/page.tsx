@@ -2231,6 +2231,11 @@ export default function ProviderPage() {
                                           {applications.length > 0 && <Badge className="ml-1 bg-gradient-to-r from-red-500 to-rose-500 text-white text-xs shadow-lg animate-pulse">{applications.length}</Badge>}
                             </button>
                             <button
+                                onClick={() => { setActiveTab("revenue"); loadRevenueRecords(); }}
+                                className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "revenue" ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg shadow-green-200" : "text-gray-600 hover:bg-green-50"}`}>
+                                <Wallet className="w-4 h-4" />收益管理
+                            </button>
+                            <button
                                 onClick={() => {
                                     setActiveTab("points");
                                     loadPointsRecords();
@@ -3809,6 +3814,136 @@ export default function ProviderPage() {
                         </Card>
                     </div>}
 
+                    {/* 收益管理 Tab */}
+                    {activeTab === "revenue" && (
+                        <div className="space-y-3 md:space-y-6">
+                            {/* 收益概览卡片 */}
+                            <Card className="bg-gradient-to-br from-green-600 to-emerald-600 text-white">
+                                <CardContent className="pt-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Wallet className="w-5 h-5" />
+                                        <span className="text-sm opacity-80">收益余额</span>
+                                    </div>
+                                    <p className="text-3xl font-bold">¥{revenueStats.balance?.toLocaleString() || 0}</p>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+                                        <div className="bg-white/10 rounded-lg p-2">
+                                            <p className="text-xs opacity-70">服务商收益</p>
+                                            <p className="text-sm font-bold">¥{revenueStats.distSelfRevenue?.toLocaleString() || 0}</p>
+                                        </div>
+                                        <div className="bg-white/10 rounded-lg p-2">
+                                            <p className="text-xs opacity-70">直推奖励</p>
+                                            <p className="text-sm font-bold">¥{revenueStats.distDirectReward?.toLocaleString() || 0}</p>
+                                        </div>
+                                        <div className="bg-white/10 rounded-lg p-2">
+                                            <p className="text-xs opacity-70">培育奖励</p>
+                                            <p className="text-sm font-bold">¥{revenueStats.distParentShare?.toLocaleString() || 0}</p>
+                                        </div>
+                                        <div className="bg-white/10 rounded-lg p-2">
+                                            <p className="text-xs opacity-70">下级服务商收益</p>
+                                            <p className="text-sm font-bold">¥{revenueStats.subordinateRevenue?.toLocaleString() || 0}</p>
+                                        </div>
+                                    </div>
+                                    <div className="mt-3 flex gap-2 flex-wrap">
+                                        <Button
+                                            size="sm"
+                                            variant="secondary"
+                                            onClick={() => {
+                                                setWithdrawAmount("");
+                                                setShowWithdrawDialog(true);
+                                            }}
+                                        >
+                                            <DollarSign className="w-4 h-4 mr-1" />
+                                            收益提现
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="secondary"
+                                            onClick={() => {
+                                                setEnergyRequestNote("");
+                                                setShowEnergyRequestDialog(true);
+                                            }}
+                                        >
+                                            <DollarSign className="w-4 h-4 mr-1" />
+                                            申请收益
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* 收益记录 */}
+                            <Card>
+                                <CardHeader>
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="flex items-center gap-2">
+                                            <DollarSign className="w-5 h-5" />
+                                            收益记录
+                                        </CardTitle>
+                                        <Button size="sm" variant="outline" onClick={() => { loadRevenueRecords(); }}>
+                                            <RefreshCw className="w-4 h-4 mr-1" />刷新
+                                        </Button>
+                                    </div>
+                                </CardHeader>
+                                <CardContent>
+                                    {revenueRecords.length === 0 ? (
+                                        <p className="text-gray-500 text-center py-8">暂无收益记录</p>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {revenueRecords.map((record: any, index: number) => (
+                                                <div key={index} className="flex items-center justify-between border rounded-lg p-3 hover:bg-gray-50">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${record.amount > 0 ? 'bg-green-100' : 'bg-red-100'}`}>
+                                                            <DollarSign className={`w-4 h-4 ${record.amount > 0 ? 'text-green-600' : 'text-red-600'}`} />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-medium text-sm">{record.description || record.type}</p>
+                                                            <p className="text-xs text-gray-500">{record.created_at?.slice(0, 16)}</p>
+                                                        </div>
+                                                    </div>
+                                                    <span className={`font-bold ${record.amount > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                        {record.amount > 0 ? '+' : ''}¥{Number(record.amount || 0).toLocaleString()}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            {/* 收益分配说明 */}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <DollarSign className="w-5 h-5" />
+                                        收益分配规则
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-2 text-sm text-gray-600">
+                                        <div className="flex items-center justify-between border-b pb-2">
+                                            <span>服务商收益（会员投资）</span>
+                                            <span className="font-bold text-green-600">70%</span>
+                                        </div>
+                                        <div className="flex items-center justify-between border-b pb-2">
+                                            <span>直推奖励</span>
+                                            <span className="font-bold text-green-600">10%</span>
+                                        </div>
+                                        <div className="flex items-center justify-between border-b pb-2">
+                                            <span>培育奖励（上级服务商）</span>
+                                            <span className="font-bold text-green-600">10%</span>
+                                        </div>
+                                        <div className="flex items-center justify-between border-b pb-2">
+                                            <span>服务网点</span>
+                                            <span className="font-bold text-green-600">5%</span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span>智算总台</span>
+                                            <span className="font-bold text-green-600">5%</span>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
 
                     {/* 积分 Tab */}
                     {activeTab === "points" && (
