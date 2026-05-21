@@ -61,6 +61,9 @@ import {
     ArrowUpFromLine,
     Upload,
     UserPlus,
+    Search,
+    X,
+    Check,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -364,6 +367,8 @@ export default function ProviderPage() {
     const [batchConfirming, setBatchConfirming] = useState(false);
     const [chainMembers, setChainMembers] = useState<any[]>([]);
     const [showMatchDialog, setShowMatchDialog] = useState(false);
+    const [matchSearchText, setMatchSearchText] = useState("");
+    const [matchDropdownOpen, setMatchDropdownOpen] = useState(false);
 
     // 收益申请相关状态
     const [showEnergyRequestDialog, setShowEnergyRequestDialog] = useState(false);
@@ -1578,7 +1583,13 @@ export default function ProviderPage() {
             const res = await authFetch(`/api/user/chain?userId=${providerId}`);
             const data = await res.json();
             if (data.success) {
-                const members = (data.data?.members || []).map((m: any) => ({ value: m.id, label: `${m.username} [${m.uniqueId || ''}] (收益: ${m.energyValue || 0})` }));
+                const members = (data.data?.members || []).map((m: any) => ({
+                        value: m.id,
+                        label: `${m.username} [${m.uniqueId || ''}] (收益: ${m.energyValue || 0})`,
+                        phone: m.phone || '',
+                        uniqueId: m.uniqueId || '',
+                        username: m.username || '',
+                    }));
                 setChainMembers(members);
             }
         } catch (error) {
@@ -1590,6 +1601,8 @@ export default function ProviderPage() {
     const handleOpenMatchDialog = useCallback((product: any) => {
         setMatchTargetProduct(product);
         setMatchTargetUserId("");
+        setMatchSearchText("");
+        setMatchDropdownOpen(false);
         setShowMatchDialog(true);
         fetchChainMembers();
     }, [fetchChainMembers]);
@@ -5311,16 +5324,81 @@ export default function ProviderPage() {
                             <div className="space-y-4 py-2">
                                 <div>
                                     <label className="text-sm font-medium mb-1 block">选择目标会员</label>
-                                    <select
-                                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                        value={matchTargetUserId}
-                                        onChange={(e) => setMatchTargetUserId(e.target.value)}
-                                    >
-                                        <option value="">请选择会员</option>
-                                        {chainMembers.map((m: any) => (
-                                            <option key={m.value} value={m.value}>{m.label}</option>
-                                        ))}
-                                    </select>
+                                    <div className="relative">
+                                        <div className="flex gap-2">
+                                            <div className="relative flex-1">
+                                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                                <input
+                                                    type="text"
+                                                    className="w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                                                    placeholder="输入手机号/名字/ID搜索..."
+                                                    value={matchSearchText}
+                                                    onChange={(e) => {
+                                                        setMatchSearchText(e.target.value);
+                                                        setMatchDropdownOpen(true);
+                                                        if (!e.target.value) setMatchTargetUserId("");
+                                                    }}
+                                                    onFocus={() => setMatchDropdownOpen(true)}
+                                                />
+                                                {matchSearchText && (
+                                                    <button
+                                                        className="absolute right-2.5 top-2.5 h-4 w-4 text-muted-foreground hover:text-foreground"
+                                                        onClick={() => { setMatchSearchText(""); setMatchTargetUserId(""); setMatchDropdownOpen(false); }}
+                                                    >
+                                                        <X className="h-3.5 w-3.5" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                        {/* 已选中显示 */}
+                                        {matchTargetUserId && !matchDropdownOpen && (() => {
+                                            const selected = chainMembers.find((m: any) => m.value === matchTargetUserId);
+                                            return selected ? (
+                                                <div className="mt-1.5 flex items-center gap-1.5 rounded-md bg-purple-50 dark:bg-purple-900/20 px-2.5 py-1.5 text-sm border border-purple-200 dark:border-purple-800">
+                                                    <Check className="h-3.5 w-3.5 text-purple-600" />
+                                                    <span className="text-purple-700 dark:text-purple-300 font-medium">{selected.label}</span>
+                                                    <button className="ml-auto" onClick={() => { setMatchTargetUserId(""); setMatchSearchText(""); }}>
+                                                        <X className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                                                    </button>
+                                                </div>
+                                            ) : null;
+                                        })()}
+                                        {/* 下拉搜索结果 */}
+                                        {matchDropdownOpen && (() => {
+                                            const keyword = matchSearchText.toLowerCase().trim();
+                                            const filtered = keyword
+                                                ? chainMembers.filter((m: any) => {
+                                                    const label = (m.label || "").toLowerCase();
+                                                    const phone = (m.phone || "").toLowerCase();
+                                                    const uid = (m.uniqueId || "").toLowerCase();
+                                                    const username = (m.username || "").toLowerCase();
+                                                    return label.includes(keyword) || phone.includes(keyword) || uid.includes(keyword) || username.includes(keyword);
+                                                })
+                                                : chainMembers;
+                                            return filtered.length > 0 ? (
+                                                <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-md border bg-popover shadow-lg">
+                                                    {filtered.map((m: any) => (
+                                                        <button
+                                                            key={m.value}
+                                                            className={`w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center justify-between ${matchTargetUserId === m.value ? "bg-accent" : ""}`}
+                                                            onClick={() => {
+                                                                setMatchTargetUserId(m.value);
+                                                                setMatchSearchText(m.label);
+                                                                setMatchDropdownOpen(false);
+                                                            }}
+                                                        >
+                                                            <span>{m.label}</span>
+                                                            {matchTargetUserId === m.value && <Check className="h-4 w-4 text-purple-600" />}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg px-3 py-4 text-sm text-muted-foreground text-center">
+                                                    未找到匹配的会员
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
                                 </div>
                                 {matchTargetUserId && matchTargetProduct && (
                                     <div className="rounded-md bg-muted p-3 text-sm space-y-1">
