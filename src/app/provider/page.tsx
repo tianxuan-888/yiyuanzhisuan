@@ -217,19 +217,7 @@ function ProviderWithdrawRecords({ userId, authFetch }: { userId: string; authFe
                                 确认收款
                             </Button>
                         )}
-                    </div>                    {/* 收益卡片 */}
-                    <Card className="mobile-compact-card col-span-2 md:col-span-1 bg-gradient-to-br from-purple-600 via-fuchsia-600 to-purple-700 border-0 shadow-xl">
-                        <CardContent className="p-3 md:pt-5">
-                            <div className="flex items-center justify-between mb-1.5 md:mb-3">
-                                <div className="p-1.5 md:p-2.5 bg-white/20 backdrop-blur rounded-lg md:rounded-xl">
-                                    <DollarSign className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                                </div>
-                                <span className="text-[10px] md:text-xs font-medium text-purple-200 bg-white/10 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full backdrop-blur">收益</span>
-                            </div>
-                            <p className="text-lg md:text-2xl font-bold mt-1 md:mt-2 text-white">¥{(user?.balance || 0).toLocaleString()}</p>
-                            <p className="text-[10px] md:text-xs text-purple-200 mt-0.5 md:mt-1">累计收益余额</p>
-                        </CardContent>
-                    </Card>
+                    </div>
                 </div>
             ))}
         </div>
@@ -2170,6 +2158,19 @@ export default function ProviderPage() {
                             <p className="text-lg md:text-2xl font-bold mt-1 md:mt-2 text-gradient bg-gradient-to-r from-blue-600 to-indigo-600">¥{(stats.total_value || 0).toLocaleString()}
                             </p>
                             <p className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1">算力总值</p>
+                        </CardContent>
+                    </Card>
+                    {/* 收益卡片 */}
+                    <Card className="mobile-compact-card col-span-2 md:col-span-1 bg-gradient-to-br from-purple-600 via-fuchsia-600 to-purple-700 border-0 shadow-xl">
+                        <CardContent className="p-3 md:pt-5">
+                            <div className="flex items-center justify-between mb-1.5 md:mb-3">
+                                <div className="p-1.5 md:p-2.5 bg-white/20 backdrop-blur rounded-lg md:rounded-xl">
+                                    <DollarSign className="w-4 h-4 md:w-5 md:h-5 text-white" />
+                                </div>
+                                <span className="text-[10px] md:text-xs font-medium text-purple-200 bg-white/10 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full backdrop-blur">收益</span>
+                            </div>
+                            <p className="text-lg md:text-2xl font-bold mt-1 md:mt-2 text-white">¥{(user?.balance || 0).toLocaleString()}</p>
+                            <p className="text-[10px] md:text-xs text-purple-200 mt-0.5 md:mt-1">累计收益余额</p>
                         </CardContent>
                     </Card>
 
