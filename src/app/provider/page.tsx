@@ -3563,14 +3563,13 @@ export default function ProviderPage() {
                                                         <div key={product.id} className="border rounded-lg p-4 bg-blue-50">
                                                             <div className="flex justify-between items-start mb-2">
                                                                 <div>
-                                                                    <p className="font-medium">{product.name}</p>
+                                                                    <p className="font-medium">Token存储包 #{product.code || product.id?.slice(0,8)}</p>
                                                                     <p className="text-sm text-gray-500">价格: ¥{product.price?.toLocaleString()} | 周期: {product.period}天</p>
                                                                     {product.previous_holder && (
                                                                         <p className="text-sm text-orange-600">出售会员: {product.previous_holder.username} [{product.previous_holder.unique_id}]</p>
                                                                     )}
                                                                 </div>
                                                                 <Badge className="bg-blue-500">待匹配</Badge>
-                                                            </div>
                                                             <div className="flex gap-2 mt-2">
                                                                 <Button
                                                                     size="sm"
