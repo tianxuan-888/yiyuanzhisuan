@@ -4040,10 +4040,7 @@ export default function ProviderPage() {
                                                 onClick={() => setShowWithdrawDialog(true)}>
                                                 <DollarSign className="w-4 h-4 mr-1" /> 收益提现
                                             </Button>
-                                            <Button size="sm" variant="outline" className="border-green-300 text-green-600"
-                                                onClick={() => setShowConvertDialog(true)}>
-                                                <Zap className="w-4 h-4 mr-1" /> 收益转入收益
-                                            </Button>
+
                                         </div>
                                     </div>
                                 </CardContent>
