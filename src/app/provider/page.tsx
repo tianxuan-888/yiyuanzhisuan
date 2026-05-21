@@ -2564,9 +2564,9 @@ export default function ProviderPage() {
                                                     关系链说明
                                                 </h4>
                                                 <div className="flex flex-wrap items-center gap-2 text-slate-300 text-sm">
-                                                    <span>总公司</span>
+                                                    <span>智算总台</span>
                                                     <ArrowRight className="w-4 h-4 text-slate-500" />
-                                                    <span>分公司</span>
+                                                    <span>{chainData.branch?.username ? chainData.branch.username.replace('分公司', '服务网点') : '服务网点'}</span>
                                                     <ArrowRight className="w-4 h-4 text-slate-500" />
                                                     <span className="text-purple-400 font-medium">{chainData.self?.username || '我'}</span>
                                                     <ArrowRight className="w-4 h-4 text-slate-500" />
@@ -2583,10 +2583,10 @@ export default function ProviderPage() {
                                                             <Award className="w-5 h-5 text-white" />
                                                         </div>
                                                         <div className="flex-1">
-                                                            <p className="text-blue-400 font-medium">{chainData.branch.username}</p>
-                                                            <p className="text-slate-400 text-sm">上级：总公司</p>
+                                                            <p className="text-blue-400 font-medium">{chainData.branch.username?.replace('分公司', '服务网点') || '服务网点'}</p>
+                                                            <p className="text-slate-400 text-sm">上级：智算总台</p>
                                                         </div>
-                                                        <Badge className="bg-blue-600 text-white">分公司</Badge>
+                                                        <Badge className="bg-blue-600 text-white">服务网点</Badge>
                                                     </div>
                                                 )}
 
