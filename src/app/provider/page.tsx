@@ -3073,9 +3073,7 @@ export default function ProviderPage() {
                                                         <td className="py-3 px-4">{product.period}天</td>
                                                         <td className="py-3 px-4">
                                                             <div className="text-sm">
-                                                                <span className="text-green-600">总{product.total_rate}%</span>
-                                                                <span className="text-gray-400 mx-1">|</span>
-                                                                <span className="text-blue-600">会员{product.profit_rate}%</span>
+                                                                <span className="text-green-600">收益{product.profit_rate}%</span>
                                                             </div>
                                                         </td>
                                                         <td className="py-3 px-4 text-sm text-gray-500">{product.created_at?.slice(0, 10)}</td>
@@ -3153,9 +3151,7 @@ export default function ProviderPage() {
                                                         <td className="py-3 px-4">{product.period}天</td>
                                                         <td className="py-3 px-4">
                                                             <div className="text-sm">
-                                                                <span className="text-green-600">总{product.total_rate}%</span>
-                                                                <span className="text-gray-400 mx-1">|</span>
-                                                                <span className="text-blue-600">会员{product.profit_rate}%</span>
+                                                                <span className="text-green-600">收益{product.profit_rate}%</span>
                                                             </div>
                                                         </td>
                                                         <td className="py-3 px-4 text-sm text-gray-500">{product.created_at?.slice(0, 10)}</td>
@@ -3220,9 +3216,7 @@ export default function ProviderPage() {
                                                         <td className="py-3 px-4">{product.period}天</td>
                                                         <td className="py-3 px-4">
                                                             <div className="text-sm">
-                                                                <span className="text-green-600">总{product.total_rate}%</span>
-                                                                <span className="text-gray-400 mx-1">|</span>
-                                                                <span className="text-blue-600">会员{product.profit_rate}%</span>
+                                                                <span className="text-green-600">收益{product.profit_rate}%</span>
                                                             </div>
                                                         </td>
                                                         <td className="py-3 px-4">
@@ -3485,7 +3479,7 @@ export default function ProviderPage() {
                                                         </div>
                                                         <div className="text-right">
                                                             <p className="text-lg font-bold text-purple-600">¥{order.product_price?.toLocaleString() || order.amount?.toLocaleString() || 0}</p>
-                                                            <p className="text-xs text-gray-400">{order.product_period || 0}天 · {order.product_period ? order.product_period * 24 : 0}小时 · 收益率{order.total_rate || 0}%</p>
+                                                            <p className="text-xs text-gray-400">{order.product_period || 0}天 · 收益{order.profit_rate || order.total_rate || 0}%</p>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -4649,31 +4643,23 @@ export default function ProviderPage() {
                                                                 {product.period}天周期
                                                             </Badge>
                                                             <Badge variant="outline" className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[9px] md:text-xs px-1.5 md:px-2">
-                                                                到期+{total_rate}%
+                                                                收益{profit_rate}%
                                                             </Badge>
                                                         </div>
 
                                                         {/* 核心参数 - 桌面端 */}
-                                                        <div className="hidden md:grid grid-cols-2 gap-2 mb-3">
+                                                        <div className="hidden md:grid grid-cols-1 gap-2 mb-3">
                                                             <div className={`p-2.5 rounded-lg border ${tier.color === 'blue' ? 'bg-blue-500/10 border-blue-500/30' : tier.color === 'green' ? 'bg-green-500/10 border-green-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
-                                                                <p className="text-[10px] text-slate-400 mb-0.5">预期收益</p>
-                                                                <p className={`text-lg font-bold ${tier.color === 'blue' ? 'text-blue-400' : tier.color === 'green' ? 'text-green-400' : 'text-amber-400'}`}>+{total_rate}%</p>
-                                                            </div>
-                                                            <div className="p-2.5 bg-slate-800/50 rounded-lg border border-slate-700/50">
-                                                                <p className="text-[10px] text-slate-400 mb-0.5">会员到手</p>
-                                                                <p className="text-lg font-bold text-emerald-400">{profit_rate}%</p>
+                                                                <p className="text-[10px] text-slate-400 mb-0.5">收益</p>
+                                                                <p className={`text-lg font-bold ${tier.color === 'blue' ? 'text-blue-400' : tier.color === 'green' ? 'text-green-400' : 'text-amber-400'}`}>{profit_rate}%</p>
                                                             </div>
                                                         </div>
 
                                                         {/* 核心参数 - 移动端 */}
                                                         <div className="flex gap-2 mb-2 md:hidden">
                                                             <div className={`flex-1 p-1.5 rounded-lg border ${tier.color === 'blue' ? 'bg-blue-500/10 border-blue-500/30' : tier.color === 'green' ? 'bg-green-500/10 border-green-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
-                                                                <p className={`text-sm font-bold ${tier.color === 'blue' ? 'text-blue-400' : tier.color === 'green' ? 'text-green-400' : 'text-amber-400'}`}>+{total_rate}%</p>
-                                                                <p className="text-[8px] text-slate-500">总收益</p>
-                                                            </div>
-                                                            <div className="flex-1 p-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50">
-                                                                <p className="text-sm font-bold text-emerald-400">{profit_rate}%</p>
-                                                                <p className="text-[8px] text-slate-500">到手</p>
+                                                                <p className={`text-sm font-bold ${tier.color === 'blue' ? 'text-blue-400' : tier.color === 'green' ? 'text-green-400' : 'text-amber-400'}`}>{profit_rate}%</p>
+                                                                <p className="text-[8px] text-slate-500">收益</p>
                                                             </div>
                                                         </div>
 
@@ -5352,7 +5338,7 @@ export default function ProviderPage() {
                                                         <div>
                                                             <p className="font-medium text-foreground">{template.name}</p>
                                                             <p className="text-xs text-muted-foreground mt-1">
-                                                                {template.period}天周期 | 总收益{template.total_rate}% | 会员到手{template.profit_rate}% | 收益{template.market_rate}%
+                                                                {template.period}天周期 | 收益{template.profit_rate}%
                                                             </p>
                                                         </div>
                                                         {selectedTemplateId === template.id && (
@@ -5449,7 +5435,7 @@ export default function ProviderPage() {
                                                             {product.period}天
                                                         </Badge>
                                                         <span className="text-sm text-gray-600">
-                                                            收益{product.totalRate}% / 会员到手{product.profitRate}% / 收益{product.marketRate}%
+                                                            收益{product.profitRate}%
                                                         </span>
                                                     </div>
                                                     <span className="font-semibold text-gray-800">¥{product.price.toLocaleString()}</span>
