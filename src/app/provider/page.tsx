@@ -3827,8 +3827,8 @@ export default function ProviderPage() {
                                     <p className="text-3xl font-bold">¥{revenueStats.balance?.toLocaleString() || 0}</p>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
                                         <div className="bg-white/10 rounded-lg p-2">
-                                            <p className="text-xs opacity-70">服务商收益</p>
-                                            <p className="text-sm font-bold">¥{revenueStats.distSelfRevenue?.toLocaleString() || 0}</p>
+                                            <p className="text-xs opacity-70">总奖励</p>
+                                            <p className="text-sm font-bold">¥{revenueStats.totalRevenue?.toLocaleString() || 0}</p>
                                         </div>
                                         <div className="bg-white/10 rounded-lg p-2">
                                             <p className="text-xs opacity-70">直推奖励</p>
@@ -3839,7 +3839,7 @@ export default function ProviderPage() {
                                             <p className="text-sm font-bold">¥{revenueStats.distParentShare?.toLocaleString() || 0}</p>
                                         </div>
                                         <div className="bg-white/10 rounded-lg p-2">
-                                            <p className="text-xs opacity-70">下级服务商收益</p>
+                                            <p className="text-xs opacity-70">高级服务商奖励</p>
                                             <p className="text-sm font-bold">¥{revenueStats.subordinateRevenue?.toLocaleString() || 0}</p>
                                         </div>
                                     </div>
@@ -3920,7 +3920,7 @@ export default function ProviderPage() {
                                 <CardContent>
                                     <div className="space-y-2 text-sm text-gray-600">
                                         <div className="flex items-center justify-between border-b pb-2">
-                                            <span>服务商收益（会员投资）</span>
+                                            <span>总奖励</span>
                                             <span className="font-bold text-green-600">70%</span>
                                         </div>
                                         <div className="flex items-center justify-between border-b pb-2">
@@ -3928,16 +3928,12 @@ export default function ProviderPage() {
                                             <span className="font-bold text-green-600">10%</span>
                                         </div>
                                         <div className="flex items-center justify-between border-b pb-2">
-                                            <span>培育奖励（上级服务商）</span>
+                                            <span>培育奖励</span>
                                             <span className="font-bold text-green-600">10%</span>
                                         </div>
-                                        <div className="flex items-center justify-between border-b pb-2">
-                                            <span>服务网点</span>
-                                            <span className="font-bold text-green-600">5%</span>
-                                        </div>
                                         <div className="flex items-center justify-between">
-                                            <span>智算总台</span>
-                                            <span className="font-bold text-green-600">5%</span>
+                                            <span>高级服务商奖励</span>
+                                            <span className="font-bold text-green-600">10%</span>
                                         </div>
                                     </div>
                                 </CardContent>
