@@ -3,7 +3,7 @@ import { query } from '@/lib/pg-client';
 import { authenticateRequest } from '@/lib/auth';
 
 /**
- * 总公司账号赋权接口
+ * 智算总台账号赋权接口
  * POST /api/admin/assign-role
  * 
  * 功能：指定账号（通过用户ID或手机号查找），赋予任意角色
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     // 验证管理员身份
     const adminUser = authenticateRequest(request);
     if (!adminUser || adminUser.role !== 'admin') {
-      return NextResponse.json({ success: false, error: '仅总公司管理员可执行此操作' }, { status: 403 });
+      return NextResponse.json({ success: false, error: '仅智算总台管理员可执行此操作' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (targetUser.role === targetRole) {
-      const roleLabels: Record<string, string> = { admin: '总公司', branch: '分公司', provider: '服务商', member: '会员' };
+      const roleLabels: Record<string, string> = { admin: '智算总台', branch: '服务网点', provider: '服务商', member: '会员' };
       return NextResponse.json({ success: false, error: `该用户已是${roleLabels[targetRole]}` }, { status: 400 });
     }
 
@@ -60,11 +60,11 @@ export async function POST(request: NextRequest) {
 
     // 根据目标角色设置关联字段
     if (targetRole === 'admin') {
-      // 升为总公司：清除 branch_id 和 provider_id
+      // 升为智算总台：清除 branch_id 和 provider_id
       updates.push(`branch_id = NULL`);
       updates.push(`provider_id = NULL`);
     } else if (targetRole === 'branch') {
-      // 升为分公司：设置 branch_id 为自身ID（分公司自己就是 branch），清除 provider_id
+      // 升为服务网点：设置 branch_id 为自身ID（服务网点自己就是 branch），清除 provider_id
       updates.push(`provider_id = NULL`);
       // 如果指定了 branchId 就用指定的，否则设为自身
       if (branchId) {
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
         paramIdx++;
       }
     } else if (targetRole === 'provider') {
-      // 升为服务商：需要指定所属分公司
+      // 升为服务商：需要指定所属服务网点
       if (branchId) {
         updates.push(`branch_id = $${paramIdx}`);
         values.push(branchId);
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 如果升级为分公司，确保 branch_id 指向自己
+    // 如果升级为服务网点，确保 branch_id 指向自己
     if (targetRole === 'branch') {
       // 再次确保 branch_id 设置正确
       const targetBranchId = branchId || targetUser.id;
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const roleLabels: Record<string, string> = { admin: '总公司', branch: '分公司', provider: '服务商', member: '会员' };
+    const roleLabels: Record<string, string> = { admin: '智算总台', branch: '服务网点', provider: '服务商', member: '会员' };
 
     return NextResponse.json({
       success: true,
@@ -166,7 +166,7 @@ export async function GET(request: NextRequest) {
   try {
     const adminUser = authenticateRequest(request);
     if (!adminUser || adminUser.role !== 'admin') {
-      return NextResponse.json({ success: false, error: '仅总公司管理员可执行此操作' }, { status: 403 });
+      return NextResponse.json({ success: false, error: '仅智算总台管理员可执行此操作' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -196,7 +196,7 @@ export async function GET(request: NextRequest) {
       [`%${keyword}%`, adminUser.userId]
     );
 
-    const roleLabels: Record<string, string> = { admin: '总公司', branch: '分公司', provider: '服务商', member: '会员' };
+    const roleLabels: Record<string, string> = { admin: '智算总台', branch: '服务网点', provider: '服务商', member: '会员' };
 
     const data = result.map((u: any) => ({
       ...u,

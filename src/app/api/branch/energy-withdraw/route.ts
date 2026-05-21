@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 
-// 获取分公司的变现申请记录
+// 获取服务网点的变现申请记录
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -9,12 +9,12 @@ export async function GET(request: NextRequest) {
 
     if (!branchId) {
       return NextResponse.json(
-        { success: false, error: '缺少分公司ID' },
+        { success: false, error: '缺少服务网点ID' },
         { status: 400 }
       );
     }
 
-    // 查询分公司的变现申请记录
+    // 查询服务网点的变现申请记录
     const records = await query(
       `SELECT wr.*, 
               u.username
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 分公司申请变现
+// 服务网点申请变现
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 验证是分公司
+    // 验证是服务网点
     const branch = await query(
       'SELECT id, username, role FROM users WHERE id = $1',
       [branchId]
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
 
     if (branch[0].role !== 'branch') {
       return NextResponse.json(
-        { success: false, error: '只有分公司才能申请变现' },
+        { success: false, error: '只有服务网点才能申请变现' },
         { status: 403 }
       );
     }
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `变现申请已提交，等待总公司审核`,
+      message: `变现申请已提交，等待智算总台审核`,
       data: {
         requestId: id,
         amount: withdrawAmount,

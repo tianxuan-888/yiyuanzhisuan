@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 
-// 获取分公司下的服务商能量值申请列表
+// 获取服务网点下的服务商能量值申请列表
 export async function GET(request: NextRequest) {
   try {
     // 验证用户身份
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const role = user.role as string;
     const client = getSupabaseClient();
 
-    // 只允许分公司管理员访问
+    // 只允许服务网点管理员访问
     if (role !== 'branch' && role !== 'admin') {
       return NextResponse.json(
         { success: false, error: '无权限访问' },
@@ -31,12 +31,12 @@ export async function GET(request: NextRequest) {
 
     if (!branchId) {
       return NextResponse.json(
-        { success: false, error: '缺少分公司ID' },
+        { success: false, error: '缺少服务网点ID' },
         { status: 400 }
       );
     }
 
-    // 查询该分公司下的服务商用户
+    // 查询该服务网点下的服务商用户
     const { data: providers, error: providersError } = await client
       .from('users')
       .select('id, username, real_name, phone')
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     // 获取服务商ID列表
     const providerIds = (providers as any[]).map((p) => p.id);
 
-    // 查询服务商向该分公司发起的能量值申请
+    // 查询服务商向该服务网点发起的能量值申请
     // 能量值申请使用 type = 'recharge' + description 中包含 request_type = 'energy_request'
     let query = client
       .from('energy_transactions')

@@ -61,7 +61,7 @@ export async function fetchBranches() {
     if (error) throw error;
     return { success: true, data };
   } catch (error: any) {
-    console.error('获取分公司列表失败:', error);
+    console.error('获取服务网点列表失败:', error);
     return { success: false, error: error.message };
   }
 }
@@ -131,7 +131,7 @@ export async function fetchProvidersByBranch(branchId: string) {
     if (error) throw error;
     return { success: true, data };
   } catch (error: any) {
-    console.error('获取分公司下服务商列表失败:', error);
+    console.error('获取服务网点下服务商列表失败:', error);
     return { success: false, error: error.message };
   }
 }

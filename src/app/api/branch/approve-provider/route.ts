@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne } from '@/storage/database/pg-client';
 
 /**
- * 分公司审核服务商申请
+ * 服务网点审核服务商申请
  * 
  * 新逻辑（二级审核）：
  * - 第一代申请：status=pending → 直接审核通过/拒绝
- * - 第二代申请：status=provider_approved → 分公司最终审核
+ * - 第二代申请：status=provider_approved → 服务网点最终审核
  * 
  * 通过后执行：
  * 1. 更新用户角色为 provider
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     const { 
       applicationId,    // 申请ID
       action,           // approve(通过) / reject(拒绝)
-      reviewerId,       // 审核人ID（分公司）
+      reviewerId,       // 审核人ID（服务网点）
       note              // 审核备注
     } = body;
 
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 验证审核人是分公司
+    // 验证审核人是服务网点
     const reviewer = await queryOne<any>(
       `SELECT id, role FROM users WHERE id = $1`,
       [reviewerId]
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     if (!reviewer || reviewer.role !== 'branch') {
       return NextResponse.json(
-        { error: '只有分公司才能审核服务商申请' },
+        { error: '只有服务网点才能审核服务商申请' },
         { status: 403 }
       );
     }
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
         );
       }
     } else if (application.apply_type === 'second_gen') {
-      // 第二代：需要上级服务商先审核（provider_approved），分公司再终审
+      // 第二代：需要上级服务商先审核（provider_approved），服务网点再终审
       if (application.status !== 'provider_approved') {
         if (application.status === 'pending') {
           return NextResponse.json(
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
       await query(
         `UPDATE provider_applications SET status = 'rejected', reject_reason = $1, reviewed_by = $2, reviewed_at = NOW(), updated_at = NOW()
          WHERE id = $3`,
-        [note || '分公司拒绝申请', reviewerId, applicationId]
+        [note || '服务网点拒绝申请', reviewerId, applicationId]
       );
 
       // 通知申请人
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
       await query(
         `INSERT INTO notifications (id, receiver_id, receiver_role, sender_id, type, title, content, created_at)
          VALUES ($1, $2, 'member', $3, 'provider_apply_result', '申请被拒绝', $4, NOW())`,
-        [notifId, application.user_id, reviewerId, '您申请成为服务商的请求已被分公司拒绝']
+        [notifId, application.user_id, reviewerId, '您申请成为服务商的请求已被服务网点拒绝']
       );
 
       return NextResponse.json({
@@ -205,7 +205,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('分公司审核服务商申请失败:', error);
+    console.error('服务网点审核服务商申请失败:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : '审核失败' },
       { status: 500 }
@@ -214,7 +214,7 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * 获取分公司的服务商申请列表
+ * 获取服务网点的服务商申请列表
  * 支持 pending（一代待审）和 provider_approved（二代待终审）两种状态
  */
 export async function GET(request: NextRequest) {
@@ -225,7 +225,7 @@ export async function GET(request: NextRequest) {
 
     if (!branchId) {
       return NextResponse.json(
-        { error: '分公司ID不能为空' },
+        { error: '服务网点ID不能为空' },
         { status: 400 }
       );
     }

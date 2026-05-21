@@ -3,7 +3,7 @@ import { query, withTransaction } from '@/lib/pg-client';
 import { generateUUID } from '@/lib/utils';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 
-// 人工释放能量值（总公司释放给分公司）
+// 人工释放能量值（智算总台释放给服务网点）
 export async function POST(request: NextRequest) {
   try {
     // 鉴权：仅管理员可操作
@@ -23,16 +23,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 验证操作人是否为总公司管理员
+    // 验证操作人是否为智算总台管理员
     const fromUser = await query('SELECT * FROM users WHERE id = $1', [fromUserId]);
     if (fromUser.length === 0 || fromUser[0].role !== 'admin') {
       return NextResponse.json(
-        { success: false, error: '只有总公司管理员可以释放能量值' },
+        { success: false, error: '只有智算总台管理员可以释放能量值' },
         { status: 403 }
       );
     }
 
-    // 检查总公司能量值余额
+    // 检查智算总台能量值余额
     const fromAccount = await query(
       'SELECT * FROM energy_accounts WHERE user_id = $1',
       [fromUserId]
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     if (fromBalance < amount) {
       return NextResponse.json(
-        { success: false, error: '总公司能量值余额不足' },
+        { success: false, error: '智算总台能量值余额不足' },
         { status: 400 }
       );
     }
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     // 使用事务执行
     await withTransaction(async (client) => {
-      // 扣除总公司能量值
+      // 扣除智算总台能量值
       if (fromAccount.length > 0) {
         await client.query(
           `UPDATE energy_accounts 
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 增加分公司能量值
+      // 增加服务网点能量值
       if (toAccount.length > 0) {
         await client.query(
           `UPDATE energy_accounts 

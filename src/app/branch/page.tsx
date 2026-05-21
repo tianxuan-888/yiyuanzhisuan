@@ -192,16 +192,16 @@ export default function BranchPage() {
   const [editRealName, setEditRealName] = useState("");
   const [editAlipayAccount, setEditAlipayAccount] = useState("");
   
-  // 分公司收益余额
+  // 服务网点收益余额
   const [branchEnergyBalance, setBranchEnergyBalance] = useState(0);
   
-  // 分公司申请收益
+  // 服务网点申请收益
   const [branchApplyAmount, setBranchApplyAmount] = useState("");
   
-  // 分公司列表（同级互转）
+  // 服务网点列表（同级互转）
   const [branchList, setBranchList] = useState<Array<{id: string; username: string; role: string}>>([]);
   
-  // 分公司变现申请
+  // 服务网点变现申请
   const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawRequests, setWithdrawRequests] = useState<any[]>([]);
@@ -220,7 +220,7 @@ export default function BranchPage() {
   const [showConvertToEnergyDialog, setShowConvertToEnergyDialog] = useState(false);
   const [convertToEnergyAmount, setConvertToEnergyAmount] = useState("");
 
-  // 分公司收益流转记录
+  // 服务网点收益流转记录
   const [energyRecords, setEnergyRecords] = useState<any[]>([]);
   const [energyFilterType, setEnergyFilterType] = useState<string>('all');
   const [energyStats, setEnergyStats] = useState({
@@ -263,11 +263,11 @@ export default function BranchPage() {
   // 收益管理子Tab
   const [energySubTab, setEnergySubTab] = useState<string>('records'); // records, review, transfer
   
-  // 分公司向总公司申请收益相关状态
+  // 服务网点向智算总台申请收益相关状态
   const [myEnergyRequests, setMyEnergyRequests] = useState<any[]>([]);
   const [myEnergyApplyPendingCount, setMyEnergyApplyPendingCount] = useState(0);
   
-  // 服务商向本分公司申请收益相关状态
+  // 服务商向本服务网点申请收益相关状态
   const [providerEnergyRequests, setProviderEnergyRequests] = useState<any[]>([]);
   
   // 分配额度表单
@@ -356,7 +356,7 @@ export default function BranchPage() {
 
       console.log('[loadData] overviewData:', JSON.stringify(overviewData).substring(0, 500));
 
-      // 更新分公司收益余额
+      // 更新服务网点收益余额
       if (energyStatsData.success && energyStatsData.data?.branch) {
         console.log('[loadData] energyStatsData SUCCESS - branch balance:', energyStatsData.data.branch.balance);
         setBranchEnergyBalance(energyStatsData.data.branch.balance || 0);
@@ -566,7 +566,7 @@ export default function BranchPage() {
 
     setSubmitting(true);
     try {
-      // 总公司管理员ID
+      // 智算总台管理员ID
       const ADMIN_ID = '00000000-0000-0000-0000-000000000001';
 
       const response = await authFetch('/api/quota-requests', {
@@ -583,7 +583,7 @@ export default function BranchPage() {
       const data = await response.json();
 
       if (data.success) {
-        showMessage('success', data.message || '额度申请已提交，请等待总公司审核');
+        showMessage('success', data.message || '额度申请已提交，请等待智算总台审核');
         setShowQuotaApplyDialog(false);
         setApplyQuotaAmount('');
         loadData();
@@ -863,7 +863,7 @@ export default function BranchPage() {
     }
   };
 
-  // 分公司向总公司申请收益
+  // 服务网点向智算总台申请收益
   const handleBranchApplyEnergy = async () => {
     const amount = parseFloat(branchApplyAmount);
     if (!amount || amount <= 0) {
@@ -887,13 +887,13 @@ export default function BranchPage() {
         body: JSON.stringify({
           branchId: branchId,
           amount: amount,
-          note: '分公司申请收益'
+          note: '服务网点申请收益'
         })
       });
 
       const data = await response.json();
       if (data.success) {
-        showMessage('success', '申请已提交，等待总公司审核');
+        showMessage('success', '申请已提交，等待智算总台审核');
         setBranchApplyAmount('');
         loadEnergyRequests(); // 刷新申请记录
       } else {
@@ -906,7 +906,7 @@ export default function BranchPage() {
     }
   };
 
-  // 分公司申请变现收益
+  // 服务网点申请变现收益
   const handleBranchWithdraw = async () => {
     const amount = parseFloat(withdrawAmount);
     if (!amount || amount <= 0) {
@@ -934,7 +934,7 @@ export default function BranchPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: amount,
-          note: '分公司申请变现'
+          note: '服务网点申请变现'
         })
       });
 
@@ -1008,7 +1008,7 @@ export default function BranchPage() {
     }
   };
 
-  // 加载分公司收益记录
+  // 加载服务网点收益记录
   const loadBranchRevenueRecords = async () => {
     const branchId = localStorage.getItem('userId');
     if (!branchId) return;
@@ -1031,7 +1031,7 @@ export default function BranchPage() {
     }
   };
 
-  // 分公司提现到总公司
+  // 服务网点提现到智算总台
   const handleBranchWithdrawToCompany = async () => {
     const amount = parseFloat(branchWithdrawAmount);
     if (!amount || amount < 100) {
@@ -1059,7 +1059,7 @@ export default function BranchPage() {
       });
       const data = await response.json();
       if (data.success) {
-        showMessage('success', `提现申请已提交！手续费${data.data?.fee || 0}元，实际到账${data.data?.actualAmount || 0}元，等待总公司审核`);
+        showMessage('success', `提现申请已提交！手续费${data.data?.fee || 0}元，实际到账${data.data?.actualAmount || 0}元，等待智算总台审核`);
         setShowBranchWithdrawDialog(false);
         setBranchWithdrawAmount('');
         setBranchWithdrawAlipay('');
@@ -1113,7 +1113,7 @@ export default function BranchPage() {
     }
   };
 
-  // 加载分公司提现记录
+  // 加载服务网点提现记录
   const loadBranchWithdrawRecords = async () => {
     const branchId = localStorage.getItem('userId');
     if (!branchId) return;
@@ -1174,7 +1174,7 @@ export default function BranchPage() {
     }
   };
 
-  // 加载同级分公司列表
+  // 加载同级服务网点列表
   const loadBranchList = async () => {
     try {
       const response = await authFetch('/api/admin/branch-management');
@@ -1188,7 +1188,7 @@ export default function BranchPage() {
         setBranchList([]);
       }
     } catch (error) {
-      console.error('加载分公司列表失败:', error);
+      console.error('加载服务网点列表失败:', error);
       setBranchList([]);
     }
   };
@@ -1238,7 +1238,7 @@ export default function BranchPage() {
     }
   };
 
-  // 向总公司申请收益
+  // 向智算总台申请收益
   const handleApplyEnergy = async () => {
     const branchId = localStorage.getItem('userId');
     if (!branchId || !energyApplyAmount) {
@@ -1297,7 +1297,7 @@ export default function BranchPage() {
     }
   };
 
-  // 加载服务商向本分公司申请收益的记录
+  // 加载服务商向本服务网点申请收益的记录
   const loadProviderEnergyRequests = async () => {
     const branchId = localStorage.getItem('userId');
     if (!branchId) return;
@@ -1313,7 +1313,7 @@ export default function BranchPage() {
     }
   };
 
-  // 加载分公司向总公司申请收益的记录
+  // 加载服务网点向智算总台申请收益的记录
   const loadMyEnergyRequests = async () => {
     const branchId = localStorage.getItem('userId');
     if (!branchId) return;
@@ -1414,7 +1414,7 @@ export default function BranchPage() {
     }
   };
 
-  // 分公司收益转账
+  // 服务网点收益转账
   const handleTransfer = async (targetUserId: string, amount: number) => {
     if (!amount || amount <= 0) {
       showMessage('error', '请输入有效金额');
@@ -1433,7 +1433,7 @@ export default function BranchPage() {
           fromUserId: branchId,
           toUserId: targetUserId,
           amount: amount,
-          note: '分公司收益转账'
+          note: '服务网点收益转账'
         })
       });
 
@@ -1500,9 +1500,9 @@ export default function BranchPage() {
               {/* 说明 */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
                 <p className="font-medium mb-1">操作说明</p>
-                <p>选择服务商并输入分配的额度金额，服务商获得额度后可直接选择总公司设定的产品模板生成Token存储包。</p>
+                <p>选择服务商并输入分配的额度金额，服务商获得额度后可直接选择智算总台设定的产品模板生成Token存储包。</p>
               </div>
-              {/* 分公司额度信息 */}
+              {/* 服务网点额度信息 */}
               <div className="bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 rounded-lg p-3">
                 <div className="flex items-center gap-2 mb-2">
                   <Building2 className="w-4 h-4 text-violet-600" />
@@ -1620,13 +1620,13 @@ export default function BranchPage() {
                 <Building2 className="w-5 h-5 md:w-6 md:h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-base md:text-xl font-bold text-white">分公司管理后台</h1>
+                <h1 className="text-base md:text-xl font-bold text-white">服务网点管理后台</h1>
                 <p className="text-xs text-white/70 hidden md:block">Branch Management System</p>
               </div>
             </div>
             <div className="flex items-center gap-2 md:gap-3">
               <Badge className="bg-white/20 text-white backdrop-blur text-xs">
-                <Building2 className="w-3 h-3 mr-1" />分公司
+                <Building2 className="w-3 h-3 mr-1" />服务网点
               </Badge>
               <Button variant="ghost" onClick={logout} className="text-white hover:bg-white/20 text-sm">退出</Button>
             </div>
@@ -1805,7 +1805,7 @@ export default function BranchPage() {
                       </div>
                       <div className="flex items-center justify-between py-2 border-b">
                         <span className="text-gray-500">角色</span>
-                        <Badge className="bg-purple-100 text-purple-700">分公司</Badge>
+                        <Badge className="bg-purple-100 text-purple-700">服务网点</Badge>
                       </div>
                       <div className="flex items-center justify-between py-2 border-b">
                         <span className="text-gray-500">手机号</span>
@@ -2117,7 +2117,7 @@ export default function BranchPage() {
                       <CardTitle className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Send className="w-5 h-5 text-purple-600" />
-                          向总公司申请额度
+                          向智算总台申请额度
                         </div>
                         <Button size="sm" onClick={() => setShowQuotaApplyDialog(true)} className="bg-purple-600 hover:bg-purple-700">
                           申请额度
@@ -2677,7 +2677,7 @@ export default function BranchPage() {
                             </div>
                             {request.status === 'pending' && (
                               <div className="text-sm text-gray-500">
-                                等待总公司审核中...
+                                等待智算总台审核中...
                               </div>
                             )}
                           </div>
@@ -2688,7 +2688,7 @@ export default function BranchPage() {
                     <div className="py-12 text-center">
                       <Zap className="w-16 h-16 mx-auto text-gray-300 mb-4" />
                       <p className="text-gray-500">暂无收益申请记录</p>
-                      <p className="text-sm text-gray-400 mt-2">点击上方按钮向总公司申请收益</p>
+                      <p className="text-sm text-gray-400 mt-2">点击上方按钮向智算总台申请收益</p>
                     </div>
                   )}
                 </CardContent>
@@ -2699,9 +2699,9 @@ export default function BranchPage() {
                 <CardContent className="pt-6">
                   <h4 className="font-semibold text-blue-800 mb-2">收益申请说明</h4>
                   <ul className="text-sm text-blue-700 space-y-1">
-                    <li>1. 分公司向总公司申请收益，最低申请金额为 50 收益</li>
-                    <li>2. 提交申请后，需要等待总公司审核</li>
-                    <li>3. 总公司审核通过后，收益会自动发放到您的账户</li>
+                    <li>1. 服务网点向智算总台申请收益，最低申请金额为 50 收益</li>
+                    <li>2. 提交申请后，需要等待智算总台审核</li>
+                    <li>3. 智算总台审核通过后，收益会自动发放到您的账户</li>
                     <li>4. 收益用于给服务商下发，服务商给会员充值后产生收益</li>
                   </ul>
                 </CardContent>
@@ -2720,7 +2720,7 @@ export default function BranchPage() {
                     energySubTab === 'apply' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-purple-50'
                   }`}
                 >
-                  向总公司申请
+                  向智算总台申请
                 </button>
                 <button
                   onClick={() => { setEnergySubTab('records'); loadEnergyRecords(energyFilterType); }}
@@ -2751,7 +2751,7 @@ export default function BranchPage() {
                 </button>
               </div>
 
-              {/* 向总公司申请 */}
+              {/* 向智算总台申请 */}
               {energySubTab === 'apply' && (
                 <>
                   {/* 当前余额 */}
@@ -2768,7 +2768,7 @@ export default function BranchPage() {
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <Zap className="w-5 h-5 text-purple-600" />
-                        向总公司申请收益
+                        向智算总台申请收益
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -2782,7 +2782,7 @@ export default function BranchPage() {
                             placeholder="输入申请金额"
                             className="w-full p-2 border rounded-lg"
                           />
-                          <p className="text-sm text-gray-500 mt-1">申请后需等待总公司审核</p>
+                          <p className="text-sm text-gray-500 mt-1">申请后需等待智算总台审核</p>
                         </div>
                         <Button 
                           className="bg-purple-600"
@@ -2795,13 +2795,13 @@ export default function BranchPage() {
                     </CardContent>
                   </Card>
 
-                  {/* 分公司向总公司申请记录 */}
+                  {/* 服务网点向智算总台申请记录 */}
                   {energyRequests.length > 0 && (
                     <Card>
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                          <Badge className="bg-purple-600">总公司</Badge>
-                          申请记录（等待总公司审核）
+                          <Badge className="bg-purple-600">智算总台</Badge>
+                          申请记录（等待智算总台审核）
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
@@ -2815,7 +2815,7 @@ export default function BranchPage() {
                                   <p className="text-xs text-gray-400 mt-1">{request.created_at ? new Date(request.created_at).toLocaleString() : '-'}</p>
                                 </div>
                                 <Badge className={request.status === 'pending' ? 'bg-yellow-500' : request.status === 'approved' ? 'bg-green-500' : 'bg-red-500'}>
-                                  {request.status === 'pending' ? '等待总公司审核' : request.status === 'approved' ? '已通过' : '已拒绝'}
+                                  {request.status === 'pending' ? '等待智算总台审核' : request.status === 'approved' ? '已通过' : '已拒绝'}
                                 </Badge>
                               </div>
                             </div>
@@ -2919,13 +2919,13 @@ export default function BranchPage() {
                     </Card>
                   </div>
 
-                  {/* 服务商向分公司申请记录 */}
+                  {/* 服务商向服务网点申请记录 */}
                   {providerEnergyRequests.length > 0 ? (
                     <Card>
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                           <Badge className="bg-blue-600">服务商</Badge>
-                          服务商向分公司申请收益
+                          服务商向服务网点申请收益
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
@@ -2976,7 +2976,7 @@ export default function BranchPage() {
                         <p><strong>转账规则：</strong></p>
                         <p>• 给服务商转账：直接转账，不扣手续费</p>
                         <p>• 给会员转账：直接转账，不扣手续费</p>
-                        <p>• 同级分公司互转：不扣手续费</p>
+                        <p>• 同级服务网点互转：不扣手续费</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -3024,23 +3024,23 @@ export default function BranchPage() {
                               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                           }`}
                         >
-                          同级分公司 ({branchList.length})
+                          同级服务网点 ({branchList.length})
                         </button>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-medium mb-2">
-                            选择{transferUserType === 'provider' ? '服务商' : transferUserType === 'member' ? '会员' : '分公司'}
+                            选择{transferUserType === 'provider' ? '服务商' : transferUserType === 'member' ? '会员' : '服务网点'}
                           </label>
                           <select
                             value={transferTarget}
                             onChange={(e) => setTransferTarget(e.target.value)}
                             className="w-full p-2 border rounded-lg"
                           >
-                            <option value="">选择{transferUserType === 'provider' ? '服务商' : transferUserType === 'member' ? '会员' : '分公司'}</option>
+                            <option value="">选择{transferUserType === 'provider' ? '服务商' : transferUserType === 'member' ? '会员' : '服务网点'}</option>
                             {(transferUserType === 'provider' ? transferTargets : transferUserType === 'member' ? transferMembers : branchList).map((target) => (
                               <option key={target.id} value={target.id}>
-                                {target.username} ({target.role === 'provider' ? '服务商' : target.role === 'member' ? '会员' : target.role === 'branch' ? '分公司' : target.role})
+                                {target.username} ({target.role === 'provider' ? '服务商' : target.role === 'member' ? '会员' : target.role === 'branch' ? '服务网点' : target.role})
                               </option>
                             ))}
                           </select>
@@ -3209,7 +3209,7 @@ export default function BranchPage() {
                         className="bg-green-600 hover:bg-green-700"
                         onClick={() => setShowBranchWithdrawDialog(true)}
                       >
-                        <Banknote className="w-4 h-4 mr-1" /> 提现到总公司
+                        <Banknote className="w-4 h-4 mr-1" /> 提现到智算总台
                       </Button>
                     </div>
                   </div>
@@ -3456,7 +3456,7 @@ export default function BranchPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="w-[500px]">
             <CardHeader>
-              <CardTitle>向总公司申请额度</CardTitle>
+              <CardTitle>向智算总台申请额度</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -3471,7 +3471,7 @@ export default function BranchPage() {
               </div>
               <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
                 <p className="font-medium mb-1">💡 配比说明</p>
-                <p>分公司申请额度配比20%收益</p>
+                <p>服务网点申请额度配比20%收益</p>
                 <p className="text-xs mt-1">例如：申请100,000元额度，将配比20,000收益</p>
               </div>
               <div className="flex justify-end gap-2">
@@ -3576,12 +3576,12 @@ export default function BranchPage() {
         </div>
       )}
 
-      {/* 向总公司申请收益对话框 */}
+      {/* 向智算总台申请收益对话框 */}
       {showEnergyApplyDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="w-full max-w-md bg-white">
             <CardHeader>
-              <CardTitle className="text-gray-900">向总公司申请收益</CardTitle>
+              <CardTitle className="text-gray-900">向智算总台申请收益</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -3678,7 +3678,7 @@ export default function BranchPage() {
                   <li>• 转移后会员只能购买新服务商的产品</li>
                   <li>• 推荐关系（inviter_id）不变，推荐收益仍归原推荐人</li>
                   <li>• 持有产品的会员不能被转移，必须先清空持仓</li>
-                  <li>• 目标服务商必须在同一分公司下</li>
+                  <li>• 目标服务商必须在同一服务网点下</li>
                 </ul>
               </div>
 
@@ -3730,14 +3730,14 @@ export default function BranchPage() {
         </div>
       )}
 
-      {/* 分公司提现到总公司对话框 */}
+      {/* 服务网点提现到智算总台对话框 */}
       {showBranchWithdrawDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="w-full max-w-lg">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Banknote className="w-5 h-5 text-green-500" />
-                收益提现到总公司
+                收益提现到智算总台
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -3777,8 +3777,8 @@ export default function BranchPage() {
               </div>
               <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-600">
                 <p>• 最低提现金额: ¥100</p>
-                <p>• 提现手续费: 5%（沉淀到总公司）</p>
-                <p>• 提交后等待总公司审核打款</p>
+                <p>• 提现手续费: 5%（沉淀到智算总台）</p>
+                <p>• 提交后等待智算总台审核打款</p>
               </div>
               <div className="flex justify-end gap-2 pt-4">
                 <Button variant="outline" onClick={() => setShowBranchWithdrawDialog(false)}>取消</Button>

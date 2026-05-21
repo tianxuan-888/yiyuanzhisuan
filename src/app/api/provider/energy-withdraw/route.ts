@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `提现申请已提交，等待分公司审核。实际到账: ${actualAmount}（扣除5%手续费 ${fee}）`,
+      message: `提现申请已提交，等待服务网点审核。实际到账: ${actualAmount}（扣除5%手续费 ${fee}）`,
       data: {
         requestId,
         amount: withdrawAmount,

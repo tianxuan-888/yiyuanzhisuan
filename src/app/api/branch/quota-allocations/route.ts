@@ -7,10 +7,10 @@ export async function GET(request: NextRequest) {
     const branchId = searchParams.get('branchId');
 
     if (!branchId) {
-      return NextResponse.json({ success: false, error: '缺少分公司ID' }, { status: 400 });
+      return NextResponse.json({ success: false, error: '缺少服务网点ID' }, { status: 400 });
     }
 
-    // 获取分公司的服务商列表（从 quota_allocations + users）
+    // 获取服务网点的服务商列表（从 quota_allocations + users）
     const providers = await query<{
       id: string;
       username: string;
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       [branchId]
     );
 
-    // 获取分公司的算力额度（从 quota_accounts 表）
+    // 获取服务网点的算力额度（从 quota_accounts 表）
     const quotaAccountsResult = await query<{ balance: number; total_in: number }>(
       `SELECT balance, total_in FROM quota_accounts WHERE user_id = $1`,
       [branchId]

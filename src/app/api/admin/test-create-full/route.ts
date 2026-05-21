@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
-// 创建测试数据：分公司 + 2个服务商 + 5个会员
+// 创建测试数据：服务网点 + 2个服务商 + 5个会员
 export async function POST(request: NextRequest) {
   try {
     const client = getSupabaseClient();
@@ -14,9 +14,9 @@ export async function POST(request: NextRequest) {
       return v.toString(16);
     });
 
-    // 1. 创建分公司用户
+    // 1. 创建服务网点用户
     const branchId = genUUID();
-    const branchUsername = '测试分公司B' + timestamp;
+    const branchUsername = '测试服务网点B' + timestamp;
     const { error: branchUserError } = await client
       .from('users')
       .insert({
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       });
 
     if (branchUserError) {
-      throw new Error(`创建分公司用户失败: ${branchUserError.message}`);
+      throw new Error(`创建服务网点用户失败: ${branchUserError.message}`);
     }
 
     // 2. 创建2个服务商用户

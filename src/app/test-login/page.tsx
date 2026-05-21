@@ -104,21 +104,21 @@ export default function TestLoginPage() {
                 className="w-full border-slate-600 text-gray-300 hover:bg-slate-700"
                 onClick={() => { setUsername('admin'); setPassword('admin123'); }}
               >
-                总公司：admin / admin123
+                智算总台：admin / admin123
               </Button>
               <Button
                 variant="outline"
                 className="w-full border-slate-600 text-gray-300 hover:bg-slate-700"
                 onClick={() => { setUsername('branch1'); setPassword('branch123'); }}
               >
-                北京分公司：branch1 / branch123
+                北京服务网点：branch1 / branch123
               </Button>
               <Button
                 variant="outline"
                 className="w-full border-slate-600 text-gray-300 hover:bg-slate-700"
                 onClick={() => { setUsername('branch2'); setPassword('branch123'); }}
               >
-                上海分公司：branch2 / branch123
+                上海服务网点：branch2 / branch123
               </Button>
               <Button
                 variant="outline"

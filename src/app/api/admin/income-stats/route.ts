@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseUrl, getSupabaseServiceRoleKey } from '@/lib/env';
 
-// 总公司收益管理 - 使用用户自己的 Supabase 数据库（service role key 绕过 RLS）
+// 智算总台收益管理 - 使用用户自己的 Supabase 数据库（service role key 绕过 RLS）
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
@@ -159,7 +159,7 @@ async function getIncomeOverview(supabase: any) {
     });
   }
 
-  // 6. 分公司收益（从 provider_revenue_distribution 汇总 branch_share）
+  // 6. 服务网点收益（从 provider_revenue_distribution 汇总 branch_share）
   const { data: branchDistRaw } = await supabase
     .from('provider_revenue_distribution')
     .select('branch_id, branch_share')
@@ -178,7 +178,7 @@ async function getIncomeOverview(supabase: any) {
     const { data: u } = await supabase.from('users').select('username').eq('id', b.branchId).single();
     branchRevenue.push({
       id: b.branchId,
-      username: u?.username || '未知分公司',
+      username: u?.username || '未知服务网点',
       totalRevenue: Math.round(b.totalRevenue * 100) / 100,
     });
   }

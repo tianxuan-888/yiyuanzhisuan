@@ -3,7 +3,7 @@ import { getSupabase } from '@/lib/supabase-client';
 import { authenticateRequest } from '@/lib/auth';
 import { deductEnergy, addEnergy, getEnergyBalance } from '@/lib/energy-util';
 
-// 分公司向总公司申请提现能量值
+// 服务网点向智算总台申请提现能量值
 export async function POST(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = getSupabase();
 
-    // 验证操作人是否为分公司
+    // 验证操作人是否为服务网点
     const { data: fromUser } = await supabase
       .from('users')
       .select('id, role, username')
@@ -33,12 +33,12 @@ export async function POST(request: NextRequest) {
 
     if (!fromUser || fromUser.role !== 'branch') {
       return NextResponse.json(
-        { success: false, error: '只有分公司可以申请提现能量值' },
+        { success: false, error: '只有服务网点可以申请提现能量值' },
         { status: 403 }
       );
     }
 
-    // 检查分公司能量值余额
+    // 检查服务网点能量值余额
     const fromBalance = await getEnergyBalance(fromUserId);
     if (fromBalance < amount) {
       return NextResponse.json(
@@ -55,26 +55,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1. 扣除分公司能量值（deductEnergy 自动同步 users + energy_accounts + 流水）
+    // 1. 扣除服务网点能量值（deductEnergy 自动同步 users + energy_accounts + 流水）
     const deductResult = await deductEnergy(fromUserId, amount, 'withdraw', {
       toUserId: toUserId,
-      note: note || '分公司提现能量值',
+      note: note || '服务网点提现能量值',
     });
 
     if (!deductResult.success) {
       return NextResponse.json({ error: '扣除能量值失败: ' + deductResult.error }, { status: 500 });
     }
 
-    // 2. 增加总公司能量值（addEnergy 自动同步 users + energy_accounts + 流水）
+    // 2. 增加智算总台能量值（addEnergy 自动同步 users + energy_accounts + 流水）
     const addResult = await addEnergy(toUserId, amount, 'transfer_in', {
       fromUserId: fromUserId,
-      note: note || '分公司提现能量值转入',
+      note: note || '服务网点提现能量值转入',
     });
 
     if (!addResult.success) {
-      // 回滚分公司扣减
+      // 回滚服务网点扣减
       await addEnergy(fromUserId, amount, 'refund', { note: '提现失败回滚' });
-      return NextResponse.json({ error: '总公司增加能量值失败: ' + addResult.error }, { status: 500 });
+      return NextResponse.json({ error: '智算总台增加能量值失败: ' + addResult.error }, { status: 500 });
     }
 
     return NextResponse.json({

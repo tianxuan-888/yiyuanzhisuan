@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne } from '@/storage/database/pg-client';
 
-// 获取分公司下的服务商列表
+// 获取服务网点下的服务商列表
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -9,12 +9,12 @@ export async function GET(request: NextRequest) {
 
     if (!branchId) {
       return NextResponse.json(
-        { error: '缺少分公司ID参数' },
+        { error: '缺少服务网点ID参数' },
         { status: 400 }
       );
     }
 
-    // 直接从 users 表查询该分公司下的服务商（通过 branch_id 关联）
+    // 直接从 users 表查询该服务网点下的服务商（通过 branch_id 关联）
     const users = await query<{
       id: string;
       username: string;
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // 统计该分公司下的服务商总数
+    // 统计该服务网点下的服务商总数
     const totalProviders = providers.length;
 
     // 获取服务商申请待审核数量

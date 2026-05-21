@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 
-// 获取全系统收益统计（总公司使用）
+// 获取全系统收益统计（智算总台使用）
 export async function GET(request: NextRequest) {
   try {
     // 鉴权：仅管理员可操作
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     `;
     const providerRanking: any = await query(providerRankingSql);
 
-    // 4. 分公司收益统计
+    // 4. 服务网点收益统计
     const branchStatsSql = `
       SELECT 
         u.id::text,

@@ -91,8 +91,8 @@ export async function POST(request: NextRequest) {
         const providerShare = Math.round(marketFee * 0.70 * 100) / 100; // 70% 服务商
         const directReward = Math.round(marketFee * 0.10 * 100) / 100; // 10% 直推人
         const parentShare = Math.round(marketFee * 0.10 * 100) / 100;  // 10% 上级服务商
-        const branchShare = Math.round(marketFee * 0.05 * 100) / 100;  // 5% 分公司
-        const companyShare = Math.round(marketFee * 0.05 * 100) / 100; // 5% 总公司
+        const branchShare = Math.round(marketFee * 0.05 * 100) / 100;  // 5% 服务网点
+        const companyShare = Math.round(marketFee * 0.05 * 100) / 100; // 5% 智算总台
 
         // 1. 服务商70% → balance
         if (providerShare > 0) {
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // 3. 上级服务商10% → balance（无上级则归总公司）
+        // 3. 上级服务商10% → balance（无上级则归智算总台）
         let parentProviderId: string | null = null;
         if (parentShare > 0) {
           const { data: provData } = await client.from('providers').select('parent_provider_id').eq('user_id', providerId).maybeSingle();
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
               await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newPPBal, parentProviderId]);
             }
           } else {
-            // 无上级服务商，10%归分公司（分公司承担了第一代服务商的培养职责）
+            // 无上级服务商，10%归服务网点（服务网点承担了第一代服务商的培养职责）
             const { data: provInfo } = await client.from('providers').select('branch_id').eq('user_id', providerId).maybeSingle();
             if (provInfo?.branch_id) {
               const brRow = await queryOne('SELECT balance FROM users WHERE id = $1', [provInfo.branch_id]);
@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // 4. 分公司5% → balance
+        // 4. 服务网点5% → balance
         if (branchShare > 0) {
           const { data: provData } = await client.from('providers').select('branch_id').eq('user_id', providerId).maybeSingle();
           if (provData?.branch_id) {
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // 5. 总公司5% → balance
+        // 5. 智算总台5% → balance
         if (companyShare > 0) {
           const { data: adminUser } = await client.from('users').select('id').eq('role', 'admin').limit(1).maybeSingle();
           if (adminUser) {

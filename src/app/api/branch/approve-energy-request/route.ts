@@ -3,10 +3,10 @@ import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 import { execute } from '@/lib/pg-client';
 
-// 分公司审核能量值申请
+// 服务网点审核能量值申请
 export async function POST(request: NextRequest) {
   try {
-    // 鉴权：仅管理员和分公司可审核
+    // 鉴权：仅管理员和服务网点可审核
     const user = authenticateRequest(request);
     if (!user || !authorizeRole(user, ['admin', 'branch'])) {
       return NextResponse.json({ success: false, error: '无权操作' }, { status: 403 });
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: '该记录不是能量值申请' }, { status: 400 });
     }
 
-    // 验证分公司是否有权限审核
+    // 验证服务网点是否有权限审核
     if (user.role !== 'admin' && description.branchId !== branchId) {
       return NextResponse.json({ success: false, error: '无权审核此申请' }, { status: 403 });
     }
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     const amount = description.requestedAmount as number || 0;
 
     if (action === 'approve') {
-      // 查询分公司能量值
+      // 查询服务网点能量值
       const { data: branch, error: branchError } = await client
         .from('users')
         .select('id, username, energy_value')
@@ -78,12 +78,12 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       if (branchError || !branch) {
-        return NextResponse.json({ success: false, error: '分公司不存在' }, { status: 404 });
+        return NextResponse.json({ success: false, error: '服务网点不存在' }, { status: 404 });
       }
 
       const branchEnergy = parseFloat(branch.energy_value || '0');
       if (branchEnergy < amount) {
-        return NextResponse.json({ success: false, error: '分公司能量值余额不足' }, { status: 400 });
+        return NextResponse.json({ success: false, error: '服务网点能量值余额不足' }, { status: 400 });
       }
 
       // 查询服务商
@@ -100,12 +100,12 @@ export async function POST(request: NextRequest) {
       const providerEnergy = parseFloat(provider.energy_value || '0');
 
       // 使用 SQL 直接更新，确保写入成功
-      // 扣除分公司能量值
+      // 扣除服务网点能量值
       await execute(
         `UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2`,
         [branchEnergy - amount, branchId]
       );
-      console.log(`[approve-energy] 分公司 ${branchId} 能量值: ${branchEnergy} -> ${branchEnergy - amount}`);
+      console.log(`[approve-energy] 服务网点 ${branchId} 能量值: ${branchEnergy} -> ${branchEnergy - amount}`);
 
       // 增加服务商能量值
       await execute(
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 获取分公司下服务商的能量值申请列表
+// 获取服务网点下服务商的能量值申请列表
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -157,7 +157,7 @@ export async function GET(request: NextRequest) {
 
     const client = getSupabaseClient();
 
-    // 查询该分公司下的所有服务商
+    // 查询该服务网点下的所有服务商
     const { data: providers, error: providersError } = await client
       .from('users')
       .select('id, username')

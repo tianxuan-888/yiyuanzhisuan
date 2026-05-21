@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, execute } from '@/storage/database/pg-client';
 
-// 总公司向分公司分配额度（分配时自动赠送20%能量值给分公司）
+// 智算总台向服务网点分配额度（分配时自动赠送20%能量值给服务网点）
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 验证是总公司操作
+    // 验证是智算总台操作
     const admin = await query<{
       id: string;
       username: string;
@@ -34,12 +34,12 @@ export async function POST(request: NextRequest) {
 
     if (admin[0].role !== 'admin') {
       return NextResponse.json(
-        { error: '只有总公司管理员可以执行此操作' },
+        { error: '只有智算总台管理员可以执行此操作' },
         { status: 403 }
       );
     }
 
-    // 验证分公司存在
+    // 验证服务网点存在
     const branch = await query<{
       id: string;
       username: string;
@@ -51,14 +51,14 @@ export async function POST(request: NextRequest) {
 
     if (!branch || branch.length === 0) {
       return NextResponse.json(
-        { error: '分公司不存在' },
+        { error: '服务网点不存在' },
         { status: 404 }
       );
     }
 
     if (branch[0].role !== 'branch') {
       return NextResponse.json(
-        { error: '目标用户不是分公司' },
+        { error: '目标用户不是服务网点' },
         { status: 400 }
       );
     }
@@ -74,10 +74,10 @@ export async function POST(request: NextRequest) {
     // 调试：打印使用的 Supabase URL
     console.log(`[ALLOCATE-DEBUG] NEXT_PUBLIC_SUPABASE_URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0,30)}, SUPABASE_URL: ${process.env.SUPABASE_URL?.substring(0,30)}`);
 
-    // 计算赠送的能量值（20%给分公司）
+    // 计算赠送的能量值（20%给服务网点）
     const bonusEnergy = allocateAmount * 0.2;
 
-    // 验证总公司可用额度是否足够
+    // 验证智算总台可用额度是否足够
     const companyQuota = await query<{
       id: string;
       total_quota: number;
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     if (!companyQuota || companyQuota.length === 0) {
       return NextResponse.json(
-        { error: '总公司额度记录不存在' },
+        { error: '智算总台额度记录不存在' },
         { status: 500 }
       );
     }
@@ -97,12 +97,12 @@ export async function POST(request: NextRequest) {
     const availableQuota = Number(companyQuota[0].available_quota || 0);
     if (allocateAmount > availableQuota) {
       return NextResponse.json(
-        { error: `总公司可用额度不足，当前可用 ${availableQuota.toLocaleString()} 元` },
+        { error: `智算总台可用额度不足，当前可用 ${availableQuota.toLocaleString()} 元` },
         { status: 400 }
       );
     }
 
-    // 获取总公司当前能量值（从 energy_accounts 表）
+    // 获取智算总台当前能量值（从 energy_accounts 表）
     const adminAccount = await query<{ balance: number }>(
       'SELECT balance FROM energy_accounts WHERE user_id = $1',
       [adminId]
@@ -110,17 +110,17 @@ export async function POST(request: NextRequest) {
     const adminEnergyBefore = adminAccount.length > 0 ? Number(adminAccount[0].balance || 0) : 0;
     console.log('[ALLOCATE] adminAccount raw:', JSON.stringify(adminAccount), 'adminEnergyBefore:', adminEnergyBefore);
 
-    // 验证总公司能量值是否足够（需要扣除20%赠送部分）
+    // 验证智算总台能量值是否足够（需要扣除20%赠送部分）
     if (adminEnergyBefore < bonusEnergy) {
       return NextResponse.json(
-        { error: `总公司能量值不足，需要 ${bonusEnergy.toLocaleString()}，当前 ${adminEnergyBefore.toLocaleString()}` },
+        { error: `智算总台能量值不足，需要 ${bonusEnergy.toLocaleString()}，当前 ${adminEnergyBefore.toLocaleString()}` },
         { status: 400 }
       );
     }
 
     // ========== 开始执行分配 ==========
 
-    // 0. 扣减总公司额度（company_quota）
+    // 0. 扣减智算总台额度（company_quota）
     await execute(
       `UPDATE company_quota SET
          used_quota = used_quota + $1,
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
       [allocateAmount, companyQuota[0].id || '1']
     );
 
-    // 0.1 扣减总公司能量值（admin energy_accounts）
+    // 0.1 扣减智算总台能量值（admin energy_accounts）
     await execute(
       `UPDATE energy_accounts SET
          balance = balance - $1,
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
       [bonusEnergy, adminId]
     );
 
-    // 0.2 记录总公司能量值扣减流水
+    // 0.2 记录智算总台能量值扣减流水
     await execute(
       `INSERT INTO energy_transactions
        (id, user_id, type, amount, energy_before, energy_after, related_user_id, note, status, from_user_id, to_user_id, created_at)
@@ -151,13 +151,13 @@ export async function POST(request: NextRequest) {
         adminEnergyBefore.toFixed(2),
         (adminEnergyBefore - bonusEnergy).toFixed(2),
         branchId,
-        `向分公司分配额度 ${allocateAmount.toLocaleString()} 元，赠送能量值20%（${bonusEnergy.toLocaleString()}）`,
+        `向服务网点分配额度 ${allocateAmount.toLocaleString()} 元，赠送能量值20%（${bonusEnergy.toLocaleString()}）`,
         adminId,
         branchId
       ]
     );
 
-    // 1. 增加分公司能量值（使用 energy_accounts 表）
+    // 1. 增加服务网点能量值（使用 energy_accounts 表）
     const branchAccount = await query(
       'SELECT balance FROM energy_accounts WHERE user_id = $1',
       [branchId]
@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
     const branchEnergyBefore = branchAccount.length > 0 ? Number(branchAccount[0].balance || 0) : 0;
     const branchEnergyAfter = branchEnergyBefore + bonusEnergy;
 
-    // 增加分公司能量值
+    // 增加服务网点能量值
     await execute(
       `INSERT INTO energy_accounts (user_id, balance, total_in, total_out, created_at, updated_at)
        VALUES ($1, $2, $3, 0, NOW(), NOW())
@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
       [branchId, bonusEnergy, bonusEnergy]
     );
 
-    // 2. 记录分公司的能量值增加（transfer_in 类型）
+    // 2. 记录服务网点的能量值增加（transfer_in 类型）
     await execute(
       `INSERT INTO energy_transactions 
        (id, user_id, type, amount, energy_before, energy_after, related_user_id, note, status, from_user_id, to_user_id, created_at)
@@ -188,7 +188,7 @@ export async function POST(request: NextRequest) {
         branchEnergyBefore.toFixed(2),
         branchEnergyAfter.toFixed(2),
         adminId,
-        `总公司分配额度 ${allocateAmount.toLocaleString()} 元，获得赠送能量值20%（${bonusEnergy.toLocaleString()}）`,
+        `智算总台分配额度 ${allocateAmount.toLocaleString()} 元，获得赠送能量值20%（${bonusEnergy.toLocaleString()}）`,
         adminId,
         branchId
       ]
@@ -210,7 +210,7 @@ export async function POST(request: NextRequest) {
     await execute(
       `INSERT INTO quota_records (id, from_user_id, to_user_id, amount, type, note, created_at)
        VALUES ($1, $2, $3, $4, 'allocate', $5, NOW())`,
-      [recordId, adminId, branchId, allocateAmount, note || `总公司分配额度给分公司 ${branch[0].username}`]
+      [recordId, adminId, branchId, allocateAmount, note || `智算总台分配额度给服务网点 ${branch[0].username}`]
     );
 
     // 5. 记录能量值流水（使用 quota_match 类型，算力额度匹配能量值）
@@ -225,13 +225,13 @@ export async function POST(request: NextRequest) {
         branchEnergyBefore.toFixed(2),
         branchEnergyAfter.toFixed(2),
         recordId,
-        `总公司下发算力额度 ${allocateAmount} 元，同步配套20%能量值 ${bonusEnergy}`,
+        `智算总台下发算力额度 ${allocateAmount} 元，同步配套20%能量值 ${bonusEnergy}`,
         adminId,
         branchId
       ]
     );
 
-    // 6. 发送通知给分公司
+    // 6. 发送通知给服务网点
     const notifId = crypto.randomUUID();
     await execute(
       `INSERT INTO notifications (id, receiver_id, receiver_role, sender_id, type, title, content, created_at)
@@ -240,7 +240,7 @@ export async function POST(request: NextRequest) {
         notifId,
         branchId,
         adminId,
-        `总公司已分配额度 ${allocateAmount.toLocaleString()} 元到您的账户，同时赠送 ${bonusEnergy.toLocaleString()} 能量值（20%）。请前往额度管理页面使用。`
+        `智算总台已分配额度 ${allocateAmount.toLocaleString()} 元到您的账户，同时赠送 ${bonusEnergy.toLocaleString()} 能量值（20%）。请前往额度管理页面使用。`
       ]
     );
 

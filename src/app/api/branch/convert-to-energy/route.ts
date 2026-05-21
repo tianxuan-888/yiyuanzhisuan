@@ -3,7 +3,7 @@ import { getSupabase } from '@/lib/supabase-client';
 import { authenticateRequest } from '@/lib/auth';
 import { addEnergy } from '@/lib/energy-util';
 
-// 分公司收益转能量值（5%变积分，95%变能量值）
+// 服务网点收益转能量值（5%变积分，95%变能量值）
 export async function POST(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);
@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (authUser.role !== 'branch') {
-      return NextResponse.json({ error: '仅分公司可使用此接口' }, { status: 403 });
+      return NextResponse.json({ error: '仅服务网点可使用此接口' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
       message: `转换成功：${energyAmount.toFixed(2)}元→能量值，${pointsAmount.toFixed(2)}元→积分`,
     });
   } catch (error: any) {
-    console.error('分公司收益转能量值失败:', error);
+    console.error('服务网点收益转能量值失败:', error);
     const statusCode = error.statusCode || 500;
     return NextResponse.json(
       { error: error.message || '转换失败' },

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, withTransaction } from '@/lib/pg-client';
 import { authenticateRequest } from '@/lib/auth';
 
-// 总公司审核分公司提现
+// 智算总台审核服务网点提现
 export async function POST(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);
@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (authUser.role !== 'admin') {
-      return NextResponse.json({ error: '仅总公司可审核' }, { status: 403 });
+      return NextResponse.json({ error: '仅智算总台可审核' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       const withdrawal = withdrawalRes.rows[0];
 
       if (withdrawal.user_role !== 'branch') {
-        throw Object.assign(new Error('仅可审核分公司提现单'), { statusCode: 400 });
+        throw Object.assign(new Error('仅可审核服务网点提现单'), { statusCode: 400 });
       }
 
       if (action === 'approve' && withdrawal.status !== 'pending') {
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
       data: result,
     });
   } catch (error: any) {
-    console.error('总公司审核提现失败:', error);
+    console.error('智算总台审核提现失败:', error);
     const statusCode = error.statusCode || 500;
     return NextResponse.json(
       { error: error.message || '审核失败' },
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 获取总公司待审核的分公司提现列表
+// 获取智算总台待审核的服务网点提现列表
 export async function GET(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);
@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (authUser.role !== 'admin') {
-      return NextResponse.json({ error: '仅总公司可查看' }, { status: 403 });
+      return NextResponse.json({ error: '仅智算总台可查看' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);

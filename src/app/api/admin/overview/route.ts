@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 
-// 获取总公司数据总览统计
+// 获取智算总台数据总览统计
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
       });
       userStats.userDistribution.byRole = Object.fromEntries(roleMap);
 
-      // 按分公司分布
+      // 按服务网点分布
       const branchMap = new Map<string, number>();
       users.forEach(u => {
         if (u.branch_id) {
@@ -262,7 +262,7 @@ export async function GET(request: NextRequest) {
         }
       });
 
-      // 能力值总额 = 分公司 + 服务商 + 会员 + 总公司能量值
+      // 能力值总额 = 服务网点 + 服务商 + 会员 + 智算总台能量值
       energyStats.totalEnergy = branchEnergyTotal + providerEnergyTotal + memberEnergyTotal + adminEnergy;
       energyStats.energyDistribution.admin = adminEnergy;
       energyStats.energyDistribution.branch = branchEnergyTotal;

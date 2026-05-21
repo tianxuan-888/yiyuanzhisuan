@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 import { authenticateRequest } from '@/lib/auth';
 
-// 重置用户密码（总公司管理员专用）
+// 重置用户密码（智算总台管理员专用）
 export async function POST(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);

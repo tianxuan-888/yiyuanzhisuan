@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     if (user.role === targetRole) {
       return NextResponse.json(
-        { success: false, error: `用户已是${targetRole === 'provider' ? '服务商' : '分公司'}` },
+        { success: false, error: `用户已是${targetRole === 'provider' ? '服务商' : '服务网点'}` },
         { status: 400 }
       );
     }
@@ -69,11 +69,11 @@ export async function POST(request: NextRequest) {
     
     // 如果升级为服务商，设置默认额度
     if (targetRole === 'provider') {
-      updateData.provider_id = null; // 服务商直属分公司（后续可调整）
+      updateData.provider_id = null; // 服务商直属服务网点（后续可调整）
       updateData.branch_id = null;
     }
     
-    // 如果升级为分公司
+    // 如果升级为服务网点
     if (targetRole === 'branch') {
       updateData.branch_id = null;
       updateData.provider_id = null;
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `用户 ${user.username} 已升级为 ${targetRole === 'provider' ? '服务商' : '分公司'}`,
+      message: `用户 ${user.username} 已升级为 ${targetRole === 'provider' ? '服务商' : '服务网点'}`,
       data: {
         userId: user.id,
         username: user.username,

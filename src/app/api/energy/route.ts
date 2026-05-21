@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type'); // quota_match, purchase, market, withdraw, all
 
-    // 板块1：算力额度比例匹配能量值（总公司→分公司）
+    // 板块1：算力额度比例匹配能量值（智算总台→服务网点）
     const quotaMatchRecords = await query(
       `SELECT et.*, 
               fu.username as from_username,
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     );
     const quotaMatchTotal = quotaMatchRecords.reduce((sum, r) => sum + Number(r.amount), 0);
 
-    // 板块2：能量值购买记录（分公司→总公司）
+    // 板块2：能量值购买记录（服务网点→智算总台）
     const purchaseRecords = await query(
       `SELECT et.*, 
               fu.username as from_username,
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
     );
     const marketTotal = marketAccounts.reduce((sum, a) => sum + Number(a.balance || 0), 0);
 
-    // 板块4：市场内流转记录（会员↔服务商↔分公司）
+    // 板块4：市场内流转记录（会员↔服务商↔服务网点）
     const marketTransferRecords = await query(
       `SELECT et.*, 
               fu.username as from_username, fu.role as from_role,
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     );
     const marketTransferTotal = marketTransferRecords.reduce((sum, r) => sum + Number(r.amount), 0);
 
-    // 板块5：分公司向总公司提现/变现能量值（包含 burn + withdraw 流水）
+    // 板块5：服务网点向智算总台提现/变现能量值（包含 burn + withdraw 流水）
     const withdrawAndBurnRecords = await query(
       `SELECT et.*, 
               fu.username as from_username,
@@ -100,14 +100,14 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // 总公司能量值账户 - 从 energy_accounts 表获取
+    // 智算总台能量值账户 - 从 energy_accounts 表获取
     const adminAccount = await query(
       `SELECT ea.balance FROM energy_accounts ea 
        JOIN users u ON u.id = ea.user_id 
        WHERE u.role = 'admin' LIMIT 1`
     );
 
-    // 总公司能量值余额 - 统一从 energy_accounts 表获取
+    // 智算总台能量值余额 - 统一从 energy_accounts 表获取
     const adminEnergyBalance = adminAccount.length > 0 ? Number(adminAccount[0].balance || 0) : 0;
 
     return NextResponse.json({
@@ -144,7 +144,7 @@ export async function GET(request: NextRequest) {
           pendingCount: withdrawPendingCount,
           pendingAmount: withdrawPendingAmount,
         },
-        // 总公司能量值余额
+        // 智算总台能量值余额
         adminBalance: adminEnergyBalance,
       },
     });

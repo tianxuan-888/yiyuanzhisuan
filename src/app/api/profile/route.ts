@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 获取分公司信息
+    // 获取服务网点信息
     let branchInfo = null;
     if (userData.branch_id) {
       const branches = await query(

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 
-// 获取分公司的能量值发放记录
+// 获取服务网点的能量值发放记录
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -9,12 +9,12 @@ export async function GET(request: NextRequest) {
 
     if (!branchId) {
       return NextResponse.json(
-        { success: false, error: '缺少分公司ID' },
+        { success: false, error: '缺少服务网点ID' },
         { status: 400 }
       );
     }
 
-    // 查询该分公司收到的所有 transfer_in 记录（来自总公司的发放）
+    // 查询该服务网点收到的所有 transfer_in 记录（来自智算总台的发放）
     const records = await query(
       `SELECT 
         et.id,
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 分公司向总公司申请能量值（只记录申请，不实际转账）
+// 服务网点向智算总台申请能量值（只记录申请，不实际转账）
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 验证是分公司
+    // 验证是服务网点
     const branch = await query<{
       id: string;
       username: string;
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
 
     if (branch[0].role !== 'branch') {
       return NextResponse.json(
-        { success: false, error: '只有分公司才能申请能量值' },
+        { success: false, error: '只有服务网点才能申请能量值' },
         { status: 403 }
       );
     }
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
       [requestId, branchId, '00000000-0000-0000-0000-000000000001', applyAmount]
     );
 
-    // 发送通知给总公司（通知需要人工审核）
+    // 发送通知给智算总台（通知需要人工审核）
     const notifId = crypto.randomUUID();
     await query(
       `INSERT INTO notifications (id, receiver_id, receiver_role, sender_id, type, title, content, related_id, created_at)
@@ -124,14 +124,14 @@ export async function POST(request: NextRequest) {
       [
         notifId,
         branchId,
-        `分公司 ${branch[0].username} 申请能量值 ${applyAmount.toLocaleString()}，请前往审核。`,
+        `服务网点 ${branch[0].username} 申请能量值 ${applyAmount.toLocaleString()}，请前往审核。`,
         requestId
       ]
     );
 
     return NextResponse.json({
       success: true,
-      message: `能量值申请已提交，等待总公司审核`,
+      message: `能量值申请已提交，等待智算总台审核`,
       data: {
         requestId,
         amount: applyAmount,
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('分公司申请能量值失败:', error);
+    console.error('服务网点申请能量值失败:', error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : '申请失败' },
       { status: 500 }

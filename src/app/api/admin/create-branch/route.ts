@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, execute } from '@/lib/pg-client';
 
-// 总公司创建分公司
+// 智算总台创建服务网点
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { 
-      username,         // 分公司账号
+      username,         // 服务网点账号
       password,         // 密码
       phone,            // 手机号
-      name,             // 分公司名称
-      code,             // 分公司代码
+      name,             // 服务网点名称
+      code,             // 服务网点代码
       region,           // 所属区域
-      creator_id        // 创建人ID（总公司管理员）
+      creator_id        // 创建人ID（智算总台管理员）
     } = body;
 
     // 参数验证
@@ -39,14 +39,14 @@ export async function POST(request: NextRequest) {
 
     if (!name) {
       return NextResponse.json(
-        { error: '分公司名称不能为空' },
+        { error: '服务网点名称不能为空' },
         { status: 400 }
       );
     }
 
     if (!code) {
       return NextResponse.json(
-        { error: '分公司代码不能为空' },
+        { error: '服务网点代码不能为空' },
         { status: 400 }
       );
     }
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 检查分公司代码是否已存在
+    // 检查服务网点代码是否已存在
     const existingBranches = await query<{ id: string }>(
       `SELECT id FROM branches WHERE code = $1`,
       [code]
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
 
     if (existingBranches.length > 0) {
       return NextResponse.json(
-        { error: '分公司代码已存在' },
+        { error: '服务网点代码已存在' },
         { status: 400 }
       );
     }
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: '分公司创建成功',
+      message: '服务网点创建成功',
       data: {
         userId: newUserId,
         username,
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
       }
     });
   } catch (error: any) {
-    console.error('创建分公司失败:', error);
+    console.error('创建服务网点失败:', error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

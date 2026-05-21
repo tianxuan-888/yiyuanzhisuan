@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
-// GET - 获取按分公司分组的用户数据（总公司专用）
+// GET - 获取按服务网点分组的用户数据（智算总台专用）
 export async function GET(request: NextRequest) {
   try {
     const supabase = getSupabaseClient();
@@ -16,13 +16,13 @@ export async function GET(request: NextRequest) {
       throw usersError;
     }
 
-    // 按分公司分组
+    // 按服务网点分组
     const branches = users?.filter(u => u.role === 'branch') || [];
     const providers = users?.filter(u => u.role === 'provider') || [];
     const members = users?.filter(u => u.role === 'member') || [];
     const admins = users?.filter(u => u.role === 'admin') || [];
 
-    // 为每个分公司分组服务商和会员
+    // 为每个服务网点分组服务商和会员
     const branchesWithStats = branches.map(branch => {
       const branchProviders = providers.filter(p => p.branch_id === branch.id);
       const branchMembers = members.filter(m => m.branch_id === branch.id);

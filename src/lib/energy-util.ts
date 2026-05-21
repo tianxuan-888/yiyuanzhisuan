@@ -70,9 +70,9 @@ async function syncEnergyAccounts(userId: string, balance: number): Promise<void
  * 能量值变动类型
  */
 export type EnergyChangeType = 
-  | 'create'           // 总公司创建
+  | 'create'           // 智算总台创建
   | 'quota_match'      // 额度匹配下发
-  | 'purchase'         // 分公司购买
+  | 'purchase'         // 服务网点购买
   | 'recharge'         // 充值（服务商给会员）
   | 'transfer_in'      // 转入
   | 'transfer_out'     // 转出
@@ -93,7 +93,7 @@ export type EnergyChangeType =
   | 'provider_share'   // 服务商分成
   | 'direct_reward'    // 直推奖励
   | 'parent_provider_share' // 上级服务商分成
-  | 'branch_share'     // 分公司分成
+  | 'branch_share'     // 服务网点分成
   | 'company_share'    // 公司运营分成
   | 'subordinate_split';  // 下级分成
 

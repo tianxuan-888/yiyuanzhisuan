@@ -213,8 +213,8 @@ export function MyProfile() {
   }
 
   const roleLabels: Record<string, string> = {
-    admin: '总公司管理员',
-    branch: '分公司管理员',
+    admin: '智算总台管理员',
+    branch: '服务网点管理员',
     provider: '服务商',
     member: '会员',
   };
@@ -425,12 +425,12 @@ export function MyProfile() {
                   <div className="flex items-center gap-3">
                     <Building2 className="w-5 h-5 text-gray-500" />
                     <div>
-                      <p className="text-sm text-gray-500">所属分公司</p>
+                      <p className="text-sm text-gray-500">所属服务网点</p>
                       <p className="font-medium">{profile.branch.username}</p>
                       <p className="text-xs text-gray-400">{profile.branch.phone}</p>
                     </div>
                   </div>
-                  <Badge variant="outline">分公司</Badge>
+                  <Badge variant="outline">服务网点</Badge>
                 </div>
               )}
 

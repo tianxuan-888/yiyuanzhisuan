@@ -4,7 +4,7 @@ import { authenticateRequest, authorizeRole } from '@/lib/auth';
 import { generateUUID } from '@/lib/utils';
 import { addEnergy } from '@/lib/energy-util';
 
-// 审核变现申请（分公司审核服务商 / 总公司审核分公司）
+// 审核变现申请（服务网点审核服务商 / 智算总台审核服务网点）
 export async function POST(request: NextRequest) {
   try {
     const user = authenticateRequest(request);
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: addResult.error }, { status: 500 });
     }
 
-    // 3. 手续费5%归总公司
+    // 3. 手续费5%归智算总台
     const { data: adminData } = await supabase
       .from('users')
       .select('id')

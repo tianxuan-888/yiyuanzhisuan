@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
         const w = wRes.rows[0];
         if (w.status !== 'transferred') {
-          throw Object.assign(new Error('当前状态无法确认收款，需等待分公司确认打款'), { statusCode: 400 });
+          throw Object.assign(new Error('当前状态无法确认收款，需等待服务网点确认打款'), { statusCode: 400 });
         }
 
         const actualAmount = parseFloat(w.actual_amount) || 0;
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
 
         // 注意：收益提现时balance已在提交时扣除，确认收款是线下到账，不需要再增加balance
 
-        // 更新分公司收益记录状态为已完成
+        // 更新服务网点收益记录状态为已完成
         await client.query(
           "UPDATE branch_revenue_records SET status = 'completed', updated_at = NOW() WHERE related_withdrawal_id = $1",
           [withdrawalId]
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
         throw Object.assign(new Error('收益余额不足'), { statusCode: 400 });
       }
 
-      // 获取分公司ID
+      // 获取服务网点ID
       const providerRes = await client.query(
         'SELECT branch_id FROM providers WHERE user_id = $1',
         [userId]
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (!branchId) {
-        throw Object.assign(new Error('未找到所属分公司，无法提现'), { statusCode: 400 });
+        throw Object.assign(new Error('未找到所属服务网点，无法提现'), { statusCode: 400 });
       }
 
       const newBalance = currentBalance - withdrawAmount;
@@ -125,14 +125,14 @@ export async function POST(request: NextRequest) {
 
       const withdrawalId = withdrawalRes.rows[0].id;
 
-      // 3. 记入分公司现金收益
+      // 3. 记入服务网点现金收益
       await client.query(
         `INSERT INTO branch_revenue_records (branch_id, type, amount, related_user_id, related_withdrawal_id, status, note, created_at)
          VALUES ($1, 'provider_withdraw', $2, $3, $4, 'received', $5, NOW())`,
         [branchId, actualAmount.toFixed(2), userId, withdrawalId, `服务商提现: ${withdrawAmount}元，到账${actualAmount}元`]
       );
 
-      // 4. 手续费沉淀到总公司
+      // 4. 手续费沉淀到智算总台
       await client.query(
         `INSERT INTO company_fee_records (type, amount, source_user_id, source_role, source_withdrawal_id, note, created_at)
          VALUES ('withdrawal_fee', $1, $2, 'provider', $3, $4, NOW())`,
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
         actualAmount: result.actualAmount.toFixed(2),
         balance: result.newBalance.toFixed(2),
       },
-      message: '提现申请已提交，等待分公司审核',
+      message: '提现申请已提交，等待服务网点审核',
     });
   } catch (error: any) {
     console.error('服务商提现申请失败:', error);

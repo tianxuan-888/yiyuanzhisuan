@@ -20,7 +20,7 @@ function getAdminSupabase() {
  * 会员收益逻辑：
  * - 收益来源：持有产品期间按周期收益率产生（具体费率以产品market_rate/profit_rate为准）
  * - 入账时机：产品到期卖出时，本金+收益进入收益账户
- * - 与服务商/分公司不同：服务商分公司收益来自市场业务，会员收益来自产品持有时长
+ * - 与服务商/服务网点不同：服务商服务网点收益来自市场业务，会员收益来自产品持有时长
  */
 export async function GET(request: NextRequest) {
   try {
@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
       source: '产品持有收益',
       description: '会员通过持有Token存储包，按周期收益率获得收益。具体收益率以产品设定的total_rate为准。',
       timing: '产品到期卖出时，本金和收益进入收益账户',
-      difference: '与服务商/分公司收益不同：服务商分公司收益来自市场业务（市场费分成），会员收益来自产品持有时长产生的回报',
+      difference: '与服务商/服务网点收益不同：服务商服务网点收益来自市场业务（市场费分成），会员收益来自产品持有时长产生的回报',
     };
 
     return NextResponse.json({

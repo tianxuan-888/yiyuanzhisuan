@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 import { authenticateRequest } from '@/lib/auth';
 
-// 分公司向总公司申请能量值
+// 服务网点向智算总台申请能量值
 export async function POST(request: NextRequest) {
   try {
     // 获取认证用户
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 验证是分公司
+    // 验证是服务网点
     const branchResult = await query(
       'SELECT id, username, role FROM users WHERE id = $1',
       [branchId]
@@ -49,13 +49,13 @@ export async function POST(request: NextRequest) {
 
     if (branchResult[0].role !== 'branch') {
       return NextResponse.json(
-        { success: false, error: '只有分公司才能申请能量值' },
+        { success: false, error: '只有服务网点才能申请能量值' },
         { status: 403 }
       );
     }
 
-    // 【修改】申请时不检查总公司余额，只在审核时检查
-    // 直接创建申请记录，等待总公司审核
+    // 【修改】申请时不检查智算总台余额，只在审核时检查
+    // 直接创建申请记录，等待智算总台审核
     const id = crypto.randomUUID();
     await query(
       `INSERT INTO energy_branch_requests 
@@ -64,12 +64,12 @@ export async function POST(request: NextRequest) {
       [id, branchId, requestAmount, note || null]
     );
 
-    // 获取分公司用户名
+    // 获取服务网点用户名
     const branchName = branchResult[0].username;
 
     return NextResponse.json({
       success: true,
-      message: '能量值申请已提交，等待总公司审核',
+      message: '能量值申请已提交，等待智算总台审核',
       data: {
         requestId: id,
         branchId: branchId,
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('分公司申请能量值失败:', error);
+    console.error('服务网点申请能量值失败:', error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : '申请失败' },
       { status: 500 }
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 获取分公司能量值申请记录
+// 获取服务网点能量值申请记录
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

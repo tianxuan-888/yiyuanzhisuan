@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 获取分公司信息
+    // 获取服务网点信息
     if (currentUser.branch_id) {
       const branchResult = await query(`
         SELECT 
@@ -145,7 +145,7 @@ export async function GET(request: NextRequest) {
           realName: branch.real_name,
           energyValue: branch.energy_value,
           balance: branch.balance,
-          roleName: '分公司'
+          roleName: '服务网点'
         };
       }
     }
@@ -250,8 +250,8 @@ export async function GET(request: NextRequest) {
 
 function getRoleName(role: string): string {
   const roleMap: Record<string, string> = {
-    admin: '总公司',
-    branch: '分公司',
+    admin: '智算总台',
+    branch: '服务网点',
     provider: '服务商',
     member: '会员'
   };

@@ -38,11 +38,11 @@ export async function PUT(request: NextRequest) {
 
     if (action === 'approve') {
       // 同意申请 - 下发额度
-      // 总公司管理员ID
+      // 智算总台管理员ID
       const ADMIN_ID = '00000000-0000-0000-0000-000000000001';
       const amount = application.amount;
 
-      // 检查总公司余额
+      // 检查智算总台余额
       const adminAccount = await query(
         `SELECT balance FROM quota_accounts WHERE user_id = $1`,
         [ADMIN_ID]
@@ -50,12 +50,12 @@ export async function PUT(request: NextRequest) {
 
       if (adminAccount.length === 0 || Number(adminAccount[0].balance) < Number(amount)) {
         return NextResponse.json(
-          { success: false, error: '总公司额度不足' },
+          { success: false, error: '智算总台额度不足' },
           { status: 400 }
         );
       }
 
-      // 扣除总公司余额
+      // 扣除智算总台余额
       await query(
         `UPDATE quota_accounts SET 
           balance = balance - $1, 
@@ -65,7 +65,7 @@ export async function PUT(request: NextRequest) {
         [amount, ADMIN_ID]
       );
 
-      // 增加分公司余额
+      // 增加服务网点余额
       await query(
         `INSERT INTO quota_accounts (user_id, balance, total_in, total_out, created_at, updated_at)
          VALUES ($1, $2, $3, 0, NOW(), NOW())
@@ -80,7 +80,7 @@ export async function PUT(request: NextRequest) {
       await query(
         `INSERT INTO quota_records (from_user_id, to_user_id, amount, type, note)
          VALUES ($1, $2, $3, 'transfer', $4)`,
-        [ADMIN_ID, application.applicant_id, amount, '分公司申请通过: ' + (note || '')]
+        [ADMIN_ID, application.applicant_id, amount, '服务网点申请通过: ' + (note || '')]
       );
 
       // 更新申请状态

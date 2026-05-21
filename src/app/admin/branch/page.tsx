@@ -97,7 +97,7 @@ export default function BranchPage() {
   const [showReviewDialog, setShowReviewDialog] = useState(false);
   const [reviewAction, setReviewAction] = useState<'approve' | 'reject'>('approve');
   
-  // 分公司变现相关状态
+  // 服务网点变现相关状态
   const [branchWithdrawRequests, setBranchWithdrawRequests] = useState<BranchEnergyWithdrawRequest[]>([]);
   const [branchWithdrawLoading, setBranchWithdrawLoading] = useState(true);
   const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
@@ -105,7 +105,7 @@ export default function BranchPage() {
   const [paymentMethod, setPaymentMethod] = useState<'alipay' | 'wechat'>('alipay');
   const [paymentAccount, setPaymentAccount] = useState('');
   
-  // 分公司向总公司申请能量值相关状态
+  // 服务网点向智算总台申请能量值相关状态
   const [branchEnergyRequests, setBranchEnergyRequests] = useState<any[]>([]);
   const [branchEnergyRequestsLoading, setBranchEnergyRequestsLoading] = useState(true);
   const [showApplyEnergyDialog, setShowApplyEnergyDialog] = useState(false);
@@ -141,7 +141,7 @@ export default function BranchPage() {
   const [energyReviewAction, setEnergyReviewAction] = useState<'approve' | 'reject'>('approve');
   const loadEnergyRequestsRef = useRef<(() => Promise<void>) | null>(null);
 
-  // 分公司直接转账相关状态
+  // 服务网点直接转账相关状态
   const [showTransferDialog, setShowTransferDialog] = useState(false);
   const [transferType, setTransferType] = useState<'provider' | 'member'>('provider');
   const [selectedTransferTarget, setSelectedTransferTarget] = useState<any>(null);
@@ -173,7 +173,7 @@ export default function BranchPage() {
     const userId = user.id;
     
     const loadData = async () => {
-      // 加载分公司信息 - 同时获取用户信息和能量值余额
+      // 加载服务网点信息 - 同时获取用户信息和能量值余额
       try {
         const [userResponse, energyStatsResponse] = await Promise.all([
           authFetch(`/api/auth/login`, {
@@ -195,10 +195,10 @@ export default function BranchPage() {
           setEnergyValue(energyStatsResult.data.branch.balance ?? 0);
         }
       } catch (error) {
-        console.error('加载分公司信息失败:', error);
+        console.error('加载服务网点信息失败:', error);
       }
       
-      // 加载分公司向总公司申请能量值记录
+      // 加载服务网点向智算总台申请能量值记录
       setBranchEnergyRequestsLoading(true);
       try {
         const response = await fetch(`/api/energy/branch-request?branchId=${userId}`);
@@ -225,7 +225,7 @@ export default function BranchPage() {
       }
       setWithdrawLoading(false);
       
-      // 加载分公司向总公司变现申请
+      // 加载服务网点向智算总台变现申请
       setBranchWithdrawLoading(true);
       try {
         const response = await fetch(`/api/branch/energy-withdraw?branchId=${userId}`);
@@ -398,7 +398,7 @@ export default function BranchPage() {
         alert(energyReviewAction === 'approve' ? '审核通过，能量值已发放！' : '已拒绝该申请');
         setShowEnergyReviewDialog(false);
         loadEnergyRequests();
-        // 刷新分公司能量值
+        // 刷新服务网点能量值
         const userResponse = await authFetch(`/api/auth/login`, {
           method: 'POST',
           body: JSON.stringify({ username: user?.name || '', password: '' }),
@@ -415,7 +415,7 @@ export default function BranchPage() {
     }
   };
 
-  // 分公司直接转账给服务商或会员
+  // 服务网点直接转账给服务商或会员
   const handleDirectTransfer = async () => {
     if (!selectedTransferTarget || !transferAmount || parseFloat(transferAmount) <= 0) {
       alert('请选择转账对象并输入金额');
@@ -464,7 +464,7 @@ export default function BranchPage() {
     }
   };
 
-  // 分公司向总公司申请能量值
+  // 服务网点向智算总台申请能量值
   const handleApplyEnergy = async () => {
     if (!applyEnergyAmount || parseFloat(applyEnergyAmount) < 50) {
       alert('申请金额最低为50能量值');
@@ -489,7 +489,7 @@ export default function BranchPage() {
       });
       const result = await response.json();
       if (result.success) {
-        alert('能量值申请已提交，等待总公司审核！');
+        alert('能量值申请已提交，等待智算总台审核！');
         setShowApplyEnergyDialog(false);
         setApplyEnergyAmount('');
         setApplyEnergyNote('');
@@ -629,7 +629,7 @@ export default function BranchPage() {
           console.error('刷新提现申请失败:', error);
         }
         setWithdrawLoading(false);
-        // 刷新分公司能量值
+        // 刷新服务网点能量值
         const userResponse = await fetch(`/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -681,7 +681,7 @@ export default function BranchPage() {
       });
       const result = await response.json();
       if (result.success) {
-        alert('变现申请已提交，等待总公司审核！');
+        alert('变现申请已提交，等待智算总台审核！');
         setShowWithdrawDialog(false);
         setWithdrawAmount('');
         setPaymentAccount('');
@@ -792,11 +792,11 @@ export default function BranchPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
-              <span className="text-white font-bold">分公司</span>
+              <span className="text-white font-bold">服务网点</span>
             </div>
             <div>
               <h1 className="text-white font-bold text-lg">{user.name}</h1>
-              <p className="text-gray-400 text-sm">分公司管控后台</p>
+              <p className="text-gray-400 text-sm">服务网点管控后台</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -990,7 +990,7 @@ export default function BranchPage() {
                 <CardHeader>
                   <CardTitle className="text-white flex items-center gap-2">
                     <Server className="w-5 h-5 text-yellow-400" />
-                    向总公司申请额度
+                    向智算总台申请额度
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -1010,7 +1010,7 @@ export default function BranchPage() {
                   </div>
                   
                   <div className="text-center text-gray-500 py-8">
-                    额度申请功能开发中，请联系总公司申请额度...
+                    额度申请功能开发中，请联系智算总台申请额度...
                   </div>
                 </CardContent>
               </Card>
@@ -1286,14 +1286,14 @@ export default function BranchPage() {
               </TabsTrigger>
             </TabsList>
 
-          {/* 申请能量值 - 分公司向总公司申请 */}
+          {/* 申请能量值 - 服务网点向智算总台申请 */}
           <TabsContent value="apply-energy">
             <Card className="bg-slate-800 border-slate-700">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-white flex items-center gap-2">
                     <Zap className="w-5 h-5 text-yellow-400" />
-                    向总公司申请能量值
+                    向智算总台申请能量值
                   </CardTitle>
                   <Button 
                     className="bg-green-500 hover:bg-green-600"
@@ -1557,7 +1557,7 @@ export default function BranchPage() {
             </Card>
           </TabsContent>
 
-          {/* 分公司直接转账 */}
+          {/* 服务网点直接转账 */}
           <TabsContent value="direct-transfer">
             <Card className="bg-slate-800 border-slate-700">
               <CardHeader>
@@ -1722,7 +1722,7 @@ export default function BranchPage() {
             </Card>
           </TabsContent>
 
-          {/* 分公司能量值变现 */}
+          {/* 服务网点能量值变现 */}
           <TabsContent value="branch-withdraw">
             <Card className="bg-slate-800 border-slate-700">
               <CardHeader>
@@ -1865,9 +1865,9 @@ export default function BranchPage() {
       <Dialog open={showApplyEnergyDialog} onOpenChange={setShowApplyEnergyDialog}>
         <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md">
           <DialogHeader>
-            <DialogTitle>向总公司申请能量值</DialogTitle>
+            <DialogTitle>向智算总台申请能量值</DialogTitle>
             <DialogDescription className="text-gray-400">
-              提交申请后等待总公司审核，通过后能量值将直接到账
+              提交申请后等待智算总台审核，通过后能量值将直接到账
             </DialogDescription>
           </DialogHeader>
 
@@ -1911,13 +1911,13 @@ export default function BranchPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 分公司变现弹窗 */}
+      {/* 服务网点变现弹窗 */}
       <Dialog open={showWithdrawDialog} onOpenChange={setShowWithdrawDialog}>
         <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md">
           <DialogHeader>
             <DialogTitle>能量值变现</DialogTitle>
             <DialogDescription className="text-gray-400">
-              将能量值变现，等待总公司转账
+              将能量值变现，等待智算总台转账
             </DialogDescription>
           </DialogHeader>
 

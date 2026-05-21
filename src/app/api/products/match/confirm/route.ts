@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
         sql_query: `UPDATE users SET balance = COALESCE(balance, 0) + ${providerShare} WHERE id = '${user.userId}'`
       });
 
-      // 总公司收益
+      // 智算总台收益
       const { data: adminUser } = await supabase.from('users').select('id').eq('role', 'admin').limit(1);
       if (adminUser && adminUser[0]) {
         await supabase.rpc('rpc_execute', {
@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // 分公司收益
+      // 服务网点收益
       const { data: providerData } = await supabase.from('providers').select('branch_id').eq('user_id', user.userId).single();
       if (providerData?.branch_id) {
         await supabase.rpc('rpc_execute', {

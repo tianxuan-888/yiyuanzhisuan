@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 获取用户的分公司信息（用于自动填充）
+    // 获取用户的服务网点信息（用于自动填充）
     let branchIdValue = branchId;
     if (!branchIdValue && parentProviderId) {
       const providerInfo = await query(
@@ -94,10 +94,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 第一代申请必须指定分公司
+    // 第一代申请必须指定服务网点
     if (applyType === 'first_gen' && !branchIdValue) {
       return NextResponse.json(
-        { error: '第一代服务商申请必须指定所属分公司' },
+        { error: '第一代服务商申请必须指定所属服务网点' },
         { status: 400 }
       );
     }

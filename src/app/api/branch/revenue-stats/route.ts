@@ -2,26 +2,26 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 
-// 获取分公司收益统计
+// 获取服务网点收益统计
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const branchId = searchParams.get('branchId');
 
-    // 鉴权：仅管理员或分公司可操作
+    // 鉴权：仅管理员或服务网点可操作
     const authUser = authenticateRequest(request);
     if (!authUser || !authorizeRole(authUser, ['admin', 'branch'])) {
       return NextResponse.json({ error: '无权操作' }, { status: 403 });
     }
 
-    // 如果是分公司用户，使用自己的 ID
+    // 如果是服务网点用户，使用自己的 ID
     const targetBranchId = branchId || authUser.userId;
 
     if (!targetBranchId) {
-      return NextResponse.json({ error: '缺少分公司ID' }, { status: 400 });
+      return NextResponse.json({ error: '缺少服务网点ID' }, { status: 400 });
     }
 
-    // 1. 分公司自己的收益统计（来自 branch_share）
+    // 1. 服务网点自己的收益统计（来自 branch_share）
     const branchStatsSql = `
       SELECT 
         COUNT(*)::int as total_orders,
@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('获取分公司收益统计失败:', error);
+    console.error('获取服务网点收益统计失败:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : '获取收益统计失败' },
       { status: 500 }

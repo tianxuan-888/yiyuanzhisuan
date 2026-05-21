@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne } from '@/storage/database/pg-client';
 
 /**
- * 分公司确认发放额度
+ * 服务网点确认发放额度
  * 确认收款后，将额度分配给服务商
  */
 export async function POST(request: NextRequest) {
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 验证审核人是分公司
+    // 验证审核人是服务网点
     const reviewer = await queryOne<any>(
       `SELECT id, role FROM users WHERE id = $1`,
       [reviewerId]
@@ -58,12 +58,12 @@ export async function POST(request: NextRequest) {
 
     if (!reviewer || reviewer.role !== 'branch') {
       return NextResponse.json(
-        { error: '只有分公司才能审批额度申请' },
+        { error: '只有服务网点才能审批额度申请' },
         { status: 403 }
       );
     }
 
-    // 验证审核人是否有权限（申请归属该分公司）
+    // 验证审核人是否有权限（申请归属该服务网点）
     if (quotaRequest.parent_id !== reviewerId) {
       return NextResponse.json(
         { error: '您没有权限审批该申请' },
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
       [allocationId, quotaRequest.parent_id, quotaRequest.requester_id, finalAmount]
     );
 
-    // 3. 减少分公司的额度（从 quota_accounts 表扣除）
+    // 3. 减少服务网点的额度（从 quota_accounts 表扣除）
     await query(
       `UPDATE quota_accounts SET 
         balance = balance - $1, 
@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * 获取分公司的额度申请列表
+ * 获取服务网点的额度申请列表
  */
 export async function GET(request: NextRequest) {
   try {
@@ -170,7 +170,7 @@ export async function GET(request: NextRequest) {
 
     if (!branchId) {
       return NextResponse.json(
-        { error: '分公司ID不能为空' },
+        { error: '服务网点ID不能为空' },
         { status: 400 }
       );
     }

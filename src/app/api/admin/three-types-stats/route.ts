@@ -61,8 +61,8 @@ export async function GET(request: NextRequest) {
       },
       // 额度分配
       allocations: {
-        toBranches: 0,        // 总公司分配给分公司
-        toProviders: 0,       // 分公司分配给服务商
+        toBranches: 0,        // 智算总台分配给服务网点
+        toProviders: 0,       // 服务网点分配给服务商
         totalAllocated: 0,
       },
       // 服务商额度
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
     };
 
     if (type === 'all' || type === 'quota') {
-      // 总公司额度
+      // 智算总台额度
       const companyQuotaData = await query(
         `SELECT total_quota, used_quota FROM company_quota LIMIT 1`
       );
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
           quotaStats.companyQuota.totalQuota - quotaStats.companyQuota.usedQuota;
       }
 
-      // 额度分配统计（区分总公司→分公司 和 分公司→服务商）
+      // 额度分配统计（区分智算总台→服务网点 和 服务网点→服务商）
       const allocationStats = await query<{ 
         branch_id: string; 
         provider_id: string; 
@@ -110,10 +110,10 @@ export async function GET(request: NextRequest) {
       
       allocationStats.forEach(a => {
         if (a.provider_id === null || a.provider_id === '') {
-          // 总公司分配给分公司
+          // 智算总台分配给服务网点
           quotaStats.allocations.toBranches += parseFloat(a.quota_amount || '0');
         } else {
-          // 分公司分配给服务商
+          // 服务网点分配给服务商
           quotaStats.allocations.toProviders += parseFloat(a.quota_amount || '0');
         }
       });
@@ -174,9 +174,9 @@ export async function GET(request: NextRequest) {
       },
       // 能量值来源统计
       sources: {
-        create: 0,        // 总公司创建
+        create: 0,        // 智算总台创建
         quotaMatch: 0,   // 额度匹配下发
-        purchase: 0,     // 分公司购买
+        purchase: 0,     // 服务网点购买
         transferIn: 0,  // 市场转入
         total: 0,
       },

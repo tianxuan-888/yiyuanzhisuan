@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 import { execute, queryOne } from '@/lib/pg-client';
 
-// 能量值下发（总公司 → 分公司 → 服务商）
+// 能量值下发（智算总台 → 服务网点 → 服务商）
 export async function POST(request: NextRequest) {
   try {
-    // 鉴权：仅管理员和分公司可操作
+    // 鉴权：仅管理员和服务网点可操作
     const user = authenticateRequest(request);
     if (!user || !authorizeRole(user, ['admin', 'branch'])) {
       return NextResponse.json({ error: '无权操作' }, { status: 403 });
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
 
     // 验证角色权限：只有 admin 和 branch 可以释放能量值
     if (fromUser.role !== 'admin' && fromUser.role !== 'branch') {
-      return NextResponse.json({ success: false, error: '只有总公司和分公司可以释放能量值' }, { status: 403 });
+      return NextResponse.json({ success: false, error: '只有智算总台和服务网点可以释放能量值' }, { status: 403 });
     }
 
     // 查询接收方用户信息

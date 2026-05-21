@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne } from '@/storage/database/pg-client';
 
-// 获取分公司下的会员列表
+// 获取服务网点下的会员列表
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -12,19 +12,19 @@ export async function GET(request: NextRequest) {
 
     if (!branchId) {
       return NextResponse.json(
-        { error: '缺少分公司ID参数' },
+        { error: '缺少服务网点ID参数' },
         { status: 400 }
       );
     }
 
-    // 获取该分公司下的所有服务商ID - 优先从 providers 表获取
+    // 获取该服务网点下的所有服务商ID - 优先从 providers 表获取
     const providers = await query<{ user_id: string }>(
       `SELECT user_id FROM providers WHERE branch_id = $1 AND is_active = true`,
       [branchId]
     );
 
     const providerIds = providers.map(p => p.user_id);
-    console.log('[branch/members] 分公司ID:', branchId, '找到服务商:', providerIds);
+    console.log('[branch/members] 服务网点ID:', branchId, '找到服务商:', providerIds);
 
     // 构建会员查询条件
     let members: any[] = [];

@@ -3,7 +3,7 @@ import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 import { execute, queryOne } from '@/lib/pg-client';
 
-// 审批服务商向分公司申请的能量值
+// 审批服务商向服务网点申请的能量值
 export async function POST(request: NextRequest) {
   try {
     // 验证用户身份
@@ -94,12 +94,12 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', requestId);
 
-      // 2. 扣除分公司能量值
-      const branchId = userId; // 当前分公司ID
+      // 2. 扣除服务网点能量值
+      const branchId = userId; // 当前服务网点ID
       const amount = desc.requestedAmount || Number((transaction as any).amount) || 0;
       const providerId = (transaction as any).user_id;
       
-      // 查询分公司能量值账户
+      // 查询服务网点能量值账户
       const { data: branchEa } = await client
         .from('energy_accounts')
         .select('balance, total_out')
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
           })
           .eq('user_id', branchId);
         
-        // 记录分公司转出流水
+        // 记录服务网点转出流水
         await client
           .from('energy_transactions')
           .insert({
@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
               status: 'completed',
               source: 'branch_approved',
               parent_id: userId,
-              note: '分公司审核通过，获得能量值'
+              note: '服务网点审核通过，获得能量值'
             }),
             from_user_id: userId,
             to_user_id: providerId,

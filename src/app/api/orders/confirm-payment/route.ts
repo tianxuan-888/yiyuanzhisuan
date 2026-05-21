@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
         await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [directReward, member.inviter_id]);
       }
 
-      // 3. 给上级服务商增加收益余额（10%）—— 无上级则归总公司
+      // 3. 给上级服务商增加收益余额（10%）—— 无上级则归智算总台
       const providerInfo = await queryOne('SELECT branch_id, parent_provider_id FROM providers WHERE user_id = $1', [order.provider_id]);
       let actualParentProviderId = providerInfo?.parent_provider_id || null;
       if (providerInfo?.parent_provider_id && parentProviderShare > 0) {
@@ -103,19 +103,19 @@ export async function POST(request: NextRequest) {
           await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [parentProviderShare, parentProvider.user_id]);
         }
       } else if (parentProviderShare > 0) {
-        // 无上级服务商，10%归分公司（分公司承担了第一代服务商的培养职责）
+        // 无上级服务商，10%归服务网点（服务网点承担了第一代服务商的培养职责）
         if (providerInfo?.branch_id) {
           await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [parentProviderShare, providerInfo.branch_id]);
         }
         actualParentProviderId = null;
       }
 
-      // 4. 给分公司增加收益余额（5%）
+      // 4. 给服务网点增加收益余额（5%）
       if (providerInfo?.branch_id && branchShare > 0) {
         await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [branchShare, providerInfo.branch_id]);
       }
 
-      // 5. 给总公司增加收益余额（5%）
+      // 5. 给智算总台增加收益余额（5%）
       if (companyShare > 0) {
         const adminUser = await queryOne("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
         if (adminUser) {

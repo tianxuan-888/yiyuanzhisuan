@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne } from '@/storage/database/pg-client';
 
-// 获取分公司概览数据
+// 获取服务网点概览数据
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -9,12 +9,12 @@ export async function GET(request: NextRequest) {
 
     if (!branchId) {
       return NextResponse.json(
-        { success: false, error: '缺少分公司ID' },
+        { success: false, error: '缺少服务网点ID' },
         { status: 400 }
       );
     }
 
-    // 查询分公司信息（从 energy_accounts 表获取能量值）
+    // 查询服务网点信息（从 energy_accounts 表获取能量值）
     const branch = await queryOne<{
       id: string;
       username: string;
@@ -33,12 +33,12 @@ export async function GET(request: NextRequest) {
 
     if (!branch) {
       return NextResponse.json(
-        { success: false, error: '分公司不存在' },
+        { success: false, error: '服务网点不存在' },
         { status: 404 }
       );
     }
 
-    // 查询该分公司的服务商（从 users 表）
+    // 查询该服务网点的服务商（从 users 表）
     const providers = await query<{
       id: string;
       username: string;
@@ -125,9 +125,9 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('获取分公司概览失败:', error);
+    console.error('获取服务网点概览失败:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : '获取分公司概览失败' },
+      { success: false, error: error instanceof Error ? error.message : '获取服务网点概览失败' },
       { status: 500 }
     );
   }

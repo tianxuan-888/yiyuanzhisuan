@@ -7,7 +7,7 @@ import { query, queryOne } from '@/storage/database/pg-client';
  * 审核逻辑：
  * - 同意：从自己空闲额度中拆分给新服务商，状态改为 provider_approved
  * - 拒绝：状态改为 rejected
- * - 拆分后需等待分公司二级审核才能正式变身份
+ * - 拆分后需等待服务网点二级审核才能正式变身份
  */
 export async function POST(request: NextRequest) {
   try {
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     // 只有第二代申请才由服务商审核
     if (application.apply_type !== 'second_gen') {
       return NextResponse.json(
-        { error: '第一代服务商申请由分公司直接审核' },
+        { error: '第一代服务商申请由服务网点直接审核' },
         { status: 400 }
       );
     }
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
       [newUsedQuota, reviewerId]
     );
 
-    // 更新申请状态为 provider_approved（待分公司二级审核）
+    // 更新申请状态为 provider_approved（待服务网点二级审核）
     await query(
       `UPDATE provider_applications 
        SET status = 'provider_approved', quota_approved = $1, reviewed_by = $2, reviewed_at = NOW(), updated_at = NOW()
@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
       [allocatedQuota, reviewerId, applicationId]
     );
 
-    // 通知分公司有新的待审核申请
+    // 通知服务网点有新的待审核申请
     const notifId = crypto.randomUUID();
     await query(
       `INSERT INTO notifications (id, receiver_id, receiver_role, sender_id, sender_name, type, title, content, amount, related_id, created_at)
@@ -168,12 +168,12 @@ export async function POST(request: NextRequest) {
     await query(
       `INSERT INTO notifications (id, receiver_id, receiver_role, sender_id, type, title, content, created_at)
        VALUES ($1, $2, 'member', $3, 'provider_apply_progress', '审核进度更新', $4, NOW())`,
-      [notifId2, application.user_id, reviewerId, `上级服务商已同意拆分 ${allocatedQuota} 额度，正在等待分公司最终审核`]
+      [notifId2, application.user_id, reviewerId, `上级服务商已同意拆分 ${allocatedQuota} 额度，正在等待服务网点最终审核`]
     );
 
     return NextResponse.json({
       success: true,
-      message: `已同意拆分 ${allocatedQuota} 额度，等待分公司最终审核`,
+      message: `已同意拆分 ${allocatedQuota} 额度，等待服务网点最终审核`,
       data: {
         allocatedQuota,
         parentAvailableQuota: availableQuota - allocatedQuota,

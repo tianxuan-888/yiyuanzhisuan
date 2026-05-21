@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 创建申请（分公司发起）
+// 创建申请（服务网点发起）
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 
-// 获取所有分公司的管理数据（增强版）
+// 获取所有服务网点的管理数据（增强版）
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const branchId = searchParams.get('branchId'); // 可选：筛选单个分公司
+    const branchId = searchParams.get('branchId'); // 可选：筛选单个服务网点
     const includeProviders = searchParams.get('includeProviders') === 'true'; // 是否包含服务商详情
 
     // 构建查询条件
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       params = ['branch'];
     }
 
-    // 1. 查询所有分公司基本信息
+    // 1. 查询所有服务网点基本信息
     const branches = await query<{
       id: string;
       username: string;
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       params
     );
 
-    // 2. 查询每个分公司的服务商数量（从 providers 表获取）
+    // 2. 查询每个服务网点的服务商数量（从 providers 表获取）
     const providerCounts = await query<{ branch_id: string; count: string }>(
       `SELECT p.branch_id, COUNT(*) as count 
        FROM providers p
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
        GROUP BY p.branch_id`
     );
 
-    // 3. 查询每个分公司的服务商体系用户数量（服务商 + 会员）
+    // 3. 查询每个服务网点的服务商体系用户数量（服务商 + 会员）
     const userCounts = await query<{ branch_id: string; provider_count: string; member_count: string }>(
       `SELECT 
         p.branch_id,
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
        GROUP BY requester_id, status`
     );
 
-    // 5. 查询产品额度（从 quota_accounts 表获取分公司的算力账户余额）
+    // 5. 查询产品额度（从 quota_accounts 表获取服务网点的算力账户余额）
     const quotaAccountBalances = await query<{ 
       user_id: string;
       balance: string;
@@ -82,8 +82,8 @@ export async function GET(request: NextRequest) {
     console.log('[BranchManagement] quotaAccountBalances:', quotaAccountBalances);
     console.log('[BranchManagement] branches:', branches.map(b => b.id));
 
-    // 6. 查询每个分公司及其体系下的能量值总和
-    // 包括：分公司自己的能量值 + 该分公司下所有服务商的能量值 + 所有会员的能量值
+    // 6. 查询每个服务网点及其体系下的能量值总和
+    // 包括：服务网点自己的能量值 + 该服务网点下所有服务商的能量值 + 所有会员的能量值
     // 先查询所有用户的能量值
     const allUserEnergy = await query<{ 
       user_id: string;
@@ -100,15 +100,15 @@ export async function GET(request: NextRequest) {
        LEFT JOIN users u ON ea.user_id::text = u.id`
     );
 
-    // 在内存中计算每个分公司的能量值总和
+    // 在内存中计算每个服务网点的能量值总和
     const branchEnergyMap = new Map<string, { branch: number; provider: number; member: number; total: number }>();
     
     allUserEnergy.forEach(e => {
       const balance = parseFloat(e.balance || '0');
       
-      // 分公司能量值 - 分公司的 branch_id 为 NULL，所以用 user_id 作为 key
+      // 服务网点能量值 - 服务网点的 branch_id 为 NULL，所以用 user_id 作为 key
       if (e.role === 'branch') {
-        const key = e.user_id;  // 用 user_id 作为分公司的 key
+        const key = e.user_id;  // 用 user_id 作为服务网点的 key
         const existing = branchEnergyMap.get(key) || { branch: 0, provider: 0, member: 0, total: 0 };
         existing.branch += balance;
         existing.total += balance;
@@ -170,7 +170,7 @@ export async function GET(request: NextRequest) {
        GROUP BY p.branch_id`
     );
 
-    // 8. 查询每个分公司的服务商详细数据
+    // 8. 查询每个服务网点的服务商详细数据
     const providerStats = await query<{
       branch_id: string;
       provider_id: string;
@@ -252,7 +252,7 @@ export async function GET(request: NextRequest) {
         quotaRequestMap.set(q.requester_id, current + parseFloat(q.total_amount || '0'));
       });
 
-    // 产品额度映射 - 从 quota_accounts 获取分公司的算力账户余额
+    // 产品额度映射 - 从 quota_accounts 获取服务网点的算力账户余额
     const quotaBalanceMap = new Map<string, { 
       balance: number;    // 当前余额
       totalIn: number;    // 累计收入
@@ -331,7 +331,7 @@ export async function GET(request: NextRequest) {
       const userCount = userCountMap.get(branch.id) || { providers: 0, members: 0 };
       const quotaApproved = quotaRequestMap.get(branch.id) || 0;
       const quotaBalance = quotaBalanceMap.get(branch.id) || { balance: 0, totalIn: 0 };
-      // 分公司体系下所有能量值（分公司+服务商+会员）
+      // 服务网点体系下所有能量值（服务网点+服务商+会员）
       const energyStats = branchEnergyMap.get(branch.id) || { branch: 0, provider: 0, member: 0, total: 0 };
       const salesInfo = orderStatsMap.get(branch.id) || { total: 0, count: 0 };
       const providers = providerStatsMap.get(branch.id) || [];
@@ -354,7 +354,7 @@ export async function GET(request: NextRequest) {
         
         stats: {
           branchCount: 1,
-          // 分公司额度（从 quota_accounts 获取）
+          // 服务网点额度（从 quota_accounts 获取）
           quotaApplied: quotaApproved,
           quotaTotal: quotaBalance.totalIn,  // 累计收入 = 下发总额
           quotaUsed: quotaBalance.totalIn - quotaBalance.balance,  // 已分配 = 累计收入 - 当前余额
@@ -363,7 +363,7 @@ export async function GET(request: NextRequest) {
           providerQuotaTotal: providerSummary.totalQuota,
           providerQuotaUsed: providerSummary.usedQuota,
           providerQuotaAvailable: providerSummary.availableQuota,
-          // 分公司体系能量值（分公司+服务商+会员）
+          // 服务网点体系能量值（服务网点+服务商+会员）
           energyBalance: energyStats.total,
           energyBranchBalance: energyStats.branch,
           energyProviderBalance: energyStats.provider,
@@ -390,7 +390,7 @@ export async function GET(request: NextRequest) {
     const summary = {
       totalBranches: branchData.length,
       totalQuotaApplied: branchData.reduce((sum, b) => sum + b.stats.quotaApplied, 0),
-      // 所有分公司体系能量值总和（分公司+服务商+会员）
+      // 所有服务网点体系能量值总和（服务网点+服务商+会员）
       totalEnergyBalance: branchData.reduce((sum, b) => sum + b.stats.energyBalance, 0),
       totalEnergyBranchBalance: branchData.reduce((sum, b) => sum + (b.stats.energyBranchBalance || 0), 0),
       totalEnergyProviderBalance: branchData.reduce((sum, b) => sum + (b.stats.energyProviderBalance || 0), 0),
@@ -398,7 +398,7 @@ export async function GET(request: NextRequest) {
       totalProviders: branchData.reduce((sum, b) => sum + b.stats.providerCount, 0),
       totalUsers: branchData.reduce((sum, b) => sum + b.stats.totalUserCount, 0),
       totalProductRevenue: branchData.reduce((sum, b) => sum + b.stats.totalProductRevenue, 0),
-      // 分公司总额度
+      // 服务网点总额度
       totalQuotaAvailable: branchData.reduce((sum, b) => sum + b.stats.quotaAvailable, 0),
       totalQuota: branchData.reduce((sum, b) => sum + b.stats.quotaTotal, 0),
       // 服务商分配总额度
@@ -415,7 +415,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('获取分公司管理数据失败:', error);
+    console.error('获取服务网点管理数据失败:', error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

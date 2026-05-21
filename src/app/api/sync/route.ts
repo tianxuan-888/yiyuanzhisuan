@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 同步分公司数据
+    // 同步服务网点数据
     if (syncType === 'all' || syncType === 'branches') {
       const { data: branches, error: branchesError } = await client
         .from('users')
@@ -150,13 +150,13 @@ export async function POST(request: NextRequest) {
 
     // 根据用户角色过滤数据
     if (userRole === 'branch' && userId) {
-      // 分公司只看到自己的服务商和会员
+      // 服务网点只看到自己的服务商和会员
       const providers = syncData.data.providers as Array<{ branch_id: string; id: string }> || [];
       const members = syncData.data.members as Array<{ provider_id: string }> || [];
       
       syncData.data.providers = providers.filter(p => p.branch_id === userId);
       syncData.data.members = members.filter(m => {
-        // 获取该分公司下属服务商的会员
+        // 获取该服务网点下属服务商的会员
         const branchProviders = providers.map(p => p.id);
         return branchProviders.includes(m.provider_id);
       });

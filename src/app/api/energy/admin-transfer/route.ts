@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 
-// 总公司向任意用户转账能量值
+// 智算总台向任意用户转账能量值
 export async function POST(request: NextRequest) {
   try {
     // 鉴权：仅管理员可操作
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 验证是总公司操作
+    // 验证是智算总台操作
     const fromUser = await query<{
       id: string;
       username: string;
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     if (fromUser[0].role !== 'admin') {
       return NextResponse.json(
-        { error: '只有总公司管理员可以执行此操作' },
+        { error: '只有智算总台管理员可以执行此操作' },
         { status: 403 }
       );
     }
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
         toEnergyValue.toFixed(2),
         (toEnergyValue + transferAmount).toFixed(2),
         fromUserId,
-        `总公司 ${fromUser[0].username} 转账`,
+        `智算总台 ${fromUser[0].username} 转账`,
         'completed',
         fromUserId,
         toUserId

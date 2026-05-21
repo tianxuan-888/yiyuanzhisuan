@@ -100,7 +100,7 @@ export default function ProviderDashboard() {
   const [recharging, setRecharging] = useState(false);
   const [rechargeSuccess, setRechargeSuccess] = useState('');
   
-  // 向分公司申请能量值状态
+  // 向服务网点申请能量值状态
   const [branchRequestAmount, setBranchRequestAmount] = useState('');
   const [branchRequestNote, setBranchRequestNote] = useState('');
   const [requestingBranch, setRequestingBranch] = useState(false);
@@ -108,7 +108,7 @@ export default function ProviderDashboard() {
   const [branchRequests, setBranchRequests] = useState<EnergyRequest[]>([]);
   const [branchName, setBranchName] = useState('');
   
-  // 向分公司申请算力额度状态
+  // 向服务网点申请算力额度状态
   const [quotaRequestAmount, setQuotaRequestAmount] = useState('');
   const [quotaRequestNote, setQuotaRequestNote] = useState('');
   const [requestingQuota, setRequestingQuota] = useState(false);
@@ -529,7 +529,7 @@ export default function ProviderDashboard() {
     setRecharging(false);
   };
 
-  // 向分公司申请能量值
+  // 向服务网点申请能量值
   const handleBranchRequest = async () => {
     if (!branchRequestAmount || parseFloat(branchRequestAmount) <= 0) {
       setToast({ message: '请输入正确的申请金额', type: 'error' });
@@ -564,7 +564,7 @@ export default function ProviderDashboard() {
     setRequestingBranch(false);
   };
 
-  // 获取向分公司的申请记录
+  // 获取向服务网点的申请记录
   const fetchBranchRequests = async () => {
     if (!token) return;
     try {
@@ -613,7 +613,7 @@ export default function ProviderDashboard() {
     setWithdrawing(false);
   };
 
-  // 向分公司申请算力额度
+  // 向服务网点申请算力额度
   const handleQuotaRequest = async () => {
     const amount = parseInt(quotaRequestAmount);
     if (!amount || amount < 5000) {
@@ -1186,14 +1186,14 @@ export default function ProviderDashboard() {
               </Card>
             </div>
             
-            {/* 向分公司申请算力额度 */}
+            {/* 向服务网点申请算力额度 */}
             <Card className="border-blue-200">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Database className="w-5 h-5 text-blue-500" />
-                  向分公司申请算力额度
+                  向服务网点申请算力额度
                 </CardTitle>
-                <CardDescription>向所属分公司申请算力额度，每次申请至少5000元起</CardDescription>
+                <CardDescription>向所属服务网点申请算力额度，每次申请至少5000元起</CardDescription>
               </CardHeader>
               <CardContent>
                 {quotaRequestSuccess && (
@@ -1203,7 +1203,7 @@ export default function ProviderDashboard() {
                 )}
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <Label>所属分公司</Label>
+                    <Label>所属服务网点</Label>
                     <Input 
                       value={quotaBranchName || user?.branch_name || '加载中...'}
                       disabled
@@ -1378,14 +1378,14 @@ export default function ProviderDashboard() {
               </CardContent>
             </Card>
 
-            {/* 向分公司申请能量值 */}
+            {/* 向服务网点申请能量值 */}
             <Card className="border-blue-200">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Database className="w-5 h-5 text-blue-500" />
-                  向分公司申请能量值
+                  向服务网点申请能量值
                 </CardTitle>
-                <CardDescription>向所属分公司申请能量值配额，等待审核后发放</CardDescription>
+                <CardDescription>向所属服务网点申请能量值配额，等待审核后发放</CardDescription>
               </CardHeader>
               <CardContent>
                 {branchRequestSuccess && (
@@ -1395,7 +1395,7 @@ export default function ProviderDashboard() {
                 )}
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <Label>所属分公司</Label>
+                    <Label>所属服务网点</Label>
                     <Input 
                       value={branchName || user?.branch_name || '加载中...'}
                       disabled

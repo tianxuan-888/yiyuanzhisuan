@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1. 验证操作者是分公司
+    // 1. 验证操作者是服务网点
     const { data: operator, error: opError } = await supabase
       .from('users')
       .select('id, role, branch_id')
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     if (opError || !operator || operator.role !== 'branch') {
       return NextResponse.json(
-        { success: false, message: '无操作权限，仅分公司可执行转移' },
+        { success: false, message: '无操作权限，仅服务网点可执行转移' },
         { status: 403 }
       );
     }
@@ -90,8 +90,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 会员通过 provider_id 关联服务商，服务商的 branch_id 确定所属分公司
-    // 验证该会员所属服务商在同一分公司下
+    // 会员通过 provider_id 关联服务商，服务商的 branch_id 确定所属服务网点
+    // 验证该会员所属服务商在同一服务网点下
     if (member.provider_id) {
       const { data: currentProvider } = await supabase
         .from('users')
@@ -101,13 +101,13 @@ export async function POST(request: NextRequest) {
 
       if (!currentProvider || currentProvider.branch_id !== branchId) {
         return NextResponse.json(
-          { success: false, message: '该会员不属于当前分公司' },
+          { success: false, message: '该会员不属于当前服务网点' },
           { status: 400 }
         );
       }
     }
 
-    // 3. 验证目标服务商存在且属于同一分公司
+    // 3. 验证目标服务商存在且属于同一服务网点
     const { data: targetProvider, error: tpError } = await supabase
       .from('users')
       .select('id, username, role, branch_id, unique_id')
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
 
     if (targetProvider.branch_id !== branchId) {
       return NextResponse.json(
-        { success: false, message: '目标服务商不在同一分公司下，无法转移' },
+        { success: false, message: '目标服务商不在同一服务网点下，无法转移' },
         { status: 400 }
       );
     }

@@ -5,10 +5,10 @@
 // 【商业模式】
 // 会员购买GPU产品，只付本金
 // 到期卖出时需用能量值支付市场费（没有能量值需找服务商充值）
-// 能量值按比例分配给服务商、运营、上级、分公司、直推
+// 能量值按比例分配给服务商、运营、上级、服务网点、直推
 // 
 // 【角色层级】
-// 总公司 → 分公司 → 服务商 → 会员
+// 智算总台 → 服务网点 → 服务商 → 会员
 //
 // 【核心机制】
 // - 能量值：卖出时支付市场费，可找服务商充值
@@ -74,18 +74,18 @@ export interface Provider extends BaseUser {
   directReferrals: number; // 直推人数
   systemPurchase: number; // 体系购买额
   holdingMembers: number; // 持仓会员数
-  branchId?: string; // 归属分公司ID（无则归总公司）
+  branchId?: string; // 归属服务网点ID（无则归智算总台）
   parentProviderId?: string; // 上级服务商ID（拆分出来的来源）
   childProviderIds?: string[]; // 下级服务商ID列表（拆分出去的）
   energyValue: number; // 能量值
   status: 'active' | 'suspended' | 'bankrupt' | 'pending_split'; // 状态
   lastSaleDate: string; // 最后销售日期
-  canUpgrade: boolean; // 是否可升级为分公司
+  canUpgrade: boolean; // 是否可升级为服务网点
   needSplit: boolean; // 是否需要拆分（达到20万）
   splitQuota: number; // 已拆分出去的额度
 }
 
-// 分公司信息
+// 服务网点信息
 export interface Branch extends BaseUser {
   role: 'branch';
   deposit: number; // 质押金5万
@@ -242,7 +242,7 @@ export const energyValueDistribution = {
   provider: 70, // 服务商 70%
   company: 5, // 公司运营 5%
   parentProvider: 10, // 上级服务商 10%
-  branch: 5, // 分公司 5%
+  branch: 5, // 服务网点 5%
   referral: 10, // 直推 10%
   total: 100, // 总计 100%
 };
@@ -433,13 +433,13 @@ export interface SellRequest {
   grabberName?: string; // 抢购者名称
 }
 
-// 分公司准入条件
+// 服务网点准入条件
 export const branchRequirements = {
   deposit: 50000, // 质押金
   minDirectProviders: 5, // 最少直推服务商数
 };
 
-// 分公司规则
+// 服务网点规则
 export const branchRules = {
   discount: 0.7, // 拿货折扣7折
   bankruptcyBuybackRate: 0.5, // 破产回购折扣5折
@@ -582,7 +582,7 @@ export function canUpgradeToProvider(member: Member): {
   };
 }
 
-// 判断服务商是否可升级为分公司
+// 判断服务商是否可升级为服务网点
 export function canUpgradeToBranch(provider: Provider): {
   canUpgrade: boolean;
   reasons: string[];
@@ -628,7 +628,7 @@ export function shouldSuspendProvider(provider: Provider): boolean {
   return daysDiff >= providerRules.suspendDays;
 }
 
-// 计算分公司破产清算
+// 计算服务网点破产清算
 export function calculateBranchBankruptcy(branch: Branch): {
   totalQuota: number;
   buybackAmount: number;

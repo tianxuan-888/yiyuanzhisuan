@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
         throw Object.assign(new Error('能量值余额不足'), { statusCode: 400 });
       }
 
-      // 获取分公司ID
+      // 获取服务网点ID
       let branchId = provider.branch_id;
       if (!branchId) {
         const providerRecordRes = await client.query(
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (!branchId) {
-        throw Object.assign(new Error('未找到所属分公司，无法提现'), { statusCode: 400 });
+        throw Object.assign(new Error('未找到所属服务网点，无法提现'), { statusCode: 400 });
       }
 
       // 2. 冻结/扣减服务商能量值
@@ -88,14 +88,14 @@ export async function POST(request: NextRequest) {
 
       const withdrawalId = withdrawalRes.rows[0].id;
 
-      // 4. 记入分公司现金收益
+      // 4. 记入服务网点现金收益
       await client.query(
         `INSERT INTO branch_revenue_records (branch_id, type, amount, related_user_id, related_withdrawal_id, status, note, created_at)
          VALUES ($1, 'provider_withdraw', $2, $3, $4, 'received', $5, NOW())`,
         [branchId, actualAmount.toFixed(2), providerId, withdrawalId, `服务商提现: ${withdrawAmount}能量值，到账${actualAmount}元`]
       );
 
-      // 5. 手续费沉淀到总公司
+      // 5. 手续费沉淀到智算总台
       await client.query(
         `INSERT INTO company_fee_records (type, amount, source_user_id, source_role, source_withdrawal_id, note, created_at)
          VALUES ('withdrawal_fee', $1, $2, 'provider', $3, $4, NOW())`,
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `提现申请已提交，等待分公司审核。实际到账: ${result.actualAmount}元（扣除5%手续费 ${result.fee}元）`,
+      message: `提现申请已提交，等待服务网点审核。实际到账: ${result.actualAmount}元（扣除5%手续费 ${result.fee}元）`,
       data: {
         withdrawalId: result.withdrawalId,
         amount: withdrawAmount.toFixed(2),

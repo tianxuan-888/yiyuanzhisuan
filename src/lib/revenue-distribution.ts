@@ -6,9 +6,9 @@
  * - 服务商: market_rate * 40%（保底2%对应3天产品5%*40%=2%）
  * - 上级服务商: market_rate * 6%
  * - 直推奖励: market_rate * 6%
- * - 高级服务商: market_rate * 3%（培养≥3个直推服务商，无则归总公司）
- * - 分公司: market_rate * 3%
- * - 总公司: market_rate * 2%
+ * - 高级服务商: market_rate * 3%（培养≥3个直推服务商，无则归智算总台）
+ * - 服务网点: market_rate * 3%
+ * - 智算总台: market_rate * 2%
  */
 
 import { queryOne, execute } from '@/storage/database/pg-client';
@@ -19,8 +19,8 @@ const DISTRIBUTION_RATIOS = {
   parentProvider: 0.06,  // 上级服务商 6%
   inviter: 0.06,         // 直推奖励 6%
   seniorProvider: 0.03,  // 高级服务商 3%
-  branch: 0.03,          // 分公司 3%
-  company: 0.02,         // 总公司 2%
+  branch: 0.03,          // 服务网点 3%
+  company: 0.02,         // 智算总台 2%
 } as const;
 
 // 验证比例总和 = 60%（剩余40%是会员的 profit_rate）
@@ -32,14 +32,14 @@ interface DistributionResult {
   parentProviderShare: number; // 上级服务商分成
   inviterShare: number;       // 直推奖励
   seniorProviderShare: number; // 高级服务商分成
-  branchShare: number;        // 分公司分成
-  companyShare: number;       // 总公司分成
+  branchShare: number;        // 服务网点分成
+  companyShare: number;       // 智算总台分成
   providerId: string;         // 服务商ID
   parentProviderId: string | null;  // 上级服务商ID
   inviterId: string | null;   // 直推人ID
   seniorProviderId: string | null;  // 高级服务商ID
-  branchId: string | null;    // 分公司ID
-  adminId: string;            // 总公司ID
+  branchId: string | null;    // 服务网点ID
+  adminId: string;            // 智算总台ID
 }
 
 /**
@@ -115,7 +115,7 @@ export async function distributeRevenue(params: {
     seniorProviderUserId = await findSeniorProvider(providerId);
   }
 
-  // 总公司ID（固定为admin角色的用户）
+  // 智算总台ID（固定为admin角色的用户）
   const admin = await queryOne(
     `SELECT id FROM users WHERE role = 'admin' LIMIT 1`,
     []
@@ -143,7 +143,7 @@ export async function distributeRevenue(params: {
   if (parentProviderUserId && amounts.parentProviderShare > 0) {
     distributionResults.push({ role: 'parent_provider', userId: parentProviderUserId, amount: amounts.parentProviderShare });
   } else if (amounts.parentProviderShare > 0) {
-    // 无上级服务商，归总公司
+    // 无上级服务商，归智算总台
     distributionResults.push({ role: 'company', userId: adminId, amount: amounts.parentProviderShare });
   }
 
@@ -151,7 +151,7 @@ export async function distributeRevenue(params: {
   if (inviterId && amounts.inviterShare > 0) {
     distributionResults.push({ role: 'inviter', userId: inviterId, amount: amounts.inviterShare });
   } else if (amounts.inviterShare > 0) {
-    // 无直推人，归总公司
+    // 无直推人，归智算总台
     distributionResults.push({ role: 'company', userId: adminId, amount: amounts.inviterShare });
   }
 
@@ -159,18 +159,18 @@ export async function distributeRevenue(params: {
   if (seniorProviderUserId && amounts.seniorProviderShare > 0) {
     distributionResults.push({ role: 'senior_provider', userId: seniorProviderUserId, amount: amounts.seniorProviderShare });
   } else if (amounts.seniorProviderShare > 0) {
-    // 无高级服务商，归总公司
+    // 无高级服务商，归智算总台
     distributionResults.push({ role: 'company', userId: adminId, amount: amounts.seniorProviderShare });
   }
 
-  // 6. 分公司收益
+  // 6. 服务网点收益
   if (branchId && amounts.branchShare > 0) {
     distributionResults.push({ role: 'branch', userId: branchId, amount: amounts.branchShare });
   } else if (amounts.branchShare > 0) {
     distributionResults.push({ role: 'company', userId: adminId, amount: amounts.branchShare });
   }
 
-  // 7. 总公司收益（基础 + 归属部分）
+  // 7. 智算总台收益（基础 + 归属部分）
   const companyTotal = distributionResults
     .filter(r => r.role === 'company')
     .reduce((sum, r) => sum + r.amount, 0) + amounts.companyShare;

@@ -5,7 +5,7 @@ import { query } from '@/storage/database/pg-client';
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const branchId = searchParams.get('branchId'); // 可选：筛选单个分公司下的服务商
+    const branchId = searchParams.get('branchId'); // 可选：筛选单个服务网点下的服务商
     const providerId = searchParams.get('providerId'); // 可选：筛选单个服务商
 
     // 构建查询条件 - 需要关联 providers 表来筛选 branch_id

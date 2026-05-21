@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
         .eq('user_id', from_user_id)
         .single();
       if (!providerData || providerData.branch_id !== to_user_id) {
-        return NextResponse.json({ error: '只能向所属分公司转账' }, { status: 403 });
+        return NextResponse.json({ error: '只能向所属服务网点转账' }, { status: 403 });
       }
     }
 

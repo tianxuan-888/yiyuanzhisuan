@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, withTransaction } from '@/lib/pg-client';
 import { authenticateRequest } from '@/lib/auth';
 
-// 分公司审核提现（审核会员/服务商的提现申请）
+// 服务网点审核提现（审核会员/服务商的提现申请）
 export async function POST(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);
@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (authUser.role !== 'branch') {
-      return NextResponse.json({ error: '仅分公司可审核提现' }, { status: 403 });
+      return NextResponse.json({ error: '仅服务网点可审核提现' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -61,13 +61,13 @@ export async function POST(request: NextRequest) {
           [reviewerId, withdrawalId]
         );
 
-        // 更新分公司收益记录状态
+        // 更新服务网点收益记录状态
         await client.query(
           `UPDATE branch_revenue_records SET status = 'approved', updated_at = NOW() WHERE related_withdrawal_id = $1`,
           [withdrawalId]
         );
 
-        // 增加分公司余额（95%到账金额）
+        // 增加服务网点余额（95%到账金额）
         const actualAmount = parseFloat(withdrawal.actual_amount) || 0;
         if (actualAmount > 0) {
           const branchRes = await client.query(
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
           [withdrawalId]
         );
 
-        // 更新分公司收益记录
+        // 更新服务网点收益记录
         await client.query(
           `UPDATE branch_revenue_records SET status = 'paid', updated_at = NOW() WHERE related_withdrawal_id = $1`,
           [withdrawalId]
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
           [withdrawalId]
         );
 
-        // 更新分公司收益记录
+        // 更新服务网点收益记录
         await client.query(
           `UPDATE branch_revenue_records SET status = 'completed', updated_at = NOW() WHERE related_withdrawal_id = $1`,
           [withdrawalId]
@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // 扣除分公司已增加的余额（如果审批时已加）
+        // 扣除服务网点已增加的余额（如果审批时已加）
         if (actualAmount > 0) {
           const branchRes = await client.query(
             'SELECT balance FROM users WHERE id = $1',
@@ -190,13 +190,13 @@ export async function POST(request: NextRequest) {
           [reviewerId, rejectReason || '审核拒绝', withdrawalId]
         );
 
-        // 删除分公司收益记录（退还）
+        // 删除服务网点收益记录（退还）
         await client.query(
           `DELETE FROM branch_revenue_records WHERE related_withdrawal_id = $1`,
           [withdrawalId]
         );
 
-        // 删除总公司手续费记录（退还）
+        // 删除智算总台手续费记录（退还）
         await client.query(
           `DELETE FROM company_fee_records WHERE source_withdrawal_id = $1`,
           [withdrawalId]
@@ -222,7 +222,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 获取分公司待审核/所有提现列表
+// 获取服务网点待审核/所有提现列表
 export async function GET(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);
@@ -231,7 +231,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (authUser.role !== 'branch') {
-      return NextResponse.json({ error: '仅分公司可查看' }, { status: 403 });
+      return NextResponse.json({ error: '仅服务网点可查看' }, { status: 403 });
     }
 
     const branchUserId = authUser.userId;
@@ -239,8 +239,8 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const userRole = searchParams.get('userRole');
 
-    // 获取分公司下所有会员和服务商的提现单
-    // 先找分公司下的服务商
+    // 获取服务网点下所有会员和服务商的提现单
+    // 先找服务网点下的服务商
     const providers = await query(
       'SELECT user_id FROM providers WHERE branch_id = $1',
       [branchUserId]

@@ -90,7 +90,7 @@ const menuItems: MenuItem[] = [
   { id: 'my-profile', name: '我的', icon: <User className="w-5 h-5" /> },
   { id: 'overview', name: '数据总览', icon: <LayoutDashboard className="w-5 h-5" /> },
   { id: 'quota', name: '算力额度管理', icon: <Database className="w-5 h-5" /> },
-  { id: 'branches', name: '分公司管理', icon: <Building2 className="w-5 h-5" /> },
+  { id: 'branches', name: '服务网点管理', icon: <Building2 className="w-5 h-5" /> },
   { id: 'providers', name: '服务商管理', icon: <UserCog className="w-5 h-5" /> },
   { id: 'members', name: '会员管理', icon: <Users className="w-5 h-5" /> },
   { id: 'energy', name: '收益管理', icon: <Zap className="w-5 h-5" /> },
@@ -360,7 +360,7 @@ export default function AdminPage() {
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignMessage, setAssignMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
-  // 总公司邀请码 state
+  // 智算总台邀请码 state
   const [adminInviteCode, setAdminInviteCode] = useState('');
   const [inviteCodeLoading, setInviteCodeLoading] = useState(false);
   const [inviteCodeMessage, setInviteCodeMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
@@ -454,7 +454,7 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (data.success) {
-        const roleLabels: Record<string, string> = { admin: '总公司', branch: '分公司', provider: '服务商', member: '会员' };
+        const roleLabels: Record<string, string> = { admin: '智算总台', branch: '服务网点', provider: '服务商', member: '会员' };
         setAssignMessage({ type: 'success', text: `已将用户 ${username} 角色变更为${roleLabels[targetRole]}` });
         // 刷新搜索结果
         searchUsersForAssign();
@@ -468,7 +468,7 @@ export default function AdminPage() {
     }
   }, [user, searchUsersForAssign]);
 
-  // 加载/生成总公司邀请码
+  // 加载/生成智算总台邀请码
   const loadAdminInviteCode = useCallback(async () => {
     setInviteCodeLoading(true);
     setInviteCodeMessage(null);
@@ -653,7 +653,7 @@ export default function AdminPage() {
         console.error('获取服务商列表失败:', e);
       }
 
-      // 获取分公司列表
+      // 获取服务网点列表
       try {
         const branchesRes = await authFetch('/api/admin/users?role=branch');
         const branchesData = await branchesRes.json();
@@ -661,7 +661,7 @@ export default function AdminPage() {
           setBranches(branchesData.data || []);
         }
       } catch (e) {
-        console.error('获取分公司列表失败:', e);
+        console.error('获取服务网点列表失败:', e);
       }
 
       // 获取额度申请
@@ -675,7 +675,7 @@ export default function AdminPage() {
         console.error('获取额度申请失败:', e);
       }
 
-      // 获取分公司变现申请（总公司审核）
+      // 获取服务网点变现申请（智算总台审核）
       try {
         const withdrawRes = await authFetch('/api/admin/branch-withdraw-list');
         const withdrawData = await withdrawRes.json();
@@ -684,7 +684,7 @@ export default function AdminPage() {
           setBranchWithdrawals(withdrawData.data?.records || []);
         }
       } catch (e) {
-        console.error('获取分公司变现申请失败:', e);
+        console.error('获取服务网点变现申请失败:', e);
       }
 
       // 获取管理员额度信息
@@ -848,7 +848,7 @@ export default function AdminPage() {
     }
   };
 
-  // 加载分公司收益申请 pending 数量
+  // 加载服务网点收益申请 pending 数量
   const loadBranchEnergyPendingCount = async () => {
     try {
       const response = await authFetch('/api/energy/branch-request?status=pending');
@@ -1035,7 +1035,7 @@ export default function AdminPage() {
     }
   };
 
-  // 释放收益给分公司
+  // 释放收益给服务网点
   const handleReleaseEnergy = async () => {
     const adminId = localStorage.getItem('userId');
     if (!adminId || !releaseForm.toUserId || !releaseForm.amount) {
@@ -1230,7 +1230,7 @@ export default function AdminPage() {
             <Shield className="w-4 h-4 text-white" />
           </div>
           <div>
-            <p className="text-white text-sm font-medium">总公司</p>
+            <p className="text-white text-sm font-medium">智算总台</p>
             <p className="text-purple-300 text-xs">管理员</p>
           </div>
         </div>
@@ -1627,11 +1627,11 @@ export default function AdminPage() {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm opacity-80">总公司收益</p>
+                      <p className="text-sm opacity-80">智算总台收益</p>
                       <p className="text-2xl font-bold mt-2">
                         {(overviewData?.energy?.energyDistribution?.admin || 0).toLocaleString()}
                       </p>
-                      <p className="text-xs opacity-70 mt-1">总公司持有</p>
+                      <p className="text-xs opacity-70 mt-1">智算总台持有</p>
                     </div>
                     <Shield className="w-8 h-8 opacity-50" />
                   </div>
@@ -1641,11 +1641,11 @@ export default function AdminPage() {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm opacity-80">分公司收益</p>
+                      <p className="text-sm opacity-80">服务网点收益</p>
                       <p className="text-2xl font-bold mt-2">
                         {(overviewData?.energy?.energyDistribution?.branch || 0).toLocaleString()}
                       </p>
-                      <p className="text-xs opacity-70 mt-1">分公司持有</p>
+                      <p className="text-xs opacity-70 mt-1">服务网点持有</p>
                     </div>
                     <Building2 className="w-8 h-8 opacity-50" />
                   </div>
@@ -1825,7 +1825,7 @@ export default function AdminPage() {
 
   // 额度总览
   const renderQuotaOverview = () => {
-    // 获取总公司账户信息
+    // 获取智算总台账户信息
     const adminAccount = quotaAccounts.find(a => a.role === 'admin');
     const branchAccounts = quotaAccounts.filter(a => a.role === 'branch');
     const providerAccounts = quotaAccounts.filter(a => a.role === 'provider');
@@ -1880,8 +1880,8 @@ export default function AdminPage() {
       }
       setSubmitting(true);
       try {
-        // 总公司→分公司：调用 allocate-branch API（赠送20%收益）
-        // 总公司→服务商：暂不直接分配（通过分公司分配）
+        // 智算总台→服务网点：调用 allocate-branch API（赠送20%收益）
+        // 智算总台→服务商：暂不直接分配（通过服务网点分配）
         const res = await authFetch('/api/admin/allocate-branch', {
           method: 'POST',
           body: JSON.stringify({
@@ -1914,7 +1914,7 @@ export default function AdminPage() {
         {/* 额度统计卡片 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
           <div className="mobile-compact-card p-4 md:p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
-            <p className="text-sm text-gray-600 mobile-label">总公司额度</p>
+            <p className="text-sm text-gray-600 mobile-label">智算总台额度</p>
             <p className="text-2xl md:text-3xl font-bold text-blue-600 mt-2 mobile-num">
               ¥{formatWan(adminAccount?.total_in)}
             </p>
@@ -1928,7 +1928,7 @@ export default function AdminPage() {
               ¥{formatWan(totalIssued)}
             </p>
             <p className="text-xs text-gray-500 mt-1 mobile-sub">
-              分配给 {branchAccounts.length} 个分公司
+              分配给 {branchAccounts.length} 个服务网点
             </p>
           </div>
           <div className="mobile-compact-card p-4 md:p-6 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg">
@@ -1960,16 +1960,16 @@ export default function AdminPage() {
           </Button>
         </div>
 
-        {/* 下属分公司额度 */}
+        {/* 下属服务网点额度 */}
         <Card>
           <CardHeader>
-            <CardTitle>下属分公司额度</CardTitle>
+            <CardTitle>下属服务网点额度</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {branchAccounts.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
-                  暂无分公司
+                  暂无服务网点
                 </div>
               )}
               {branchAccounts.map(account => (
@@ -2052,20 +2052,20 @@ export default function AdminPage() {
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <Card className="w-full max-w-md">
               <CardHeader>
-                <CardTitle>分配算力额度给分公司</CardTitle>
+                <CardTitle>分配算力额度给服务网点</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
-                  分配额度给分公司时，系统自动赠送20%收益给分公司。例如分配10000元额度，分公司额外获得2000收益。
+                  分配额度给服务网点时，系统自动赠送20%收益给服务网点。例如分配10000元额度，服务网点额外获得2000收益。
                 </div>
                 <div>
-                  <Label>选择分公司</Label>
+                  <Label>选择服务网点</Label>
                   <select
                     className="w-full mt-1 p-2 border rounded-md"
                     value={transferTo}
                     onChange={(e) => setTransferTo(e.target.value)}
                   >
-                    <option value="">请选择分公司</option>
+                    <option value="">请选择服务网点</option>
                     {branchAccounts.map(a => (
                         <option key={a.user_id} value={a.user_id}>{a.username} {a.phone ? `(${a.phone})` : ''}</option>
                       ))
@@ -2110,7 +2110,7 @@ export default function AdminPage() {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>分公司额度申请</CardTitle>
+          <CardTitle>服务网点额度申请</CardTitle>
           <Badge className="bg-blue-100 text-blue-700">
             待审核: {quotaRequests.filter(r => r.status === 'pending').length}个
           </Badge>
@@ -2129,7 +2129,7 @@ export default function AdminPage() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <h4 className="font-medium">{branches.find(b => b.id === request.requester_id)?.real_name || '分公司'}</h4>
+                      <h4 className="font-medium">{branches.find(b => b.id === request.requester_id)?.real_name || '服务网点'}</h4>
                       <Badge className={
                         request.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
                         request.status === 'approved' ? 'bg-green-100 text-green-700' :
@@ -2317,7 +2317,7 @@ export default function AdminPage() {
     const fetchApplications = async () => {
       setLoading(true);
       try {
-        // 从 quota_requests 表读取（分公司/服务商的申请都写在这里）
+        // 从 quota_requests 表读取（服务网点/服务商的申请都写在这里）
         const res = await authFetch('/api/quota-requests?requesterType=branch');
         const data = await res.json();
         if (data.success) {
@@ -2376,7 +2376,7 @@ export default function AdminPage() {
 
     const getTypeLabel = (type: string) => {
       const labels: Record<string, string> = {
-        branch: '分公司',
+        branch: '服务网点',
         provider: '服务商',
       };
       return labels[type] || type;
@@ -2385,7 +2385,7 @@ export default function AdminPage() {
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg">分公司额度申请</CardTitle>
+          <CardTitle className="text-lg">服务网点额度申请</CardTitle>
           <Button size="sm" variant="outline" onClick={fetchApplications}>刷新</Button>
         </CardHeader>
         <CardContent>
@@ -2895,7 +2895,7 @@ export default function AdminPage() {
                       <th className="text-left p-3 font-medium text-gray-600">用户名</th>
                       <th className="text-left p-3 font-medium text-gray-600">手机号</th>
                       <th className="text-left p-3 font-medium text-gray-600">角色</th>
-                      <th className="text-left p-3 font-medium text-gray-600">所属分公司</th>
+                      <th className="text-left p-3 font-medium text-gray-600">所属服务网点</th>
                       <th className="text-left p-3 font-medium text-gray-600">所属服务商</th>
                       <th className="text-left p-3 font-medium text-gray-600">收益</th>
                       <th className="text-left p-3 font-medium text-gray-600">余额</th>
@@ -3403,7 +3403,7 @@ export default function AdminPage() {
             </Card>
             <Card className="mobile-compact-card text-center">
               <CardContent className="p-3">
-                <div className="text-xs text-gray-500 mobile-label">分公司 {shareBreakdown.branch.rate}</div>
+                <div className="text-xs text-gray-500 mobile-label">服务网点 {shareBreakdown.branch.rate}</div>
                 <div className="text-lg font-bold text-teal-600 mobile-num">¥{shareBreakdown.branch.amount.toLocaleString()}</div>
               </CardContent>
             </Card>
@@ -3451,7 +3451,7 @@ export default function AdminPage() {
                           { name: `服务商 ${shareBreakdown.provider.rate}`, value: Math.max(shareBreakdown.provider.amount, 1), color: '#8b5cf6' },
                           { name: `直推奖励 ${shareBreakdown.directReward.rate}`, value: Math.max(shareBreakdown.directReward.amount, 1), color: '#ec4899' },
                           { name: `上级服务商 ${shareBreakdown.parentProvider.rate}`, value: Math.max(shareBreakdown.parentProvider.amount, 1), color: '#6366f1' },
-                          { name: `分公司 ${shareBreakdown.branch.rate}`, value: Math.max(shareBreakdown.branch.amount, 1), color: '#14b8a6' },
+                          { name: `服务网点 ${shareBreakdown.branch.rate}`, value: Math.max(shareBreakdown.branch.amount, 1), color: '#14b8a6' },
                           { name: `公司运营 ${shareBreakdown.company.rate}`, value: Math.max(shareBreakdown.company.amount, 1), color: '#10b981' },
                         ]}
                         cx="50%"
@@ -3587,7 +3587,7 @@ export default function AdminPage() {
                 <TableHead>购买价</TableHead>
                 <TableHead>市场费</TableHead>
                 <TableHead>服务商70%</TableHead>
-                <TableHead>分公司5%</TableHead>
+                <TableHead>服务网点5%</TableHead>
                 <TableHead>公司5%</TableHead>
                 <TableHead>买家</TableHead>
                 <TableHead>服务商</TableHead>
@@ -3731,7 +3731,7 @@ export default function AdminPage() {
 
   // 渲染财务管理（不使用内部状态，通过父组件financeTab管理）
   const FinanceManagementPanel = React.memo(() => {
-    // 加载分公司提现和手续费记录
+    // 加载服务网点提现和手续费记录
     const [branchWithdrawals, setBranchWithdrawals] = useState<any[]>([]);
     const [feeRecords, setFeeRecords] = useState<any[]>([]);
     const [feeStats, setFeeStats] = useState<any>({});
@@ -3795,7 +3795,7 @@ export default function AdminPage() {
           </div>
           <div className="flex items-center gap-1 px-4">
             <button onClick={() => setFinanceSubTab('overview')} className={`px-4 py-2 rounded-md transition-colors ${financeSubTab === 'overview' ? 'bg-purple-500 text-white' : 'bg-purple-800/50 text-white/80 hover:bg-purple-700'}`}>财务总览</button>
-            <button onClick={() => setFinanceSubTab('withdraw-review')} className={`px-4 py-2 rounded-md transition-colors flex items-center gap-1 ${financeSubTab === 'withdraw-review' ? 'bg-purple-500 text-white' : 'bg-purple-800/50 text-white/80 hover:bg-purple-700'}`}>分公司提现审核{pendingWithdrawals.length > 0 && <Badge className="bg-red-500 text-white text-xs ml-1">{pendingWithdrawals.length}</Badge>}</button>
+            <button onClick={() => setFinanceSubTab('withdraw-review')} className={`px-4 py-2 rounded-md transition-colors flex items-center gap-1 ${financeSubTab === 'withdraw-review' ? 'bg-purple-500 text-white' : 'bg-purple-800/50 text-white/80 hover:bg-purple-700'}`}>服务网点提现审核{pendingWithdrawals.length > 0 && <Badge className="bg-red-500 text-white text-xs ml-1">{pendingWithdrawals.length}</Badge>}</button>
             <button onClick={() => setFinanceSubTab('fee-records')} className={`px-4 py-2 rounded-md transition-colors ${financeSubTab === 'fee-records' ? 'bg-purple-500 text-white' : 'bg-purple-800/50 text-white/80 hover:bg-purple-700'}`}>手续费记录</button>
           </div>
         </div>
@@ -3824,7 +3824,7 @@ export default function AdminPage() {
               </Card>
               <Card className="mobile-compact-card bg-gradient-to-br from-blue-500 to-blue-700 text-white">
                 <CardContent className="p-4">
-                  <div className="text-sm opacity-80">待审核分公司提现</div>
+                  <div className="text-sm opacity-80">待审核服务网点提现</div>
                   <div className="text-3xl font-bold mt-1">{pendingWithdrawals.length}</div>
                 </CardContent>
               </Card>
@@ -3856,7 +3856,7 @@ export default function AdminPage() {
                           <TableCell className="text-sm">{r.created_at ? new Date(r.created_at).toLocaleDateString() : '-'}</TableCell>
                           <TableCell>{r.type === 'withdrawal_fee' ? '提现手续费' : r.type === 'market_fee_ops' ? '市场费运营' : r.type}</TableCell>
                           <TableCell className="text-green-600 font-medium">+¥{Number(r.amount).toLocaleString()}</TableCell>
-                          <TableCell>{r.source_role === 'member' ? '会员' : r.source_role === 'provider' ? '服务商' : r.source_role === 'branch' ? '分公司' : r.source_role}</TableCell>
+                          <TableCell>{r.source_role === 'member' ? '会员' : r.source_role === 'provider' ? '服务商' : r.source_role === 'branch' ? '服务网点' : r.source_role}</TableCell>
                           <TableCell className="text-sm text-gray-500 max-w-xs truncate">{r.note || '-'}</TableCell>
                         </TableRow>
                       ))}
@@ -3876,7 +3876,7 @@ export default function AdminPage() {
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <FileCheck className="w-5 h-5" />
-                  分公司提现审核
+                  服务网点提现审核
                 </CardTitle>
                 <Button variant="outline" size="sm" onClick={loadFinanceData} disabled={financeLoading}>
                   <RefreshCw className={`w-4 h-4 mr-1 ${financeLoading ? 'animate-spin' : ''}`} />刷新
@@ -3890,7 +3890,7 @@ export default function AdminPage() {
                     <div key={w.id} className="border rounded-lg p-4 hover:bg-gray-50">
                       <div className="flex justify-between items-start mb-3">
                         <div>
-                          <p className="font-medium">{w.username || '分公司'}</p>
+                          <p className="font-medium">{w.username || '服务网点'}</p>
                           <p className="text-sm text-gray-500">申请时间: {w.created_at ? new Date(w.created_at).toLocaleString() : '-'}</p>
                         </div>
                         <div className="text-right">
@@ -3920,7 +3920,7 @@ export default function AdminPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500 text-center py-8">暂无分公司提现申请</p>
+                <p className="text-gray-500 text-center py-8">暂无服务网点提现申请</p>
               )}
             </CardContent>
           </Card>
@@ -3956,7 +3956,7 @@ export default function AdminPage() {
                         <TableCell className="text-sm">{r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</TableCell>
                         <TableCell>{r.type === 'withdrawal_fee' ? '提现手续费' : r.type === 'market_fee_ops' ? '市场费运营' : r.type}</TableCell>
                         <TableCell className="text-green-600 font-medium">+¥{Number(r.amount).toLocaleString()}</TableCell>
-                        <TableCell>{r.source_role === 'member' ? '会员' : r.source_role === 'provider' ? '服务商' : r.source_role === 'branch' ? '分公司' : r.source_role}</TableCell>
+                        <TableCell>{r.source_role === 'member' ? '会员' : r.source_role === 'provider' ? '服务商' : r.source_role === 'branch' ? '服务网点' : r.source_role}</TableCell>
                         <TableCell className="text-sm text-gray-500 max-w-xs truncate">{r.note || '-'}</TableCell>
                       </TableRow>
                     ))}
@@ -4712,7 +4712,7 @@ export default function AdminPage() {
                 </div>
               </div>
               <div>
-                <Label className="text-sm text-gray-500">分公司</Label>
+                <Label className="text-sm text-gray-500">服务网点</Label>
                 <div className="flex items-center mt-1">
                   <Input 
                     type="number" 
@@ -4986,7 +4986,7 @@ export default function AdminPage() {
                 <Shield className="w-5 h-5" />
                 账号赋权
               </CardTitle>
-              <CardDescription>指定账号赋予任意角色身份（总公司/分公司/服务商/会员）</CardDescription>
+              <CardDescription>指定账号赋予任意角色身份（智算总台/服务网点/服务商/会员）</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* 搜索区域 */}
@@ -5023,7 +5023,7 @@ export default function AdminPage() {
               {assignSearchResults.length > 0 && (
                 <div className="space-y-3">
                   {assignSearchResults.map((u: any) => {
-                    const roleLabels: Record<string, string> = { admin: '总公司', branch: '分公司', provider: '服务商', member: '会员' };
+                    const roleLabels: Record<string, string> = { admin: '智算总台', branch: '服务网点', provider: '服务商', member: '会员' };
                     const roleColors: Record<string, string> = { 
                       admin: 'bg-red-100 text-red-700', 
                       branch: 'bg-blue-100 text-blue-700', 
@@ -5042,7 +5042,7 @@ export default function AdminPage() {
                           </div>
                           <div className="text-sm text-gray-500 mt-1">
                             {u.phone && <span>{u.phone}</span>}
-                            {u.branch_name && <span className="ml-3">分公司: {u.branch_name}</span>}
+                            {u.branch_name && <span className="ml-3">服务网点: {u.branch_name}</span>}
                             {u.provider_name && <span className="ml-3">服务商: {u.provider_name}</span>}
                           </div>
                         </div>
@@ -5053,8 +5053,8 @@ export default function AdminPage() {
                             defaultValue=""
                           >
                             <option value="" disabled>选择角色</option>
-                            <option value="admin">总公司</option>
-                            <option value="branch">分公司</option>
+                            <option value="admin">智算总台</option>
+                            <option value="branch">服务网点</option>
                             <option value="provider">服务商</option>
                             <option value="member">会员</option>
                           </select>
@@ -5091,8 +5091,8 @@ export default function AdminPage() {
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-sm text-blue-800 font-medium">赋权规则说明</p>
                 <ul className="text-xs text-blue-700 mt-2 list-disc list-inside space-y-1">
-                  <li><strong>总公司</strong>：拥有系统最高权限，可管理所有数据和账号</li>
-                  <li><strong>分公司</strong>：管理下级服务商和会员，分配额度</li>
+                  <li><strong>智算总台</strong>：拥有系统最高权限，可管理所有数据和账号</li>
+                  <li><strong>服务网点</strong>：管理下级服务商和会员，分配额度</li>
                   <li><strong>服务商</strong>：生成和上架产品，管理会员，审核交易</li>
                   <li><strong>会员</strong>：购买产品，查看持仓，管理收益</li>
                 </ul>
@@ -5107,9 +5107,9 @@ export default function AdminPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Ticket className="w-5 h-5" />
-                总公司邀请码
+                智算总台邀请码
               </CardTitle>
-              <CardDescription>使用总公司邀请码注册的账号将自动成为分公司角色</CardDescription>
+              <CardDescription>使用智算总台邀请码注册的账号将自动成为服务网点角色</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {inviteCodeMessage && (
@@ -5124,13 +5124,13 @@ export default function AdminPage() {
 
               {/* 邀请码展示 */}
               <div className="p-6 bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-dashed border-purple-200 rounded-xl text-center">
-                <p className="text-sm text-gray-500 mb-2">总公司专属邀请码</p>
+                <p className="text-sm text-gray-500 mb-2">智算总台专属邀请码</p>
                 {inviteCodeLoading ? (
                   <Loader2 className="w-8 h-8 animate-spin text-purple-600 mx-auto" />
                 ) : adminInviteCode ? (
                   <>
                     <p className="text-3xl font-bold text-purple-700 tracking-widest">{adminInviteCode}</p>
-                    <p className="text-xs text-gray-400 mt-2">使用此邀请码注册 → 自动成为分公司</p>
+                    <p className="text-xs text-gray-400 mt-2">使用此邀请码注册 → 自动成为服务网点</p>
                     <div className="flex justify-center gap-3 mt-4">
                       <Button 
                         size="sm" 
@@ -5184,11 +5184,11 @@ export default function AdminPage() {
                 <div className="mt-2 space-y-2">
                   <div className="flex items-center gap-2 text-xs text-yellow-700">
                     <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded font-mono">ADMIN</span>
-                    <span>总公司邀请码 → 注册为<strong>分公司</strong></span>
+                    <span>智算总台邀请码 → 注册为<strong>服务网点</strong></span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-yellow-700">
                     <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-mono">BRAN</span>
-                    <span>分公司邀请码 → 注册为<strong>服务商</strong></span>
+                    <span>服务网点邀请码 → 注册为<strong>服务商</strong></span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-yellow-700">
                     <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded font-mono">PROV</span>
@@ -5245,7 +5245,7 @@ export default function AdminPage() {
     </Card>
   );
 
-  // 总公司 - 分公司变现管理（原提现管理）
+  // 智算总台 - 服务网点变现管理（原提现管理）
   const renderBranchWithdrawManagement = () => {
     const handleReview = async (id: string, action: 'approve' | 'reject') => {
       setProcessingId(id);
@@ -5331,7 +5331,7 @@ export default function AdminPage() {
                     withdrawTab === 'deposit' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'
                   }`}
                 >
-                  分公司变现申请
+                  服务网点变现申请
                 </button>
                 <button
                   onClick={() => setWithdrawTab('records')}
@@ -5348,9 +5348,9 @@ export default function AdminPage() {
             {withdrawTab === 'deposit' ? (
               <div className="space-y-4">
                 <div className="text-sm text-gray-500">
-                  <p>• 分公司向总公司变现收益</p>
-                  <p>• 总公司线下转账后确认到账，收益从分公司扣除</p>
-                  <p>• 拒绝后收益将返还给分公司</p>
+                  <p>• 服务网点向智算总台变现收益</p>
+                  <p>• 智算总台线下转账后确认到账，收益从服务网点扣除</p>
+                  <p>• 拒绝后收益将返还给服务网点</p>
                 </div>
 
                 {branchWithdrawals.length === 0 ? (
@@ -5362,7 +5362,7 @@ export default function AdminPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>申请时间</TableHead>
-                        <TableHead>分公司</TableHead>
+                        <TableHead>服务网点</TableHead>
                         <TableHead>变现金额</TableHead>
                         <TableHead>状态</TableHead>
                         <TableHead>操作</TableHead>
@@ -5432,7 +5432,7 @@ export default function AdminPage() {
             ) : (
               <div className="space-y-4">
                 <div className="text-sm text-gray-500">
-                  <p>• 展示所有分公司变现通过的记录（5%手续费沉淀）</p>
+                  <p>• 展示所有服务网点变现通过的记录（5%手续费沉淀）</p>
                   <p>• 沉淀比例：变现金额的5%作为平台手续费</p>
                 </div>
 
@@ -5440,7 +5440,7 @@ export default function AdminPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>时间</TableHead>
-                      <TableHead>分公司</TableHead>
+                      <TableHead>服务网点</TableHead>
                       <TableHead>变现金额</TableHead>
                       <TableHead>沉淀金额(5%)</TableHead>
                       <TableHead>状态</TableHead>
@@ -5532,7 +5532,7 @@ export default function AdminPage() {
     );
   };
 
-  // 总公司 - 收益管理（独立组件）
+  // 智算总台 - 收益管理（独立组件）
   const EnergyManagement = () => {
     const [energyTab, setEnergyTab] = useState<'overview' | 'accounts' | 'transactions' | 'request' | 'withdraw' | 'fee'>('overview');
     const [energyData, setEnergyData] = useState<any>(null);
@@ -5554,7 +5554,7 @@ export default function AdminPage() {
     const [withdrawRequests, setWithdrawRequests] = useState<any[]>([]);
     const [withdrawStats, setWithdrawStats] = useState<any>(null);
     const [withdrawFilter, setWithdrawFilter] = useState<string>(''); // 变现审核筛选状态
-    const [branchList, setBranchList] = useState<any[]>([]); // 分公司列表
+    const [branchList, setBranchList] = useState<any[]>([]); // 服务网点列表
     const searchContainerRef = useRef<HTMLDivElement>(null); // 搜索容器 ref
     const isMountedRef = useRef(true); // 组件卸载标记
 
@@ -5582,7 +5582,7 @@ export default function AdminPage() {
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // 加载分公司收益申请记录
+    // 加载服务网点收益申请记录
     const loadBranchEnergyRequestsInComponent = async () => {
       if (!isMountedRef.current) return;
       setEnergyLoading(true);
@@ -5600,7 +5600,7 @@ export default function AdminPage() {
         }
       } catch (error) {
         if (isMountedRef.current) {
-          console.error('加载分公司收益申请失败:', error);
+          console.error('加载服务网点收益申请失败:', error);
         }
       } finally {
         if (isMountedRef.current) {
@@ -5609,7 +5609,7 @@ export default function AdminPage() {
       }
     };
 
-    // 审核分公司收益申请
+    // 审核服务网点收益申请
     const handleApproveBranchEnergyRequestInComponent = async (requestId: string, action: 'approve' | 'reject', note?: string) => {
       const adminId = localStorage.getItem('userId');
       if (!adminId) return;
@@ -5798,7 +5798,7 @@ export default function AdminPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>申请时间</TableHead>
-                    <TableHead>分公司</TableHead>
+                    <TableHead>服务网点</TableHead>
                     <TableHead>申请金额</TableHead>
                     <TableHead>状态</TableHead>
                     <TableHead>审核时间</TableHead>
@@ -5848,12 +5848,12 @@ export default function AdminPage() {
           {/* 操作说明 */}
           <Card className="bg-blue-50 border-blue-200">
             <CardContent className="pt-6">
-              <h4 className="font-semibold text-blue-800 mb-2">分公司收益申请审核说明</h4>
+              <h4 className="font-semibold text-blue-800 mb-2">服务网点收益申请审核说明</h4>
               <ul className="text-sm text-blue-700 space-y-1">
-                <li>1. 分公司向总公司申请收益，最低申请金额为 50 收益</li>
-                <li>2. 总公司审核通过后，收益会自动从总公司账户扣除并发放给分公司</li>
-                <li>3. 总公司审核拒绝后，分公司申请将被标记为已拒绝</li>
-                <li>4. 收益用于分公司给服务商分配，服务商给会员充值后产生收益</li>
+                <li>1. 服务网点向智算总台申请收益，最低申请金额为 50 收益</li>
+                <li>2. 智算总台审核通过后，收益会自动从智算总台账户扣除并发放给服务网点</li>
+                <li>3. 智算总台审核拒绝后，服务网点申请将被标记为已拒绝</li>
+                <li>4. 收益用于服务网点给服务商分配，服务商给会员充值后产生收益</li>
               </ul>
             </CardContent>
           </Card>
@@ -5928,7 +5928,7 @@ export default function AdminPage() {
       }
     };
 
-    // 加载分公司列表
+    // 加载服务网点列表
     const loadBranchList = async () => {
       if (!isMountedRef.current) return;
       try {
@@ -5943,7 +5943,7 @@ export default function AdminPage() {
         }
       } catch (error) {
         if (isMountedRef.current) {
-          console.error('加载分公司列表失败:', error);
+          console.error('加载服务网点列表失败:', error);
         }
       }
     };
@@ -5960,7 +5960,7 @@ export default function AdminPage() {
         }
         const data = await response.json();
         if (data.success) {
-          // 过滤掉admin用户，只保留分公司、服务商、会员
+          // 过滤掉admin用户，只保留服务网点、服务商、会员
           const filteredUsers = (data.data || []).filter((u: any) => u.role !== 'admin');
           setAllUsersList(filteredUsers);
         }
@@ -6034,7 +6034,7 @@ export default function AdminPage() {
       }
     };
 
-    // 释放收益给分公司
+    // 释放收益给服务网点
     const handleReleaseEnergy = async () => {
       const adminId = localStorage.getItem('userId');
       if (!adminId || !releaseForm.toUserId || !releaseForm.amount) {
@@ -6119,7 +6119,7 @@ export default function AdminPage() {
       } else if (energyTab === 'withdraw') {
         loadWithdrawRequests(withdrawFilter || undefined);
       }
-      // 分公司列表和用户列表只需要在组件挂载时加载一次
+      // 服务网点列表和用户列表只需要在组件挂载时加载一次
       loadBranchList();
       loadAllUsersList();
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -6179,7 +6179,7 @@ export default function AdminPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm opacity-80">总公司收益余额</p>
+                  <p className="text-sm opacity-80">智算总台收益余额</p>
                   <p className="text-2xl font-bold">{formatEnergy(energyData?.adminBalance)}</p>
                   <p className="text-xs opacity-70 mt-1">收益</p>
                 </div>
@@ -6194,7 +6194,7 @@ export default function AdminPage() {
                 <div>
                   <p className="text-sm opacity-80">算力额度匹配</p>
                   <p className="text-2xl font-bold">{formatEnergy(quotaMatchData.total)}</p>
-                  <p className="text-xs opacity-70 mt-1">总公司→分公司</p>
+                  <p className="text-xs opacity-70 mt-1">智算总台→服务网点</p>
                 </div>
                 <Database className="w-10 h-10 opacity-50" />
               </div>
@@ -6207,7 +6207,7 @@ export default function AdminPage() {
                 <div>
                   <p className="text-sm opacity-80">收益购买</p>
                   <p className="text-2xl font-bold">{formatEnergy(purchaseData.total)}</p>
-                  <p className="text-xs opacity-70 mt-1">分公司→总公司</p>
+                  <p className="text-xs opacity-70 mt-1">服务网点→智算总台</p>
                 </div>
                 <ShoppingCart className="w-10 h-10 opacity-50" />
               </div>
@@ -6251,7 +6251,7 @@ export default function AdminPage() {
               <CardTitle className="flex items-center gap-2">
                 <Database className="w-5 h-5 text-blue-600" />
                 板块1：算力额度匹配
-                <Badge className="bg-blue-100 text-blue-700">总公司→分公司</Badge>
+                <Badge className="bg-blue-100 text-blue-700">智算总台→服务网点</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -6259,14 +6259,14 @@ export default function AdminPage() {
                 {formatEnergy(quotaMatchData.total)} 收益
               </div>
               <div className="text-sm text-gray-500 mb-4">
-                <p>总公司分配算力额度给分公司时，同步分配20%收益</p>
+                <p>智算总台分配算力额度给服务网点时，同步分配20%收益</p>
               </div>
               <div className="max-h-40 overflow-y-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>时间</TableHead>
-                      <TableHead>分公司</TableHead>
+                      <TableHead>服务网点</TableHead>
                       <TableHead>金额</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -6290,7 +6290,7 @@ export default function AdminPage() {
               <CardTitle className="flex items-center gap-2">
                 <ShoppingCart className="w-5 h-5 text-green-600" />
                 板块2：收益购买
-                <Badge className="bg-green-100 text-green-700">分公司→总公司</Badge>
+                <Badge className="bg-green-100 text-green-700">服务网点→智算总台</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -6298,7 +6298,7 @@ export default function AdminPage() {
                 {formatEnergy(purchaseData.total)} 收益
               </div>
               <div className="text-sm text-gray-500 mb-4">
-                <p>分公司向总公司购买收益，用于给服务商充值</p>
+                <p>服务网点向智算总台购买收益，用于给服务商充值</p>
                 <p className="mt-1">服务商给会员充值收益，会员支付市场费</p>
               </div>
               <div className="max-h-40 overflow-y-auto">
@@ -6306,7 +6306,7 @@ export default function AdminPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>时间</TableHead>
-                      <TableHead>分公司</TableHead>
+                      <TableHead>服务网点</TableHead>
                       <TableHead>金额</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -6358,7 +6358,7 @@ export default function AdminPage() {
                             account.role === 'provider' ? 'border-purple-500 text-purple-600' : 
                             'border-blue-500 text-blue-600'
                           }>
-                            {account.role === 'admin' ? '总公司' : account.role === 'provider' ? '服务商' : '会员'}
+                            {account.role === 'admin' ? '智算总台' : account.role === 'provider' ? '服务商' : '会员'}
                           </Badge>
                         </TableCell>
                         <TableCell>{account.username}</TableCell>
@@ -6406,7 +6406,7 @@ export default function AdminPage() {
                 </div>
                 <div className="text-center p-3 bg-cyan-50 rounded-lg">
                   <div className="text-xl font-bold text-cyan-600">5%</div>
-                  <div className="text-xs text-gray-600 mt-1">分公司</div>
+                  <div className="text-xs text-gray-600 mt-1">服务网点</div>
                 </div>
               </div>
               <div className="max-h-40 overflow-y-auto">
@@ -6440,7 +6440,7 @@ export default function AdminPage() {
               <CardTitle className="flex items-center gap-2">
                 <TrendingDown className="w-5 h-5 text-red-600" />
                 板块5：提现沉淀
-                <Badge className="bg-red-100 text-red-700">分公司→总公司</Badge>
+                <Badge className="bg-red-100 text-red-700">服务网点→智算总台</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -6448,7 +6448,7 @@ export default function AdminPage() {
                 销毁: {formatEnergy(withdrawData.burnAmount)} 收益 / 手续费: {formatEnergy(withdrawData.feeAmount)} 收益
               </div>
               <div className="text-sm text-gray-500 mb-4">
-                <p>分公司向总公司提现收益，收益回流到总公司账户</p>
+                <p>服务网点向智算总台提现收益，收益回流到智算总台账户</p>
                 <p className="mt-1">提现最低门槛：50收益，手续费率：5%</p>
               </div>
               <div className="max-h-40 overflow-y-auto">
@@ -6456,7 +6456,7 @@ export default function AdminPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>时间</TableHead>
-                      <TableHead>分公司</TableHead>
+                      <TableHead>服务网点</TableHead>
                       <TableHead>金额</TableHead>
                       <TableHead>备注</TableHead>
                     </TableRow>
@@ -6524,7 +6524,7 @@ export default function AdminPage() {
                       account.role === 'provider' ? 'border-purple-500 text-purple-600' :
                       'border-blue-500 text-blue-600'
                     }>
-                      {account.role === 'admin' ? '总公司' : account.role === 'branch' ? '分公司' : account.role === 'provider' ? '服务商' : '会员'}
+                      {account.role === 'admin' ? '智算总台' : account.role === 'branch' ? '服务网点' : account.role === 'provider' ? '服务商' : '会员'}
                     </Badge>
                   </TableCell>
                   <TableCell>{account.phone || '-'}</TableCell>
@@ -6637,7 +6637,7 @@ export default function AdminPage() {
       </Card>
     );
 
-    // 加载分公司收益申请记录
+    // 加载服务网点收益申请记录
     const loadBranchEnergyRequests = async () => {
       setEnergyLoading(true);
       try {
@@ -6648,13 +6648,13 @@ export default function AdminPage() {
           setBranchEnergyPendingCount(data.data.stats?.pending?.count || 0);
         }
       } catch (error) {
-        console.error('加载分公司收益申请失败:', error);
+        console.error('加载服务网点收益申请失败:', error);
       } finally {
         setEnergyLoading(false);
       }
     };
 
-    // 审核分公司收益申请
+    // 审核服务网点收益申请
     const handleApproveBranchEnergyRequest = async (requestId: string, action: 'approve' | 'reject', note?: string) => {
       const adminId = localStorage.getItem('userId');
       if (!adminId) return;
@@ -6842,7 +6842,7 @@ export default function AdminPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>申请时间</TableHead>
-                    <TableHead>分公司</TableHead>
+                    <TableHead>服务网点</TableHead>
                     <TableHead>申请金额</TableHead>
                     <TableHead>状态</TableHead>
                     <TableHead>审核时间</TableHead>
@@ -6892,12 +6892,12 @@ export default function AdminPage() {
           {/* 操作说明 */}
           <Card className="bg-blue-50 border-blue-200">
             <CardContent className="pt-6">
-              <h4 className="font-semibold text-blue-800 mb-2">分公司收益申请审核说明</h4>
+              <h4 className="font-semibold text-blue-800 mb-2">服务网点收益申请审核说明</h4>
               <ul className="text-sm text-blue-700 space-y-1">
-                <li>1. 分公司向总公司申请收益，最低申请金额为 50 收益</li>
-                <li>2. 总公司审核通过后，收益会自动从总公司账户扣除并发放给分公司</li>
-                <li>3. 总公司审核拒绝后，分公司申请将被标记为已拒绝</li>
-                <li>4. 收益用于分公司给服务商分配，服务商给会员充值后产生收益</li>
+                <li>1. 服务网点向智算总台申请收益，最低申请金额为 50 收益</li>
+                <li>2. 智算总台审核通过后，收益会自动从智算总台账户扣除并发放给服务网点</li>
+                <li>3. 智算总台审核拒绝后，服务网点申请将被标记为已拒绝</li>
+                <li>4. 收益用于服务网点给服务商分配，服务商给会员充值后产生收益</li>
               </ul>
             </CardContent>
           </Card>
@@ -6956,7 +6956,7 @@ export default function AdminPage() {
                     <li>服务商审核通过，线下给会员转账（如：95元）</li>
                     <li>确认后，会员收益扣除100</li>
                     <li>服务商收益增加95</li>
-                    <li>总公司回收5收益（5%）</li>
+                    <li>智算总台回收5收益（5%）</li>
                   </ol>
                 </div>
 
@@ -6972,7 +6972,7 @@ export default function AdminPage() {
                       <span className="font-semibold text-blue-600">+95 收益</span>
                     </div>
                     <div className="flex justify-between border-t border-green-200 pt-2">
-                      <span className="text-green-800 font-medium">总公司回收（5%）</span>
+                      <span className="text-green-800 font-medium">智算总台回收（5%）</span>
                       <span className="font-bold text-purple-600">+5 收益</span>
                     </div>
                   </div>
@@ -7180,7 +7180,7 @@ export default function AdminPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>申请时间</TableHead>
-                    <TableHead>分公司</TableHead>
+                    <TableHead>服务网点</TableHead>
                     <TableHead>手机号</TableHead>
                     <TableHead className="text-right">申请金额</TableHead>
                     <TableHead className="text-right">手续费(5%)</TableHead>
@@ -7268,13 +7268,13 @@ export default function AdminPage() {
           <CardContent className="pt-6">
             <h4 className="font-semibold text-blue-800 mb-2">变现审核说明</h4>
             <ul className="text-sm text-blue-700 space-y-1">
-              <li>1. 分公司申请变现时，收益会被冻结并扣除</li>
-              <li>2. 总公司审核通过后，产生两条流水记录：
+              <li>1. 服务网点申请变现时，收益会被冻结并扣除</li>
+              <li>2. 智算总台审核通过后，产生两条流水记录：
                 <span className="font-semibold text-red-600"> 收益销毁（实际打款部分）</span> + 
                 <span className="font-semibold text-orange-600"> 提现沉淀（手续费5%）</span>
               </li>
-              <li>3. 总公司需要线下打款给分公司，实际到账金额 = 申请金额 × 95%</li>
-              <li>4. 拒绝申请后，收益会返还给分公司</li>
+              <li>3. 智算总台需要线下打款给服务网点，实际到账金额 = 申请金额 × 95%</li>
+              <li>4. 拒绝申请后，收益会返还给服务网点</li>
               <li>5. 最低变现门槛：50 收益</li>
             </ul>
           </CardContent>
@@ -7294,7 +7294,7 @@ export default function AdminPage() {
                 <TableRow>
                   <TableHead>时间</TableHead>
                   <TableHead>类型</TableHead>
-                  <TableHead>分公司</TableHead>
+                  <TableHead>服务网点</TableHead>
                   <TableHead className="text-right">销毁金额</TableHead>
                   <TableHead className="text-right">沉淀金额</TableHead>
                   <TableHead>备注</TableHead>
@@ -7463,7 +7463,7 @@ export default function AdminPage() {
                   <Zap className="w-5 h-5 text-amber-500" />
                   创建收益
                 </CardTitle>
-                <p className="text-sm text-gray-500 mt-1">创建收益不能超过分配给分公司额度的30%</p>
+                <p className="text-sm text-gray-500 mt-1">创建收益不能超过分配给服务网点额度的30%</p>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
@@ -7503,17 +7503,17 @@ export default function AdminPage() {
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <Card className="w-[500px]">
               <CardHeader>
-                <CardTitle>释放收益给分公司</CardTitle>
+                <CardTitle>释放收益给服务网点</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label>选择分公司</Label>
+                  <Label>选择服务网点</Label>
                   <select
                     className="w-full mt-1 px-3 py-2 border rounded-md"
                     value={releaseForm.toUserId}
                     onChange={(e) => setReleaseForm({ ...releaseForm, toUserId: e.target.value })}
                   >
-                    <option value="">请选择分公司</option>
+                    <option value="">请选择服务网点</option>
                     {branchList.map((b: any) => (
                       <option key={b.id} value={b.id}>{b.username}</option>
                     ))}
@@ -7560,7 +7560,7 @@ export default function AdminPage() {
                   <ArrowRightLeft className="w-5 h-5 text-blue-600" />
                   向任意用户转账收益
                 </CardTitle>
-                <p className="text-sm text-gray-500 mt-1">总公司可向任何分公司、服务商或会员转账收益</p>
+                <p className="text-sm text-gray-500 mt-1">智算总台可向任何服务网点、服务商或会员转账收益</p>
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* 搜索用户 */}
@@ -7596,7 +7596,7 @@ export default function AdminPage() {
                           .map((u: any) => {
                             const energyAccount = energyAccounts.find((ea: any) => ea.userId === u.id);
                             const correctBalance = energyAccount ? Number(energyAccount.balance || 0) : 0;
-                            const roleLabel = u.role === 'branch' ? '分公司' : u.role === 'provider' ? '服务商' : '会员';
+                            const roleLabel = u.role === 'branch' ? '服务网点' : u.role === 'provider' ? '服务商' : '会员';
                             return (
                               <div
                                 key={u.id}
@@ -7649,7 +7649,7 @@ export default function AdminPage() {
                           {allUsersList.find((u: any) => u.id === transferForm.toUserId)?.username}
                         </div>
                         <div className="text-xs text-gray-500">
-                          {allUsersList.find((u: any) => u.id === transferForm.toUserId)?.role === 'branch' ? '分公司' : 
+                          {allUsersList.find((u: any) => u.id === transferForm.toUserId)?.role === 'branch' ? '服务网点' : 
                            allUsersList.find((u: any) => u.id === transferForm.toUserId)?.role === 'provider' ? '服务商' : '会员'}
                         </div>
                       </div>
@@ -7674,7 +7674,7 @@ export default function AdminPage() {
                     onChange={(e) => setTransferForm({ ...transferForm, amount: e.target.value })}
                     className="mt-1"
                   />
-                  <p className="text-xs text-gray-500 mt-1">当前总公司余额：{formatEnergy(energyData?.adminBalance)} 收益</p>
+                  <p className="text-xs text-gray-500 mt-1">当前智算总台余额：{formatEnergy(energyData?.adminBalance)} 收益</p>
                 </div>
                 <div>
                   <Label>备注</Label>
@@ -8031,7 +8031,7 @@ export default function AdminPage() {
         <main className="flex-1 p-3 md:p-6 overflow-auto">
           {/* 面包屑 - 手机端隐藏 */}
           <div className="mb-4 text-sm text-gray-500 hidden lg:block">
-          <span className="text-purple-600 cursor-pointer hover:underline" onClick={() => selectMenu('home')}>总公司</span> / 
+          <span className="text-purple-600 cursor-pointer hover:underline" onClick={() => selectMenu('home')}>智算总台</span> / 
           <span className="ml-1">{menuItems.find(m => m.id === activeMenu)?.name || 
             menuItems.find(m => m.children?.some(c => c.id === activeMenu))?.children?.find(c => c.id === activeMenu)?.name || '功能模块'}</span>
         </div>

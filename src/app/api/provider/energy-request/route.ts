@@ -39,12 +39,12 @@ export async function POST(request: NextRequest) {
 
     if (!provider.branch_id) {
       return NextResponse.json(
-        { success: false, error: '服务商未绑定分公司' },
+        { success: false, error: '服务商未绑定服务网点' },
         { status: 400 }
       );
     }
 
-    // 查询分公司信息
+    // 查询服务网点信息
     const { data: branch, error: branchError } = await client
       .from('users')
       .select('id, username, role, energy_value')
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
 
     if (branchError || !branch) {
       return NextResponse.json(
-        { success: false, error: '分公司不存在' },
+        { success: false, error: '服务网点不存在' },
         { status: 404 }
       );
     }
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
     const requestId = crypto.randomUUID();
 
-    // 创建能量值申请记录（只记录，等待分公司审核）
+    // 创建能量值申请记录（只记录，等待服务网点审核）
     const { error: insertError } = await client
       .from('transactions')
       .insert({
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: '能量值申请已提交，等待分公司审核',
+      message: '能量值申请已提交，等待服务网点审核',
       data: {
         requestId,
         providerName: provider.username,
@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
         const pd = providerData as { branch_id: string | null };
         providerBranchId = pd.branch_id;
         
-        // 查询分公司名称
+        // 查询服务网点名称
         if (pd.branch_id) {
           const { data: branchData } = await client
             .from('users')

@@ -140,7 +140,7 @@ function Sidebar({
 }) {
   const navItems = [
     { id: 'overview', label: '概览', icon: LayoutDashboard },
-    { id: 'branches', label: '分公司管理', icon: BuildingIcon },
+    { id: 'branches', label: '服务网点管理', icon: BuildingIcon },
     { id: 'providers', label: '服务商管理', icon: UserCog },
     { id: 'members', label: '会员管理', icon: User },
     { id: 'orders', label: '订单管理', icon: ShoppingCart },
@@ -159,7 +159,7 @@ function Sidebar({
             <Building2 className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-white font-bold">总公司后台</h1>
+            <h1 className="text-white font-bold">智算总台后台</h1>
             <p className="text-gray-500 text-xs">艺元智算管理</p>
           </div>
         </div>
@@ -239,7 +239,7 @@ function ViewSwitcher({
               : 'text-gray-400 hover:text-white'
           }`}
         >
-          分公司视图
+          服务网点视图
         </button>
       </div>
 
@@ -250,7 +250,7 @@ function ViewSwitcher({
             className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm hover:bg-slate-700"
           >
             <BuildingIcon className="w-4 h-4" />
-            <span>{selectedBranch?.username || '选择分公司'}</span>
+            <span>{selectedBranch?.username || '选择服务网点'}</span>
             <ChevronDown className="w-4 h-4" />
           </button>
           
@@ -310,7 +310,7 @@ function OverviewGlobal({
           <CardContent className="pt-4">
             <div className="flex items-center gap-2">
               <Crown className="w-5 h-5 text-purple-400" />
-              <span className="text-gray-400 text-sm">分公司数量</span>
+              <span className="text-gray-400 text-sm">服务网点数量</span>
             </div>
             <p className="text-2xl font-bold text-white mt-2">{stats?.branch_count || 0}</p>
             <p className="text-green-400 text-sm mt-1">全部活跃</p>
@@ -397,10 +397,10 @@ function OverviewGlobal({
         </Card>
       </div>
 
-      {/* 分公司分布 */}
+      {/* 服务网点分布 */}
       <Card className="bg-slate-800/50 border-slate-700">
         <CardHeader>
-          <CardTitle className="text-white">分公司能量值分布</CardTitle>
+          <CardTitle className="text-white">服务网点能量值分布</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-8">
@@ -484,7 +484,7 @@ function OverviewGlobal({
   );
 }
 
-// 概览页面 - 分公司视图
+// 概览页面 - 服务网点视图
 function OverviewBranch({
   branch,
   providers,
@@ -499,7 +499,7 @@ function OverviewBranch({
   if (!branch) {
     return (
       <div className="flex items-center justify-center h-64 text-gray-500">
-        请在顶部选择要查看的分公司
+        请在顶部选择要查看的服务网点
       </div>
     );
   }
@@ -510,7 +510,7 @@ function OverviewBranch({
 
   return (
     <div className="space-y-6">
-      {/* 分公司信息 */}
+      {/* 服务网点信息 */}
       <Card className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 border-purple-500/30">
         <CardContent className="py-6">
           <div className="flex items-center justify-between">
@@ -520,7 +520,7 @@ function OverviewBranch({
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-white">{branch.username}</h2>
-                <p className="text-gray-400">分公司概览</p>
+                <p className="text-gray-400">服务网点概览</p>
               </div>
             </div>
             <Badge className="bg-green-500/20 text-green-400 border-0 px-4 py-1">
@@ -642,7 +642,7 @@ function OverviewBranch({
   );
 }
 
-// 分公司管理页面
+// 服务网点管理页面
 function BranchesPage({
   view,
   branchId,
@@ -663,7 +663,7 @@ function BranchesPage({
     b.username.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // 分公司视图时显示选中分公司的详情
+  // 服务网点视图时显示选中服务网点的详情
   if (view === 'branch' && branchId) {
     const selectedBranch = branches.find(b => b.id === branchId);
     if (selectedBranch) {
@@ -675,7 +675,7 @@ function BranchesPage({
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold text-white">{selectedBranch.username}</h2>
-              <p className="text-gray-400">分公司详情</p>
+              <p className="text-gray-400">服务网点详情</p>
             </div>
           </div>
 
@@ -687,7 +687,7 @@ function BranchesPage({
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                  <p className="text-gray-400 text-sm">分公司名称</p>
+                  <p className="text-gray-400 text-sm">服务网点名称</p>
                   <p className="text-white font-medium">{selectedBranch.username}</p>
                 </div>
                 <div>
@@ -820,12 +820,12 @@ function BranchesPage({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-white">分公司管理</h2>
-          <p className="text-gray-400">管理所有分公司</p>
+          <h2 className="text-xl font-bold text-white">服务网点管理</h2>
+          <p className="text-gray-400">管理所有服务网点</p>
         </div>
         <Button className="bg-blue-500 hover:bg-blue-600" onClick={() => setShowCreateDialog(true)}>
           <Plus className="w-4 h-4 mr-2" />
-          创建分公司
+          创建服务网点
         </Button>
       </div>
 
@@ -833,20 +833,20 @@ function BranchesPage({
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         <Input
-          placeholder="搜索分公司..."
+          placeholder="搜索服务网点..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-10 bg-slate-800 border-slate-700 text-white"
         />
       </div>
 
-      {/* 分公司列表 */}
+      {/* 服务网点列表 */}
       <Card className="bg-slate-800/50 border-slate-700">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow className="border-slate-700">
-                <TableHead className="text-gray-400">分公司</TableHead>
+                <TableHead className="text-gray-400">服务网点</TableHead>
                 <TableHead className="text-gray-400">区域</TableHead>
                 <TableHead className="text-gray-400 text-center">服务商数</TableHead>
                 <TableHead className="text-gray-400 text-center">会员数</TableHead>
@@ -859,7 +859,7 @@ function BranchesPage({
             <TableBody>
               {filteredBranches.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-gray-500 py-8">暂无分公司数据</TableCell>
+                  <TableCell colSpan={8} className="text-center text-gray-500 py-8">暂无服务网点数据</TableCell>
                 </TableRow>
               ) : (
                 filteredBranches.map((branch) => (
@@ -955,10 +955,10 @@ function ProvidersPage({
         {view === 'global' && (
           <Select value={filterBranch} onValueChange={setFilterBranch}>
             <SelectTrigger className="w-48 bg-slate-800 border-slate-700 text-white">
-              <SelectValue placeholder="筛选分公司" />
+              <SelectValue placeholder="筛选服务网点" />
             </SelectTrigger>
             <SelectContent className="bg-slate-800 border-slate-700">
-              <SelectItem value="all">所有分公司</SelectItem>
+              <SelectItem value="all">所有服务网点</SelectItem>
               {branches.map((branch) => (
                 <SelectItem key={branch.id} value={branch.id}>{branch.username}</SelectItem>
               ))}
@@ -974,7 +974,7 @@ function ProvidersPage({
             <TableHeader>
               <TableRow className="border-slate-700">
                 <TableHead className="text-gray-400">服务商</TableHead>
-                <TableHead className="text-gray-400">所属分公司</TableHead>
+                <TableHead className="text-gray-400">所属服务网点</TableHead>
                 <TableHead className="text-gray-400 text-right">额度</TableHead>
                 <TableHead className="text-gray-400 text-right">已用额度</TableHead>
                 <TableHead className="text-gray-400 text-right">销售额</TableHead>
@@ -1102,10 +1102,10 @@ function MembersPage({
           <>
             <Select value={filterBranch} onValueChange={setFilterBranch}>
               <SelectTrigger className="w-40 bg-slate-800 border-slate-700 text-white">
-                <SelectValue placeholder="筛选分公司" />
+                <SelectValue placeholder="筛选服务网点" />
               </SelectTrigger>
               <SelectContent className="bg-slate-800 border-slate-700">
-                <SelectItem value="all">所有分公司</SelectItem>
+                <SelectItem value="all">所有服务网点</SelectItem>
                 {branches.map((branch) => (
                   <SelectItem key={branch.id} value={branch.id}>{branch.username}</SelectItem>
                 ))}
@@ -1134,7 +1134,7 @@ function MembersPage({
               <TableRow className="border-slate-700">
                 <TableHead className="text-gray-400">会员</TableHead>
                 <TableHead className="text-gray-400">所属服务商</TableHead>
-                <TableHead className="text-gray-400">所属分公司</TableHead>
+                <TableHead className="text-gray-400">所属服务网点</TableHead>
                 <TableHead className="text-gray-400">能量值</TableHead>
                 <TableHead className="text-gray-400 text-right">余额</TableHead>
                 <TableHead className="text-gray-400 text-right">积分</TableHead>
@@ -1238,7 +1238,7 @@ function OrdersPage({
                   <TableRow className="border-slate-700">
                     <TableHead className="text-gray-400">订单ID</TableHead>
                     <TableHead className="text-gray-400">会员</TableHead>
-                    <TableHead className="text-gray-400">所属分公司</TableHead>
+                    <TableHead className="text-gray-400">所属服务网点</TableHead>
                     <TableHead className="text-gray-400">产品</TableHead>
                     <TableHead className="text-gray-400 text-right">金额</TableHead>
                     <TableHead className="text-gray-400">状态</TableHead>
@@ -1337,7 +1337,7 @@ function EnergyPage({
         </Card>
         <Card className="bg-slate-800/50 border-slate-700">
           <CardContent className="pt-4">
-            <p className="text-gray-400 text-sm">分公司能量值</p>
+            <p className="text-gray-400 text-sm">服务网点能量值</p>
             <p className="text-2xl font-bold text-purple-400 mt-2">
               {branches.reduce((sum, b) => sum + (b.energy_value || 0), 0).toLocaleString()}
             </p>
@@ -1405,16 +1405,16 @@ function EnergyPage({
         </CardContent>
       </Card>
 
-      {/* 分公司详情 */}
+      {/* 服务网点详情 */}
       <Card className="bg-slate-800/50 border-slate-700">
         <CardHeader>
-          <CardTitle className="text-white">分公司能量值详情</CardTitle>
+          <CardTitle className="text-white">服务网点能量值详情</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow className="border-slate-700">
-                <TableHead className="text-gray-400">分公司</TableHead>
+                <TableHead className="text-gray-400">服务网点</TableHead>
                 <TableHead className="text-gray-400 text-right">能量值</TableHead>
                 <TableHead className="text-gray-400 text-right">占比</TableHead>
                 <TableHead className="text-gray-400">服务商数</TableHead>
@@ -1552,7 +1552,7 @@ function QuotaPage({
 
   const handleAllocate = async () => {
     if (!allocateBranchId || !allocateAmount) {
-      alert('请选择分公司并输入分配额度');
+      alert('请选择服务网点并输入分配额度');
       return;
     }
 
@@ -1625,13 +1625,13 @@ function QuotaPage({
       {/* 额度分布 */}
       <Card className="bg-slate-800/50 border-slate-700">
         <CardHeader>
-          <CardTitle className="text-white">分公司额度分配</CardTitle>
+          <CardTitle className="text-white">服务网点额度分配</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow className="border-slate-700">
-                <TableHead className="text-gray-400">分公司</TableHead>
+                <TableHead className="text-gray-400">服务网点</TableHead>
                 <TableHead className="text-gray-400 text-right">分配额度</TableHead>
                 <TableHead className="text-gray-400 text-right">已用额度</TableHead>
                 <TableHead className="text-gray-400 text-right">剩余额度</TableHead>
@@ -1679,15 +1679,15 @@ function QuotaPage({
           <DialogHeader>
             <DialogTitle className="text-white">分配额度</DialogTitle>
             <DialogDescription className="text-gray-400">
-              选择分公司并分配额度，分配时自动赠送30%能量值
+              选择服务网点并分配额度，分配时自动赠送30%能量值
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <label className="text-gray-400 text-sm">选择分公司</label>
+              <label className="text-gray-400 text-sm">选择服务网点</label>
               <Select value={allocateBranchId} onValueChange={setAllocateBranchId}>
                 <SelectTrigger className="mt-1 bg-slate-900 border-slate-700 text-white">
-                  <SelectValue placeholder="请选择分公司" />
+                  <SelectValue placeholder="请选择服务网点" />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-800 border-slate-700">
                   {branches.map((branch) => (
@@ -1783,7 +1783,7 @@ function SettingsPage() {
           <div className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg">
             <div>
               <p className="text-white">额度赠送比例</p>
-              <p className="text-gray-400 text-sm">总公司分配额度时的能量值赠送比例</p>
+              <p className="text-gray-400 text-sm">智算总台分配额度时的能量值赠送比例</p>
             </div>
             <div className="flex items-center gap-2">
               <Input className="w-24 bg-slate-900 border-slate-700 text-white text-right" defaultValue="30" />

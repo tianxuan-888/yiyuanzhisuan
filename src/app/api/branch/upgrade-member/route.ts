@@ -5,7 +5,7 @@ import { authenticateRequest, authorizeRole } from '@/lib/auth';
 // 将会员升级为服务商（或为已有服务商设置额度）
 export async function POST(request: NextRequest) {
   try {
-    // 鉴权：仅管理员和分公司可操作
+    // 鉴权：仅管理员和服务网点可操作
     const user = authenticateRequest(request);
     if (!user || !authorizeRole(user, ['admin', 'branch'])) {
       return NextResponse.json({ error: '无权操作' }, { status: 403 });
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!branchId) {
-      return NextResponse.json({ error: '缺少分公司ID' }, { status: 400 });
+      return NextResponse.json({ error: '缺少服务网点ID' }, { status: 400 });
     }
 
     if (!initialQuota || initialQuota < 50000) {

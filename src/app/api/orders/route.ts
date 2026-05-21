@@ -6,7 +6,7 @@ const supabase = getSupabaseClient();
 
 export async function GET(request: NextRequest) {
   try {
-    // 鉴权：仅管理员和分公司可查看
+    // 鉴权：仅管理员和服务网点可查看
     const user = authenticateRequest(request);
     if (!user || !authorizeRole(user, ['admin', 'branch'])) {
       return NextResponse.json({ error: '无权访问' }, { status: 403 });

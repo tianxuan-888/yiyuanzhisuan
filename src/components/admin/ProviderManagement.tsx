@@ -180,7 +180,7 @@ export function ProviderManagement({ branchId, onBack }: Props) {
                     <div className="font-medium">{selectedProvider.phone}</div>
                   </div>
                   <div>
-                    <div className="text-sm text-gray-500">所属分公司</div>
+                    <div className="text-sm text-gray-500">所属服务网点</div>
                     <div className="font-medium">{selectedProvider.branchName}</div>
                   </div>
                   <div>
@@ -436,7 +436,7 @@ export function ProviderManagement({ branchId, onBack }: Props) {
         {onBack && (
           <Button variant="outline" onClick={onBack}>
             <ArrowLeft className="w-4 h-4 mr-2" />
-            返回分公司
+            返回服务网点
           </Button>
         )}
         <Input
@@ -463,7 +463,7 @@ export function ProviderManagement({ branchId, onBack }: Props) {
                 <TableRow>
                   <TableHead>服务商名称</TableHead>
                   <TableHead>联系方式</TableHead>
-                  <TableHead>所属分公司</TableHead>
+                  <TableHead>所属服务网点</TableHead>
                   <TableHead className="text-right">能量值</TableHead>
                   <TableHead className="text-right">可用额度</TableHead>
                   <TableHead className="text-right">会员数</TableHead>

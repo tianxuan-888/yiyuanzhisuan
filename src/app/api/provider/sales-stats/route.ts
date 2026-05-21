@@ -27,10 +27,10 @@ export async function GET(request: NextRequest) {
         ORDER BY p.created_at DESC
       `;
     } else if (viewType === 'branch') {
-      // 分公司 - 查看该分公司下所有服务商的产品
+      // 服务网点 - 查看该服务网点下所有服务商的产品
       const branchId = searchParams.get('branchId');
       if (!branchId) {
-        return NextResponse.json({ error: '缺少分公司ID' }, { status: 400 });
+        return NextResponse.json({ error: '缺少服务网点ID' }, { status: 400 });
       }
       
       sql = `

@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 创建产品模板（总公司）
+// 创建产品模板（智算总台）
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();

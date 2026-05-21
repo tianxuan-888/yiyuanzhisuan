@@ -13,7 +13,7 @@ function getAdminSupabase() {
 }
 
 // 获取能量值申请列表
-// - 如果有 branchId 参数：供分公司查看所有服务商申请
+// - 如果有 branchId 参数：供服务网点查看所有服务商申请
 // - 如果有 userId 参数：供服务商查看自己的申请记录
 export async function GET(request: NextRequest) {
   try {
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       }
     });
     
-    // 如果是分公司查询
+    // 如果是服务网点查询
     if (branchId) {
       // 过滤匹配 branchId 的记录
       energyRequests = energyRequests.filter(record => {
@@ -195,16 +195,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 获取分公司的ID（使用 branch_id）
+    // 获取服务网点的ID（使用 branch_id）
     const parentId = user.branch_id;
     if (!parentId) {
       return NextResponse.json(
-        { error: '未找到所属分公司信息，服务商尚未绑定分公司' },
+        { error: '未找到所属服务网点信息，服务商尚未绑定服务网点' },
         { status: 400 }
       );
     }
 
-    // 查询分公司信息
+    // 查询服务网点信息
     const { data: branch, error: branchError } = await supabase
       .from('users')
       .select('id, username')
@@ -213,7 +213,7 @@ export async function POST(request: NextRequest) {
 
     if (branchError || !branch) {
       return NextResponse.json(
-        { error: '未找到所属分公司' },
+        { error: '未找到所属服务网点' },
         { status: 404 }
       );
     }
@@ -251,7 +251,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: '能量值申请已提交，等待分公司审核',
+      message: '能量值申请已提交，等待服务网点审核',
       data: {
         requestId: requestId,
         requestedAmount: requestedAmount

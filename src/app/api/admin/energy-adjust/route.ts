@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 import { authenticateRequest } from '@/lib/auth';
 
-// 总公司调整会员能量值
+// 智算总台调整会员能量值
 export async function POST(request: NextRequest) {
   try {
     const authUser = await authenticateRequest(request);
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 记录能量值流水
-    const adjustNote = note || `总公司${action === 'add' ? '增加' : '扣减'}能量值 ${amount}`;
+    const adjustNote = note || `智算总台${action === 'add' ? '增加' : '扣减'}能量值 ${amount}`;
     await query(
       `INSERT INTO energy_transactions (type, amount, from_user_id, to_user_id, note)
        VALUES ($1, $2, $3, $4, $5)`,
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
         user.role,
         'energy_adjust',
         '能量值调整',
-        `总公司${action === 'add' ? '增加' : '扣减'}了您 ${amount} 能量值${note ? '，原因：' + note : ''}`,
+        `智算总台${action === 'add' ? '增加' : '扣减'}了您 ${amount} 能量值${note ? '，原因：' + note : ''}`,
         'unread'
       ]
     );

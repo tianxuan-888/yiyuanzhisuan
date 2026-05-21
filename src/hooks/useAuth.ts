@@ -24,7 +24,7 @@ interface UserData {
   created_at: string;
   updated_at: string | null;
   unique_id?: string; // 会员专属ID（HM格式）
-  branch_id?: string | null; // 服务商所属分公司ID
+  branch_id?: string | null; // 服务商所属服务网点ID
 }
 
 interface UserInfo {
@@ -38,7 +38,7 @@ interface UserInfo {
   points: number;
   providerId: string | null;
   inviterId: string | null;
-  branch_id?: string | null; // 服务商所属分公司ID
+  branch_id?: string | null; // 服务商所属服务网点ID
   unique_id?: string;
   invite_code?: string;
   real_name?: string | null;

@@ -64,9 +64,9 @@ export async function GET(request: NextRequest) {
 
     // ========== 根据角色返回不同的转账对象 ==========
 
-    // 服务商可转账对象：所属分公司 + 所有服务商 + 自己的会员
+    // 服务商可转账对象：所属服务网点 + 所有服务商 + 自己的会员
     if (currentUser.role === 'provider') {
-      // 查询所属分公司
+      // 查询所属服务网点
       if (currentUser.branch_id) {
         const branches = await query(
           'SELECT id, username, phone, unique_id, role, energy_value FROM users WHERE id = $1',
@@ -113,9 +113,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 分公司可转账对象：旗下所有服务商和会员
+    // 服务网点可转账对象：旗下所有服务商和会员
     if (currentUser.role === 'branch') {
-      // 查询该分公司的所有服务商
+      // 查询该服务网点的所有服务商
       const providers = await query(
         'SELECT id, username, phone, unique_id, role, energy_value FROM users WHERE branch_id = $1 AND role = $2',
         [userId, 'provider']
@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
         result.transfer_targets.providers = [];
       }
 
-      // 查询该分公司的所有会员
+      // 查询该服务网点的所有会员
       const members = await query(
         `SELECT u.id, u.username, u.phone, u.unique_id, u.role, u.energy_value 
          FROM users u 

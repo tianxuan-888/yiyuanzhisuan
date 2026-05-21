@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
       }
 
     } else if (user.role === 'branch') {
-      // 分公司：从 quota_accounts 表获取额度
+      // 服务网点：从 quota_accounts 表获取额度
       try {
         const accountsResult = await query(
           `SELECT balance::float as balance_float, total_in::float as total_in_float 

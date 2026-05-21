@@ -9,8 +9,8 @@ import { query, queryOne } from '@/storage/database/pg-client';
  * - 前置条件：必须推荐3个以上有效会员
  * - 无需缴纳保证金
  * - 审核流程：
- *   第一代：pending → approved（分公司直接审核）
- *   第二代：pending → provider_approved（上级服务商审核拆分额度）→ approved（分公司审核正式变身份）
+ *   第一代：pending → approved（服务网点直接审核）
+ *   第二代：pending → provider_approved（上级服务商审核拆分额度）→ approved（服务网点审核正式变身份）
  */
 export async function POST(request: NextRequest) {
   try {
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     const { 
       userId,           // 申请人ID
       parent_provider_id, // 上级服务商ID（二代申请时为当前所属服务商）
-      branch_id,        // 申请加入的分公司ID（一代申请必填）
+      branch_id,        // 申请加入的服务网点ID（一代申请必填）
       real_name,        // 真实姓名
       phone,            // 手机号
       quota_request,    // 申请额度
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       apply_type = 'second_gen';
       targetParentProviderId = applicant.provider_id;
       
-      // 获取上级服务商的分公司ID
+      // 获取上级服务商的服务网点ID
       const parentProvider = await queryOne<any>(
         `SELECT id, role, branch_id FROM users WHERE id = $1`,
         [applicant.provider_id]
@@ -83,12 +83,12 @@ export async function POST(request: NextRequest) {
       
       if (!branch_id) {
         return NextResponse.json(
-          { error: '请选择要加入的分公司' },
+          { error: '请选择要加入的服务网点' },
           { status: 400 }
         );
       }
 
-      // 验证分公司是否存在
+      // 验证服务网点是否存在
       const branch = await queryOne<any>(
         `SELECT id FROM users WHERE id = $1 AND role = 'branch'`,
         [branch_id]
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
 
       if (!branch) {
         return NextResponse.json(
-          { error: '分公司不存在' },
+          { error: '服务网点不存在' },
           { status: 404 }
         );
       }
@@ -160,8 +160,8 @@ export async function POST(request: NextRequest) {
         apply_type,
         status: 'pending',
         message: apply_type === 'first_gen' 
-          ? '申请已提交，请等待分公司审批' 
-          : '申请已提交，请等待上级服务商审批后，再由分公司最终审核',
+          ? '申请已提交，请等待服务网点审批' 
+          : '申请已提交，请等待上级服务商审批后，再由服务网点最终审核',
       },
     });
   } catch (error) {

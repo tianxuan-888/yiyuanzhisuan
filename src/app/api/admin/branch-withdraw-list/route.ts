@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 
-// 获取分公司提现申请列表（总公司审核用）
+// 获取服务网点提现申请列表（智算总台审核用）
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || 'all';
 
-    // 获取分公司提现申请
+    // 获取服务网点提现申请
     let sql = `
       SELECT qr.*, u.username as requester_name, u.phone as requester_phone
       FROM quota_requests qr

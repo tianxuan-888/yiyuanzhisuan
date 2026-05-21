@@ -30,10 +30,10 @@ export async function GET(request: NextRequest) {
     let accounts = await query(sql, params);
 
     // 补充 admin 的额度信息（从 company_quota 表获取）
-    // admin 不一定在 quota_accounts 表中有记录，但 company_quota 表记录了总公司总额度
+    // admin 不一定在 quota_accounts 表中有记录，但 company_quota 表记录了智算总台总额度
     const adminInList = accounts.find((a: any) => a.role === 'admin');
     if (!adminInList) {
-      // 查询 company_quota 获取总公司额度
+      // 查询 company_quota 获取智算总台额度
       const companyQuota = await query(
         'SELECT total_quota, used_quota, available_quota FROM company_quota LIMIT 1'
       );
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 补充尚未在 quota_accounts 表中有记录的 branch 用户
-    // 新注册的分公司可能只有 users 表记录，没有 quota_accounts 记录
+    // 新注册的服务网点可能只有 users 表记录，没有 quota_accounts 记录
     const existingUserIds = accounts
       .filter((a: any) => a.user_id)
       .map((a: any) => String(a.user_id));

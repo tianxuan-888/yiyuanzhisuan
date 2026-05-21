@@ -305,7 +305,7 @@ export const systemConfig = pgTable(
   ]
 );
 
-// ==================== 分公司配置表 ====================
+// ==================== 服务网点配置表 ====================
 
 export const branches = pgTable(
   "branches",

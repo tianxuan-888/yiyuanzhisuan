@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
       }
       distributionResult.direct = directReward;
 
-      // 3. 上级服务商10% → balance（无上级则归总公司）
+      // 3. 上级服务商10% → balance（无上级则归智算总台）
       let parentProviderId: string | null = null;
       if (parentShare > 0 && provId) {
         const { data: provData } = await client.from('providers').select('parent_provider_id').eq('user_id', provId).maybeSingle();
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
             await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newPPBal, parentProviderId]);
           }
         } else {
-          // 无上级服务商，10%归分公司（分公司承担了第一代服务商的培养职责）
+          // 无上级服务商，10%归服务网点（服务网点承担了第一代服务商的培养职责）
           if (provId) {
             const provInfo = await queryOne('SELECT branch_id FROM providers WHERE user_id = $1', [provId]);
             if (provInfo?.branch_id) {
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
       }
       distributionResult.parentProvider = parentShare;
 
-      // 4. 分公司5% → balance
+      // 4. 服务网点5% → balance
       if (branchShare > 0 && provId) {
         const { data: provData } = await client.from('providers').select('branch_id').eq('user_id', provId).maybeSingle();
         if (provData?.branch_id) {
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
       }
       distributionResult.branch = branchShare;
 
-      // 5. 总公司5% → balance
+      // 5. 智算总台5% → balance
       if (companyShare > 0) {
         const { data: adminUser } = await client.from('users').select('id').eq('role', 'admin').limit(1).maybeSingle();
         if (adminUser) {

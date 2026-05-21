@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 
-// 总公司审核分公司能量值申请
+// 智算总台审核服务网点能量值申请
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     const requestAmount = Number(requestRecord.amount);
 
     if (action === 'approve') {
-      // 检查总公司能量值余额
+      // 检查智算总台能量值余额
       const adminAccount = await query(
         `SELECT ea.balance::text as balance 
          FROM energy_accounts ea 
@@ -61,12 +61,12 @@ export async function POST(request: NextRequest) {
 
       if (adminBalance < requestAmount) {
         return NextResponse.json(
-          { success: false, error: `总公司能量值余额不足（余额：${adminBalance.toLocaleString()}）` },
+          { success: false, error: `智算总台能量值余额不足（余额：${adminBalance.toLocaleString()}）` },
           { status: 400 }
         );
       }
 
-      // 1. 扣除总公司能量值
+      // 1. 扣除智算总台能量值
       await query(
         `UPDATE energy_accounts 
          SET balance = balance - $1,
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
         [requestAmount]
       );
 
-      // 2. 增加分公司能量值
+      // 2. 增加服务网点能量值
       await query(
         `INSERT INTO energy_accounts (user_id, balance, total_in, total_out, created_at, updated_at)
          VALUES ($1, 0, 0, 0, NOW(), NOW())
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
         [branchId, requestAmount]
       );
 
-      // 3. 记录能量值流水（从总公司转出）
+      // 3. 记录能量值流水（从智算总台转出）
       await query(
         `INSERT INTO energy_transactions
          (id, user_id, type, amount, energy_before, energy_after, note, status, created_at)
@@ -97,18 +97,18 @@ export async function POST(request: NextRequest) {
           requestAmount,
           adminBalance.toString(),
           (adminBalance - requestAmount).toString(),
-          `向分公司 ${requestRecord.branch_name} 下发能量值 ${requestAmount.toLocaleString()}`
+          `向服务网点 ${requestRecord.branch_name} 下发能量值 ${requestAmount.toLocaleString()}`
         ]
       );
 
-      // 4. 获取分公司更新后的余额
+      // 4. 获取服务网点更新后的余额
       const branchAccount = await query(
         `SELECT balance FROM energy_accounts WHERE user_id = $1`,
         [branchId]
       );
       const branchBalance = branchAccount.length > 0 ? Number(branchAccount[0].balance || 0) : 0;
 
-      // 5. 记录分公司能量值流水（从总公司转入）
+      // 5. 记录服务网点能量值流水（从智算总台转入）
       await query(
         `INSERT INTO energy_transactions
          (id, user_id, type, amount, energy_before, energy_after, note, status, created_at)
@@ -119,11 +119,11 @@ export async function POST(request: NextRequest) {
           requestAmount,
           (branchBalance - requestAmount).toString(),
           branchBalance.toString(),
-          `收到总公司下发能量值 ${requestAmount.toLocaleString()}`
+          `收到智算总台下发能量值 ${requestAmount.toLocaleString()}`
         ]
       );
 
-      // 6. 发送通知给分公司
+      // 6. 发送通知给服务网点
       await query(
         `INSERT INTO notifications 
          (id, receiver_id, receiver_role, sender_id, type, title, content, created_at)

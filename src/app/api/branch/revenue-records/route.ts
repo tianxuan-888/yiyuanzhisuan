@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/pg-client';
 import { authenticateRequest } from '@/lib/auth';
 
-// 获取分公司收益记录
+// 获取服务网点收益记录
 export async function GET(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (authUser.role !== 'branch') {
-      return NextResponse.json({ error: '仅分公司可查看' }, { status: 403 });
+      return NextResponse.json({ error: '仅服务网点可查看' }, { status: 403 });
     }
 
     const branchUserId = authUser.userId;
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('获取分公司收益记录失败:', error);
+    console.error('获取服务网点收益记录失败:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : '获取收益记录失败' },
       { status: 500 }

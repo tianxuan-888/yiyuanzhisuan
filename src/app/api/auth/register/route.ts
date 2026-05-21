@@ -136,14 +136,14 @@ export async function POST(request: NextRequest) {
     inviterInfo = { id: inviter.id, username: inviter.username };
 
     if (inviteCodeType === 'admin') {
-      // 总公司邀请码：注册为分公司
+      // 智算总台邀请码：注册为服务网点
       assignedRole = 'branch';
       branchId = null; // 注册后由系统分配 branch_id
       inviterId = inviter.id;
     } else if (inviteCodeType === 'branch') {
-      // 分公司邀请码：注册为服务商
+      // 服务网点邀请码：注册为服务商
       assignedRole = 'provider';
-      branchId = inviter.id; // 分公司的ID就是branch_id
+      branchId = inviter.id; // 服务网点的ID就是branch_id
       inviterId = inviter.id;
     } else if (inviteCodeType === 'provider') {
       // 服务商邀请：注册为会员
@@ -217,9 +217,9 @@ export async function POST(request: NextRequest) {
 
     const newUser = newUsers[0];
 
-    // 注册后处理：分公司设置 branch_id 为自身；服务商创建 providers 记录
+    // 注册后处理：服务网点设置 branch_id 为自身；服务商创建 providers 记录
     if (assignedRole === 'branch') {
-      // 分公司的 branch_id 指向自己
+      // 服务网点的 branch_id 指向自己
       await query('UPDATE users SET branch_id = $1 WHERE id = $2', [newUser.id, newUser.id]);
     } else if (assignedRole === 'provider') {
       // 服务商：在 providers 表创建记录
@@ -244,8 +244,8 @@ export async function POST(request: NextRequest) {
     const { password: _, ...userWithoutPassword } = newUser;
 
     const inviteCodeTypeLabels: Record<string, string> = {
-      admin: '总公司邀请（注册为分公司）',
-      branch: '分公司邀请（注册为服务商）',
+      admin: '智算总台邀请（注册为服务网点）',
+      branch: '服务网点邀请（注册为服务商）',
       provider: '服务商邀请',
       member: '会员邀请',
     };

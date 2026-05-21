@@ -4,7 +4,7 @@ import { authenticateRequest, authorizeRole } from '@/lib/auth';
 import { generateUUID } from '@/lib/utils';
 import { deductEnergy } from '@/lib/energy-util';
 
-// 申请变现能量值（服务商/分公司）
+// 申请变现能量值（服务商/服务网点）
 export async function POST(request: NextRequest) {
   try {
     const user = authenticateRequest(request);
@@ -26,8 +26,8 @@ export async function POST(request: NextRequest) {
 
     const supabase = getSupabase();
 
-    // 服务商申请 → 上级分公司审核
-    // 分公司申请 → 总公司(admin)审核
+    // 服务商申请 → 上级服务网点审核
+    // 服务网点申请 → 智算总台(admin)审核
     const approverRole = user.role === 'provider' ? 'branch' : 'admin';
 
     let approverId = targetUserId;

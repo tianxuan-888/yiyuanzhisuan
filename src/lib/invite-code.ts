@@ -65,14 +65,14 @@ export async function generateInviteCode(prefix: string = 'PROV'): Promise<strin
 }
 
 /**
- * 生成总公司邀请码
+ * 生成智算总台邀请码
  */
 export async function generateAdminInviteCode(): Promise<string> {
   return generateInviteCode('ADMIN');
 }
 
 /**
- * 生成分公司邀请码
+ * 生成服务网点邀请码
  */
 export async function generateBranchInviteCode(): Promise<string> {
   return generateInviteCode('BRAN');

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, withTransaction } from '@/lib/pg-client';
 import { authenticateRequest } from '@/lib/auth';
 
-// 分公司提现申请（向总公司提现）
+// 服务网点提现申请（向智算总台提现）
 export async function POST(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);
@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (authUser.role !== 'branch') {
-      return NextResponse.json({ error: '仅分公司可使用此接口' }, { status: 403 });
+      return NextResponse.json({ error: '仅服务网点可使用此接口' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
         const w = wRes.rows[0];
         if (w.status !== 'transferred') {
-          throw Object.assign(new Error('当前状态无法确认收款，需等待总公司确认打款'), { statusCode: 400 });
+          throw Object.assign(new Error('当前状态无法确认收款，需等待智算总台确认打款'), { statusCode: 400 });
         }
 
         await client.query(
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
 
       const newBalance = currentBalance - withdrawAmount;
 
-      // 1. 扣减分公司余额
+      // 1. 扣减服务网点余额
       await client.query(
         'UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2',
         [newBalance.toFixed(2), userId]
@@ -101,11 +101,11 @@ export async function POST(request: NextRequest) {
 
       const withdrawalId = withdrawalRes.rows[0].id;
 
-      // 3. 手续费沉淀到总公司（分公司提现的手续费直接归总公司）
+      // 3. 手续费沉淀到智算总台（服务网点提现的手续费直接归智算总台）
       await client.query(
         `INSERT INTO company_fee_records (type, amount, source_user_id, source_role, source_withdrawal_id, note, created_at)
          VALUES ('withdrawal_fee', $1, $2, 'branch', $3, $4, NOW())`,
-        [fee.toFixed(2), userId, withdrawalId, `分公司提现手续费5%: ${fee}元`]
+        [fee.toFixed(2), userId, withdrawalId, `服务网点提现手续费5%: ${fee}元`]
       );
 
       return { withdrawalId, newBalance, fee, actualAmount };
@@ -120,10 +120,10 @@ export async function POST(request: NextRequest) {
         actualAmount: result.actualAmount.toFixed(2),
         balance: result.newBalance.toFixed(2),
       },
-      message: '提现申请已提交，等待总公司审核',
+      message: '提现申请已提交，等待智算总台审核',
     });
   } catch (error: any) {
-    console.error('分公司提现申请失败:', error);
+    console.error('服务网点提现申请失败:', error);
     const statusCode = error.statusCode || 500;
     return NextResponse.json(
       { error: error.message || '提现申请失败' },
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 获取分公司提现记录
+// 获取服务网点提现记录
 export async function GET(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);

@@ -107,7 +107,7 @@ export function BranchDetailView({ branchId, branchName, onBack }: Props) {
         setBranchData(result.data.branches[0]);
       }
     } catch (error) {
-      console.error('加载分公司详情失败:', error);
+      console.error('加载服务网点详情失败:', error);
     }
     setLoading(false);
   };
@@ -136,7 +136,7 @@ export function BranchDetailView({ branchId, branchName, onBack }: Props) {
   if (!branchData) {
     return (
       <div className="text-center py-8 text-gray-500">
-        未找到分公司数据
+        未找到服务网点数据
       </div>
     );
   }
@@ -151,7 +151,7 @@ export function BranchDetailView({ branchId, branchName, onBack }: Props) {
         </Button>
         <div>
           <h2 className="text-xl font-bold">{branchData.name}</h2>
-          <p className="text-sm text-gray-500">分公司详情</p>
+          <p className="text-sm text-gray-500">服务网点详情</p>
         </div>
       </div>
 
@@ -383,12 +383,12 @@ export function BranchDetailView({ branchId, branchName, onBack }: Props) {
         {/* 算力统计Tab */}
         <TabsContent value="overview">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* 分公司算力额度 */}
+            {/* 服务网点算力额度 */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Zap className="w-5 h-5 text-blue-600" />
-                  分公司算力额度
+                  服务网点算力额度
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -396,7 +396,7 @@ export function BranchDetailView({ branchId, branchName, onBack }: Props) {
                   <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
                     <div>
                       <div className="font-medium">总额度</div>
-                      <div className="text-sm text-gray-500">总公司分配给该分公司</div>
+                      <div className="text-sm text-gray-500">智算总台分配给该服务网点</div>
                     </div>
                     <div className="text-2xl font-bold text-blue-600">
                       {formatEnergy(branchData.stats.quotaTotal)}
@@ -572,7 +572,7 @@ export function BranchDetailView({ branchId, branchName, onBack }: Props) {
                     <div>
                       <p className="text-sm opacity-80">能量值总额</p>
                       <p className="text-2xl font-bold mt-1">{formatEnergy(branchData.stats.energyBalance)}</p>
-                      <p className="text-xs opacity-70 mt-1">分公司体系总和</p>
+                      <p className="text-xs opacity-70 mt-1">服务网点体系总和</p>
                     </div>
                     <Zap className="w-10 h-10 opacity-50" />
                   </div>
@@ -583,9 +583,9 @@ export function BranchDetailView({ branchId, branchName, onBack }: Props) {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm opacity-80">分公司能量值</p>
+                      <p className="text-sm opacity-80">服务网点能量值</p>
                       <p className="text-2xl font-bold mt-1">{formatEnergy(branchData.stats.energyBranchBalance)}</p>
-                      <p className="text-xs opacity-70 mt-1">分公司持有</p>
+                      <p className="text-xs opacity-70 mt-1">服务网点持有</p>
                     </div>
                     <Building2 className="w-10 h-10 opacity-50" />
                   </div>
@@ -631,12 +631,12 @@ export function BranchDetailView({ branchId, branchName, onBack }: Props) {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {/* 分公司 */}
+                    {/* 服务网点 */}
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="flex items-center gap-2">
                           <span className="w-3 h-3 rounded-full bg-blue-500"></span>
-                          分公司
+                          服务网点
                         </span>
                         <span className="font-medium">{formatEnergy(branchData.stats.energyBranchBalance)}</span>
                       </div>
@@ -710,7 +710,7 @@ export function BranchDetailView({ branchId, branchName, onBack }: Props) {
                           <Building2 className="w-6 h-6 text-white" />
                         </div>
                         <div>
-                          <div className="font-medium">分公司</div>
+                          <div className="font-medium">服务网点</div>
                           <div className="text-sm text-gray-500">
                             {branchData.stats.energyBalance > 0 ? ((branchData.stats.energyBranchBalance / branchData.stats.energyBalance) * 100).toFixed(1) : 0}%
                           </div>
@@ -767,10 +767,10 @@ export function BranchDetailView({ branchId, branchName, onBack }: Props) {
                   <div>
                     <h4 className="font-medium text-amber-800">能量值统计说明</h4>
                     <ul className="text-sm text-amber-700 mt-2 space-y-1">
-                      <li>• 能量值总额：分公司体系内所有能量值之和（分公司 + 服务商 + 会员）</li>
-                      <li>• 分公司能量值：分公司自身持有的能量值</li>
-                      <li>• 服务商能量值：该分公司下所有服务商的能量值之和</li>
-                      <li>• 会员能量值：该分公司体系下所有会员的能量值之和</li>
+                      <li>• 能量值总额：服务网点体系内所有能量值之和（服务网点 + 服务商 + 会员）</li>
+                      <li>• 服务网点能量值：服务网点自身持有的能量值</li>
+                      <li>• 服务商能量值：该服务网点下所有服务商的能量值之和</li>
+                      <li>• 会员能量值：该服务网点体系下所有会员的能量值之和</li>
                     </ul>
                   </div>
                 </div>

@@ -16,7 +16,7 @@ function bytesToUuid(bytes: any): string {
   return '';
 }
 
-// 获取分公司能量值账户信息
+// 获取服务网点能量值账户信息
 async function getBranchEnergyAccount(branchId: string) {
   if (!client) return null;
 
@@ -36,11 +36,11 @@ async function getBranchEnergyAccount(branchId: string) {
   return account || null;
 }
 
-// 获取分公司相关的能量值流水记录
+// 获取服务网点相关的能量值流水记录
 async function getBranchEnergyRecords(branchId: string, type: string = 'all') {
   if (!client) return [];
 
-  // 只查询分公司的记录
+  // 只查询服务网点的记录
   const { data, error } = await client
     .from('energy_transactions')
     .select('*')
@@ -91,10 +91,10 @@ async function getBranchEnergyRecords(branchId: string, type: string = 'all') {
         const fromUser = bytesToUuid(record.from_user_id);
         switch (record.type) {
           case 'quota_match':
-            description = '总公司下发算力额度，同步配套能量值';
+            description = '智算总台下发算力额度，同步配套能量值';
             break;
           case 'transfer_in':
-            description = '总公司分配额度，获得赠送能量值';
+            description = '智算总台分配额度，获得赠送能量值';
             break;
           case 'transfer_out':
             description = toUser ? '审核通过服务商能量值申请，发放能量值' : '能量值转出';

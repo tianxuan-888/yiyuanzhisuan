@@ -892,7 +892,7 @@ const [copySuccess, setCopySuccess] = useState(false);
         const autoApplyType = user?.providerId ? "second_gen" : "first_gen";
 
         if (autoApplyType === "first_gen" && !branchId) {
-            showMessage("error", "请填写分公司ID");
+            showMessage("error", "请填写服务网点ID");
             return;
         }
 
@@ -966,7 +966,7 @@ const [copySuccess, setCopySuccess] = useState(false);
             const data = await response.json();
             if (data.success) {
                 const w = data.data || {};
-                showMessage("success", `提现申请已提交！手续费${w.fee || 0}元，实际到账${w.actualAmount || 0}元，等待分公司审核`);
+                showMessage("success", `提现申请已提交！手续费${w.fee || 0}元，实际到账${w.actualAmount || 0}元，等待服务网点审核`);
                 setShowWithdrawDialog(false);
                 setWithdrawAmount("");
                 setWithdrawAlipay("");
@@ -1196,7 +1196,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                             <Star className="w-5 h-5 text-purple-500" />申请成为服务商
                         </DialogTitle>
                         <DialogDescription className="text-sm text-muted-foreground">
-                            {user?.providerId ? "审核流程：上级服务商审核 → 分公司最终审核" : "审核流程：分公司直接审核"}
+                            {user?.providerId ? "审核流程：上级服务商审核 → 服务网点最终审核" : "审核流程：服务网点直接审核"}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
@@ -1252,13 +1252,13 @@ const [copySuccess, setCopySuccess] = useState(false);
                                         placeholder="请输入支付宝账号（用于收益提现）" />
                                 </div>
                                 {!user?.providerId && <div className="space-y-2">
-                                    <Label htmlFor="branchId">选择分公司 *</Label>
+                                    <Label htmlFor="branchId">选择服务网点 *</Label>
                                     <Input
                                         id="branchId"
                                         value={branchId}
                                         onChange={e => setBranchId(e.target.value)}
-                                        placeholder="请输入分公司ID或用户名" />
-                                    <p className="text-xs text-gray-500">请联系分公司获取ID</p>
+                                        placeholder="请输入服务网点ID或用户名" />
+                                    <p className="text-xs text-gray-500">请联系服务网点获取ID</p>
                                 </div>}
                                 <div className="space-y-2">
                                     <Label htmlFor="quota">申请额度（元）</Label>
@@ -1271,7 +1271,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                     <p className="text-xs text-gray-500">
                                         {user?.providerId 
                                             ? "上级服务商将从自己额度中拆分给您" 
-                                            : "通过后由分公司分配额度"}
+                                            : "通过后由服务网点分配额度"}
                                     </p>
                                 </div>
                                 <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
@@ -1288,7 +1288,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                         <p className="font-medium">审核流程说明：</p>
                                         <ul className="list-disc list-inside text-xs mt-1 space-y-1">
                                             <li>第一步：上级服务商审核（拆分额度）</li>
-                                            <li>第二步：分公司最终审核（线下签合同确认）</li>
+                                            <li>第二步：服务网点最终审核（线下签合同确认）</li>
                                             <li>通过后：您所有直推会员自动迁移到您的体系</li>
                                         </ul>
                                     </div>
@@ -1874,16 +1874,16 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             <CardContent>
                                                 {/* 关系说明 */}
                                                 <div className="space-y-4">
-                                                    {/* 会员关系链：总公司 → 分公司 → 服务商 → 会员 */}
+                                                    {/* 会员关系链：智算总台 → 服务网点 → 服务商 → 会员 */}
                                                     <div className="p-4 bg-slate-800/50 rounded-xl border border-slate-700">
                                                         <h4 className="text-emerald-400 font-medium mb-3 flex items-center gap-2">
                                                             <Badge className="bg-emerald-600 text-white text-xs">会员</Badge>
                                                             关系链说明
                                                         </h4>
                                                         <div className="flex flex-wrap items-center gap-2 text-slate-300 text-sm">
-                                                            <span>总公司</span>
+                                                            <span>智算总台</span>
                                                             <ArrowRight className="w-4 h-4 text-slate-500" />
-                                                            <span>分公司</span>
+                                                            <span>服务网点</span>
                                                             <ArrowRight className="w-4 h-4 text-slate-500" />
                                                             <span>服务商</span>
                                                             <ArrowRight className="w-4 h-4 text-slate-500" />
@@ -1893,7 +1893,7 @@ const [copySuccess, setCopySuccess] = useState(false);
 
                                                     {/* 关系详情列表 */}
                                                     <div className="space-y-3">
-                                                        {/* 分公司 */}
+                                                        {/* 服务网点 */}
                                                         {chainData.branch && (
                                                             <div className="flex items-center gap-3 p-3 bg-blue-900/30 rounded-lg border border-blue-800/50">
                                                                 <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center">
@@ -1901,9 +1901,9 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                 </div>
                                                                 <div className="flex-1">
                                                                     <p className="text-blue-400 font-medium">{chainData.branch.username}</p>
-                                                                    <p className="text-slate-400 text-sm">上级：总公司</p>
+                                                                    <p className="text-slate-400 text-sm">上级：智算总台</p>
                                                                 </div>
-                                                                <Badge className="bg-blue-600 text-white">分公司</Badge>
+                                                                <Badge className="bg-blue-600 text-white">服务网点</Badge>
                                                             </div>
                                                         )}
 
@@ -1916,7 +1916,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                 <div className="flex-1">
                                                                     <p className="text-purple-400 font-medium">{chainData.provider.username}</p>
                                                                     <p className="text-slate-400 text-sm">
-                                                                        上级：{chainData.branch ? chainData.branch.username : '总公司'}
+                                                                        上级：{chainData.branch ? chainData.branch.username : '智算总台'}
                                                                     </p>
                                                                 </div>
                                                                 <Badge className="bg-purple-600 text-white">服务商</Badge>

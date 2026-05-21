@@ -110,7 +110,7 @@ export function BranchesManagement() {
         setBranchesData(result.data as { branches: BranchData[]; summary: BranchSummary });
       }
     } catch (error) {
-      console.error('加载分公司数据失败:', error);
+      console.error('加载服务网点数据失败:', error);
     }
     setLoading(false);
   };
@@ -136,7 +136,7 @@ export function BranchesManagement() {
     );
   }
 
-  // 如果选择了分公司，显示详情
+  // 如果选择了服务网点，显示详情
   if (selectedBranch) {
     return (
       <BranchDetailView 
@@ -166,7 +166,7 @@ export function BranchesManagement() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm opacity-80">分公司数量</p>
+                <p className="text-sm opacity-80">服务网点数量</p>
                 <p className="text-2xl font-bold mt-1">{summary.totalBranches || 0}</p>
               </div>
               <Building2 className="w-10 h-10 opacity-50" />
@@ -205,7 +205,7 @@ export function BranchesManagement() {
                 <p className="text-sm opacity-80">能量值额度</p>
                 <p className="text-2xl font-bold mt-1">{formatEnergy(summary.totalEnergyBalance)}</p>
                 <p className="text-xs opacity-70 mt-1">
-                  分公司: {formatEnergy(summary.totalEnergyBranchBalance)} | 服务商: {formatEnergy(summary.totalEnergyProviderBalance)} | 会员: {formatEnergy(summary.totalEnergyMemberBalance)}
+                  服务网点: {formatEnergy(summary.totalEnergyBranchBalance)} | 服务商: {formatEnergy(summary.totalEnergyProviderBalance)} | 会员: {formatEnergy(summary.totalEnergyMemberBalance)}
                 </p>
               </div>
               <Zap className="w-10 h-10 opacity-50" />
@@ -250,7 +250,7 @@ export function BranchesManagement() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredBranches.length === 0 ? (
               <div className="col-span-full text-center py-8 text-gray-500">
-                暂无分公司数据
+                暂无服务网点数据
               </div>
             ) : (
               filteredBranches.map((branch: BranchData) => (
@@ -272,7 +272,7 @@ export function BranchesManagement() {
                   <CardContent>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="bg-blue-50 rounded-lg p-3">
-                        <div className="text-xs text-gray-500">分公司额度</div>
+                        <div className="text-xs text-gray-500">服务网点额度</div>
                         <div className="text-lg font-bold text-blue-600">{formatEnergy(branch.stats.quotaTotal)}</div>
                       </div>
                       <div className="bg-indigo-50 rounded-lg p-3">
@@ -300,7 +300,7 @@ export function BranchesManagement() {
                       </div>
                       <div className="grid grid-cols-3 gap-2 text-xs">
                         <div className="bg-blue-50 rounded p-2 text-center">
-                          <div className="text-gray-500">分公司</div>
+                          <div className="text-gray-500">服务网点</div>
                           <div className="font-medium text-blue-600">{formatEnergy(branch.stats.energyBranchBalance || 0)}</div>
                         </div>
                         <div className="bg-purple-50 rounded p-2 text-center">
@@ -314,10 +314,10 @@ export function BranchesManagement() {
                       </div>
                     </div>
 
-                    {/* 分公司额度使用进度 */}
+                    {/* 服务网点额度使用进度 */}
                     <div className="mt-4">
                       <div className="flex justify-between text-xs text-gray-500 mb-1">
-                        <span>分公司额度使用</span>
+                        <span>服务网点额度使用</span>
                         <span>{branch.stats.quotaTotal > 0 ? ((branch.stats.quotaUsed / branch.stats.quotaTotal) * 100).toFixed(0) : 0}%</span>
                       </div>
                       <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -347,7 +347,7 @@ export function BranchesManagement() {
           {/* 搜索和操作 */}
           <div className="flex gap-4 items-center mb-4">
             <Input
-              placeholder="搜索分公司名称或手机号..."
+              placeholder="搜索服务网点名称或手机号..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="max-w-sm"
@@ -365,7 +365,7 @@ export function BranchesManagement() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>分公司</TableHead>
+                      <TableHead>服务网点</TableHead>
                       <TableHead className="text-right">算力额度</TableHead>
                       <TableHead className="text-right">已分配</TableHead>
                       <TableHead className="text-right">服务商</TableHead>

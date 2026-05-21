@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 
-// 总公司创建能量值（不能超过下发给分公司额度总和的30%）
+// 智算总台创建能量值（不能超过下发给服务网点额度总和的30%）
 export async function POST(request: NextRequest) {
   try {
     // 鉴权：仅管理员可操作
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 验证是总公司操作
+    // 验证是智算总台操作
     const users = await query<{
       id: string;
       username: string;
@@ -43,17 +43,17 @@ export async function POST(request: NextRequest) {
 
     if (user.role !== 'admin') {
       return NextResponse.json(
-        { error: '只有总公司管理员可以执行此操作' },
+        { error: '只有智算总台管理员可以执行此操作' },
         { status: 403 }
       );
     }
 
-    // 查询分公司列表
+    // 查询服务网点列表
     const branches = await query<{ id: string }>(
       `SELECT u.id FROM users u WHERE u.role = 'branch'`
     );
 
-    // 计算下发给分公司的额度总和（从 quota_accounts 表）
+    // 计算下发给服务网点的额度总和（从 quota_accounts 表）
     let totalAllocatedQuota = 0;
     if (branches.length > 0) {
       const branchIds = branches.map(b => `'${b.id}'`).join(',');
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
         currentEnergy.toFixed(2),
         (currentEnergy + createAmount).toFixed(2),
         userId,
-        note || '总公司创建能量值',
+        note || '智算总台创建能量值',
         'completed'
       ]
     );

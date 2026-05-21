@@ -8,8 +8,8 @@ const REVENUE_SHARE_RATIOS = {
   parentProvider: 0.3 / 3.0,     // 上级服务商 0.30% / 3.00% = 10%
   directReward: 0.3 / 3.0,       // 直推奖励 0.30% / 3.00% = 10%
   seniorProvider: 0.15 / 3.0,    // 高级服务商 0.15% / 3.00% = 5%
-  branch: 0.15 / 3.0,            // 分公司 0.15% / 3.00% = 5%
-  company: 0.10 / 3.0,           // 总公司 0.10% / 3.00% = 3.33%
+  branch: 0.15 / 3.0,            // 服务网点 0.15% / 3.00% = 5%
+  company: 0.10 / 3.0,           // 智算总台 0.10% / 3.00% = 3.33%
 };
 
 // 各角色占产品价格的直接比例
@@ -19,8 +19,8 @@ const PRICE_RATIOS = {
   parentProvider: 0.003,     // 上级服务商 0.3%
   directReward: 0.003,       // 直推奖励 0.3%
   seniorProvider: 0.0015,    // 高级服务商 0.15%
-  branch: 0.0015,            // 分公司 0.15%
-  company: 0.001,            // 总公司 0.1%
+  branch: 0.0015,            // 服务网点 0.15%
+  company: 0.001,            // 智算总台 0.1%
 };
 
 // 增加用户余额（balance）并记录
@@ -309,10 +309,10 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      // 如果没有高级服务商，0.15%归总公司
+      // 如果没有高级服务商，0.15%归智算总台
       const companyExtraIfNoSenior = seniorProviderId ? 0 : seniorProviderShare;
 
-      // 5. 分公司 0.15%
+      // 5. 服务网点 0.15%
       const branchId = providerRecord?.branch_id || member?.branch_id;
       const branchShare = Math.floor(productPrice * PRICE_RATIOS.branch);
       
@@ -329,7 +329,7 @@ export async function POST(request: NextRequest) {
             `服务商会员购买产品分成 (0.15%)`
           );
           
-          // 记录分公司现金收益
+          // 记录服务网点现金收益
           await execute(
             `INSERT INTO branch_revenue_records (branch_id, type, amount, related_user_id, related_order_id, note, status, created_at)
              VALUES ($1, 'market_fee_share', $2, $3, $4, $5, 'received', NOW())`,
@@ -338,7 +338,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 6. 总公司 0.1% + 无上级服务商时的0.3% + 无高级服务商时的0.15%
+      // 6. 智算总台 0.1% + 无上级服务商时的0.3% + 无高级服务商时的0.15%
       const companyBaseShare = Math.floor(productPrice * PRICE_RATIOS.company);
       const noParentShare = parentProviderId ? 0 : parentProviderShare;
       const companyShare = companyBaseShare + noParentShare + companyExtraIfNoSenior;

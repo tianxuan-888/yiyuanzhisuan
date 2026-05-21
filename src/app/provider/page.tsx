@@ -1520,7 +1520,7 @@ export default function ProviderPage() {
             });
             const data = await response.json();
             if (data.success) {
-                alert('收益申请已提交，等待分公司审核');
+                alert('收益申请已提交，等待服务网点审核');
                 setShowEnergyRequestDialog(false);
                 setEnergyRequestAmount("");
                 setEnergyRequestNote("");
@@ -2017,7 +2017,7 @@ export default function ProviderPage() {
         const branchId = userData?.branch_id;
 
         if (!branchId) {
-            showMessage("error", "您还未绑定分公司，无法申请额度");
+            showMessage("error", "您还未绑定服务网点，无法申请额度");
             return;
         }
 
@@ -2043,7 +2043,7 @@ export default function ProviderPage() {
             const data = await response.json();
 
             if (data.success) {
-                showMessage("success", data.message || "额度申请已提交，请等待分公司审核");
+                showMessage("success", data.message || "额度申请已提交，请等待服务网点审核");
                 setShowQuotaApplyDialog(false);
                 setApplyQuotaAmount("");
                 refreshAll();
@@ -2545,7 +2545,7 @@ export default function ProviderPage() {
                                     <CardContent>
                                         {/* 关系说明 */}
                                         <div className="space-y-4">
-                                            {/* 服务商关系链：总公司 → 分公司 → 服务商 */}
+                                            {/* 服务商关系链：智算总台 → 服务网点 → 服务商 */}
                                             <div className="p-4 bg-slate-800/50 rounded-xl border border-slate-700">
                                                 <h4 className="text-purple-400 font-medium mb-3 flex items-center gap-2">
                                                     <Badge className="bg-purple-600 text-white text-xs">服务商</Badge>
@@ -2554,7 +2554,7 @@ export default function ProviderPage() {
                                                 <div className="flex flex-wrap items-center gap-2 text-slate-300 text-sm">
                                                     <span>智算总台</span>
                                                     <ArrowRight className="w-4 h-4 text-slate-500" />
-                                                    <span>{chainData.branch?.username ? chainData.branch.username.replace('分公司', '服务网点') : '服务网点'}</span>
+                                                    <span>{chainData.branch?.username ? chainData.branch.username.replace('服务网点', '服务网点') : '服务网点'}</span>
                                                     <ArrowRight className="w-4 h-4 text-slate-500" />
                                                     <span className="text-purple-400 font-medium">{chainData.self?.username || '我'}</span>
                                                     <ArrowRight className="w-4 h-4 text-slate-500" />
@@ -2564,14 +2564,14 @@ export default function ProviderPage() {
 
                                             {/* 关系详情列表 */}
                                             <div className="space-y-3">
-                                                {/* 分公司 */}
+                                                {/* 服务网点 */}
                                                 {chainData.branch && (
                                                     <div className="flex items-center gap-3 p-3 bg-blue-900/30 rounded-lg border border-blue-800/50">
                                                         <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center">
                                                             <Award className="w-5 h-5 text-white" />
                                                         </div>
                                                         <div className="flex-1">
-                                                            <p className="text-blue-400 font-medium">{chainData.branch.username?.replace('分公司', '服务网点') || '服务网点'}</p>
+                                                            <p className="text-blue-400 font-medium">{chainData.branch.username?.replace('服务网点', '服务网点') || '服务网点'}</p>
                                                             <p className="text-slate-400 text-sm">上级：智算总台</p>
                                                         </div>
                                                         <Badge className="bg-blue-600 text-white">服务网点</Badge>
@@ -2730,7 +2730,7 @@ export default function ProviderPage() {
                                             className="w-6 h-6 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center flex-shrink-0">1</div>
                                         <div>
                                             <p className="font-medium">收到额度分配</p>
-                                            <p className="text-gray-500">分公司为您分配Token额度</p>
+                                            <p className="text-gray-500">服务网点为您分配Token额度</p>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-3">
@@ -3664,8 +3664,8 @@ export default function ProviderPage() {
                                 <ul className="text-sm text-purple-600 space-y-1">
                                     <li>• 通过审核后，将从您的空闲额度中拆分给下级服务商</li>
                                     <li>• 建议分配额度为5万元的倍数</li>
-                                    <li>• 您审核通过后，还需分公司最终审核，新服务商才能正式生效</li>
-                                    <li>• 分公司审核通过后，该会员所有直推会员自动迁移到新服务商体系</li>
+                                    <li>• 您审核通过后，还需服务网点最终审核，新服务商才能正式生效</li>
+                                    <li>• 服务网点审核通过后，该会员所有直推会员自动迁移到新服务商体系</li>
                                 </ul>
                             </CardContent>
                         </Card>
@@ -4216,7 +4216,7 @@ export default function ProviderPage() {
                             <div className="space-y-4 py-4">
                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                                     <p className="text-sm text-blue-700">
-                                        <strong>说明：</strong>可向所属分公司、其他服务商或自己的会员转账收益，最低转账金额为50。
+                                        <strong>说明：</strong>可向所属服务网点、其他服务商或自己的会员转账收益，最低转账金额为50。
                                     </p>
                                 </div>
                                 <div>
@@ -4229,7 +4229,7 @@ export default function ProviderPage() {
                                             onClick={() => { setTransferUserType("branch"); setTransferUserId(""); }}
                                             disabled={!transferTargets.branch}
                                         >
-                                            分公司 {transferTargets.branch ? "" : "(无)"}
+                                            服务网点 {transferTargets.branch ? "" : "(无)"}
                                         </Button>
                                         <Button 
                                             size="sm" 
@@ -4250,7 +4250,7 @@ export default function ProviderPage() {
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="text-sm font-medium mb-2 block">选择{transferUserType === "branch" ? "分公司" : transferUserType === "provider" ? "服务商" : "会员"}</label>
+                                    <label className="text-sm font-medium mb-2 block">选择{transferUserType === "branch" ? "服务网点" : transferUserType === "provider" ? "服务商" : "会员"}</label>
                                     <select
                                         className="w-full p-2 border rounded-md bg-white"
                                         value={transferUserId}
@@ -4398,7 +4398,7 @@ export default function ProviderPage() {
                             <div className="space-y-4 py-4">
                                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                                     <p className="text-sm text-yellow-700">
-                                        <strong>说明：</strong>收益提现到分公司，手续费5%，最低提现金额50元。提现后等待分公司审核打款。
+                                        <strong>说明：</strong>收益提现到服务网点，手续费5%，最低提现金额50元。提现后等待服务网点审核打款。
                                     </p>
                                 </div>
                                 <div>
@@ -4463,7 +4463,7 @@ export default function ProviderPage() {
                                             });
                                             const data = await res.json();
                                             if (data.success) {
-                                                showMessage("success", `提现申请已提交！手续费${data.data?.fee || 0}元，实际到账${data.data?.actualAmount || 0}元，等待分公司审核`);
+                                                showMessage("success", `提现申请已提交！手续费${data.data?.fee || 0}元，实际到账${data.data?.actualAmount || 0}元，等待服务网点审核`);
                                                 setShowWithdrawDialog(false);
                                                 setWithdrawAmount("");
                                                 setWithdrawAlipay("");
@@ -4499,8 +4499,8 @@ export default function ProviderPage() {
                             <div className="space-y-4 py-4">
                                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
                                     <p className="text-sm text-orange-700">
-                                        <strong>说明：</strong>服务商需要向分公司申请收益，用于给会员充值。
-                                        申请提交后需等待分公司审核通过。
+                                        <strong>说明：</strong>服务商需要向服务网点申请收益，用于给会员充值。
+                                        申请提交后需等待服务网点审核通过。
                                     </p>
                                 </div>
                                 <div>
@@ -4637,7 +4637,7 @@ export default function ProviderPage() {
                             <div className="space-y-4 py-4">
                                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
                                     <p className="text-sm text-orange-700">
-                                        <strong>说明：</strong>服务商初始额度为0，需要向分公司申请额度后才能生成Token产品。
+                                        <strong>说明：</strong>服务商初始额度为0，需要向服务网点申请额度后才能生成Token产品。
                                     </p>
                                 </div>
                                 <div>
@@ -4723,7 +4723,7 @@ export default function ProviderPage() {
                                     ) : (
                                         <div className="text-center py-6 text-muted-foreground">
                                             <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                            <p>暂无可用模板，请联系总公司创建</p>
+                                            <p>暂无可用模板，请联系智算总台创建</p>
                                         </div>
                                     )}
                                 </div>

@@ -6,7 +6,7 @@ import { execute, queryOne } from '@/lib/pg-client';
 // 审核额度申请
 export async function POST(request: NextRequest) {
   try {
-    // 鉴权：仅管理员和分公司可审核
+    // 鉴权：仅管理员和服务网点可审核
     const user = authenticateRequest(request);
     if (!user || !authorizeRole(user, ['admin', 'branch'])) {
       return NextResponse.json({ error: '无权操作' }, { status: 403 });
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       .eq('id', quotaRequest.requester_id)
       .single();
 
-    // 如果是分公司申请，检查总公司额度
+    // 如果是服务网点申请，检查智算总台额度
     if (quotaRequest.requester_type === 'branch') {
       const { data: companyQuota, error: quotaError } = await client
         .from('company_quota')
@@ -83,16 +83,16 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       if (quotaError) {
-        console.error('获取总公司额度失败:', quotaError.message);
+        console.error('获取智算总台额度失败:', quotaError.message);
       }
 
       if (companyQuota && companyQuota.available_quota < finalAmount) {
         return NextResponse.json({
-          error: `总公司额度不足，当前可用额度: ¥${companyQuota.available_quota.toLocaleString()}`
+          error: `智算总台额度不足，当前可用额度: ¥${companyQuota.available_quota.toLocaleString()}`
         }, { status: 400 });
       }
 
-      // 扣除总公司额度
+      // 扣除智算总台额度
       if (companyQuota) {
         await client.from('company_quota').update({
           available_quota: companyQuota.available_quota - finalAmount,
@@ -100,10 +100,10 @@ export async function POST(request: NextRequest) {
         }).eq('id', companyQuota.id);
       }
 
-      // 给分公司增加额度（quota_accounts 表）
+      // 给服务网点增加额度（quota_accounts 表）
       try {
         const { query: pgQuery } = await import('@/lib/pg-client');
-        // 先检查分公司是否已有 quota_accounts 记录
+        // 先检查服务网点是否已有 quota_accounts 记录
         const existingAccount = await pgQuery(
           `SELECT id FROM quota_accounts WHERE user_id = $1`,
           [quotaRequest.requester_id]
@@ -136,19 +136,19 @@ export async function POST(request: NextRequest) {
             quotaRequest.parent_id || '00000000-0000-0000-0000-000000000001',
             quotaRequest.requester_id,
             finalAmount,
-            `分公司额度申请审批通过`
+            `服务网点额度申请审批通过`
           ]
         );
       } catch (dbError) {
-        console.error('更新分公司额度账户失败:', dbError);
+        console.error('更新服务网点额度账户失败:', dbError);
         // 不回滚，因为申请状态还没更新，可以重试
       }
 
-      // 分公司申请配比20%能量值
+      // 服务网点申请配比20%能量值
       const energyAmount = Math.floor(approvedAmount * 0.2);
       if (energyAmount > 0) {
         try {
-          // 给分公司增加能量值
+          // 给服务网点增加能量值
           const { data: energyAccount } = await client
             .from('energy_accounts')
             .select('*')
@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
             await execute('UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2', [currentEv + energyAmount, quotaRequest.requester_id]);
           }
         } catch (energyError) {
-          console.error('更新分公司能量值失败:', energyError);
+          console.error('更新服务网点能量值失败:', energyError);
         }
       }
     }

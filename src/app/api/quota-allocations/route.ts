@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 分配额度给服务商（分公司）
+// 分配额度给服务商（服务网点）
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -84,12 +84,12 @@ export async function POST(request: NextRequest) {
     // 验证服务商归属
     if (provider.branch_id !== branchId) {
       return NextResponse.json(
-        { error: '该服务商不属于您的分公司' },
+        { error: '该服务商不属于您的服务网点' },
         { status: 403 }
       );
     }
 
-    // 检查分公司余额是否足够（从 quota_accounts 表）
+    // 检查服务网点余额是否足够（从 quota_accounts 表）
     const branchQuota = await queryOne<{ balance: number }>(
       `SELECT balance FROM quota_accounts WHERE user_id = $1`,
       [branchId]
@@ -98,12 +98,12 @@ export async function POST(request: NextRequest) {
     
     if (currentBalance < quota) {
       return NextResponse.json(
-        { error: `分公司余额不足，当前余额 ${currentBalance}，分配额度 ${quota}` },
+        { error: `服务网点余额不足，当前余额 ${currentBalance}，分配额度 ${quota}` },
         { status: 400 }
       );
     }
 
-    // 扣除分公司余额
+    // 扣除服务网点余额
     await execute(
       `UPDATE quota_accounts SET 
          balance = balance - $2,

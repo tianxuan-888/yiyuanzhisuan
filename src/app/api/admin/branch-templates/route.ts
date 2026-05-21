@@ -11,7 +11,7 @@ async function queryOne<T>(sql: string, params: any[] = []): Promise<T | null> {
   return null;
 }
 
-// 获取分配给分公司的算力模板
+// 获取分配给服务网点的算力模板
 export async function GET(request: NextRequest) {
   try {
     const user = authenticateRequest(request);
@@ -22,8 +22,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const branchId = searchParams.get('branchId');
 
-    // 总公司可以查看所有分配记录
-    // 分公司只能查看自己的分配记录
+    // 智算总台可以查看所有分配记录
+    // 服务网点只能查看自己的分配记录
     let sql = `
       SELECT qa.*, pt.name as template_name, pt.code as template_code, 
              pt.period, pt.total_rate, pt.market_rate, pt.profit_rate,
@@ -31,13 +31,13 @@ export async function GET(request: NextRequest) {
       FROM quota_allocations qa
       LEFT JOIN product_templates pt ON qa.template_id = pt.id
       LEFT JOIN users u ON qa.branch_id = u.id
-      WHERE qa.provider_id IS NULL  -- 只查分公司级别（未分配给服务商）
+      WHERE qa.provider_id IS NULL  -- 只查服务网点级别（未分配给服务商）
     `;
     const params: any[] = [];
     let paramIndex = 1;
 
     if (user.role === 'branch' && !branchId) {
-      // 分公司查看自己的分配
+      // 服务网点查看自己的分配
       sql += ` AND qa.branch_id = $${paramIndex++}`;
       params.push(user.userId);
     } else if (branchId) {
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     const allocations = await query(sql, params);
 
-    // 同时返回模板列表（总公司创建的所有模板）
+    // 同时返回模板列表（智算总台创建的所有模板）
     const templates = await query(
       'SELECT * FROM product_templates WHERE status = $1 ORDER BY created_at DESC',
       ['active']
@@ -71,12 +71,12 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 授权算力模板给分公司（总公司操作，纯授权不涉及额度）
+// 授权算力模板给服务网点（智算总台操作，纯授权不涉及额度）
 export async function POST(request: NextRequest) {
   try {
     const user = authenticateRequest(request);
     if (!user || !authorizeRole(user, ['admin'])) {
-      return NextResponse.json({ error: '只有总公司可以授权模板' }, { status: 403 });
+      return NextResponse.json({ error: '只有智算总台可以授权模板' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
 
     if (!templateId || !branchId) {
       return NextResponse.json(
-        { error: '缺少必要参数（模板ID和分公司ID）' },
+        { error: '缺少必要参数（模板ID和服务网点ID）' },
         { status: 400 }
       );
     }
@@ -99,17 +99,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '模板不存在' }, { status: 404 });
     }
 
-    // 验证分公司存在
+    // 验证服务网点存在
     const branch = await queryOne<{ id: string; username: string }>(
       'SELECT id, username FROM users WHERE id = $1 AND role = $2',
       [branchId, 'branch']
     );
 
     if (!branch) {
-      return NextResponse.json({ error: '分公司不存在' }, { status: 404 });
+      return NextResponse.json({ error: '服务网点不存在' }, { status: 404 });
     }
 
-    // 检查是否已授权过该模板给该分公司
+    // 检查是否已授权过该模板给该服务网点
     const existing = await queryOne<{ id: string }>(
       `SELECT id FROM quota_allocations 
        WHERE template_id = $1 AND branch_id = $2 AND provider_id IS NULL`,
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
     if (existing) {
       return NextResponse.json({
         success: true,
-        message: `该分公司已获得「${template.name}」模板授权`,
+        message: `该服务网点已获得「${template.name}」模板授权`,
         data: { templateId, branchId, alreadyAuthorized: true },
       });
     }
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `已成功授权「${template.name}」模板给 ${branch.username}，分公司可使用该模板为服务商生成产品`,
+      message: `已成功授权「${template.name}」模板给 ${branch.username}，服务网点可使用该模板为服务商生成产品`,
       data: {
         templateId,
         branchId,

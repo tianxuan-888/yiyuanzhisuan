@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 4. 分公司获得5%
+      // 4. 服务网点获得5%
       if (branchShare > 0 && buyer.provider_id) {
         const providerInfo = await queryOne<any>(
           'SELECT branch_id FROM providers WHERE user_id = $1',
@@ -205,7 +205,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 5. 总公司获得5%
+      // 5. 智算总台获得5%
       if (companyShare > 0) {
         const adminUser = await queryOne<any>(
           "SELECT id FROM users WHERE role = 'admin' LIMIT 1"
