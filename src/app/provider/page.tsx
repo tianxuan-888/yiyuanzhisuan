@@ -2159,36 +2159,7 @@ export default function ProviderPage() {
                             <p className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1">算力总值</p>
                         </CardContent>
                     </Card>
-                    {/* 收益卡片 */}
-                    <Card className="mobile-compact-card col-span-2 md:col-span-1 bg-gradient-to-br from-purple-600 via-fuchsia-600 to-purple-700 border-0 shadow-xl">
-                        <CardContent className="p-3 md:pt-5">
-                            <div className="flex items-center justify-between mb-1.5 md:mb-3">
-                                <div className="p-1.5 md:p-2.5 bg-white/20 backdrop-blur rounded-lg md:rounded-xl">
-                                    <Zap className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                                </div>
-                                <span className="text-[10px] md:text-xs font-medium text-purple-200 bg-white/10 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full backdrop-blur">收益</span>
-                            </div>
-                            <p className="text-lg md:text-2xl font-bold mt-1 md:mt-2 text-white">{user?.energyValue?.toLocaleString() || 0}</p>
-                            <div className="flex gap-2 mt-3">
-                                <Button 
-                                    size="sm" 
-                                    variant="outline" 
-                                    className="text-xs h-7 bg-white/20 border-white/30 text-white hover:bg-white/30 hover:text-white"
-                                    onClick={() => { loadTransferTargets(); setShowTransferDialog(true); }}
-                                >
-                                    转账
-                                </Button>
-                                <Button 
-                                    size="sm" 
-                                    variant="outline" 
-                                    className="text-xs h-7 border-purple-300 text-purple-600"
-                                    onClick={() => { loadEnergyMembers(); setShowRechargeDialog(true); }}
-                                >
-                                    充值
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
+
                 </div>
                 {}
                 {stats.pending_count > 0 && <Card className="mb-6 border-0 bg-gradient-to-r from-yellow-100 via-amber-100 to-orange-100 shadow-xl">
