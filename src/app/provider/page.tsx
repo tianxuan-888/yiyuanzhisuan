@@ -1614,6 +1614,8 @@ export default function ProviderPage() {
                 setMatchTargetProduct(null);
                 setMatchTargetUserId("");
                 loadTransferData();
+                // 延迟刷新产品列表，确保数据库状态更新
+                setTimeout(() => loadData(), 500);
             } else {
                 showMessage("error", data.message || "匹配失败");
             }
@@ -1622,7 +1624,7 @@ export default function ProviderPage() {
         } finally {
             setAssigningMatch(false);
         }
-    }, [matchTargetProduct, matchTargetUserId, loadTransferData, showMessage]);
+    }, [matchTargetProduct, matchTargetUserId, loadTransferData, loadData, showMessage]);
 
     // 确认单个匹配
     const handleMatchConfirm = useCallback(async (productId: string) => {
@@ -2980,6 +2982,7 @@ export default function ProviderPage() {
                                 {[
                                     { key: 'available', label: '已上架', count: products.filter((p: any) => p.status === 'available').length, color: 'green' },
                                     { key: 'unlisted', label: '未上架', count: products.filter((p: any) => p.status === 'draft' || p.status === 'unlisted').length, color: 'orange' },
+                                    { key: 'pending_match', label: '待匹配', count: products.filter((p: any) => p.status === 'pending_match').length, color: 'purple' },
                                     { key: 'sold', label: '已出售', count: products.filter((p: any) => p.status === 'sold' || p.status === 'pending_sell' || p.status === 'pending_confirm').length, color: 'blue' },
                                 ].map(tab => (
                                     <button
@@ -2989,6 +2992,7 @@ export default function ProviderPage() {
                                             productListTab === tab.key
                                                 ? tab.color === 'green' ? 'bg-green-600 text-white shadow-md'
                                                   : tab.color === 'orange' ? 'bg-orange-500 text-white shadow-md'
+                                                  : tab.color === 'purple' ? 'bg-purple-600 text-white shadow-md'
                                                   : 'bg-blue-600 text-white shadow-md'
                                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                         }`}
@@ -3059,9 +3063,14 @@ export default function ProviderPage() {
                                                         </td>
                                                         <td className="py-3 px-4 text-sm text-gray-500">{product.created_at?.slice(0, 10)}</td>
                                                         <td className="py-3 px-4">
-                                                            <Button size="sm" variant="ghost" className="text-orange-600 hover:text-orange-800" onClick={() => handleUnlistProduct(product.id, product.name)}>
-                                                                <ArrowDownToLine className="w-4 h-4 mr-1" />下架
-                                                            </Button>
+                                                            <div className="flex items-center gap-1">
+                                                                <Button size="sm" variant="ghost" className="text-purple-600 hover:text-purple-800" onClick={() => handleOpenMatchDialog(product)}>
+                                                                    <UserPlus className="w-4 h-4 mr-1" />匹配
+                                                                </Button>
+                                                                <Button size="sm" variant="ghost" className="text-orange-600 hover:text-orange-800" onClick={() => handleUnlistProduct(product.id, product.name)}>
+                                                                    <ArrowDownToLine className="w-4 h-4 mr-1" />下架
+                                                                </Button>
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -3141,6 +3150,9 @@ export default function ProviderPage() {
                                                                 <Button size="sm" variant="ghost" className="text-green-600 hover:text-green-800" onClick={() => handleListProduct(product.id, product.name)}>
                                                                     <ArrowUpFromLine className="w-4 h-4 mr-1" />上架
                                                                 </Button>
+                                                                <Button size="sm" variant="ghost" className="text-purple-600 hover:text-purple-800" onClick={() => handleOpenMatchDialog(product)}>
+                                                                    <UserPlus className="w-4 h-4 mr-1" />匹配
+                                                                </Button>
                                                                 <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-800" onClick={() => handleDeleteProduct(product.id, product.name)}>
                                                                     <Trash2 className="w-4 h-4 mr-1" />删除
                                                                 </Button>
@@ -3163,6 +3175,61 @@ export default function ProviderPage() {
                                                 <Button size="sm" variant="outline" onClick={() => setSelectedProductIds([])}>取消选择</Button>
                                             </div>
                                         )}
+                                    </div>
+                                );
+                            })()}
+
+                            {/* 待匹配产品 */}
+                            {productListTab === 'pending_match' && (() => {
+                                const pendingMatchProducts = products.filter((p: any) => p.status === 'pending_match');
+                                return (
+                                    <div className="overflow-x-auto">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <span className="text-sm text-gray-500">共 {pendingMatchProducts.length} 件，总额 ¥{pendingMatchProducts.reduce((s: number, p: any) => s + (p.price || 0), 0).toLocaleString()}</span>
+                                        </div>
+                                        <table className="w-full">
+                                            <thead>
+                                                <tr className="border-b bg-gray-50">
+                                                    <th className="text-left py-3 px-4">Token名称</th>
+                                                    <th className="text-left py-3 px-4">价格</th>
+                                                    <th className="text-left py-3 px-4">周期</th>
+                                                    <th className="text-left py-3 px-4">收益率</th>
+                                                    <th className="text-left py-3 px-4">匹配会员</th>
+                                                    <th className="text-left py-3 px-4">创建时间</th>
+                                                    <th className="text-left py-3 px-4">操作</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {pendingMatchProducts.map((product: any) => (
+                                                    <tr key={product.id} className="border-b hover:bg-gray-50">
+                                                        <td className="py-3 px-4">
+                                                            <div><p className="font-medium">Token存储包 {product.code}</p></div>
+                                                        </td>
+                                                        <td className="py-3 px-4 text-green-600 font-medium">¥{(product.price || 0).toLocaleString()}</td>
+                                                        <td className="py-3 px-4">{product.period}天</td>
+                                                        <td className="py-3 px-4">
+                                                            <span className="text-green-600">收益{product.profit_rate}%</span>
+                                                        </td>
+                                                        <td className="py-3 px-4">
+                                                            {product.pending_match_user_id ? (
+                                                                <span className="text-purple-600 font-medium">已指定</span>
+                                                            ) : (
+                                                                <span className="text-gray-400">未指定</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="py-3 px-4 text-sm text-gray-500">{product.created_at?.slice(0, 10)}</td>
+                                                        <td className="py-3 px-4">
+                                                            <div className="flex items-center gap-1">
+                                                                <Button size="sm" variant="ghost" className="text-purple-600 hover:text-purple-800" onClick={() => handleOpenMatchDialog(product)}>
+                                                                    <UserPlus className="w-4 h-4 mr-1" />匹配
+                                                                </Button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {pendingMatchProducts.length === 0 && <tr><td colSpan={7} className="py-8 text-center text-gray-500">暂无待匹配产品</td></tr>}
+                                            </tbody>
+                                        </table>
                                     </div>
                                 );
                             })()}
@@ -3570,6 +3637,7 @@ export default function ProviderPage() {
                                                                     )}
                                                                 </div>
                                                                 <Badge className="bg-blue-500">待匹配</Badge>
+                                                            </div>
                                                             <div className="flex gap-2 mt-2">
                                                                 <Button
                                                                     size="sm"

@@ -45,9 +45,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: '无权操作此产品' }, { status: 403 });
     }
 
-    if (product.status !== 'pending_match') {
+    if (product.status !== 'pending_match' && product.status !== 'available' && product.status !== 'draft' && product.status !== 'unlisted') {
       console.log('[MATCH ASSIGN] 产品状态不正确:', { status: product.status });
       return NextResponse.json({ success: false, message: `产品状态不允许匹配(当前: ${product.status})` }, { status: 400 });
+    }
+
+    // 如果产品不是pending_match状态，先将其改为pending_match
+    if (product.status !== 'pending_match') {
+      const { error: statusError } = await supabase.rpc('rpc_execute', {
+        sql_query: `UPDATE products SET status = 'pending_match', updated_at = NOW() WHERE id = '${productId}'`
+      });
+      if (statusError) {
+        console.error('[MATCH ASSIGN] 状态更新失败:', statusError);
+        return NextResponse.json({ success: false, message: '状态更新失败: ' + statusError.message }, { status: 500 });
+      }
+      console.log('[MATCH ASSIGN] 产品状态已更新为pending_match:', { productId });
     }
 
     // 检查目标会员是否属于该服务商
