@@ -3854,9 +3854,6 @@ export default function ProviderPage() {
                                 <button onClick={() => setRevenueSubTab('withdraw')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${revenueSubTab === 'withdraw' ? 'bg-green-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-green-50'}`}>
                                     收益提现
                                 </button>
-                                <button onClick={() => setRevenueSubTab('rules')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${revenueSubTab === 'rules' ? 'bg-green-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-green-50'}`}>
-                                    分配规则
-                                </button>
                             </div>
 
                             {/* 收益记录 Tab */}
@@ -3943,36 +3940,6 @@ export default function ProviderPage() {
                             )}
 
                             {/* 分配规则 Tab */}
-                            {revenueSubTab === 'rules' && (
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="flex items-center gap-2">
-                                            <DollarSign className="w-5 h-5" />
-                                            收益分配规则
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="space-y-2 text-sm text-gray-600">
-                                            <div className="flex items-center justify-between border-b pb-2">
-                                                <span>总奖励</span>
-                                                <span className="font-bold text-green-600">70%</span>
-                                            </div>
-                                            <div className="flex items-center justify-between border-b pb-2">
-                                                <span>直推奖励</span>
-                                                <span className="font-bold text-green-600">10%</span>
-                                            </div>
-                                            <div className="flex items-center justify-between border-b pb-2">
-                                                <span>培育奖励</span>
-                                                <span className="font-bold text-green-600">10%</span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <span>高级服务商奖励</span>
-                                                <span className="font-bold text-green-600">10%</span>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            )}
                         </div>
                     )}
 
