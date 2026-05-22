@@ -827,7 +827,7 @@ const [copySuccess, setCopySuccess] = useState(false);
             const data = await response.json();
 
             if (data.success) {
-                showMessage("success", "出售成功！收益已到账，产品已回到服务商，等待服务商匹配新会员后本金到账");
+                showMessage("success", "出售成功！收益已到账，产品已回到服务商，Token值随产品流转");
                 setShowSellDialog(false);
                 setSelectedUserProduct(null);
                 refreshAll();
@@ -1132,7 +1132,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                         </div>
                         {/* 收益说明 */}
                         <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
-                            <p>💡 购买产品只需支付本金，到期后自动获得本金+收益</p>
+                            <p>💡 购买产品只需支付Token值，到期后获得收益进智算金</p>
                         </div>
                     </div>}
                     <DialogFooter>
@@ -1159,7 +1159,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                         </div>
                         <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
-                                <Label className="text-gray-500">购买价格（本金）</Label>
+                                <Label className="text-gray-500">购买价格（Token值）</Label>
                                 <p className="text-lg font-bold">¥{selectedUserProduct.purchase_price.toLocaleString()}</p>
                             </div>
                             <div>
@@ -1172,11 +1172,11 @@ const [copySuccess, setCopySuccess] = useState(false);
                             <div className="space-y-1 text-sm text-orange-700">
                                 <p>1. 出售后收益立即到账</p>
                                 <p>2. 产品回到服务商，等待服务商匹配新会员</p>
-                                <p>3. 服务商匹配成功后，本金回到您的账户</p>
+                                <p>3. 服务商匹配成功后，Token值回到您的账户</p>
                             </div>
                         </div>
                         <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
-                            <p>💡 收益线上即时到账，本金在匹配成功后到账。产品在匹配完成前显示为"售卖中"。</p>
+                            <p>💡 收益线上即时到账，Token值在匹配成功后流转。产品在匹配完成前显示为"售卖中"。</p>
                         </div>
                     </div>}
                     <DialogFooter>
@@ -1567,7 +1567,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                     <CardContent className="space-y-3 md:space-y-6">
                                         <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                                             <p className="text-sm text-blue-700">
-                                                <strong>提示：</strong>请填写您的支付宝和微信收款信息，以便产品收益和本金返还时进行验证。付款码用于线下转账确认。
+                                                <strong>提示：</strong>请填写您的支付宝和微信收款信息，以便产品收益和Token值回流时进行验证。付款码用于线下转账确认。
                                             </p>
                                         </div>
 
@@ -2640,10 +2640,10 @@ const [copySuccess, setCopySuccess] = useState(false);
                                     <CardContent className="pt-4">
                                         <div className="flex items-center gap-2 mb-2">
                                             <Wallet className="w-5 h-5" />
-                                            <span className="text-sm opacity-80">持仓本金</span>
+                                            <span className="text-sm opacity-80">持仓Token值</span>
                                         </div>
                                         <p className="text-2xl font-bold">¥{profitStats.holdingPrincipal?.toLocaleString() || 0}</p>
-                                        <p className="text-xs opacity-70 mt-1">已收回本金: ¥{profitStats.totalPrincipal?.toLocaleString() || 0}</p>
+                                        <p className="text-xs opacity-70 mt-1">已收回Token值: ¥{profitStats.totalPrincipal?.toLocaleString() || 0}</p>
                                     </CardContent>
                                 </Card>
                                 <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
@@ -2706,7 +2706,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                             <Card className="bg-slate-800/50 border-slate-700">
                                 <CardContent className="pt-4">
                                     <p className="text-sm text-gray-400 text-center">
-                                        产品到期卖出后，本金和收益将进入您的收益账户，可随时转入收益用于购买更多产品
+                                        产品到期卖出后，收益将进入您的智算金账户，可随时转入收益用于购买更多产品
                                     </p>
                                 </CardContent>
                             </Card>
@@ -2730,7 +2730,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                 {record.productName || record.product_name || '产品'}
                                                             </p>
                                                             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-gray-500">
-                                                                <span>本金: ¥{Number(record.principal || 0).toLocaleString()}</span>
+                                                                <span>Token值: ¥{Number(record.principal || 0).toLocaleString()}</span>
                                                                 <span>收益: <span className="text-green-600 font-medium">¥{Number(record.profit || 0).toLocaleString()}</span></span>
                                                                 <span>到账: ¥{Number(record.total_amount || 0).toLocaleString()}</span>
                                                             </div>
@@ -2786,7 +2786,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             variant={profitDetailFilter === 'principal_return' ? "default" : "outline"}
                                             onClick={() => setProfitDetailFilter('principal_return')}
                                         >
-                                            本金返还
+                                            Token值回流
                                         </Button>
                                         <Button
                                             size="sm"
@@ -2815,7 +2815,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                     {profitDetailsStats && (
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
                                             <div className="bg-blue-50 rounded-lg p-2 text-center">
-                                                <p className="text-xs text-blue-600">本金返还</p>
+                                                <p className="text-xs text-blue-600">Token值回流</p>
                                                 <p className="font-bold text-blue-600">{Number(profitDetailsStats.totalPrincipal || 0).toLocaleString()}</p>
                                             </div>
                                             <div className="bg-green-50 rounded-lg p-2 text-center">
@@ -2846,7 +2846,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                     {detail.type === 'profit_in' && <ArrowDownCircle className="w-4 h-4 text-green-500" />}
                                                                     {detail.type === 'convert_to_energy' && <Zap className="w-4 h-4 text-purple-500" />}
                                                                     {detail.type === 'withdraw' && <ArrowUpCircle className="w-4 h-4 text-amber-500" />}
-                                                                    {detail.type === 'principal_return' ? '本金返还' : 
+                                                                    {detail.type === 'principal_return' ? 'Token值回流' : 
                                                                      detail.type === 'profit_in' ? '收益入账' : 
                                                                      detail.type === 'convert_to_energy' ? '转入收益' : 
                                                                      detail.type === 'withdraw' ? '收益提现' : detail.type}

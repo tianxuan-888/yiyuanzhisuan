@@ -42,13 +42,13 @@ export async function POST(request: NextRequest) {
       [transferId]
     );
 
-    // 通知卖家：服务商已确认回购，请确认收到本金
+    // 通知卖家：服务商已确认回购，请确认收到Token值
     await query(
       `INSERT INTO notifications (receiver_id, receiver_role, type, title, content, created_at)
        VALUES ($1, 'member', 'repurchase_confirm', '请确认回购收款', $2, NOW())`,
       [
         transfer.from_user_id,
-        `服务商已确认回购您的流转产品（本金¥${transfer.transfer_price}），请在线下确认收到本金后在系统中确认收款。`
+        `服务商已确认回购您的流转产品（Token值¥${transfer.transfer_price}），请在线下确认收到Token值后在系统中确认收款。`
       ]
     );
 

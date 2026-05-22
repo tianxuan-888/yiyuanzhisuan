@@ -70,20 +70,20 @@ export async function POST(request: NextRequest) {
     const expectedProfit = parseFloat(userProduct.expected_profit || 0);
     const marketFee = purchasePrice * (parseFloat(product?.market_rate || 5) / 100);
 
-    // 1. 收益立即到账（写入balance）
+    // 1. 收益立即到账（写入balance/智算金）
     await execute(
       `UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
       [expectedProfit, userId]
     );
 
-    // 2. 创建卖出订单（记录本金待结算）
+    // 2. 创建卖出订单（Token值随产品流转，线下交易处理）
     const orderResult = await query(
       `INSERT INTO orders 
        (user_id, user_product_id, product_id, order_type, amount, status, review_note)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
       [userId, userProductId, userProduct.product_id, 'sell', purchasePrice, 'pending', 
-       `出售产品: ${product?.name || '未知产品'}，收益¥${expectedProfit}已到账，本金¥${purchasePrice}待匹配成功后返还`]
+       `出售产品: ${product?.name || '未知产品'}，收益¥${expectedProfit}已到账智算金，Token值¥${purchasePrice}待匹配成功后由新持有人线下支付`]
     );
 
     // 3. 写入 member_revenue 收益记录（前端"已到账收益"从此表读取）
@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
         [
           user.provider_id, 'provider', userId, user.username, 'sell_request',
           '会员出售产品待匹配',
-          `${user.username} 出售产品 ${product?.name}，本金¥${purchasePrice}，收益¥${expectedProfit}已发放，请匹配给新会员`,
+          `${user.username} 出售产品 ${product?.name}，Token值¥${purchasePrice}，收益¥${expectedProfit}已发放到智算金，请匹配给新会员`,
           purchasePrice, userProductId
         ]
       );
@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
         order: orderResult[0],
         profitCredited: expectedProfit,
         principalPending: purchasePrice,
-        message: `出售成功！收益¥${expectedProfit.toFixed(2)}已到账，本金¥${purchasePrice.toFixed(2)}待匹配成功后返还`,
+        message: `出售成功！收益¥${expectedProfit.toFixed(2)}已到账智算金，Token值¥${purchasePrice.toFixed(2)}待匹配成功后由新持有人线下支付`,
       },
     });
   } catch (error) {

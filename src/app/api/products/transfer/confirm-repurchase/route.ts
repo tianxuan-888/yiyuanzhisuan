@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
          VALUES ($1, 'provider', 'repurchase_completed', '回购完成', $2, NOW())`,
         [
           productRes[0].provider_id,
-          `会员已确认回购收款（本金¥${transfer.transfer_price}），产品已回到您的在售列表。`
+          `会员已确认回购收款（Token值¥${transfer.transfer_price}），产品已回到您的在售列表。`
         ]
       );
     }

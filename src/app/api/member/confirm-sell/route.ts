@@ -4,6 +4,7 @@ import { authenticateRequest } from '@/lib/auth';
 import { execute, queryOne } from '@/lib/pg-client';
 
 // 会员确认卖出收款（会员确认收到买家线下付款后执行）
+// 智算金（balance）= 5%释放收益，Token值随产品流转（线下交易）
 export async function POST(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);
@@ -32,24 +33,24 @@ export async function POST(request: NextRequest) {
 
     if (!userProduct) return NextResponse.json({ error: '用户产品不存在' }, { status: 404 });
 
-    // 计算收益（不再扣市场费，收益 = 本金 + 利润）
+    // Token值 = 产品价格（随产品流转，线下交易处理）
+    // 收益 = 预期收益（进智算金balance）
     const purchasePrice = parseFloat(userProduct.purchase_price || '0');
     const expectedProfit = parseFloat(userProduct.expected_profit || '0');
-    const totalReturn = purchasePrice + expectedProfit;
 
-    // 会员收益：本金 + 收益 → balance
+    // 会员收益 → 智算金（balance），只有收益部分，不含Token值
     const userRow = await queryOne('SELECT balance, inviter_id, provider_id FROM users WHERE id = $1', [userId]);
     const currentBalance = parseFloat(String(userRow?.balance)) || 0;
-    const newBalance = Math.round((currentBalance + totalReturn) * 100) / 100;
+    const newBalance = Math.round((currentBalance + expectedProfit) * 100) / 100;
     await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newBalance, userId]);
 
     // 更新订单状态
     await client.from('orders').update({ status: 'completed', reviewed_at: new Date().toISOString() }).eq('id', orderId);
 
     // 更新用户产品状态
-    await client.from('user_products').update({ status: 'sold', sell_price: totalReturn, sell_date: new Date().toISOString() }).eq('id', order.user_product_id);
+    await client.from('user_products').update({ status: 'sold', sell_price: purchasePrice, sell_date: new Date().toISOString() }).eq('id', order.user_product_id);
 
-    // ========== 总台释放5%收益，按7项分配（不再扣能量值/市场费） ==========
+    // ========== 总台释放5%收益，按7项分配 ==========
     const productPrice = purchasePrice;
     const releaseAmount = productPrice * 0.05;
     const distributionResult: Record<string, number> = {};
@@ -199,17 +200,18 @@ export async function POST(request: NextRequest) {
       user_id: userId,
       order_id: orderId,
       type: 'sell_profit',
-      amount: totalReturn,
+      amount: expectedProfit,
       balance: newBalance,
-      description: `卖出产品，本金¥${purchasePrice}+收益¥${expectedProfit}`,
+      description: `卖出产品收益¥${expectedProfit}到账智算金，Token值¥${purchasePrice}线下交易`,
     });
 
     return NextResponse.json({
       success: true,
-      message: '收益已到账，释放收益已分配',
+      message: `收益¥${expectedProfit}已到账智算金，5%释放收益已分配`,
       data: {
         user: { beforeBalance: currentBalance, afterBalance: newBalance },
-        profit: { totalProfit: expectedProfit, cashAmount: totalReturn },
+        profit: { totalProfit: expectedProfit },
+        tokenValue: purchasePrice,
         releaseAmount,
         distribution: distributionResult,
       },

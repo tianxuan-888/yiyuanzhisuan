@@ -1633,7 +1633,7 @@ export default function ProviderDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">回购管理</h1>
-                <p className="text-gray-500 text-sm mt-1">超时未售出的流转产品需要回购，回购后线下返还本金给卖家</p>
+                <p className="text-gray-500 text-sm mt-1">超时未售出的流转产品需要回购，回购后线下返还Token值给卖家</p>
               </div>
               <Button onClick={() => {}} variant="outline" size="sm" disabled={repurchaseLoading}>
                 <RefreshCw className="w-4 h-4 mr-1" /> 刷新
@@ -1645,9 +1645,9 @@ export default function ProviderDashboard() {
               <h3 className="font-semibold text-amber-800 mb-2">回购规则</h3>
               <ul className="text-sm text-amber-700 space-y-1">
                 <li>• 流转产品发布后 <strong>24小时</strong> 无人购买，触发服务商回购机制</li>
-                <li>• 服务商需 <strong>线下返还本金</strong> 给卖家会员</li>
-                <li>• 卖家确认收到本金后，产品回到服务商在售列表</li>
-                <li>• 回购仅返还本金，不包含收益</li>
+                <li>• 服务商需 <strong>线下返还Token值</strong> 给卖家会员</li>
+                <li>• 卖家确认收到Token值后，产品回到服务商在售列表</li>
+                <li>• 回购仅返还Token值，不包含收益</li>
               </ul>
             </div>
 
@@ -1682,7 +1682,7 @@ export default function ProviderDashboard() {
                         </div>
                         {item.status === 'repurchasing' && (
                           <div className="mt-2 text-sm text-amber-600 bg-amber-50 rounded p-2">
-                            已发起回购，等待卖家确认收到本金...
+                            已发起回购，等待卖家确认收到Token值...
                           </div>
                         )}
                       </div>

@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
       .update({ status: 'sold' })
       .eq('id', order.user_product_id);
 
-    // 发放本金和收益给用户
+    // 发放收益给用户（写入智算金balance）
     await client.rpc('increment_balance', {
       p_user_id: userId,
       p_amount: sellPrice

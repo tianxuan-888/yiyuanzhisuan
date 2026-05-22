@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
     const transferPrice = parseFloat(transfer.transfer_price) || parseFloat(product.price);
     const profitRate = parseFloat(product.profit_rate) || 0;
 
-    // 卖家收益 = 本金 × profit_rate%
+    // 卖家收益（智算金）= Token值 × profit_rate%
     const sellerProfit = Math.floor(transferPrice * profitRate / 100);
 
     // 查询买家信息
@@ -268,7 +268,7 @@ export async function POST(request: NextRequest) {
       [transfer.product_id]
     );
 
-    // 发放收益给卖方（线上收益部分）
+    // 发放收益给卖方（智算金，来自5%释放的收益分配）
     if (sellerProfit > 0) {
       await query(
         'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',

@@ -57,7 +57,6 @@ export async function POST(request: NextRequest) {
     if (action === 'approve') {
       const purchasePrice = parseFloat(userProduct.purchase_price);
       const expectedProfit = parseFloat(userProduct.expected_profit);
-      const totalReturn = purchasePrice + expectedProfit;
 
       // 查询产品信息
       const { data: productInfo } = await client
@@ -74,15 +73,15 @@ export async function POST(request: NextRequest) {
         .from('user_products')
         .update({
           status: 'sold',
-          sell_price: totalReturn,
+          sell_price: purchasePrice,
           sell_date: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
         .eq('id', userProductId);
 
-      // 会员收益：本金 + 收益 → balance（不再扣市场费）
+      // 会员收益：只有收益部分 → balance（智算金），Token值随产品流转
       const currentBalance = parseFloat(productUser.balance || '0');
-      const newBalance = Math.round((currentBalance + totalReturn) * 100) / 100;
+      const newBalance = Math.round((currentBalance + expectedProfit) * 100) / 100;
       await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newBalance, userProduct.user_id]);
 
       // ========== 总台释放5%收益，按7项分配（不再扣能量值/市场费） ==========
@@ -226,21 +225,20 @@ export async function POST(request: NextRequest) {
         id: crypto.randomUUID(),
         user_id: userProduct.user_id,
         type: 'profit',
-        amount: totalReturn,
+        amount: expectedProfit,
         balance_before: currentBalance,
         balance_after: newBalance,
-        description: `卖出${productPeriod}天产品「${productName}」，本金¥${purchasePrice}+收益¥${expectedProfit}`,
+        description: `卖出产品收益¥${expectedProfit}到账智算金，Token值¥${purchasePrice}线下交易`,
         created_at: new Date().toISOString(),
       });
 
       return NextResponse.json({
         success: true,
-        message: '审核通过，产品已卖出，收益已释放',
+        message: '审核通过，收益已到账智算金，5%释放收益已分配',
         data: {
           status: 'sold',
-          total_return: totalReturn,
-          principal: purchasePrice,
           profit: expectedProfit,
+          tokenValue: purchasePrice,
           releaseAmount,
         },
       });

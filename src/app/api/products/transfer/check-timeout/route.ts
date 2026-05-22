@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
            VALUES ($1, 'member', 'repurchase', '产品待回购', $2, NOW())`,
           [
             transfer.from_user_id,
-            `您发布的流转产品因${timeoutHours}小时内无人购买，已进入回购流程。服务商将线下返还本金给您，请确认收款后产品将回到在售列表。`
+            `您发布的流转产品因${timeoutHours}小时内无人购买，已进入回购流程。服务商将线下返还Token值给您，请确认收款后产品将回到在售列表。`
           ]
         );
       }

@@ -153,13 +153,9 @@ export async function POST(request: NextRequest) {
         company_share: companyShare
       });
 
-      // 9. 原持有人本金到账
+      // 9. 更新原持有人的user_product状态为transferred
+      // Token值随产品流转到新持有人，不进智算金（线下交易处理）
       if (product.previous_holder_id) {
-        await supabase.rpc('rpc_execute', {
-          sql_query: `UPDATE users SET balance = COALESCE(balance, 0) + ${product.price} WHERE id = '${product.previous_holder_id}'`
-        });
-
-        // 更新原持有人的user_product状态为transferred
         await supabase.rpc('rpc_execute', {
           sql_query: `UPDATE user_products SET status = 'transferred' WHERE user_id = '${product.previous_holder_id}' AND product_id = '${product.id}' AND status = 'pending_sell'`
         });
@@ -214,14 +210,14 @@ export async function POST(request: NextRequest) {
         is_read: false
       });
 
-      // 14. 通知原持有人本金到账
+      // 14. 通知原持有人Token值已转出
       if (product.previous_holder_id) {
         await supabase.from('notifications').insert({
           receiver_id: product.previous_holder_id,
           receiver_role: 'member',
           type: 'product_matched',
           title: '产品已转出',
-          content: `您的产品「${product.name}」已成功匹配，本金¥${product.price}已到账`,
+          content: `您的产品「${product.name}」已成功匹配给新会员，Token值¥${product.price}随产品流转`,
           is_read: false
         });
       }

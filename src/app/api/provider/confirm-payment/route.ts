@@ -11,7 +11,7 @@ function getAdminSupabase() {
   return createClient(url, key);
 }
 
-// 服务商确认收款（确认线下收到本金后执行）
+// 服务商确认收款（确认线下收到Token值后执行）
 // 新流程：确认后产品进入持有状态，总台释放5%收益按7项分配
 export async function POST(request: NextRequest) {
   try {
