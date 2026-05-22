@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
@@ -248,7 +249,9 @@ export default function AdminPage() {
   // 人员账户Tab
   const [accountsTab, setAccountsTab] = useState('list');
   const [accountSearch, setAccountSearch] = useState('');
-  
+  const [roleChangeUser, setRoleChangeUser] = useState<{id: string; username: string; role: string} | null>(null);
+  const [selectedNewRole, setSelectedNewRole] = useState('');
+
   // 数据总览 dashboard state
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [dashboardLoading, setDashboardLoading] = useState(false);
@@ -5012,24 +5015,14 @@ export default function AdminPage() {
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex gap-1">
-                              <Button size="sm" variant="outline" onClick={async () => {
-                                const newRole = u.role === 'member' ? 'provider' : u.role === 'provider' ? 'member' : u.role;
-                                if (newRole === u.role) return;
-                                try {
-                                  const res = await authFetch('/api/admin/accounts', {
-                                    method: 'PUT',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ userId: u.id, action: 'changeRole', role: newRole })
-                                  });
-                                  const data = await res.json();
-                                  if (data.success) {
-                                    loadAccountsData();
-                                  }
-                                } catch(e) { console.error(e); }
+                              <Button size="sm" variant="outline" onClick={() => {
+                                setRoleChangeUser({ id: u.id, username: u.username, role: u.role });
+                                setSelectedNewRole(u.role);
                               }}>
                                 修改身份
                               </Button>
                               <Button size="sm" variant={u.is_active !== false ? 'destructive' : 'default'} onClick={async () => {
+                                if (!confirm(`确认${u.is_active !== false ? '停用' : '启用'}账户 ${u.username}？`)) return;
                                 try {
                                   const res = await authFetch('/api/admin/accounts', {
                                     method: 'PUT',
@@ -5323,6 +5316,80 @@ export default function AdminPage() {
           </Card>
         </div>
       )}
+
+      {/* 修改身份确认弹窗 */}
+      <Dialog open={!!roleChangeUser} onOpenChange={(open) => { if (!open) setRoleChangeUser(null); }}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>修改用户身份</DialogTitle>
+            <DialogDescription>确认修改用户身份，此操作需谨慎执行</DialogDescription>
+          </DialogHeader>
+          {roleChangeUser && (
+            <div className="space-y-4 py-2">
+              <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">用户名</span>
+                  <span className="font-medium">{roleChangeUser.username}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">当前身份</span>
+                  <Badge className={roleChangeUser.role === 'admin' ? 'bg-red-100 text-red-700' : roleChangeUser.role === 'branch' ? 'bg-blue-100 text-blue-700' : roleChangeUser.role === 'provider' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}>
+                    {roleChangeUser.role === 'admin' ? '总台' : roleChangeUser.role === 'branch' ? '服务网点' : roleChangeUser.role === 'provider' ? '服务商' : '会员'}
+                  </Badge>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">选择新身份</label>
+                <select
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                  value={selectedNewRole}
+                  onChange={(e) => setSelectedNewRole(e.target.value)}
+                >
+                  <option value="">-- 请选择 --</option>
+                  {roleChangeUser.role !== 'member' && <option value="member">会员</option>}
+                  {roleChangeUser.role !== 'provider' && <option value="provider">服务商</option>}
+                  {roleChangeUser.role !== 'branch' && <option value="branch">服务网点</option>}
+                </select>
+              </div>
+              {selectedNewRole && selectedNewRole !== roleChangeUser.role && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <p className="text-sm text-yellow-700">
+                    即将把 <strong>{roleChangeUser.username}</strong> 的身份从 <strong>{roleChangeUser.role === 'admin' ? '总台' : roleChangeUser.role === 'branch' ? '服务网点' : roleChangeUser.role === 'provider' ? '服务商' : '会员'}</strong> 修改为 <strong>{selectedNewRole === 'branch' ? '服务网点' : selectedNewRole === 'provider' ? '服务商' : '会员'}</strong>
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRoleChangeUser(null)}>取消</Button>
+            <Button
+              disabled={!selectedNewRole || selectedNewRole === roleChangeUser?.role}
+              onClick={async () => {
+                if (!roleChangeUser || !selectedNewRole) return;
+                try {
+                  const res = await authFetch('/api/admin/accounts', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: roleChangeUser.id, action: 'changeRole', role: selectedNewRole })
+                  });
+                  const data = await res.json();
+                  if (data.success) {
+                    setRoleChangeUser(null);
+                    loadAccountsData();
+                  } else {
+                    alert(data.error || '修改失败');
+                  }
+                } catch(e) {
+                  console.error(e);
+                  alert('修改失败');
+                }
+              }}
+            >
+              确认修改
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
     );
   };
