@@ -205,7 +205,7 @@ export async function GET(request: NextRequest) {
     }
 
     let sql = `
-      SELECT pa.*, u.username, u.phone as user_phone, u.real_name, u.energy_value
+      SELECT pa.*, u.username, u.phone as user_phone, u.real_name, 0 as energy_value
       FROM provider_applications pa
       JOIN users u ON pa.user_id = u.id
       WHERE pa.parent_provider_id = $1

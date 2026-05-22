@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     // 获取所有用户
     const { data: users, error: usersError } = await supabase
       .from('users')
-      .select('id, username, role, real_name, phone, branch_id, provider_id, energy_value, balance, created_at, is_active')
+      .select('id, username, role, real_name, phone, branch_id, provider_id, balance, created_at, is_active')
       .order('created_at', { ascending: false });
 
     if (usersError) {
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
             username: m.username,
             real_name: m.real_name,
             phone: m.phone,
-            energy_value: m.energy_value,
+            
             balance: m.balance,
             created_at: m.created_at,
           })),
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
           phone: m.phone,
           provider_id: m.provider_id,
           provider_name: providers.find(p => p.id === m.provider_id)?.real_name,
-          energy_value: m.energy_value,
+          
           balance: m.balance,
           created_at: m.created_at,
         })),

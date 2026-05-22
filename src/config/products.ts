@@ -304,8 +304,8 @@ const createProducts = (): GPUProduct[] => {
     
     // 根据周期计算收益比例
     const cycleRates = config.cycleDays === 3 
-      ? { totalProfitRate: 5, memberProfitRate: 2, energyValueRate: 3 }
-      : { totalProfitRate: 10, memberProfitRate: 5, energyValueRate: 5 };
+      ? { totalProfitRate: 5, memberProfitRate: 2, releaseRate: 3 }
+      : { totalProfitRate: 10, memberProfitRate: 5, releaseRate: 5 };
     
     products.push({
       id: `provider-product-${i + 1}`,
@@ -316,7 +316,7 @@ const createProducts = (): GPUProduct[] => {
       price: config.price,
       profitRate: cycleRates.totalProfitRate,
       cycleDays: config.cycleDays,
-      minEnergyValue: Math.floor(config.price * cycleRates.energyValueRate / 100),
+      minEnergyValue: Math.floor(config.price * cycleRates.releaseRate / 100),
       totalQuantity: 100,
       availableQuantity: status === 'available' ? 1 : 0,
       image: gpuChips[chip].image,
@@ -445,13 +445,13 @@ export const calculateProductProfit = (product: GPUProduct): {
 export const getCycleProfitRates = (cycleDays: number): {
   totalProfitRate: number; // 总收益率
   memberProfitRate: number; // 会员实际到手
-  energyValueRate: number; // 收益支付比例
+  releaseRate: number; // 收益支付比例
 } => {
-  if (cycleDays <= 3) return { totalProfitRate: 5, memberProfitRate: 2, energyValueRate: 3 };
-  if (cycleDays <= 7) return { totalProfitRate: 10, memberProfitRate: 5, energyValueRate: 5 };
-  if (cycleDays <= 15) return { totalProfitRate: 20, memberProfitRate: 10, energyValueRate: 10 };
-  if (cycleDays <= 30) return { totalProfitRate: 44, memberProfitRate: 22, energyValueRate: 22 };
-  return { totalProfitRate: 120, memberProfitRate: 60, energyValueRate: 60 };
+  if (cycleDays <= 3) return { totalProfitRate: 5, memberProfitRate: 2, releaseRate: 3 };
+  if (cycleDays <= 7) return { totalProfitRate: 10, memberProfitRate: 5, releaseRate: 5 };
+  if (cycleDays <= 15) return { totalProfitRate: 20, memberProfitRate: 10, releaseRate: 10 };
+  if (cycleDays <= 30) return { totalProfitRate: 44, memberProfitRate: 22, releaseRate: 22 };
+  return { totalProfitRate: 120, memberProfitRate: 60, releaseRate: 60 };
 };
 
 // 计算购买所需支付（新逻辑：只付本金）
@@ -460,7 +460,7 @@ export const calculatePurchasePayment = (product: GPUProduct, quantity: number =
   totalPay: number; // 实付 = 本金
   totalProfit: number; // 总收益
   memberProfit: number; // 会员实际到手
-  energyValueNeeded: number; // 卖出时需支付的收益
+  releaseNeeded: number; // 卖出时需支付的收益
   cycleDays: number;
 } => {
   const productAmount = product.price * quantity;
@@ -471,7 +471,7 @@ export const calculatePurchasePayment = (product: GPUProduct, quantity: number =
     totalPay: productAmount, // 只付本金
     totalProfit: Math.floor(productAmount * rates.totalProfitRate / 100),
     memberProfit: Math.floor(productAmount * rates.memberProfitRate / 100),
-    energyValueNeeded: Math.floor(productAmount * rates.energyValueRate / 100),
+    releaseNeeded: Math.floor(productAmount * rates.releaseRate / 100),
     cycleDays: product.cycleDays,
   };
 };

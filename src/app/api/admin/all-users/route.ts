@@ -22,7 +22,6 @@ export async function GET(request: NextRequest) {
         u.username,
         u.phone,
         u.role,
-        u.energy_value,
         u.balance,
         u.is_active,
         u.created_at,
@@ -50,7 +49,7 @@ export async function GET(request: NextRequest) {
       phone: u.phone,
       role: u.role,
       roleName: getRoleName(u.role),
-      energyValue: u.energy_value,
+      
       balance: u.balance,
       isActive: u.is_active,
       createdAt: u.created_at,

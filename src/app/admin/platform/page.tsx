@@ -43,7 +43,7 @@ interface Branch {
   id: string;
   username: string;
   phone?: string;
-  energy_value: number;
+  
   balance: number;
   quota?: number;
   used_quota?: number;
@@ -61,7 +61,7 @@ interface Provider {
   username: string;
   phone?: string;
   branch_id: string | null;
-  energy_value: number;
+  
   balance: number;
   quota: number;
   used_quota: number;
@@ -77,7 +77,7 @@ interface Member {
   phone?: string;
   provider_id: string | null;
   branch_id?: string | null;
-  energy_value: number;
+  
   balance: number;
   points: number;
   total_investment?: number;
@@ -407,7 +407,7 @@ function OverviewGlobal({
             <ResponsiveContainer width={200} height={200}>
               <RechartsPie>
                 <Pie
-                  data={branches.map((b, i) => ({ name: b.username, value: b.energy_value || 1000 }))}
+                  data={branches.map((b, i) => ({ name: b.username, value: b.balance || 1000 }))}
                   cx="50%"
                   cy="50%"
                   innerRadius={50}
@@ -428,7 +428,7 @@ function OverviewGlobal({
                     <div className={`w-3 h-3 rounded-full bg-${['blue', 'purple', 'pink', 'green', 'amber'][i % 5]}-500`} />
                     <span className="text-gray-300 text-sm">{branch.username}</span>
                   </div>
-                  <span className="text-white text-sm">{(branch.energy_value || 1000).toLocaleString()}</span>
+                  <span className="text-white text-sm">{(branch.balance || 1000).toLocaleString()}</span>
                 </div>
               ))}
             </div>
@@ -556,7 +556,7 @@ function OverviewBranch({
               <Coins className="w-5 h-5 text-green-400" />
               <span className="text-gray-400 text-sm">收益余额</span>
             </div>
-            <p className="text-2xl font-bold text-white mt-2">{(branch.energy_value || 0).toLocaleString()}</p>
+            <p className="text-2xl font-bold text-white mt-2">{(branch.balance || 0).toLocaleString()}</p>
           </CardContent>
         </Card>
         <Card className="bg-slate-800/50 border-slate-700">
@@ -590,7 +590,7 @@ function OverviewBranch({
                     </div>
                     <div>
                       <p className="text-white font-medium">{provider.username}</p>
-                      <p className="text-gray-400 text-xs">收益: {provider.energy_value.toLocaleString()}</p>
+                      <p className="text-gray-400 text-xs">收益: {provider.balance.toLocaleString()}</p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -626,7 +626,7 @@ function OverviewBranch({
                 {branchMembers.slice(0, 10).map((member) => (
                   <TableRow key={member.id} className="border-slate-700/50">
                     <TableCell className="text-white">{member.username}</TableCell>
-                    <TableCell className="text-cyan-400">{member.energy_value.toLocaleString()}</TableCell>
+                    <TableCell className="text-cyan-400">{member.balance.toLocaleString()}</TableCell>
                     <TableCell className="text-right text-white">¥{member.balance.toLocaleString()}</TableCell>
                     <TableCell>
                       <Badge className="bg-green-500/20 text-green-400 border-0">活跃</Badge>
@@ -798,7 +798,7 @@ function BranchesPage({
                     branchMembers.map((member) => (
                       <TableRow key={member.id} className="border-slate-700/50">
                         <TableCell className="text-white">{member.username}</TableCell>
-                        <TableCell className="text-cyan-400">{member.energy_value.toLocaleString()}</TableCell>
+                        <TableCell className="text-cyan-400">{member.balance.toLocaleString()}</TableCell>
                         <TableCell className="text-right text-white">¥{member.balance.toLocaleString()}</TableCell>
                         <TableCell>
                           <Badge className="bg-green-500/20 text-green-400 border-0">活跃</Badge>
@@ -880,7 +880,7 @@ function BranchesPage({
                       ¥{(branch.total_sales || 0).toLocaleString()}
                     </TableCell>
                     <TableCell className="text-right text-cyan-400">
-                      {(branch.energy_value || 0).toLocaleString()}
+                      {(branch.balance || 0).toLocaleString()}
                     </TableCell>
                     <TableCell>
                       <Badge className="bg-green-500/20 text-green-400 border-0">活跃</Badge>
@@ -1016,7 +1016,7 @@ function ProvidersPage({
                         </Badge>
                       </TableCell>
                       <TableCell className="text-cyan-400">
-                        {provider.energy_value.toLocaleString()}
+                        {provider.balance.toLocaleString()}
                       </TableCell>
                       <TableCell>
                         <Badge className={provider.is_active ? 'bg-green-500/20 text-green-400 border-0' : 'bg-red-500/20 text-red-400 border-0'}>
@@ -1165,7 +1165,7 @@ function MembersPage({
                         </Badge>
                       </TableCell>
                       <TableCell className="text-cyan-400">
-                        {member.energy_value.toLocaleString()}
+                        {member.balance.toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right text-white">
                         ¥{member.balance.toLocaleString()}
@@ -1310,13 +1310,13 @@ function EnergyPage({
   members: Member[];
 }) {
   // 计算收益分布
-  const totalEnergy = branches.reduce((sum, b) => sum + (b.energy_value || 0), 0) +
-    providers.reduce((sum, p) => sum + p.energy_value, 0) +
-    members.reduce((sum, m) => sum + m.energy_value, 0);
+  const totalBalance = branches.reduce((sum, b) => sum + (b.balance || 0), 0) +
+    providers.reduce((sum, p) => sum + p.balance, 0) +
+    members.reduce((sum, m) => sum + m.balance, 0);
 
   const distributionData = branches.map((branch, i) => ({
     name: branch.username,
-    value: branch.energy_value || 0,
+    value: branch.balance || 0,
     color: ['#3b82f6', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b'][i % 5]
   }));
 
@@ -1332,14 +1332,14 @@ function EnergyPage({
         <Card className="bg-slate-800/50 border-slate-700">
           <CardContent className="pt-4">
             <p className="text-gray-400 text-sm">系统总收益</p>
-            <p className="text-2xl font-bold text-white mt-2">{totalEnergy.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-white mt-2">{totalBalance.toLocaleString()}</p>
           </CardContent>
         </Card>
         <Card className="bg-slate-800/50 border-slate-700">
           <CardContent className="pt-4">
             <p className="text-gray-400 text-sm">服务网点收益</p>
             <p className="text-2xl font-bold text-purple-400 mt-2">
-              {branches.reduce((sum, b) => sum + (b.energy_value || 0), 0).toLocaleString()}
+              {branches.reduce((sum, b) => sum + (b.balance || 0), 0).toLocaleString()}
             </p>
           </CardContent>
         </Card>
@@ -1347,7 +1347,7 @@ function EnergyPage({
           <CardContent className="pt-4">
             <p className="text-gray-400 text-sm">服务商收益</p>
             <p className="text-2xl font-bold text-yellow-400 mt-2">
-              {providers.reduce((sum, p) => sum + p.energy_value, 0).toLocaleString()}
+              {providers.reduce((sum, p) => sum + p.balance, 0).toLocaleString()}
             </p>
           </CardContent>
         </Card>
@@ -1355,7 +1355,7 @@ function EnergyPage({
           <CardContent className="pt-4">
             <p className="text-gray-400 text-sm">会员收益</p>
             <p className="text-2xl font-bold text-cyan-400 mt-2">
-              {members.reduce((sum, m) => sum + m.energy_value, 0).toLocaleString()}
+              {members.reduce((sum, m) => sum + m.balance, 0).toLocaleString()}
             </p>
           </CardContent>
         </Card>
@@ -1395,7 +1395,7 @@ function EnergyPage({
                   <div className="text-right">
                     <span className="text-white font-medium">{item.value.toLocaleString()}</span>
                     <span className="text-gray-500 text-sm ml-2">
-                      ({totalEnergy > 0 ? ((item.value / totalEnergy) * 100).toFixed(1) : 0}%)
+                      ({totalBalance > 0 ? ((item.value / totalBalance) * 100).toFixed(1) : 0}%)
                     </span>
                   </div>
                 </div>
@@ -1429,10 +1429,10 @@ function EnergyPage({
                   <TableRow key={branch.id} className="border-slate-700/50">
                     <TableCell className="text-white font-medium">{branch.username}</TableCell>
                     <TableCell className="text-right text-cyan-400">
-                      {(branch.energy_value || 0).toLocaleString()}
+                      {(branch.balance || 0).toLocaleString()}
                     </TableCell>
                     <TableCell className="text-right text-gray-400">
-                      {totalEnergy > 0 ? ((branch.energy_value / totalEnergy) * 100).toFixed(1) : 0}%
+                      {totalBalance > 0 ? ((branch.balance / totalBalance) * 100).toFixed(1) : 0}%
                     </TableCell>
                     <TableCell className="text-center">
                       <Badge className="bg-purple-500/20 text-purple-400 border-0">{branchProviders.length}</Badge>

@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     // 验证申请人是否存在且是会员
     const applicant = await queryOne<any>(
-      `SELECT id, username, role, provider_id, branch_id, energy_value, balance FROM users WHERE id = $1`,
+      `SELECT id, username, role, provider_id, branch_id, balance FROM users WHERE id = $1`,
       [userId]
     );
 

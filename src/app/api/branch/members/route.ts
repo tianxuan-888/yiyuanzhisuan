@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
       realName: m.real_name || '',
       phone: m.phone || '',
       uniqueId: m.unique_id || '',
-      energyValue: parseFloat(m.energy_value || '0'),
+      
       balance: parseFloat(m.balance || '0'),
       providerId: m.provider_id,
       providerName: providerNames[m.provider_id] || '未知',

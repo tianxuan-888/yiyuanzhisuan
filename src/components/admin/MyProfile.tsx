@@ -42,7 +42,7 @@ interface ProfileData {
   address: string | null;
   invite_code: string | null;
   unique_id: string;
-  energy_value: string;
+  
   balance: string;
   created_at: string;
   inviter?: {

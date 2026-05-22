@@ -8,7 +8,6 @@ function parseNumeric(val: any): number {
   if (!val) return 0;
   if (typeof val === 'number') return val;
   if (typeof val === 'string') {
-    // 格式如: {7800 -2 false finite true} = 7800 * 10^(-2) = 78
     const match = val.match(/\{(\d+)\s+(-?\d+)/);
     if (match) {
       const num = parseFloat(match[1]);
@@ -33,11 +32,9 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      // 根据登录类型构建查询
       let sql = '';
       let params: any[];
 
-      // 支持用户名或手机号登录
       if (/^1[3-9]\d{9}$/.test(loginKey)) {
         sql = 'SELECT * FROM users WHERE phone = $1';
         params = [loginKey];
@@ -55,7 +52,6 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 验证密码（使用 bcrypt 比较）
       const passwordValid = bcrypt.compareSync(password, user.password);
       if (!passwordValid) {
         return NextResponse.json(
@@ -71,14 +67,12 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 生成Token
       const token = signToken({
         userId: String(user.id),
         username: user.username,
         role: user.role,
       });
 
-      // 获取分支名称
       let branch_name = null;
       if (user.branch_id) {
         const branchUser = await queryOne(
@@ -90,23 +84,6 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 从 energy_accounts 表获取最新的收益
-      let energyValue = 0;
-      try {
-        const eaAccount = await queryOne(
-          'SELECT balance FROM energy_accounts WHERE user_id = $1',
-          [user.id]
-        );
-        if (eaAccount) {
-          energyValue = parseNumeric(eaAccount.balance);
-        }
-      } catch (eaError) {
-        console.error('获取收益失败:', eaError);
-        // 如果获取失败，使用用户表的默认值
-        energyValue = parseNumeric(user.energy_value);
-      }
-
-      // 构建返回数据（包含token）
       const { password: _, ...userWithoutPassword } = user;
 
       return NextResponse.json({
@@ -115,7 +92,7 @@ export async function POST(request: NextRequest) {
           ...userWithoutPassword,
           id: String(user.id),
           branch_name,
-          energyValue,
+          balance: parseNumeric(user.balance),
           points: parseNumeric(user.points || 0),
           token,
         },

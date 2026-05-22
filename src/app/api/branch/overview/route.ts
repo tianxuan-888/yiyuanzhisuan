@@ -18,12 +18,12 @@ export async function GET(request: NextRequest) {
     const branch = await queryOne<{
       id: string;
       username: string;
-      energy_value: string;
+      
       energy_balance: string;
       balance: string;
       phone: string;
     }>(
-      `SELECT u.id, u.username, u.energy_value, u.balance, u.phone,
+      `SELECT u.id, u.username, u.balance, u.phone,
               COALESCE(ea.balance, 0) as energy_balance
        FROM users u
        LEFT JOIN energy_accounts ea ON u.id = ea.user_id
@@ -42,11 +42,11 @@ export async function GET(request: NextRequest) {
     const providers = await query<{
       id: string;
       username: string;
-      energy_value: string;
+      
       balance: string;
       created_at: string;
     }>(
-      `SELECT id, username, energy_value, balance, created_at 
+      `SELECT id, username, balance, created_at 
        FROM users 
        WHERE role = 'provider' AND branch_id = $1`,
       [branchId]
@@ -61,16 +61,16 @@ export async function GET(request: NextRequest) {
 
     if (providerIds.length > 0) {
       const members = await query<{
-        energy_value: string;
+        
         balance: string;
       }>(
-        `SELECT energy_value, balance FROM users 
+        `SELECT balance FROM users 
          WHERE provider_id = ANY($1) AND role = 'member'`,
         [providerIds]
       );
       
       totalMembers = members.length;
-      totalMemberEnergy = members.reduce((sum, m) => sum + parseFloat(m.energy_value || '0'), 0);
+      totalMemberEnergy = members.reduce((sum, m) => sum + 0, 0);
       totalMemberBalance = members.reduce((sum, m) => sum + parseFloat(m.balance || '0'), 0);
     }
 
@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
         branch: {
           id: branch.id,
           username: branch.username,
-          energy_value: branch.energy_value,
+          
           energy_balance: Number(branch.energy_balance) || 0,
           balance: branch.balance,
           phone: branch.phone,
@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
         providers: providers.map(p => ({
           id: p.id,
           username: p.username,
-          energy_value: parseFloat(p.energy_value || '0'),
+          
           balance: parseFloat(p.balance || '0'),
           created_at: p.created_at,
         })),

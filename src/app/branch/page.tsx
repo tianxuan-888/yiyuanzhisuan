@@ -25,7 +25,6 @@ interface UserData {
   alipay_account: string | null;
   provider_id: string | null;
   inviter_id: string | null;
-  energy_value: number;
   balance: number;
   is_active: boolean;
   created_at: string;
@@ -37,7 +36,6 @@ interface UserData {
 interface Provider {
   id: string;
   username: string;
-  energy_value: number;
   balance: number;
   quota?: number;
   used_quota?: number;
@@ -1099,7 +1097,6 @@ export default function BranchPage() {
         if (userDataStr && data.data) {
           const userData = JSON.parse(userDataStr);
           userData.balance = data.data.balance;
-          userData.energy_value = data.data.energyValue;
           localStorage.setItem('userData', JSON.stringify(userData));
         }
         loadBranchRevenueRecords();

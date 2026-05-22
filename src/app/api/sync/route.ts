@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     if (syncType === 'all' || syncType === 'members') {
       const { data: members, error: membersError } = await client
         .from('users')
-        .select('id, username, role, real_name, phone, energy_value, balance, points, provider_id, branch_id, inviter_id, created_at, is_active')
+        .select('id, username, role, real_name, phone, balance, points, provider_id, branch_id, inviter_id, created_at, is_active')
         .eq('role', 'member')
         .order('created_at', { ascending: false });
 
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     if (syncType === 'all' || syncType === 'providers') {
       const { data: providers, error: providersError } = await client
         .from('users')
-        .select('id, username, role, real_name, phone, energy_value, balance, branch_id, quota, used_quota, total_sales, created_at, is_active')
+        .select('id, username, role, real_name, phone, balance, branch_id, quota, used_quota, total_sales, created_at, is_active')
         .eq('role', 'provider')
         .order('created_at', { ascending: false });
 
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     if (syncType === 'all' || syncType === 'branches') {
       const { data: branches, error: branchesError } = await client
         .from('users')
-        .select('id, username, role, real_name, phone, energy_value, balance, created_at, is_active')
+        .select('id, username, role, real_name, phone, balance, created_at, is_active')
         .eq('role', 'branch')
         .order('created_at', { ascending: false });
 

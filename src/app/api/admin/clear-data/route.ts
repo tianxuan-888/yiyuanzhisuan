@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
         await execute('DELETE FROM energy_transactions');
         await execute('DELETE FROM energy_withdraw_requests');
         await execute('DELETE FROM energy_accounts');
-        await execute(`UPDATE users SET energy_value = 0, updated_at = NOW()`);
+        await execute(`UPDATE users SET updated_at = NOW()`);
         results.energy = { success: true, note: '收益数据已清除' };
         break;
         
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
         }
         await execute('DELETE FROM energy_accounts');
         await execute('DELETE FROM quota_accounts');
-        await execute(`UPDATE users SET energy_value = 0, balance = 0, updated_at = NOW()`);
+        await execute(`UPDATE users SET balance = 0, updated_at = NOW()`);
         // 初始化管理员额度
         await execute(`
           INSERT INTO quota_accounts (user_id, balance, total_in, total_out)

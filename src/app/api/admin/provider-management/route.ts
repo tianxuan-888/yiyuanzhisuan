@@ -30,13 +30,13 @@ export async function GET(request: NextRequest) {
       username: string;
       phone: string;
       real_name: string;
-      energy_value: string;
+      
       balance: string;
       branch_id: string;
       provider_id: string;
       created_at: string;
     }>(
-      `SELECT u.id, u.username, u.phone, u.real_name, u.energy_value, u.balance, 
+      `SELECT u.id, u.username, u.phone, u.real_name, 0, u.balance, 
               u.branch_id, u.provider_id, u.created_at,
               COALESCE(ea.balance, 0)::text as energy_balance,
               pr.branch_id,
@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
       const totalProfit = profitStatsMap.get(provider.id) || 0;
       const subProviderCount = subProviderCountMap.get(provider.id) || 0;
       const providerAny = provider as any;
-      const energyBalance = parseFloat(providerAny.energy_balance || provider.energy_value || '0');
+      const energyBalance = parseFloat(providerAny.balance || '0');
 
       return {
         // 基本信息

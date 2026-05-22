@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('users')
-      .select('id, username, phone, real_name, alipay_account, role, energy_value, balance, points, provider_id, branch_id, inviter_id, is_active, created_at, updated_at')
+      .select('id, username, phone, real_name, alipay_account, role, balance, points, provider_id, branch_id, inviter_id, is_active, created_at, updated_at')
       .eq('role', 'member');
 
     if (status && status !== 'all') {

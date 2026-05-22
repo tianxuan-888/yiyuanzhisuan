@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 import { authenticateRequest } from '@/lib/auth';
 
-// 获取服务商的收益记录（仅市场业务收益）
+// 获取服务商的收益记录
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -10,9 +10,7 @@ export async function GET(request: NextRequest) {
 
     if (!providerId) {
       const authUser = authenticateRequest(request);
-      if (authUser) {
-        providerId = authUser.userId;
-      }
+      if (authUser) providerId = authUser.userId;
     }
 
     if (!providerId) {
@@ -21,20 +19,19 @@ export async function GET(request: NextRequest) {
 
     // 查询服务商的用户信息
     const providerUser: any = await query(
-      'SELECT id, username, balance, energy_value FROM users WHERE id::text = $1',
+      'SELECT id, username, balance FROM users WHERE id::text = $1',
       [providerId]
     );
 
     if (!providerUser || providerUser.length === 0) {
       return NextResponse.json({
         success: true,
-        data: { records: [], stats: { totalRevenue: 0, balance: 0, energyValue: 0, totalWithdrawn: 0, totalConverted: 0, availableRevenue: 0 } }
+        data: { records: [], stats: { totalRevenue: 0, balance: 0, totalWithdrawn: 0, totalConverted: 0, availableRevenue: 0 } }
       });
     }
 
     const userId = providerUser[0].id;
     const currentBalance = Number(providerUser[0].balance) || 0;
-    const currentEnergy = Number(providerUser[0].energy_value) || 0;
 
     // 1. 产品分成收益（provider_revenue_distribution）
     let distRecords: any[] = [];
@@ -177,7 +174,6 @@ export async function GET(request: NextRequest) {
         stats: {
           totalRevenue,
           balance: currentBalance,
-          energyValue: currentEnergy,
           totalWithdrawn,
           totalConverted,
           availableRevenue,
@@ -196,7 +192,7 @@ export async function GET(request: NextRequest) {
       data: {
         records: [],
         stats: {
-          totalRevenue: 0, balance: 0, energyValue: 0,
+          totalRevenue: 0, balance: 0,
           totalWithdrawn: 0, totalConverted: 0, availableRevenue: 0, orderCount: 0,
         },
       }

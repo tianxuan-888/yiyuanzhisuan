@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
     // 获取服务商基本信息
     const providers = await query(
-      'SELECT id, username, phone, energy_value, balance FROM users WHERE id = $1',
+      'SELECT id, username, phone, balance FROM users WHERE id = $1',
       [providerId]
     );
 
@@ -67,7 +67,6 @@ export async function GET(request: NextRequest) {
           id: provider.id,
           username: provider.username,
           phone: provider.phone,
-          energy_value: provider.energy_value,
           balance: provider.balance,
         },
         stats: {

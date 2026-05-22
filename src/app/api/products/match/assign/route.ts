@@ -25,28 +25,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: '缺少产品ID或目标会员ID' }, { status: 400 });
     }
 
-    console.log('[MATCH ASSIGN] 请求参数:', { productId, targetUserId, userId: user.userId });
-
     // 检查产品是否存在且属于该服务商
     const { data: product, error: productError } = await supabase
       .from('products')
-      .select('id, name, price, status, provider_id, market_rate, previous_holder_id')
+      .select('id, name, price, status, provider_id, previous_holder_id')
       .eq('id', productId)
       .single();
-
-    console.log('[MATCH ASSIGN] 产品查询结果:', { product: product ? { id: product.id, status: product.status, provider_id: product.provider_id } : null, productError });
 
     if (productError || !product) {
       return NextResponse.json({ success: false, message: '产品不存在' }, { status: 404 });
     }
 
     if (product.provider_id !== user.userId) {
-      console.log('[MATCH ASSIGN] provider_id不匹配:', { productProviderId: product.provider_id, userId: user.userId });
       return NextResponse.json({ success: false, message: '无权操作此产品' }, { status: 403 });
     }
 
     if (product.status !== 'pending_match' && product.status !== 'available' && product.status !== 'draft' && product.status !== 'unlisted') {
-      console.log('[MATCH ASSIGN] 产品状态不正确:', { status: product.status });
       return NextResponse.json({ success: false, message: `产品状态不允许匹配(当前: ${product.status})` }, { status: 400 });
     }
 
@@ -56,58 +50,41 @@ export async function POST(request: NextRequest) {
         sql_query: `UPDATE products SET status = 'pending_match', updated_at = NOW() WHERE id = '${productId}'`
       });
       if (statusError) {
-        console.error('[MATCH ASSIGN] 状态更新失败:', statusError);
         return NextResponse.json({ success: false, message: '状态更新失败: ' + statusError.message }, { status: 500 });
       }
-      console.log('[MATCH ASSIGN] 产品状态已更新为pending_match:', { productId });
     }
 
     // 检查目标会员是否属于该服务商
     const { data: targetUser, error: userError } = await supabase
       .from('users')
-      .select('id, username, energy_value, provider_id')
+      .select('id, username, provider_id')
       .eq('id', targetUserId)
       .single();
-
-    console.log('[MATCH ASSIGN] 目标会员查询:', { targetUser: targetUser ? { id: targetUser.id, provider_id: targetUser.provider_id, username: targetUser.username, energy: targetUser.energy_value } : null, userError });
 
     if (userError || !targetUser) {
       return NextResponse.json({ success: false, message: '目标会员不存在' }, { status: 404 });
     }
 
     if (targetUser.provider_id !== user.userId) {
-      console.log('[MATCH ASSIGN] 会员provider_id不匹配:', { memberProviderId: targetUser.provider_id, userId: user.userId });
       return NextResponse.json({ success: false, message: '该会员不属于您' }, { status: 400 });
     }
 
-    // 预检查收益是否足够
-    const marketFee = product.price * (product.market_rate / 100);
-    const energySufficient = targetUser.energy_value >= marketFee;
-
-    // 使用RPC SQL执行，避免REST API静默失败
+    // 匹配产品给会员（不需要检查能量值，只需确认线下收款）
     const { error: updateError } = await supabase.rpc('rpc_execute', {
       sql_query: `UPDATE products SET pending_match_user_id = '${targetUserId}' WHERE id = '${productId}'`
     });
 
     if (updateError) {
-      console.error('[MATCH ASSIGN] 更新失败:', updateError);
       return NextResponse.json({ success: false, message: '匹配失败: ' + updateError.message }, { status: 500 });
     }
 
-    console.log('[MATCH ASSIGN] 匹配成功:', { productId, targetUserId, targetUsername: targetUser.username });
-
     return NextResponse.json({
       success: true,
-      message: energySufficient
-        ? `已指定匹配给 ${targetUser.username}，收益充足，可确认匹配`
-        : `已指定匹配给 ${targetUser.username}，但该会员收益不足(${targetUser.energy_value}/${marketFee})，确认时将失败`,
+      message: `已指定匹配给 ${targetUser.username}，请确认线下收款`,
       data: {
         productId,
         targetUserId,
         targetUsername: targetUser.username,
-        energyValue: targetUser.energy_value,
-        requiredEnergy: marketFee,
-        energySufficient
       }
     });
   } catch (error: unknown) {

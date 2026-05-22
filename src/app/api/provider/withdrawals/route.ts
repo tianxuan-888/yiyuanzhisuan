@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
-import { execute, queryOne } from '@/lib/pg-client';
+import { execute, queryOne } from '@/storage/database/pg-client';
 
 // 获取提现申请列表
 export async function GET(request: NextRequest) {
@@ -37,7 +37,6 @@ export async function GET(request: NextRequest) {
     }
 
     const memberIds = (members || []).map((m: any) => m.id);
-
     if (memberIds.length === 0) {
       return NextResponse.json({ success: true, data: [] });
     }
@@ -53,7 +52,6 @@ export async function GET(request: NextRequest) {
     }
 
     const { data: withdrawals, error: withdrawalsError } = await query;
-
     if (withdrawalsError) {
       throw new Error(`查询提现申请失败: ${withdrawalsError.message}`);
     }
@@ -84,7 +82,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 处理提现申请
+// 处理提现申请（统一到总台审核）
 export async function POST(request: NextRequest) {
   try {
     const user = authenticateRequest(request);
@@ -93,116 +91,63 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { providerId, withdrawalId, action, remark } = body;
+    const { withdrawalId, action, remark } = body;
 
-    if (!providerId || !withdrawalId || !action) {
+    if (!withdrawalId || !action) {
       return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
-    }
-
-    const userAny = user as { role: string; userId: string };
-    if (userAny.role !== 'admin' && userAny.userId !== providerId) {
-      return NextResponse.json({ error: '无权操作' }, { status: 403 });
     }
 
     if (!['approve', 'reject'].includes(action)) {
       return NextResponse.json({ error: '无效的操作' }, { status: 400 });
     }
 
-    const client = getSupabaseClient();
+    // 查询提现记录
+    const withdrawal = await queryOne(
+      'SELECT * FROM withdrawals WHERE id = $1',
+      [withdrawalId]
+    );
 
-    const { data: withdrawal, error: withdrawalError } = await client
-      .from('withdrawals')
-      .select('*')
-      .eq('id', withdrawalId)
-      .maybeSingle();
-
-    if (withdrawalError) {
-      throw new Error(`查询提现记录失败: ${withdrawalError.message}`);
-    }
-
-    const withdrawalAny = withdrawal as { status: string; user_id: string; amount: number } | null;
-    if (!withdrawalAny) {
+    if (!withdrawal) {
       return NextResponse.json({ error: '提现记录不存在' }, { status: 404 });
     }
 
-    if (withdrawalAny.status !== 'pending') {
+    if (withdrawal.status !== 'pending') {
       return NextResponse.json({ error: '该提现已被处理' }, { status: 400 });
     }
 
-    const baseUpdate = {
-      reviewed_by: providerId,
-      review_note: remark || null,
-      reviewed_at: new Date().toISOString()
-    };
-
     if (action === 'reject') {
-      const userRow = await queryOne('SELECT balance FROM users WHERE id = $1', [withdrawalAny.user_id]);
-      const currentBalance = parseFloat(String(userRow?.balance)) || 0;
-      const newBalance = currentBalance + withdrawalAny.amount;
+      // 拒绝：退回balance给用户
+      await execute(
+        'UPDATE users SET balance = balance + $1, updated_at = NOW() WHERE id = $2',
+        [withdrawal.amount, withdrawal.user_id]
+      );
+      await execute(
+        "UPDATE withdrawals SET status = 'rejected', review_note = $1, reviewed_at = NOW(), updated_at = NOW() WHERE id = $2",
+        [remark || null, withdrawalId]
+      );
 
-      await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newBalance, withdrawalAny.user_id]);
-      await client.from('withdrawals').update({ ...baseUpdate, status: 'rejected' }).eq('id', withdrawalId);
-
-      return NextResponse.json({ success: true, message: '已拒绝提现申请' });
+      return NextResponse.json({ success: true, message: '已拒绝提现申请，金额已退回' });
     }
 
-    const withdrawAmount = withdrawalAny.amount;
-    const feeAmount = withdrawAmount * 0.05;
-    const actualAmount = withdrawAmount * 0.95;
+    // 批准：金额已从balance扣除，提现金额全额回流到总台
+    const feeAmount = parseFloat(String(withdrawal.amount)) * 0.05;
+    const actualAmount = parseFloat(String(withdrawal.amount)) - feeAmount;
 
-    await client.from('withdrawals').update({ 
-      ...baseUpdate, 
-      status: 'completed',
-      actual_amount: actualAmount,
-      fee_amount: feeAmount
-    }).eq('id', withdrawalId);
+    await execute(
+      `UPDATE withdrawals SET status = 'completed', actual_amount = $1, fee = $2, reviewed_at = NOW(), updated_at = NOW() WHERE id = $3`,
+      [actualAmount, feeAmount, withdrawalId]
+    );
 
-    const { data: providerData } = await client
-      .from('users')
-      .select('energy_value')
-      .eq('id', providerId)
-      .maybeSingle();
+    // 提现金额全额回流到总台（balance）
+    await execute(
+      "UPDATE users SET balance = balance + $1, updated_at = NOW() WHERE role = 'admin'",
+      [withdrawal.amount]
+    );
 
-    const currentProviderEnergy = parseFloat(String((providerData as any)?.energy_value || '0'));
-    await client.from('users').update({ 
-      energy_value: currentProviderEnergy + actualAmount 
-    }).eq('id', providerId);
-
-    const { data: adminData } = await client
-      .from('users')
-      .select('id, energy_value')
-      .eq('role', 'admin')
-      .maybeSingle();
-    
-    const adminAccount = adminData as { id: string; energy_value: number } | null;
-
-    if (adminAccount) {
-      const currentAdminEnergy = parseFloat(String(adminAccount.energy_value || '0'));
-      await client.from('users').update({ 
-        energy_value: currentAdminEnergy + feeAmount 
-      }).eq('role', 'admin');
-
-      await client.from('energy_transactions').insert({
-        type: 'withdraw_fee',
-        amount: feeAmount,
-        from_user_id: withdrawalAny.user_id,
-        to_user_id: adminAccount.id,
-        note: `变现手续费回收：会员提现${withdrawAmount}，回收${feeAmount}（5%）`
-      });
-    }
-
-    await client.from('energy_transactions').insert({
-      type: 'withdraw_receive',
-      amount: actualAmount,
-      from_user_id: withdrawalAny.user_id,
-      to_user_id: providerId,
-      note: `会员变现：服务商获得${actualAmount}（扣除5%手续费${feeAmount}）`
-    });
-
-    return NextResponse.json({ 
-      success: true, 
-      message: `已批准，会员获得${actualAmount}（已扣除5%手续费${feeAmount}）`,
-      data: { actualAmount, feeAmount }
+    return NextResponse.json({
+      success: true,
+      message: `提现已批准，到账${actualAmount}元（手续费${feeAmount}元已归平台），提现金额${withdrawal.amount}元已回流总台`,
+      data: { actualAmount, feeAmount, totalReturned: withdrawal.amount }
     });
   } catch (error) {
     console.error('处理提现申请失败:', error);

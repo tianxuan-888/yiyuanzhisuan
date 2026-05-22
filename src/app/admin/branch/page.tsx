@@ -113,7 +113,7 @@ export default function BranchPage() {
   const [applyEnergyNote, setApplyEnergyNote] = useState('');
   
   // 收益状态
-  const [energyValue, setEnergyValue] = useState(0);
+  const [balanceValue, setBalanceValue] = useState(0);
   
   // 服务商管理相关状态
   const [providerData, setProviderData] = useState<{
@@ -187,12 +187,12 @@ export default function BranchPage() {
         const energyStatsResult = await energyStatsResponse.json();
         
         if (userResult.success && userResult.data) {
-          setEnergyValue(userResult.data.energy_value ?? 0);
+          setBalanceValue(userResult.data.balance ?? 0);
         }
         
         // 从 energy_accounts 表获取正确的收益余额
         if (energyStatsResult.success && energyStatsResult.data?.branch) {
-          setEnergyValue(energyStatsResult.data.branch.balance ?? 0);
+          setBalanceValue(energyStatsResult.data.branch.balance ?? 0);
         }
       } catch (error) {
         console.error('加载服务网点信息失败:', error);
@@ -405,7 +405,7 @@ export default function BranchPage() {
         });
         const userResult = await userResponse.json();
         if (userResult.success && userResult.data) {
-          setEnergyValue(userResult.data.energy_value ?? 0);
+          setBalanceValue(userResult.data.balance ?? 0);
         }
       } else {
         alert(result.error || '操作失败');
@@ -423,7 +423,7 @@ export default function BranchPage() {
     }
 
     const amount = parseFloat(transferAmount);
-    if (amount > energyValue) {
+    if (amount > balanceValue) {
       alert('收益余额不足');
       return;
     }
@@ -454,7 +454,7 @@ export default function BranchPage() {
         setSelectedTransferTarget(null);
         // 刷新收益
         if (result.data) {
-          setEnergyValue(result.data.branchEnergy);
+          setBalanceValue(result.data.branchEnergy);
         }
       } else {
         alert(result.error || '转账失败');
@@ -637,7 +637,7 @@ export default function BranchPage() {
         });
         const userResult = await userResponse.json();
         if (userResult.success && userResult.data) {
-          setEnergyValue(userResult.data.energy_value ?? 0);
+          setBalanceValue(userResult.data.balance ?? 0);
         }
       } else {
         alert(result.error || '操作失败');
@@ -653,7 +653,7 @@ export default function BranchPage() {
       alert('最低变现金额为 100 收益');
       return;
     }
-    if (amount > energyValue) {
+    if (amount > balanceValue) {
       alert('收益余额不足');
       return;
     }
@@ -1131,7 +1131,7 @@ export default function BranchPage() {
                         <TableCell className="text-white">{(provider.quotaAmount || 0).toLocaleString()}</TableCell>
                         <TableCell className="text-yellow-400">{(provider.usedAmount || 0).toLocaleString()}</TableCell>
                         <TableCell className="text-green-400">{(provider.availableAmount || 0).toLocaleString()}</TableCell>
-                        <TableCell className="text-purple-400">{(provider.energyValue || 0).toLocaleString()}</TableCell>
+                        <TableCell className="text-purple-400">{(provider.balance || 0).toLocaleString()}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -1192,7 +1192,7 @@ export default function BranchPage() {
                         <TableCell className="text-gray-400">{member.providerName || '-'}</TableCell>
                         <TableCell className="text-yellow-400">{(member.totalInvestment || 0).toLocaleString()}</TableCell>
                         <TableCell className="text-blue-400">{member.holdingProducts || 0}</TableCell>
-                        <TableCell className="text-purple-400">{(member.energyValue || 0).toLocaleString()}</TableCell>
+                        <TableCell className="text-purple-400">{(member.balance || 0).toLocaleString()}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -1214,7 +1214,7 @@ export default function BranchPage() {
                   </div>
                   <div>
                     <p className="text-gray-400 text-sm">收益余额</p>
-                    <p className="text-2xl font-bold text-white">{(energyValue || 0).toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-white">{(balanceValue || 0).toLocaleString()}</p>
                   </div>
                 </div>
               </CardContent>
@@ -1309,7 +1309,7 @@ export default function BranchPage() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                   <div className="p-4 rounded-lg bg-slate-700/50">
                     <p className="text-gray-400 text-sm">可用收益</p>
-                    <p className="text-2xl font-bold text-yellow-400">{energyValue.toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-yellow-400">{balanceValue.toLocaleString()}</p>
                   </div>
                   <div className="p-4 rounded-lg bg-slate-700/50">
                     <p className="text-gray-400 text-sm">已申请总额</p>
@@ -1568,7 +1568,7 @@ export default function BranchPage() {
                   </CardTitle>
                   <div className="text-right">
                     <p className="text-gray-400 text-sm">可用余额</p>
-                    <p className="text-2xl font-bold text-yellow-400">{energyValue.toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-yellow-400">{balanceValue.toLocaleString()}</p>
                   </div>
                 </div>
               </CardHeader>
@@ -1658,7 +1658,7 @@ export default function BranchPage() {
                     </Button>
                   </div>
                   <p className="text-gray-500 text-sm">
-                    当前余额：{energyValue.toLocaleString()} 收益
+                    当前余额：{balanceValue.toLocaleString()} 收益
                   </p>
                 </div>
 
@@ -1744,7 +1744,7 @@ export default function BranchPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <div className="p-4 rounded-lg bg-slate-700/50">
                     <p className="text-gray-400 text-sm">可用收益</p>
-                    <p className="text-2xl font-bold text-yellow-400">{energyValue.toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-yellow-400">{balanceValue.toLocaleString()}</p>
                   </div>
                   <div className="p-4 rounded-lg bg-slate-700/50">
                     <p className="text-gray-400 text-sm">累计变现</p>
@@ -1874,7 +1874,7 @@ export default function BranchPage() {
           <div className="space-y-4">
             <div>
               <label className="text-gray-400 text-sm">当前收益余额</label>
-              <p className="text-2xl font-bold text-yellow-400 mt-1">{energyValue.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-yellow-400 mt-1">{balanceValue.toLocaleString()}</p>
             </div>
 
             <div>
@@ -1924,7 +1924,7 @@ export default function BranchPage() {
           <div className="space-y-4">
             <div>
               <label className="text-gray-400 text-sm">可用收益</label>
-              <p className="text-2xl font-bold text-yellow-400 mt-1">{energyValue.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-yellow-400 mt-1">{balanceValue.toLocaleString()}</p>
             </div>
 
             <div>
@@ -2088,7 +2088,7 @@ export default function BranchPage() {
               </div>
               <div className="flex justify-between text-sm mt-2">
                 <span className="text-gray-400">可用余额</span>
-                <span className="text-white">{energyValue.toLocaleString()}</span>
+                <span className="text-white">{balanceValue.toLocaleString()}</span>
               </div>
             </div>
 

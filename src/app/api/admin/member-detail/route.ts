@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     // 1. 获取用户基本信息
     const userRows = await query<any>(`
       SELECT 
-        u.id, u.username, u.phone, u.role, u.energy_value, u.balance,
+        u.id, u.username, u.phone, u.role, u.balance,
         u.is_active, u.created_at, u.provider_id, u.inviter_id, u.branch_id,
         br.username as branch_name, pr.username as provider_name
       FROM users u
@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
           username: user.username,
           phone: user.phone,
           role: user.role,
-          energyValue: parseNum(user.energy_value),
+          
           balance: parseNum(user.balance),
           isActive: user.is_active,
           createdAt: user.created_at,

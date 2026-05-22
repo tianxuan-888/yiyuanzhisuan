@@ -101,7 +101,7 @@ interface Stats {
   branch_count: number;
   provider_count: number;
   member_count: number;
-  total_energy: number;
+  total_balance: number;
   total_member_balance: number;
   pending_sell_count: number;
   pending_withdrawal_count: number;
@@ -117,7 +117,7 @@ interface Member {
   username: string;
   phone?: string;
   real_name?: string;
-  energy_value: number;
+  
   balance: number;
   is_active: boolean;
   created_at: string;
@@ -190,7 +190,7 @@ export default function AdminPage() {
     branch_count: 0,
     provider_count: 0,
     member_count: 0,
-    total_energy: 0,
+    total_balance: 0,
     total_member_balance: 0,
     pending_sell_count: 0,
     pending_withdrawal_count: 0,
@@ -635,7 +635,7 @@ export default function AdminPage() {
           ...prev,
           member_count: membersData.data?.length || 0,
           provider_count: providerCount || 0,
-          total_energy: membersData.data?.reduce((sum: number, m: Member) => sum + (m.energy_value || 0), 0) || 0,
+          total_balance: membersData.data?.reduce((sum: number, m: Member) => sum + (m.balance || 0), 0) || 0,
           total_member_balance: membersData.data?.reduce((sum: number, m: Member) => sum + (m.balance || 0), 0) || 0,
         }));
       }
@@ -1307,7 +1307,7 @@ export default function AdminPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm opacity-80">总收益</p>
-                <p className="text-3xl font-bold mobile-num">{stats.total_energy.toLocaleString()}</p>
+                <p className="text-3xl font-bold mobile-num">{stats.total_balance.toLocaleString()}</p>
               </div>
               <TrendingUp className="w-10 h-10 opacity-50" />
             </div>
@@ -1748,10 +1748,10 @@ export default function AdminPage() {
                           </td>
                           <td className="py-3 px-4 font-medium">{user.username}</td>
                           <td className="py-3 px-4 text-right text-yellow-600 font-medium">
-                            {user.energyValue.toLocaleString()}
+                            {user.balance.toLocaleString()}
                           </td>
                           <td className="py-3 px-4 text-right">
-                            {((user.energyValue / (overviewData?.energy?.totalEnergy || 1)) * 100).toFixed(1)}%
+                            {((user.balance / (overviewData?.energy?.totalEnergy || 1)) * 100).toFixed(1)}%
                           </td>
                         </tr>
                       ))}
@@ -2894,7 +2894,7 @@ export default function AdminPage() {
                         <div className="text-xs text-gray-500">{item.phone}</div>
                       </div>
                       <div className="text-right">
-                        <div className="font-bold text-orange-600">{Number(item.energyValue || 0).toLocaleString()}</div>
+                        <div className="font-bold text-orange-600">{Number(item.balance || 0).toLocaleString()}</div>
                         <div className="text-xs text-gray-500">收益</div>
                       </div>
                     </div>
@@ -2956,7 +2956,7 @@ export default function AdminPage() {
                         <td className="p-3 text-gray-600">{user.branchName || '-'}</td>
                         <td className="p-3 text-gray-600">{user.providerName || '-'}</td>
                         <td className="p-3">
-                          <span className="text-orange-600 font-medium">{Number(user.energyValue || 0).toLocaleString()}</span>
+                          <span className="text-orange-600 font-medium">{Number(user.balance || 0).toLocaleString()}</span>
                         </td>
                         <td className="p-3">
                           <span className="text-green-600 font-medium">¥{Number(user.balance || 0).toLocaleString()}</span>
@@ -3519,9 +3519,9 @@ export default function AdminPage() {
               <CardContent>
                 <div className="space-y-3">
                   {providers.slice(0, 5).map((p: any, idx: number) => {
-                    const energy = p.energyValue || p.energy_value || p.totalEnergy || 0;
-                    const maxEnergy = (providers[0] as any)?.energyValue || (providers[0] as any)?.energy_value || (providers[0] as any)?.totalEnergy || 1;
-                    const percent = Math.max(Math.round((energy / maxEnergy) * 100), 5);
+                    const balance = p.balance || 0;
+                    const maxBalance = (providers[0] as any)?.balance || 1;
+                    const percent = Math.max(Math.round((balance / maxBalance) * 100), 5);
                     return (
                       <div key={p.id || idx} className="flex items-center gap-3">
                         <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
@@ -3535,7 +3535,7 @@ export default function AdminPage() {
                         <div className="flex-1">
                           <div className="flex justify-between text-sm">
                             <span>{p.username || p.name || `服务商${idx + 1}`}</span>
-                            <span className="font-medium">{energy.toLocaleString()} 收益</span>
+                            <span className="font-medium">{balance.toLocaleString()} 收益</span>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
                             <div
@@ -8484,7 +8484,7 @@ export default function AdminPage() {
             <div className="space-y-4">
               <div className="bg-gray-50 rounded-lg p-3">
                 <p className="text-sm text-gray-500">当前收益</p>
-                <p className="text-xl font-bold text-orange-600">{energyAdjustTarget.energy_value?.toLocaleString() || 0}</p>
+                <p className="text-xl font-bold text-orange-600">{energyAdjustTarget.balance?.toLocaleString() || 0}</p>
               </div>
               <div>
                 <label className="text-sm text-gray-600">调整类型</label>

@@ -45,7 +45,7 @@ interface Member {
   id: string;
   username: string;
   phone: string;
-  energy_value: number;
+  
   balance: number;
   real_name?: string;
   totalInvestment: number;
@@ -91,7 +91,7 @@ export default function ProviderDashboard() {
   const [memberPagination, setMemberPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
   const [energyRecords, setEnergyRecords] = useState<EnergyRecord[]>([]);
   const [energyStats, setEnergyStats] = useState({ totalRecharge: 0, totalTransferIn: 0, totalTransferOut: 0 });
-  const [energyBalance, setEnergyBalance] = useState({ energyValue: 0, balance: 0, quota: 0, usedQuota: 0, totalSales: 0 });
+  const [balanceInfo, setBalanceInfo] = useState({ balance: 0, revenue: 0, quota: 0, usedQuota: 0, totalSales: 0 });
   
   // 充值状态
   const [rechargeMember, setRechargeMember] = useState<Member | null>(null);
@@ -272,9 +272,9 @@ export default function ProviderDashboard() {
       const res = await fetch('/api/provider/energy', { headers: getHeaders() });
       const data = await res.json();
       if (data.success) {
-        setEnergyBalance({
-          energyValue: data.data.energyValue,
+        setBalanceInfo({
           balance: data.data.balance,
+          revenue: data.data.revenue || 0,
           quota: data.data.quota,
           usedQuota: data.data.usedQuota,
           totalSales: data.data.totalSales,
@@ -495,7 +495,7 @@ export default function ProviderDashboard() {
       setToast({ message: '请选择会员并输入正确的充值金额', type: 'error' });
       return;
     }
-    if (parseFloat(rechargeAmount) > energyBalance.energyValue) {
+    if (parseFloat(rechargeAmount) > balanceInfo.balance) {
       setToast({ message: '收益余额不足', type: 'error' });
       return;
     }
@@ -814,7 +814,7 @@ export default function ProviderDashboard() {
                   </div>
                   <div>
                     <Label className="text-gray-500">收益</Label>
-                    <Input value={user?.energy_value || 0} disabled className="mt-1 bg-gray-100" />
+                    <Input value={user?.balance || 0} disabled className="mt-1 bg-gray-100" />
                   </div>
                 </div>
               </CardContent>
@@ -882,7 +882,7 @@ export default function ProviderDashboard() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-500">收益余额</p>
-                      <p className="text-3xl font-bold mt-1">{user?.energy_value || 0}</p>
+                      <p className="text-3xl font-bold mt-1">{user?.balance || 0}</p>
                     </div>
                     <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white">
                       <Coins className="w-6 h-6" />
@@ -1115,7 +1115,7 @@ export default function ProviderDashboard() {
                             <tr key={member.id} className="hover:bg-gray-50">
                               <td className="px-4 py-3 font-medium">{member.username}</td>
                               <td className="px-4 py-3 text-gray-500">{member.phone}</td>
-                              <td className="px-4 py-3 text-amber-600">{member.energy_value}</td>
+                              <td className="px-4 py-3 text-amber-600">{member.balance}</td>
                               <td className="px-4 py-3">{formatCurrency(member.totalInvestment)}</td>
                               <td className="px-4 py-3">{member.holdingProducts}</td>
                               <td className="px-4 py-3 text-gray-500">{formatDate(member.created_at)}</td>
@@ -1284,7 +1284,7 @@ export default function ProviderDashboard() {
               <Card className="border-amber-200">
                 <CardContent className="p-6">
                   <p className="text-sm text-gray-500">收益余额</p>
-                  <p className="text-3xl font-bold mt-1 text-amber-600">{energyBalance.energyValue}</p>
+                  <p className="text-3xl font-bold mt-1 text-amber-600">{balanceInfo.balance}</p>
                 </CardContent>
               </Card>
               <Card className="border-green-200">
@@ -1342,7 +1342,7 @@ export default function ProviderDashboard() {
                     />
                     {rechargeMember && (
                       <p className="text-sm text-green-600 mt-1">
-                        已选择: {rechargeMember.username} (当前收益: {rechargeMember.energy_value})
+                        已选择: {rechargeMember.username} (当前收益: {rechargeMember.balance})
                       </p>
                     )}
                   </div>
@@ -1355,7 +1355,7 @@ export default function ProviderDashboard() {
                       onChange={(e) => setRechargeAmount(e.target.value)}
                       className="mt-1"
                     />
-                    <p className="text-xs text-gray-500 mt-1">可用余额: {energyBalance.energyValue}</p>
+                    <p className="text-xs text-gray-500 mt-1">可用余额: {balanceInfo.balance}</p>
                   </div>
                   <div>
                     <Label>备注 (可选)</Label>
@@ -1479,7 +1479,7 @@ export default function ProviderDashboard() {
                   <div>
                     <Label>可提现收益</Label>
                     <Input 
-                      value={energyBalance.energyValue}
+                      value={balanceInfo.balance}
                       disabled
                       className="mt-1 bg-gray-100"
                     />
@@ -1870,8 +1870,8 @@ export default function ProviderDashboard() {
                           <div className="text-xs text-gray-500">{member.phone || member.unique_id || ''}</div>
                         </div>
                         <div className="text-right">
-                          <div className={`text-sm font-medium ${member.energy_value >= (matchTargetProduct?.price || 0) * (matchTargetProduct?.market_rate || 0) / 100 ? 'text-green-600' : 'text-red-500'}`}>
-                            收益: {member.energy_value}
+                          <div className={`text-sm font-medium ${member.balance >= (matchTargetProduct?.price || 0) * (matchTargetProduct?.market_rate || 0) / 100 ? 'text-green-600' : 'text-red-500'}`}>
+                            收益: {member.balance}
                           </div>
                         </div>
                       </div>

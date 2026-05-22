@@ -79,8 +79,8 @@ export async function POST(request: NextRequest) {
 
     // 创建 users 表记录
     const newUserResult = await query<{ id: string }>(
-      `INSERT INTO users (username, password, role, phone, energy_value, balance, is_active, created_at, updated_at)
-       VALUES ($1, $2, 'branch', $3, 0, 0, true, NOW(), NOW())
+      `INSERT INTO users (username, password, role, phone, balance, is_active, created_at, updated_at)
+       VALUES ($1, $2, 'branch', $3, 0, true, NOW(), NOW())
        RETURNING id`,
       [username, password, phone || null]
     );

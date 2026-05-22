@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
         phone: '13900000002',
         role: 'branch',
         is_active: true,
-        energy_value: '0',
+        
         balance: '0',
         created_at: new Date().toISOString(),
       });
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
           role: 'provider',
           branch_id: branchId,
           is_active: true,
-          energy_value: '0',
+          
           balance: '0',
           created_at: new Date().toISOString(),
         },
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
           role: 'provider',
           branch_id: branchId,
           is_active: true,
-          energy_value: '0',
+          
           balance: '0',
           created_at: new Date().toISOString(),
         }
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
           provider_id: providerId,
           branch_id: branchId,
           is_active: true,
-          energy_value: '0',
+          
           balance: '0',
           created_at: new Date().toISOString(),
         });

@@ -137,7 +137,7 @@ interface ProviderApplication {
     user_phone?: string;
     username?: string;
     real_name?: string;
-    energy_value?: number;
+    
     alipay_account: string;
     apply_type: string;
     quota_request: number;
@@ -332,7 +332,7 @@ export default function ProviderPage() {
         rechargeRevenue: 0,
         subordinateRevenue: 0,
         balance: 0,
-        energyValue: 0,
+        
         orderCount: 0,
     });
 
@@ -404,7 +404,7 @@ export default function ProviderPage() {
     const [withdrawAlipayName, setWithdrawAlipayName] = useState("");
     const [withdrawRecords, setWithdrawRecords] = useState<any[]>([]);
 
-    // 转账记录相关状态（旧能量值转账）
+    // 转账记录相关状态（收益转账）
     const [energyTransferRecords, setEnergyTransferRecords] = useState<any[]>([]);
     const [transferStats, setTransferStats] = useState<any>({});
     const [transferFilter, setTransferFilter] = useState<string>("all");
@@ -423,7 +423,7 @@ export default function ProviderPage() {
                     distParentShare: 0,
                     subordinateRevenue: 0,
                     balance: 0,
-                    energyValue: 0,
+                    
                     totalWithdrawn: 0,
                     totalConverted: 0,
                     availableRevenue: 0,
@@ -1611,7 +1611,7 @@ export default function ProviderPage() {
         }
     };
 
-    // 加载转账记录（旧能量值转账）
+    // 加载转账记录（收益转账）
     const loadEnergyTransferRecords = async () => {
         const providerId = localStorage.getItem("userId");
         if (!providerId) return;
@@ -1655,7 +1655,7 @@ export default function ProviderPage() {
             if (data.success) {
                 const members = (data.data?.members || []).map((m: any) => ({
                         value: m.id,
-                        label: `${m.username} [${m.uniqueId || ''}] (收益: ${m.energyValue || 0})`,
+                        label: `${m.username} [${m.uniqueId || ''}] (收益: ${m.balance || 0})`,
                         phone: m.phone || '',
                         uniqueId: m.uniqueId || '',
                         username: m.username || '',
@@ -2699,7 +2699,7 @@ export default function ProviderPage() {
                                                             </div>
                                                             <div className="p-3 bg-slate-800/60 rounded-lg text-center">
                                                                 <p className="text-slate-400 text-xs mb-1">总收益</p>
-                                                                <p className="text-amber-400 text-lg font-bold">{chainData.members.reduce((sum: number, m: any) => sum + (m.energyValue || 0), 0).toLocaleString()}</p>
+                                                                <p className="text-amber-400 text-lg font-bold">{chainData.members.reduce((sum: number, m: any) => sum + (m.balance || 0), 0).toLocaleString()}</p>
                                                             </div>
                                                             <div className="p-3 bg-slate-800/60 rounded-lg text-center">
                                                                 <p className="text-slate-400 text-xs mb-1">总持有额度</p>
@@ -2728,7 +2728,7 @@ export default function ProviderPage() {
                                                                     <div className="grid grid-cols-3 gap-3">
                                                                         <div className="bg-slate-900/50 rounded-md p-2.5 text-center">
                                                                             <p className="text-slate-500 text-xs mb-1">收益</p>
-                                                                            <p className="text-amber-400 text-base font-bold">{(member.energyValue || 0).toLocaleString()}</p>
+                                                                            <p className="text-amber-400 text-base font-bold">{(member.balance || 0).toLocaleString()}</p>
                                                                         </div>
                                                                         <div className="bg-slate-900/50 rounded-md p-2.5 text-center">
                                                                             <p className="text-slate-500 text-xs mb-1">持有产品</p>
@@ -3875,7 +3875,7 @@ export default function ProviderPage() {
                                                             </div>
                                                             {product.pending_match_user && (
                                                                 <div className="text-sm text-green-700 mb-2 bg-green-100 rounded p-2">
-                                                                    已指定匹配给: {product.pending_match_user.username} [{product.pending_match_user.unique_id}] (收益: {product.pending_match_user.energyValue ?? product.pending_match_user.energy_value ?? 0})
+                                                                    已指定匹配给: {product.pending_match_user.username} [{product.pending_match_user.unique_id}] (收益: {product.pending_match_user.balance ?? 0})
                                                                 </div>
                                                             )}
                                                             <div className="flex gap-2 mt-2">
@@ -4495,7 +4495,7 @@ export default function ProviderPage() {
                                         <option value="">请选择会员</option>
                                         {energyMembers.map(m => (
                                             <option key={m.id} value={m.id}>
-                                                {m.username}（当前收益: {m.energy_value || 0}）
+                                                {m.username}（当前收益: {m.balance || 0}）
                                             </option>
                                         ))}
                                     </select>
@@ -4510,7 +4510,7 @@ export default function ProviderPage() {
                                         min="1"
                                     />
                                     <p className="text-xs text-gray-500 mt-1">
-                                        您当前收益: {user?.energyValue?.toLocaleString() || 0}
+                                        您当前收益: {user?.balance?.toLocaleString() || 0}
                                     </p>
                                 </div>
                                 <div>
@@ -4585,8 +4585,8 @@ export default function ProviderPage() {
                                     </div>
                                     <div>
                                         <label className="text-sm font-medium mb-2 block">您的当前收益</label>
-                                        <p className="text-lg font-bold text-purple-600">{user?.energyValue?.toLocaleString() || 0} 收益</p>
-                                        {user && user.energyValue < selectedRechargeRequest.amount && (
+                                        <p className="text-lg font-bold text-purple-600">{user?.balance?.toLocaleString() || 0} 收益</p>
+                                        {user && user.balance < selectedRechargeRequest.amount && (
                                             <p className="text-sm text-red-500 mt-1">余额不足，无法完成充值</p>
                                         )}
                                     </div>
@@ -4604,7 +4604,7 @@ export default function ProviderPage() {
                                 <Button 
                                     className="bg-green-600 hover:bg-green-700"
                                     onClick={() => handleMemberRechargeAction(selectedRechargeRequest?.id, 'approve')}
-                                    disabled={submitting || !!(user && user.energyValue < selectedRechargeRequest?.amount)}
+                                    disabled={submitting || !!(user && user.balance < selectedRechargeRequest?.amount)}
                                 >
                                     {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle className="w-4 h-4 mr-2" />}
                                     确认充值
@@ -4668,17 +4668,17 @@ export default function ProviderPage() {
                                         <option value="">请选择</option>
                                         {transferUserType === "branch" && transferTargets.branch && (
                                             <option value={transferTargets.branch.id}>
-                                                {transferTargets.branch.username} {transferTargets.branch.unique_id ? `[${transferTargets.branch.unique_id}]` : ''} {transferTargets.branch.phone ? `(${transferTargets.branch.phone})` : ''}（收益: {transferTargets.branch.energy_value || 0}）
+                                                {transferTargets.branch.username} {transferTargets.branch.unique_id ? `[${transferTargets.branch.unique_id}]` : ''} {transferTargets.branch.phone ? `(${transferTargets.branch.phone})` : ''}（收益: {transferTargets.branch.balance || 0}）
                                             </option>
                                         )}
                                         {transferUserType === "provider" && transferTargets.providers?.map((p: any) => (
                                             <option key={p.id} value={p.id}>
-                                                {p.username} {p.unique_id ? `[${p.unique_id}]` : ''} {p.phone ? `(${p.phone})` : ''}（收益: {p.energy_value || 0}）
+                                                {p.username} {p.unique_id ? `[${p.unique_id}]` : ''} {p.phone ? `(${p.phone})` : ''}（收益: {p.balance || 0}）
                                             </option>
                                         ))}
                                         {transferUserType === "member" && transferTargets.members?.map((m: any) => (
                                             <option key={m.id} value={m.id}>
-                                                {m.username} {m.unique_id ? `[${m.unique_id}]` : ''} {m.phone ? `(${m.phone})` : ''}（收益: {m.energy_value || 0}）
+                                                {m.username} {m.unique_id ? `[${m.unique_id}]` : ''} {m.phone ? `(${m.phone})` : ''}（收益: {m.balance || 0}）
                                             </option>
                                         ))}
                                     </select>
@@ -4693,7 +4693,7 @@ export default function ProviderPage() {
                                         min="50"
                                     />
                                     <p className="text-xs text-gray-500 mt-1">
-                                        您当前收益: {user?.energyValue?.toLocaleString() || 0}
+                                        您当前收益: {user?.balance?.toLocaleString() || 0}
                                     </p>
                                 </div>
                                 <div>
@@ -4743,7 +4743,7 @@ export default function ProviderPage() {
                                     </div>
                                     <div className="bg-slate-100 rounded-lg p-3">
                                         <p className="text-xs text-gray-500">当前收益</p>
-                                        <p className="text-xl font-bold text-purple-600">{user?.energyValue?.toLocaleString() || 0}</p>
+                                        <p className="text-xl font-bold text-purple-600">{user?.balance?.toLocaleString() || 0}</p>
                                     </div>
                                 </div>
                                 <div>

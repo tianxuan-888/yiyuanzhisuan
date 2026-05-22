@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const role = searchParams.get('role');
 
     let sql = `
-      SELECT id, username, role, real_name, phone, energy_value, balance, 
+      SELECT id, username, role, real_name, phone, balance, 
              provider_id, branch_id, inviter_id, is_active, created_at 
       FROM users 
       WHERE is_active = true

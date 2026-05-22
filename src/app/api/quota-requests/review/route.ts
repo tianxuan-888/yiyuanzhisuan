@@ -184,11 +184,11 @@ export async function POST(request: NextRequest) {
               to_user_id: quotaRequest.requester_id,
             });
 
-          // 同步更新 users 表的 energy_value - 使用 SQL 直接执行
-          const userRow = await queryOne('SELECT energy_value FROM users WHERE id = $1', [quotaRequest.requester_id]);
+          // 同步更新 users 表的 balance - 使用 SQL 直接执行
+          const userRow = await queryOne('SELECT balance FROM users WHERE id = $1', [quotaRequest.requester_id]);
           if (userRow) {
-            const currentEv = parseFloat(String(userRow.energy_value)) || 0;
-            await execute('UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2', [currentEv + energyAmount, quotaRequest.requester_id]);
+            const currentEv = parseFloat(String(userRow.balance)) || 0;
+            await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [currentEv + energyAmount, quotaRequest.requester_id]);
           }
         } catch (energyError) {
           console.error('更新服务网点收益失败:', energyError);

@@ -205,8 +205,8 @@ export async function POST(request: NextRequest) {
 
     // 创建用户
     const newUsers = await query(
-      `INSERT INTO users (username, password, role, phone, real_name, alipay_account, provider_id, branch_id, inviter_id, energy_value, balance, is_active, unique_id, invite_code)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, 0, true, $10, $11)
+      `INSERT INTO users (username, password, role, phone, real_name, alipay_account, provider_id, branch_id, inviter_id, balance, is_active, unique_id, invite_code)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, true, $10, $11)
        RETURNING *`,
       [username, hashedPassword, assignedRole, phone, realName || null, alipayAccount || null, providerId, branchId, inviterId, uniqueId, newInviteCode]
     );

@@ -25,11 +25,11 @@ export async function GET(request: NextRequest) {
       id: string;
       username: string;
       phone: string;
-      energy_value: string;
+      
       balance: string;
       created_at: string;
     }>(
-      `SELECT u.id, u.username, u.phone, u.energy_value, u.balance, u.created_at,
+      `SELECT u.id, u.username, u.phone, 0, u.balance, u.created_at,
               COALESCE(ea.balance, 0)::text as energy_balance
        FROM users u
        LEFT JOIN energy_accounts ea ON u.id = ea.user_id

@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
         // 查询直推人员：inviter_id = 当前用户
         const { data: directRefs, error: refError } = await supabase
             .from('users')
-            .select('id, username, phone, unique_id, role, energy_value, balance, created_at')
+            .select('id, username, phone, unique_id, role, balance, created_at')
             .eq('inviter_id', userId)
             .order('created_at', { ascending: false });
 
@@ -54,13 +54,12 @@ export async function GET(request: NextRequest) {
         const totalReward = rewards?.reduce((sum: number, item: { amount: number }) => sum + (item.amount || 0), 0) || 0;
 
         // 格式化直推人员信息
-        const members = (directRefs || []).map((u: { id: string; username: string; phone: string; unique_id: string; role: string; energy_value: number; balance: number; created_at: string }) => ({
+        const members = (directRefs || []).map((u: { id: string; username: string; phone: string; unique_id: string; role: string; balance: number; created_at: string }) => ({
             id: u.id,
             username: u.username,
             phone: u.phone ? u.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') : '',
             uniqueId: u.unique_id,
             role: u.role,
-            energyValue: u.energy_value || 0,
             balance: u.balance || 0,
             createdAt: u.created_at,
         }));

@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
         id, username, phone, role, real_name, 
         birth_date, wechat_account, alipay_account, 
         avatar_url, gender, address, invite_code, unique_id,
-        energy_value, balance, provider_id, branch_id, inviter_id,
+        balance, provider_id, branch_id, inviter_id,
         created_at
       FROM users WHERE id = $1`,
       [user.userId]

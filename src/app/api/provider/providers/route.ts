@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     // 获取所有服务商（排除当前服务商自己）
     let query = client
       .from('users')
-      .select('id, username, phone, energy_value, provider_id, inviter_id')
+      .select('id, username, phone, provider_id, inviter_id')
       .eq('role', 'provider');
 
     if (currentProviderId) {

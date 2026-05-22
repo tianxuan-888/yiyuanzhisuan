@@ -20,10 +20,10 @@ export async function GET(request: NextRequest) {
       username: string;
       real_name: string;
       phone: string;
-      energy_value: string;
+      
       balance: string;
     }>(
-      `SELECT id, username, real_name, phone, energy_value, balance 
+      `SELECT id, username, real_name, phone, balance 
        FROM users 
        WHERE role = 'provider' AND branch_id = $1`,
       [branchId]
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
       return {
         id: user.id,
         username: user.username || '',
-        energy_value: parseFloat(user.energy_value || '0'),
+        
         balance: parseFloat(user.balance || '0'),
         // 优先从 providers 表获取额度
         quota: providerQuota?.quota || account?.balance || allocation?.quota_amount || 0,

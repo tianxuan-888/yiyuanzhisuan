@@ -177,7 +177,7 @@ export async function GET(request: NextRequest) {
     }
 
     const result = await query(
-      `SELECT id, username, phone, role, unique_id, real_name, energy_value, balance, invite_code,
+      `SELECT id, username, phone, role, unique_id, real_name, balance, invite_code,
               branch_id, provider_id,
               (SELECT username FROM users WHERE id = users.provider_id) as provider_name,
               (SELECT username FROM users WHERE id = users.branch_id) as branch_name

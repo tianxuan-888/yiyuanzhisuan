@@ -212,7 +212,7 @@ export default function MemberPage() {
         directCount: 0,
         totalInvest: 0,
         totalReward: 0,
-        members: [] as { id: string; username: string; phone: string; uniqueId: string; role: string; energyValue: number; balance: number; createdAt: string }[],
+        members: [] as { id: string; username: string; phone: string; uniqueId: string; role: string; balance: number; createdAt: string }[],
     });
 
 const [copySuccess, setCopySuccess] = useState(false);

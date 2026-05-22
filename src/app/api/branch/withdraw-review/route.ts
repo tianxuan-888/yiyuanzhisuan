@@ -1,299 +1,126 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, withTransaction } from '@/lib/pg-client';
-import { authenticateRequest } from '@/lib/auth';
+import { authenticateRequest, authorizeRole } from '@/lib/auth';
+import { queryOne, execute, query } from '@/storage/database/pg-client';
 
-// 服务网点审核提现（审核会员/服务商的提现申请）
-export async function POST(request: NextRequest) {
-  try {
-    const authUser = authenticateRequest(request);
-    if (!authUser) {
-      return NextResponse.json({ error: '未登录' }, { status: 401 });
-    }
-
-    if (authUser.role !== 'branch') {
-      return NextResponse.json({ error: '仅服务网点可审核提现' }, { status: 403 });
-    }
-
-    const body = await request.json();
-    const { withdrawalId, action, rejectReason } = body;
-
-    if (!withdrawalId || !action) {
-      return NextResponse.json({ error: '缺少提现单ID和操作类型' }, { status: 400 });
-    }
-
-    if (!['approve', 'reject', 'confirm_transfer', 'complete'].includes(action)) {
-      return NextResponse.json({ error: '无效的操作类型' }, { status: 400 });
-    }
-
-    const reviewerId = authUser.userId;
-
-    const result = await withTransaction(async (client) => {
-      // 查询提现单
-      const withdrawalRes = await client.query(
-        'SELECT * FROM withdrawals WHERE id = $1',
-        [withdrawalId]
-      );
-
-      if (!withdrawalRes.rows || withdrawalRes.rows.length === 0) {
-        throw Object.assign(new Error('提现单不存在'), { statusCode: 404 });
-      }
-
-      const withdrawal = withdrawalRes.rows[0];
-
-      // 验证状态流转
-      if (action === 'approve' && withdrawal.status !== 'pending') {
-        throw Object.assign(new Error('只能审核待审核的提现单'), { statusCode: 400 });
-      }
-      if (action === 'confirm_transfer' && withdrawal.status !== 'approved') {
-        throw Object.assign(new Error('只能确认已审核的提现单'), { statusCode: 400 });
-      }
-      if (action === 'complete' && withdrawal.status !== 'transferred') {
-        throw Object.assign(new Error('只能完成已转账的提现单'), { statusCode: 400 });
-      }
-      if (action === 'reject' && withdrawal.status !== 'pending') {
-        throw Object.assign(new Error('只能拒绝待审核的提现单'), { statusCode: 400 });
-      }
-
-      if (action === 'approve') {
-        // 审核通过
-        await client.query(
-          `UPDATE withdrawals SET status = 'approved', reviewer_id = $1, reviewed_at = NOW(), updated_at = NOW() WHERE id = $2`,
-          [reviewerId, withdrawalId]
-        );
-
-        // 更新服务网点收益记录状态
-        await client.query(
-          `UPDATE branch_revenue_records SET status = 'approved', updated_at = NOW() WHERE related_withdrawal_id = $1`,
-          [withdrawalId]
-        );
-
-        // 增加服务网点余额（95%到账金额）
-        const actualAmount = parseFloat(withdrawal.actual_amount) || 0;
-        if (actualAmount > 0) {
-          const branchRes = await client.query(
-            'SELECT balance FROM users WHERE id = $1',
-            [reviewerId]
-          );
-          if (branchRes.rows && branchRes.rows.length > 0) {
-            const currentBalance = parseFloat(branchRes.rows[0].balance) || 0;
-            const newBalance = currentBalance + actualAmount;
-            await client.query(
-              'UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2',
-              [newBalance.toFixed(2), reviewerId]
-            );
-          }
-        }
-
-        return { newStatus: 'approved', message: '审核通过，请线下转账后确认打款' };
-      }
-
-      if (action === 'confirm_transfer') {
-        // 确认已线下转账
-        await client.query(
-          `UPDATE withdrawals SET status = 'transferred', transferred_at = NOW(), updated_at = NOW() WHERE id = $1`,
-          [withdrawalId]
-        );
-
-        // 更新服务网点收益记录
-        await client.query(
-          `UPDATE branch_revenue_records SET status = 'paid', updated_at = NOW() WHERE related_withdrawal_id = $1`,
-          [withdrawalId]
-        );
-
-        return { newStatus: 'transferred', message: '已确认转账，等待会员确认收款' };
-      }
-
-      if (action === 'complete') {
-        // 完成提现
-        await client.query(
-          `UPDATE withdrawals SET status = 'completed', completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
-          [withdrawalId]
-        );
-
-        // 更新服务网点收益记录
-        await client.query(
-          `UPDATE branch_revenue_records SET status = 'completed', updated_at = NOW() WHERE related_withdrawal_id = $1`,
-          [withdrawalId]
-        );
-
-        return { newStatus: 'completed', message: '提现已完成' };
-      }
-
-      if (action === 'reject') {
-        // 审核拒绝 - 退还金额
-        const userId = withdrawal.user_id;
-        const userRole = withdrawal.user_role; // 'member' 或 'provider'
-        const amount = parseFloat(withdrawal.amount);
-        const fee = parseFloat(withdrawal.fee);
-        const actualAmount = parseFloat(withdrawal.actual_amount) || 0;
-
-        if (userRole === 'provider') {
-          // 服务商提现：退还收益
-          const userRes = await client.query(
-            'SELECT energy_value FROM users WHERE id = $1',
-            [userId]
-          );
-          if (userRes.rows && userRes.rows.length > 0) {
-            const currentEnergy = parseFloat(userRes.rows[0].energy_value) || 0;
-            const newEnergy = currentEnergy + amount;
-            await client.query(
-              'UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2',
-              [newEnergy.toFixed(2), userId]
-            );
-          }
-          // 恢复 energy_accounts
-          await client.query(
-            `UPDATE energy_accounts SET balance = balance + $1, total_out = GREATEST(total_out - $1, 0), updated_at = NOW()
-             WHERE user_id = $2`,
-            [amount.toFixed(2), userId]
-          );
-          // 删除收益冻结流水
-          await client.query(
-            `DELETE FROM energy_transactions WHERE from_user_id = $1 AND type = 'withdraw_freeze' AND note LIKE '%提现冻结%' AND created_at >= (SELECT created_at FROM withdrawals WHERE id = $2)`,
-            [userId, withdrawalId]
-          );
-        } else {
-          // 会员提现：退还收益余额
-          const userRes = await client.query(
-            'SELECT balance FROM users WHERE id = $1',
-            [userId]
-          );
-          if (userRes.rows && userRes.rows.length > 0) {
-            const currentBalance = parseFloat(userRes.rows[0].balance) || 0;
-            const newBalance = currentBalance + amount;
-            await client.query(
-              'UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2',
-              [newBalance.toFixed(2), userId]
-            );
-          }
-        }
-
-        // 扣除服务网点已增加的余额（如果审批时已加）
-        if (actualAmount > 0) {
-          const branchRes = await client.query(
-            'SELECT balance FROM users WHERE id = $1',
-            [reviewerId]
-          );
-          if (branchRes.rows && branchRes.rows.length > 0) {
-            const currentBalance = parseFloat(branchRes.rows[0].balance) || 0;
-            const newBalance = Math.max(0, currentBalance - actualAmount);
-            await client.query(
-              'UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2',
-              [newBalance.toFixed(2), reviewerId]
-            );
-          }
-        }
-
-        // 更新提现单状态
-        await client.query(
-          `UPDATE withdrawals SET status = 'rejected', reviewer_id = $1, reject_reason = $2, reviewed_at = NOW(), updated_at = NOW() WHERE id = $3`,
-          [reviewerId, rejectReason || '审核拒绝', withdrawalId]
-        );
-
-        // 删除服务网点收益记录（退还）
-        await client.query(
-          `DELETE FROM branch_revenue_records WHERE related_withdrawal_id = $1`,
-          [withdrawalId]
-        );
-
-        // 删除智算总台手续费记录（退还）
-        await client.query(
-          `DELETE FROM company_fee_records WHERE source_withdrawal_id = $1`,
-          [withdrawalId]
-        );
-
-        return { newStatus: 'rejected', message: '提现申请已拒绝，金额已退还' };
-      }
-
-      return { newStatus: withdrawal.status, message: '操作完成' };
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: result,
-    });
-  } catch (error: any) {
-    console.error('审核提现失败:', error);
-    const statusCode = error.statusCode || 500;
-    return NextResponse.json(
-      { error: error.message || '审核失败' },
-      { status: statusCode }
-    );
-  }
-}
-
-// 获取服务网点待审核/所有提现列表
+// 服务网点提现审核（统一到总台审核，服务网点不再直接审批）
 export async function GET(request: NextRequest) {
   try {
-    const authUser = authenticateRequest(request);
-    if (!authUser) {
+    const user = authenticateRequest(request);
+    if (!user) {
       return NextResponse.json({ error: '未登录' }, { status: 401 });
     }
 
-    if (authUser.role !== 'branch') {
-      return NextResponse.json({ error: '仅服务网点可查看' }, { status: 403 });
+    const { searchParams } = new URL(request.url);
+    const branchId = searchParams.get('branchId');
+    const status = searchParams.get('status') || 'all';
+
+    if (!branchId) {
+      return NextResponse.json({ error: '缺少服务网点ID' }, { status: 400 });
     }
 
-    const branchUserId = authUser.userId;
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status');
-    const userRole = searchParams.get('userRole');
-
-    // 获取服务网点下所有会员和服务商的提现单
-    // 先找服务网点下的服务商
+    // 查询该网点下所有服务商的提现记录
     const providers = await query(
       'SELECT user_id FROM providers WHERE branch_id = $1',
-      [branchUserId]
+      [branchId]
     );
-    const providerUserIds = providers.map((p: any) => p.user_id);
 
-    // 找服务商下的会员
-    let memberUserIds: string[] = [];
-    if (providerUserIds.length > 0) {
-      const members = await query(
-        `SELECT id FROM users WHERE provider_id = ANY($1)`,
-        [providerUserIds]
-      );
-      memberUserIds = members.map((m: any) => m.id);
-    }
-
-    // 合并所有下属用户ID
-    const allUserIds = [...providerUserIds, ...memberUserIds];
-    if (allUserIds.length === 0) {
+    const providerIds = (providers || []).map((p: any) => p.user_id);
+    if (providerIds.length === 0) {
       return NextResponse.json({ success: true, data: [] });
     }
 
-    let sql = `SELECT w.*, u.username, u.phone, u.role as user_role_info 
-               FROM withdrawals w 
-               LEFT JOIN users u ON w.user_id = u.id 
-               WHERE w.user_id = ANY($1) AND w.user_role IN ('member', 'provider')`;
+    // 获取这些服务商下的所有会员ID
+    const members = await query(
+      'SELECT id FROM users WHERE provider_id = ANY($1) AND role = $2',
+      [providerIds, 'member']
+    );
+    const memberIds = (members || []).map((m: any) => m.id);
+
+    // 合并服务商和会员ID
+    const allUserIds = [...providerIds, ...memberIds];
+
+    let sql = 'SELECT * FROM withdrawals WHERE user_id = ANY($1)';
     const params: any[] = [allUserIds];
-    let paramIdx = 2;
 
-    if (status) {
-      sql += ` AND w.status = $${paramIdx}`;
+    if (status !== 'all') {
+      sql += ' AND status = $2';
       params.push(status);
-      paramIdx++;
     }
 
-    if (userRole) {
-      sql += ` AND w.user_role = $${paramIdx}`;
-      params.push(userRole);
+    sql += ' ORDER BY created_at DESC';
+
+    const records = await query(sql, params);
+
+    return NextResponse.json({ success: true, data: records || [] });
+  } catch (error) {
+    console.error('获取提现记录失败:', error);
+    return NextResponse.json({ error: '服务器错误' }, { status: 500 });
+  }
+}
+
+// 服务网点审核提现（简化：只记录状态，实际由总台审核）
+export async function POST(request: NextRequest) {
+  try {
+    const user = authenticateRequest(request);
+    if (!user) {
+      return NextResponse.json({ error: '未登录' }, { status: 401 });
     }
 
-    sql += ' ORDER BY w.created_at DESC';
+    const body = await request.json();
+    const { withdrawalId, action, remark } = body;
 
-    const data = await query(sql, params);
+    if (!withdrawalId || !action) {
+      return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
+    }
+
+    const withdrawal = await queryOne(
+      'SELECT * FROM withdrawals WHERE id = $1',
+      [withdrawalId]
+    );
+
+    if (!withdrawal) {
+      return NextResponse.json({ error: '提现记录不存在' }, { status: 404 });
+    }
+
+    if (withdrawal.status !== 'pending') {
+      return NextResponse.json({ error: '该提现已被处理' }, { status: 400 });
+    }
+
+    if (action === 'reject') {
+      // 拒绝：退还balance给用户
+      await execute(
+        'UPDATE users SET balance = balance + $1, updated_at = NOW() WHERE id = $2',
+        [withdrawal.amount, withdrawal.user_id]
+      );
+      await execute(
+        "UPDATE withdrawals SET status = 'rejected', review_note = $1, reviewed_at = NOW(), updated_at = NOW() WHERE id = $2",
+        [remark || null, withdrawalId]
+      );
+      return NextResponse.json({ success: true, message: '已拒绝提现申请，金额已退回' });
+    }
+
+    // 批准：金额回流到总台
+    const feeRate = 0.05;
+    const feeAmount = parseFloat(String(withdrawal.amount)) * feeRate;
+    const actualAmount = parseFloat(String(withdrawal.amount)) - feeAmount;
+
+    await execute(
+      `UPDATE withdrawals SET status = 'completed', actual_amount = $1, fee = $2, reviewed_at = NOW(), updated_at = NOW() WHERE id = $3`,
+      [actualAmount, feeAmount, withdrawalId]
+    );
+
+    // 提现金额全额回流到总台
+    await execute(
+      "UPDATE users SET balance = balance + $1, updated_at = NOW() WHERE role = 'admin'",
+      [withdrawal.amount]
+    );
 
     return NextResponse.json({
       success: true,
-      data,
+      message: `提现已批准，到账${actualAmount}元，手续费${feeAmount}元归平台，提现金额${withdrawal.amount}元已回流总台`,
     });
   } catch (error) {
-    console.error('获取提现列表失败:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : '获取提现列表失败' },
-      { status: 500 }
-    );
+    console.error('审核提现失败:', error);
+    return NextResponse.json({ error: '服务器错误' }, { status: 500 });
   }
 }
