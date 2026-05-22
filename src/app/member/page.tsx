@@ -1368,7 +1368,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                         <CardContent className="pt-4">
                             <div className="flex items-center gap-2">
                                 <TrendingUp className="w-5 h-5 mobile-icon" />
-                                <span className="opacity-80 text-sm mobile-label">已到账收益</span>
+                                <span className="opacity-80 text-sm mobile-label">智算金</span>
                             </div>
                             <p className="text-2xl font-bold mt-2 mobile-num">¥{stats.total_profit?.toLocaleString() || 0}</p>
                         </CardContent>
@@ -2634,13 +2634,13 @@ const [copySuccess, setCopySuccess] = useState(false);
                     {/* 我的收益 Tab */}
                     {activeTab === "profit" && (
                         <div className="space-y-3 md:space-y-6">
-                            {/* 收益统计卡片 - 统一显示智算金（收益值） */}
+                            {/* 智算金统计卡片 */}
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
                                     <CardContent className="pt-4">
                                         <div className="flex items-center gap-2 mb-2">
                                             <Wallet className="w-5 h-5" />
-                                            <span className="text-sm opacity-80">收益值（智算金）</span>
+                                            <span className="text-sm opacity-80">智算金</span>
                                         </div>
                                         <p className="text-2xl font-bold">¥{user?.balance?.toLocaleString() || '0'}</p>
                                         <p className="text-xs opacity-70 mt-1">可提现/互转/转积分</p>
@@ -2691,7 +2691,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             <span className="text-sm opacity-80">预期收益</span>
                                         </div>
                                         <p className="text-2xl font-bold">¥{profitStats.holdingExpectedProfit?.toLocaleString() || 0}</p>
-                                        <p className="text-xs opacity-70 mt-1">已到账收益: ¥{profitStats.totalProfit?.toLocaleString() || 0}</p>
+                                        <p className="text-xs opacity-70 mt-1">智算金: ¥{profitStats.totalProfit?.toLocaleString() || 0}</p>
                                     </CardContent>
                                 </Card>
                                 <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
@@ -2710,7 +2710,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                             <Card className="bg-slate-800/50 border-slate-700">
                                 <CardContent className="pt-4">
                                     <p className="text-sm text-gray-400 text-center">
-                                        产品到期卖出后，收益将进入您的智算金账户，可随时转入收益用于购买更多产品
+                                        产品到期卖出后，收益将进入您的智算金账户，可提现、互转或兑换积分
                                     </p>
                                 </CardContent>
                             </Card>

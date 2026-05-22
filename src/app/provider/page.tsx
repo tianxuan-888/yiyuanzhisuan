@@ -4162,7 +4162,7 @@ export default function ProviderPage() {
                                         <span className="text-sm opacity-80">我的积分</span>
                                     </div>
                                     <p className="text-3xl font-bold">{Number(user?.points || 0).toLocaleString()}</p>
-                                    <span className="text-xs opacity-70 mt-1">收益转入收益时，5%自动转为积分，积分可兑换产品或转入收益</span>
+                                    <span className="text-xs opacity-70 mt-1">互转时5%自动转为积分，积分可用于兑换产品</span>
                                     <div className="mt-3 flex gap-2">
                                         <Button
                                             size="sm"
@@ -4172,8 +4172,8 @@ export default function ProviderPage() {
                                                 setShowPointsToEnergyDialog(true);
                                             }}
                                         >
-                                            <Zap className="w-4 h-4 mr-1" />
-                                            积分转入收益
+                                            <Gift className="w-4 h-4 mr-1" />
+                                            积分兑换
                                         </Button>
                                     </div>
                                 </CardContent>
@@ -5356,14 +5356,17 @@ export default function ProviderPage() {
                         </DialogContent>
                     </Dialog>
 
-                    {/* 积分转入收益对话框 */}
+                    {/* 积分兑换对话框 */}
                     <Dialog open={false && showPointsToEnergyDialog} onOpenChange={setShowPointsToEnergyDialog}>
                         <DialogContent>
                             <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">
-                                    <Zap className="w-5 h-5 text-amber-500" />
-                                    积分转入收益
+                                    <Gift className="w-5 h-5 text-amber-500" />
+                                    积分兑换
                                 </DialogTitle>
+                                <DialogDescription>
+                                    使用积分兑换产品，1积分 = 1元等值产品
+                                </DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4 py-4">
                                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
@@ -5372,39 +5375,15 @@ export default function ProviderPage() {
                                         <span className="text-lg font-bold text-amber-600">{Number(user?.points || 0).toLocaleString()}</span>
                                     </div>
                                 </div>
-                                <div>
-                                    <label className="text-sm font-medium mb-2 block">转换积分数量</label>
-                                    <Input
-                                        type="number"
-                                        placeholder="请输入要转换的积分数量"
-                                        value={pointsConvertAmount}
-                                        onChange={(e) => setPointsConvertAmount(e.target.value)}
-                                        min="1"
-                                        max={String(user?.points || 0)}
-                                    />
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        1积分 = 1收益，转换后积分扣除，收益等额增加
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                    <p className="text-sm text-blue-700">
+                                        积分兑换功能即将上线，敬请期待！您当前可使用积分兑换平台产品。
                                     </p>
                                 </div>
-                                {pointsConvertAmount && parseFloat(pointsConvertAmount) > 0 && (
-                                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                                        <p className="text-sm text-green-700">
-                                            转换后：积分 <strong>-{pointsConvertAmount}</strong>，收益 <strong>+{pointsConvertAmount}</strong>
-                                        </p>
-                                    </div>
-                                )}
                             </div>
                             <DialogFooter>
                                 <Button variant="outline" onClick={() => setShowPointsToEnergyDialog(false)}>
-                                    取消
-                                </Button>
-                                <Button
-                                    className="bg-amber-500 hover:bg-amber-600"
-                                    onClick={handlePointsToEnergy}
-                                    disabled={submitting || !pointsConvertAmount || parseFloat(pointsConvertAmount) <= 0 || parseFloat(pointsConvertAmount) > (user?.points || 0)}
-                                >
-                                    {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
-                                    确认转换
+                                    关闭
                                 </Button>
                             </DialogFooter>
                         </DialogContent>
