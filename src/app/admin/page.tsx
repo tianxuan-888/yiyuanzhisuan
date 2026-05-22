@@ -226,6 +226,7 @@ export default function AdminPage() {
   const [releaseRecords, setReleaseRecords] = useState<any[]>([]);
   const [releaseLoading, setReleaseLoading] = useState(false);
   const [releaseDateRange, setReleaseDateRange] = useState<{start: string; end: string}>({start: '', end: ''});
+  const [releaseStats, setReleaseStats] = useState<any>(null);
 
   // 人员账户Tab
   const [accountsTab, setAccountsTab] = useState('branches');
@@ -4309,6 +4310,7 @@ export default function AdminPage() {
       const data = await res.json();
       if (data.success) {
         setReleaseRecords(data.data || []);
+        if (data.stats) setReleaseStats(data.stats);
       }
     } catch (e) {
       console.error('加载释放收益记录失败', e);
@@ -4317,15 +4319,108 @@ export default function AdminPage() {
     }
   };
 
-  const renderReleaseRecords = () => (
+  const renderReleaseRecords = () => {
+    // 从releaseStats获取统计数据
+    const stats = releaseStats as any;
+    const totalRelease = Number(stats?.total_release) || 0;
+    const totalCount = Number(stats?.total_count) || 0;
+    const totalMember = Number(stats?.total_member_share) || 0;
+    const totalDirect = Number(stats?.total_direct_share) || 0;
+    const totalProvider = Number(stats?.total_provider_share) || 0;
+    const totalParentProvider = Number(stats?.total_parent_provider_share) || 0;
+    const totalSeniorProvider = Number(stats?.total_senior_provider_share) || 0;
+    const totalBranch = Number(stats?.total_branch_share) || 0;
+    const totalCompany = Number(stats?.total_company_share) || 0;
+
+    return (
     <div className="space-y-4">
+      {/* 总统计卡片 */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="w-5 h-5" />
-            释放收益记录
+            释放收益总统计
           </CardTitle>
-          <CardDescription>产品购买时总台释放5%收益，按7项比例分配</CardDescription>
+          <CardDescription>产品购买时总台释放5%收益，按7项比例分配到各方</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* 核心汇总 */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <Card className="bg-primary/5 border-primary/20">
+              <CardContent className="p-4">
+                <div className="text-sm text-muted-foreground">释放总金额</div>
+                <div className="text-2xl font-bold text-primary">¥{totalRelease.toLocaleString()}</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-primary/5 border-primary/20">
+              <CardContent className="p-4">
+                <div className="text-sm text-muted-foreground">释放笔数</div>
+                <div className="text-2xl font-bold text-primary">{totalCount}</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-primary/5 border-primary/20">
+              <CardContent className="p-4">
+                <div className="text-sm text-muted-foreground">平均每笔释放</div>
+                <div className="text-2xl font-bold text-primary">¥{totalCount > 0 ? (totalRelease / totalCount).toFixed(2) : '0.00'}</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-primary/5 border-primary/20">
+              <CardContent className="p-4">
+                <div className="text-sm text-muted-foreground">分配比例</div>
+                <div className="text-2xl font-bold text-primary">5%</div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 7项分配明细统计 */}
+          <div className="border rounded-lg p-4">
+            <h4 className="font-semibold mb-3 text-sm">5%分配去向明细</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+              <div className="text-center p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                <div className="text-xs text-muted-foreground mb-1">会员 (2%)</div>
+                <div className="text-lg font-bold text-blue-600">¥{totalMember.toLocaleString()}</div>
+                <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalMember / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
+              </div>
+              <div className="text-center p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                <div className="text-xs text-muted-foreground mb-1">直推 (0.3%)</div>
+                <div className="text-lg font-bold text-green-600">¥{totalDirect.toLocaleString()}</div>
+                <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalDirect / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
+              </div>
+              <div className="text-center p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
+                <div className="text-xs text-muted-foreground mb-1">服务商 (2%)</div>
+                <div className="text-lg font-bold text-purple-600">¥{totalProvider.toLocaleString()}</div>
+                <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalProvider / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
+              </div>
+              <div className="text-center p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
+                <div className="text-xs text-muted-foreground mb-1">上级服务商 (0.3%)</div>
+                <div className="text-lg font-bold text-orange-600">¥{totalParentProvider.toLocaleString()}</div>
+                <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalParentProvider / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
+              </div>
+              <div className="text-center p-3 bg-pink-50 dark:bg-pink-950/30 rounded-lg">
+                <div className="text-xs text-muted-foreground mb-1">高级服务商 (0.15%)</div>
+                <div className="text-lg font-bold text-pink-600">¥{totalSeniorProvider.toLocaleString()}</div>
+                <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalSeniorProvider / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
+              </div>
+              <div className="text-center p-3 bg-teal-50 dark:bg-teal-950/30 rounded-lg">
+                <div className="text-xs text-muted-foreground mb-1">服务网点 (0.15%)</div>
+                <div className="text-lg font-bold text-teal-600">¥{totalBranch.toLocaleString()}</div>
+                <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalBranch / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
+              </div>
+              <div className="text-center p-3 bg-slate-50 dark:bg-slate-950/30 rounded-lg">
+                <div className="text-xs text-muted-foreground mb-1">平台运营 (0.10%)</div>
+                <div className="text-lg font-bold text-slate-600">¥{totalCompany.toLocaleString()}</div>
+                <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalCompany / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 释放记录明细 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>释放收益明细记录</CardTitle>
+          <CardDescription>每笔产品购买释放的5%收益完整分配明细</CardDescription>
         </CardHeader>
         <CardContent>
           {/* 筛选区 */}
@@ -4336,34 +4431,7 @@ export default function AdminPage() {
             <Button onClick={() => loadReleaseRecords(releaseDateRange.start, releaseDateRange.end)}>查询</Button>
             <Button variant="outline" onClick={() => { setReleaseDateRange({start: '', end: ''}); loadReleaseRecords(); }}>全部</Button>
           </div>
-          {/* 统计卡片 */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-            <Card className="bg-primary/5">
-              <CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">释放总金额</div>
-                <div className="text-2xl font-bold text-primary">¥{releaseRecords.reduce((s: number, r: any) => s + (Number(r.release_amount) || 0), 0).toLocaleString()}</div>
-              </CardContent>
-            </Card>
-            <Card className="bg-primary/5">
-              <CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">释放笔数</div>
-                <div className="text-2xl font-bold text-primary">{releaseRecords.length}</div>
-              </CardContent>
-            </Card>
-            <Card className="bg-primary/5">
-              <CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">会员分配</div>
-                <div className="text-2xl font-bold text-primary">¥{releaseRecords.reduce((s: number, r: any) => s + (Number(r.member_share) || 0), 0).toLocaleString()}</div>
-              </CardContent>
-            </Card>
-            <Card className="bg-primary/5">
-              <CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">服务商分配</div>
-                <div className="text-2xl font-bold text-primary">¥{releaseRecords.reduce((s: number, r: any) => s + (Number(r.provider_share) || 0), 0).toLocaleString()}</div>
-              </CardContent>
-            </Card>
-          </div>
-          {/* 表格 */}
+
           {releaseLoading ? (
             <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></div>
           ) : releaseRecords.length === 0 ? (
@@ -4373,31 +4441,36 @@ export default function AdminPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>产品编号</TableHead>
+                    <TableHead>产品</TableHead>
                     <TableHead>释放时间</TableHead>
                     <TableHead>产品价格</TableHead>
-                    <TableHead>释放金额</TableHead>
-                    <TableHead>会员</TableHead>
-                    <TableHead>会员分配</TableHead>
-                    <TableHead>服务商</TableHead>
-                    <TableHead>服务商分配</TableHead>
-                    <TableHead>服务网点分配</TableHead>
-                    <TableHead>平台运营</TableHead>
+                    <TableHead>释放总额(5%)</TableHead>
+                    <TableHead>会员(2%)</TableHead>
+                    <TableHead>直推(0.3%)</TableHead>
+                    <TableHead>服务商(2%)</TableHead>
+                    <TableHead>上级服务商(0.3%)</TableHead>
+                    <TableHead>高级服务商(0.15%)</TableHead>
+                    <TableHead>服务网点(0.15%)</TableHead>
+                    <TableHead>平台运营(0.10%)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {releaseRecords.map((r: any) => (
                     <TableRow key={r.id}>
-                      <TableCell className="font-mono text-xs">{r.product_name || '-'}</TableCell>
+                      <TableCell>
+                        <div className="font-mono text-xs">{r.product_name || '-'}</div>
+                        <div className="text-xs text-muted-foreground">购买人: {r.member_name || '-'}</div>
+                      </TableCell>
                       <TableCell className="text-xs">{new Date(r.created_at).toLocaleString('zh-CN')}</TableCell>
                       <TableCell>¥{Number(r.product_price).toLocaleString()}</TableCell>
                       <TableCell className="font-bold text-primary">¥{Number(r.release_amount).toLocaleString()}</TableCell>
-                      <TableCell>{r.member_name || '-'}</TableCell>
-                      <TableCell>¥{Number(r.member_share).toLocaleString()}</TableCell>
-                      <TableCell>-</TableCell>
-                      <TableCell>¥{Number(r.provider_share).toLocaleString()}</TableCell>
-                      <TableCell>¥{Number(r.branch_share).toLocaleString()}</TableCell>
-                      <TableCell>¥{Number(r.company_share).toLocaleString()}</TableCell>
+                      <TableCell className="text-blue-600">¥{Number(r.member_share).toLocaleString()}</TableCell>
+                      <TableCell className="text-green-600">¥{Number(r.direct_referral_share).toLocaleString()}</TableCell>
+                      <TableCell className="text-purple-600">¥{Number(r.provider_share).toLocaleString()}</TableCell>
+                      <TableCell className="text-orange-600">¥{Number(r.parent_provider_share).toLocaleString()}</TableCell>
+                      <TableCell className="text-pink-600">¥{Number(r.senior_provider_share).toLocaleString()}</TableCell>
+                      <TableCell className="text-teal-600">¥{Number(r.branch_share).toLocaleString()}</TableCell>
+                      <TableCell className="text-slate-600">¥{Number(r.company_share).toLocaleString()}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -4407,7 +4480,8 @@ export default function AdminPage() {
         </CardContent>
       </Card>
     </div>
-  );
+    );
+  };
 
   // 渲染人员账户管理
   const renderAccountsManagement = () => {
