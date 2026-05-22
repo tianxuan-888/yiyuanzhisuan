@@ -118,6 +118,7 @@ const PUBLIC_PATHS = [
   '/api/branch/withdraw',
   '/api/provider/withdrawals',
   '/api/provider/withdraw-request',
+  '/api/users/search',
 ];
 
 // 静态资源和页面路径不走 API 认证

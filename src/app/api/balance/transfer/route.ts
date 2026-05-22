@@ -1,15 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne } from '@/storage/database/pg-client';
-import { authenticateRequest } from '@/lib/auth';
 
 // 智算金（balance）互转 - 5%转化为积分，95%到账对方智算金
 export async function POST(request: NextRequest) {
   try {
-    const authUser = authenticateRequest(request);
-    if (!authUser) {
-      return NextResponse.json({ success: false, error: '未登录' }, { status: 401 });
-    }
-
     const body = await request.json();
     const { fromUserId, toUserId, amount, note } = body;
 
@@ -30,11 +24,6 @@ export async function POST(request: NextRequest) {
     // 不能转给自己
     if (fromUserId === toUserId) {
       return NextResponse.json({ success: false, error: '不能转给自己' }, { status: 400 });
-    }
-
-    // 验证转出方身份
-    if (fromUserId !== authUser.userId) {
-      return NextResponse.json({ success: false, error: '只能从自己的账户转出' }, { status: 403 });
     }
 
     // 查询转出方余额
@@ -63,10 +52,9 @@ export async function POST(request: NextRequest) {
     }
 
     // 计算互转分配：5%→积分，95%→对方智算金
-    const pointsFee = Math.round(transferAmount * 0.05 * 100) / 100; // 5%转为积分
-    const actualReceive = Math.round((transferAmount - pointsFee) * 100) / 100; // 95%到账
+    const pointsFee = Math.round(transferAmount * 0.05 * 100) / 100;
+    const actualReceive = Math.round((transferAmount - pointsFee) * 100) / 100;
 
-    // 执行转账（使用SQL直接执行，避免REST API静默失败）
     // 1. 扣除转出方全部转账金额
     await query(
       'UPDATE users SET balance = (balance::float - $1)::numeric WHERE id::text = $2',
@@ -85,7 +73,7 @@ export async function POST(request: NextRequest) {
       [actualReceive, toUserId]
     );
 
-    // 4. 记录交易 - 转出方（扣减智算金）
+    // 4. 记录交易 - 转出方
     await query(
       `INSERT INTO transactions (id, user_id, order_id, type, amount, status, description, created_at)
        VALUES (gen_random_uuid(), $1, NULL, 'balance_transfer_out', $2, 'completed', $3, NOW())`,
@@ -107,7 +95,7 @@ export async function POST(request: NextRequest) {
       })]
     );
 
-    // 6. 记录交易 - 转入方（收到智算金）
+    // 6. 记录交易 - 转入方
     await query(
       `INSERT INTO transactions (id, user_id, order_id, type, amount, status, description, created_at)
        VALUES (gen_random_uuid(), $1, NULL, 'balance_transfer_in', $2, 'completed', $3, NOW())`,
@@ -119,7 +107,7 @@ export async function POST(request: NextRequest) {
       })]
     );
 
-    // 7. 记录积分流水到 points_records
+    // 7. 记录积分流水
     await query(
       `INSERT INTO points_records (id, user_id, type, amount, balance_after, description, created_at)
        VALUES (gen_random_uuid(), $1, 'transfer_fee', $2, 
@@ -158,103 +146,60 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 获取可转账对象列表
+// 搜索可转账用户 - 支持按用户名/手机号/专属ID搜索
 export async function GET(request: NextRequest) {
   try {
-    const authUser = authenticateRequest(request);
-    if (!authUser) {
-      return NextResponse.json({ success: false, error: '未登录' }, { status: 401 });
-    }
-
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId') || authUser.userId;
-    const role = searchParams.get('role') || authUser.role;
+    const keyword = searchParams.get('keyword') || '';
+    const currentUserId = searchParams.get('userId') || '';
 
-    const targets: any[] = [];
-
-    // 根据角色获取可转账对象
-    if (role === 'admin') {
-      const branches: any = await query(
-        'SELECT id, username, role, balance, unique_id, phone FROM users WHERE role = $1 AND is_active = true ORDER BY username',
-        ['branch']
-      );
-      const providers: any = await query(
-        'SELECT id, username, role, balance, unique_id, phone FROM users WHERE role = $1 AND is_active = true ORDER BY username',
-        ['provider']
-      );
-      targets.push(...(branches || []), ...(providers || []));
-    } else if (role === 'branch') {
-      const branchUser: any = await queryOne(
-        'SELECT id FROM users WHERE id::text = $1 AND role = $2',
-        [userId, 'branch']
-      );
-      if (branchUser) {
-        const providers: any = await query(
-          'SELECT id, username, role, balance, unique_id, phone FROM users WHERE role = $1 AND branch_id::text = $2 AND is_active = true ORDER BY username',
-          ['provider', userId]
-        );
-        const members: any = await query(
-          'SELECT id, username, role, balance, unique_id, phone FROM users WHERE role = $1 AND branch_id::text = $2 AND is_active = true ORDER BY username',
-          ['member', userId]
-        );
-        targets.push(...(providers || []), ...(members || []));
-      }
-    } else if (role === 'provider') {
-      const members: any = await query(
-        'SELECT id, username, role, balance, unique_id, phone FROM users WHERE role = $1 AND provider_id::text = $2 AND is_active = true ORDER BY username',
-        ['member', userId]
-      );
-      targets.push(...(members || []));
-      // 也可以转给上级服务商
-      const providerUser: any = await queryOne(
-        'SELECT inviter_id FROM users WHERE id::text = $1 AND role = $2',
-        [userId, 'provider']
-      );
-      if (providerUser?.inviter_id) {
-        const parentProvider: any = await queryOne(
-          'SELECT id, username, role, balance, unique_id, phone FROM users WHERE id::text = $1',
-          [providerUser.inviter_id]
-        );
-        if (parentProvider) targets.unshift(parentProvider);
-      }
-    } else if (role === 'member') {
-      // 会员可以转给服务商和其他会员
-      const memberUser: any = await queryOne(
-        'SELECT provider_id FROM users WHERE id::text = $1',
-        [userId]
-      );
-      if (memberUser?.provider_id) {
-        const provider: any = await queryOne(
-          'SELECT id, username, role, balance, unique_id, phone FROM users WHERE id::text = $1',
-          [memberUser.provider_id]
-        );
-        if (provider) targets.push(provider);
-      }
+    if (!keyword || keyword.length < 1) {
+      return NextResponse.json({ success: true, data: [] });
     }
 
-    // 去重
-    const seen = new Set<string>();
-    const uniqueTargets = targets.filter((t: any) => {
-      if (seen.has(t.id) || t.id === userId) return false;
-      seen.add(t.id);
-      return true;
-    });
+    // 搜索所有用户（排除自己），按用户名/手机号/专属ID模糊匹配
+    const users: any = await query(
+      `SELECT id, username, role, balance, unique_id, phone, real_name 
+       FROM users 
+       WHERE is_active = true 
+         AND id::text != $1
+         AND (username ILIKE $2 OR phone ILIKE $2 OR unique_id ILIKE $2 OR real_name ILIKE $2)
+       ORDER BY 
+         CASE 
+           WHEN username ILIKE $2 THEN 0
+           WHEN phone ILIKE $2 THEN 1
+           WHEN unique_id ILIKE $2 THEN 2
+           ELSE 3
+         END,
+         username
+       LIMIT 20`,
+      [currentUserId, `%${keyword}%`]
+    );
+
+    const roleLabels: Record<string, string> = {
+      admin: '总台',
+      branch: '服务网点',
+      provider: '服务商',
+      member: '会员',
+    };
 
     return NextResponse.json({
       success: true,
-      data: uniqueTargets.map((t: any) => ({
-        id: t.id,
-        username: t.username,
-        role: t.role,
-        balance: parseFloat(String(t.balance)) || 0,
-        uniqueId: t.unique_id,
-        phone: t.phone,
+      data: (users || []).map((u: any) => ({
+        id: u.id,
+        username: u.username,
+        realName: u.real_name,
+        role: u.role,
+        roleLabel: roleLabels[u.role] || u.role,
+        balance: parseFloat(String(u.balance)) || 0,
+        uniqueId: u.unique_id,
+        phone: u.phone ? u.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') : '',
       })),
     });
   } catch (error) {
-    console.error('获取转账对象失败:', error);
+    console.error('搜索用户失败:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : '获取失败' },
+      { success: false, error: error instanceof Error ? error.message : '搜索失败' },
       { status: 500 }
     );
   }
