@@ -11,7 +11,6 @@ export async function GET(request: NextRequest) {
     const queryProviderId = searchParams.get('providerId');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
-    const defaultDays = searchParams.get('defaultDays');
 
     // 优先使用查询参数的providerId，否则从认证token获取
     let providerId = queryProviderId;
@@ -28,59 +27,76 @@ export async function GET(request: NextRequest) {
 
     const client = createClient(supabaseUrl, supabaseKey);
 
-    // 获取该服务商下所有产品
-    const { data: products, error: prodError } = await client
+    // ===== 数据源1: user_products 表（服务商产品下的所有持有/流转记录）=====
+    const { data: providerProducts, error: prodError } = await client
       .from('products')
-      .select('id, code, name, price, period, profit_rate, market_rate')
+      .select('id, code, name, price, period, profit_rate, market_rate, provider_id')
       .eq('provider_id', providerId);
 
     if (prodError) {
+      console.error('[transfer-records] 查询产品失败:', prodError);
       return NextResponse.json({ success: false, error: '获取产品失败' }, { status: 500 });
     }
 
-    if (!products || products.length === 0) {
-      return NextResponse.json({ success: true, data: [], total: 0 });
+    const productMap = new Map((providerProducts || []).map(p => [p.id, p]));
+    const productIds = (providerProducts || []).map(p => p.id);
+
+    // ===== 数据源2: orders 表（该服务商下所有已完成/待审核的订单）=====
+    // 通过产品ID关联查询订单
+    let orderQuery = client
+      .from('orders')
+      .select('id, user_id, user_product_id, order_type, amount, status, created_at, updated_at')
+      .in('order_type', ['buy', 'sell'])
+      .order('created_at', { ascending: false });
+
+    // 先不限制产品ID，后面在代码中过滤（因为orders表可能没有product_id字段）
+    const { data: allOrders, error: orderError } = await orderQuery.limit(500);
+
+    if (orderError) {
+      console.error('[transfer-records] 查询订单失败:', orderError);
     }
 
-    const productIds = products.map(p => p.id);
-    const productMap = new Map(products.map(p => [p.id, p]));
-
-    // 获取所有已流转的用户产品记录
-    let query = client
+    // ===== 数据源3: user_products 表 =====
+    let upQuery = client
       .from('user_products')
-      .select('id, user_id, product_id, purchase_price, purchase_date, expire_date, status, created_at, updated_at, seller_id, transfer_type')
-      .in('product_id', productIds)
-      .in('status', ['sold', 'transferred', 'holding']);
+      .select('id, user_id, product_id, purchase_price, purchase_date, expire_date, expected_profit, market_fee, status, created_at, updated_at, seller_id, transfer_type')
+      .order('created_at', { ascending: false });
 
-    // 时间筛选
-    if (startDate && endDate) {
-      query = query.gte('updated_at', startDate).lte('updated_at', endDate + 'T23:59:59');
-    } else if (defaultDays) {
-      const daysAgo = new Date();
-      daysAgo.setDate(daysAgo.getDate() - parseInt(defaultDays));
-      query = query.gte('updated_at', daysAgo.toISOString());
-    } else {
-      // 默认2天
-      const twoDaysAgo = new Date();
-      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
-      query = query.gte('updated_at', twoDaysAgo.toISOString());
+    if (productIds.length > 0) {
+      upQuery = upQuery.in('product_id', productIds);
     }
 
-    const { data: userProducts, error: upError } = await query.order('updated_at', { ascending: false });
+    const { data: allUserProducts, error: upError } = await upQuery.limit(500);
 
     if (upError) {
-      return NextResponse.json({ success: false, error: '获取流转记录失败' }, { status: 500 });
+      console.error('[transfer-records] 查询用户产品失败:', upError);
     }
 
-    if (!userProducts || userProducts.length === 0) {
-      return NextResponse.json({ success: true, data: [], total: 0 });
+    // ===== 时间范围计算 =====
+    let timeStart: Date;
+    let timeEnd: Date;
+
+    if (startDate && endDate) {
+      timeStart = new Date(startDate);
+      timeEnd = new Date(endDate + 'T23:59:59');
+    } else {
+      // 默认2天
+      timeStart = new Date();
+      timeStart.setDate(timeStart.getDate() - 2);
+      timeEnd = new Date();
     }
 
-    // 获取所有相关用户ID
+    // ===== 收集所有相关用户ID =====
     const userIds = new Set<string>();
-    userProducts.forEach(up => {
+    userIds.add(providerId);
+
+    (allUserProducts || []).forEach(up => {
       if (up.user_id) userIds.add(up.user_id);
       if (up.seller_id) userIds.add(up.seller_id);
+    });
+
+    (allOrders || []).forEach(o => {
+      if (o.user_id) userIds.add(o.user_id);
     });
 
     // 批量获取用户信息
@@ -91,100 +107,152 @@ export async function GET(request: NextRequest) {
 
     const userMap = new Map((users || []).map(u => [u.id, u]));
 
-    // 同时获取服务商信息用于"首次购买"记录的卖方显示
-    const { data: providerUser } = await client
-      .from('users')
-      .select('id, username, phone, unique_id, real_name')
-      .eq('id', providerId)
-      .single();
+    // ===== 构建user_product的product映射 =====
+    // 对于没有直接关联provider产品的user_product，通过user_id的provider_id间接关联
+    const userProductMap = new Map((allUserProducts || []).map(up => [up.id, up]));
 
-    // 组装流转记录
+    // ===== 组装流转记录 =====
     const records: any[] = [];
+    const seenIds = new Set<string>();
 
-    // 1. 会员间流转记录（有seller_id且不等于user_id）
-    userProducts
-      .filter(up => up.seller_id && up.seller_id !== up.user_id)
-      .forEach(up => {
-        const product = productMap.get(up.product_id);
-        const buyer = userMap.get(up.user_id);
-        const seller = userMap.get(up.seller_id);
-        const profitRate = product?.profit_rate || 0;
-        const transferAmount = up.purchase_price || 0;
-        const sellerProfit = transferAmount * profitRate / 100;
+    // 途径1: 从user_products提取（服务商直接产品）
+    (allUserProducts || []).forEach(up => {
+      const product = productMap.get(up.product_id);
+      if (!product) return; // 不是该服务商的产品，跳过
 
-        records.push({
-          id: up.id,
-          productCode: product?.code || '',
-          productName: product?.name || 'Token存储包',
-          productPrice: product?.price || 0,
-          period: product?.period || 0,
-          profitRate: profitRate,
-          transferAmount: transferAmount,
-          sellerProfit: sellerProfit,
-          transferType: up.transfer_type || 'member_transfer',
-          transferTime: up.updated_at,
-          sellerId: up.seller_id,
-          sellerName: seller?.username || '',
-          sellerUniqueId: seller?.unique_id || '',
-          sellerPhone: seller?.phone || '',
-          sellerRealName: seller?.real_name || '',
-          buyerId: up.user_id,
-          buyerName: buyer?.username || '',
-          buyerUniqueId: buyer?.unique_id || '',
-          buyerPhone: buyer?.phone || '',
-          buyerRealName: buyer?.real_name || '',
-        });
+      const recordTime = new Date(up.created_at);
+      if (recordTime < timeStart || recordTime > timeEnd) return;
+
+      const recordId = `up-${up.id}`;
+      if (seenIds.has(recordId)) return;
+      seenIds.add(recordId);
+
+      const buyer = userMap.get(up.user_id);
+      const hasSeller = up.seller_id && up.seller_id !== up.user_id;
+      const seller = hasSeller ? userMap.get(up.seller_id!) : null;
+      const profitRate = product.profit_rate || 0;
+      const transferAmount = up.purchase_price || 0;
+
+      // 判断流转类型
+      let transferType: string;
+      let sellerName: string;
+      let sellerUniqueId: string;
+      let sellerPhone: string;
+      let sellerId: string;
+      let sellerProfit: number;
+
+      if (hasSeller) {
+        // 会员间流转（A转给B）
+        transferType = up.transfer_type || 'member_transfer';
+        sellerId = up.seller_id!;
+        sellerName = seller?.username || '';
+        sellerUniqueId = seller?.unique_id || '';
+        sellerPhone = seller?.phone || '';
+        sellerProfit = transferAmount * profitRate / 100;
+      } else {
+        // 服务商匹配/首次购买
+        transferType = 'provider_match';
+        sellerId = providerId;
+        const providerUser = userMap.get(providerId);
+        sellerName = providerUser?.username || '服务商';
+        sellerUniqueId = providerUser?.unique_id || '';
+        sellerPhone = providerUser?.phone || '';
+        sellerProfit = 0;
+      }
+
+      records.push({
+        id: recordId,
+        productCode: product.code || '',
+        productName: product.name || 'Token存储包',
+        productPrice: product.price || 0,
+        period: product.period || 0,
+        profitRate: profitRate,
+        transferAmount: transferAmount,
+        sellerProfit: sellerProfit,
+        transferType: transferType,
+        transferTime: up.created_at,
+        sellerId: sellerId,
+        sellerName: sellerName,
+        sellerUniqueId: sellerUniqueId,
+        sellerPhone: sellerPhone,
+        sellerRealName: seller?.real_name || '',
+        buyerId: up.user_id,
+        buyerName: buyer?.username || '',
+        buyerUniqueId: buyer?.unique_id || '',
+        buyerPhone: buyer?.phone || '',
+        buyerRealName: buyer?.real_name || '',
       });
+    });
 
-    // 2. 服务商匹配/首次购买记录（seller_id为空 = 从服务商购买）
-    userProducts
-      .filter(up => !up.seller_id || up.seller_id === up.user_id)
-      .forEach(up => {
-        const product = productMap.get(up.product_id);
-        const buyer = userMap.get(up.user_id);
-        const profitRate = product?.profit_rate || 0;
-        const transferAmount = up.purchase_price || 0;
+    // 途径2: 从orders提取（补充，确保不遗漏）
+    // 查找关联user_product属于该服务商产品的订单
+    (allOrders || []).forEach(order => {
+      if (!order.user_product_id) return;
+      const up = userProductMap.get(order.user_product_id);
+      if (!up) return;
+      const product = productMap.get(up.product_id);
+      if (!product) return;
 
-        // 时间筛选
-        const recordTime = new Date(up.created_at);
-        let withinRange = true;
-        if (startDate && endDate) {
-          withinRange = recordTime >= new Date(startDate) && recordTime <= new Date(endDate + 'T23:59:59');
-        } else if (defaultDays) {
-          const daysAgo = new Date();
-          daysAgo.setDate(daysAgo.getDate() - parseInt(defaultDays));
-          withinRange = recordTime >= daysAgo;
-        } else {
-          const twoDaysAgo = new Date();
-          twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
-          withinRange = recordTime >= twoDaysAgo;
-        }
+      const recordTime = new Date(order.created_at);
+      if (recordTime < timeStart || recordTime > timeEnd) return;
 
-        if (withinRange) {
-          records.push({
-            id: `match-${up.id}`,
-            productCode: product?.code || '',
-            productName: product?.name || 'Token存储包',
-            productPrice: product?.price || 0,
-            period: product?.period || 0,
-            profitRate: profitRate,
-            transferAmount: transferAmount,
-            sellerProfit: 0,
-            transferType: 'provider_match',
-            transferTime: up.created_at,
-            sellerId: providerId,
-            sellerName: providerUser?.username || '服务商',
-            sellerUniqueId: providerUser?.unique_id || '',
-            sellerPhone: providerUser?.phone || '',
-            sellerRealName: providerUser?.real_name || '',
-            buyerId: up.user_id,
-            buyerName: buyer?.username || '',
-            buyerUniqueId: buyer?.unique_id || '',
-            buyerPhone: buyer?.phone || '',
-            buyerRealName: buyer?.real_name || '',
-          });
-        }
+      const recordId = `order-${order.id}`;
+      if (seenIds.has(recordId)) return;
+      seenIds.add(recordId);
+
+      const buyer = userMap.get(order.user_id);
+      const hasSeller = up.seller_id && up.seller_id !== up.user_id;
+      const seller = hasSeller ? userMap.get(up.seller_id!) : null;
+      const profitRate = product.profit_rate || 0;
+      const transferAmount = up.purchase_price || order.amount || 0;
+
+      let transferType: string;
+      let sellerName: string;
+      let sellerUniqueId: string;
+      let sellerPhone: string;
+      let sellerId: string;
+      let sellerProfit: number;
+
+      if (hasSeller) {
+        transferType = order.order_type === 'sell' ? 'member_transfer' : (up.transfer_type || 'member_transfer');
+        sellerId = up.seller_id!;
+        sellerName = seller?.username || '';
+        sellerUniqueId = seller?.unique_id || '';
+        sellerPhone = seller?.phone || '';
+        sellerProfit = transferAmount * profitRate / 100;
+      } else {
+        transferType = 'provider_match';
+        sellerId = providerId;
+        const providerUser = userMap.get(providerId);
+        sellerName = providerUser?.username || '服务商';
+        sellerUniqueId = providerUser?.unique_id || '';
+        sellerPhone = providerUser?.phone || '';
+        sellerProfit = 0;
+      }
+
+      records.push({
+        id: recordId,
+        productCode: product.code || '',
+        productName: product.name || 'Token存储包',
+        productPrice: product.price || 0,
+        period: product.period || 0,
+        profitRate: profitRate,
+        transferAmount: transferAmount,
+        sellerProfit: sellerProfit,
+        transferType: transferType,
+        transferTime: order.created_at,
+        sellerId: sellerId,
+        sellerName: sellerName,
+        sellerUniqueId: sellerUniqueId,
+        sellerPhone: sellerPhone,
+        sellerRealName: seller?.real_name || '',
+        buyerId: order.user_id,
+        buyerName: buyer?.username || '',
+        buyerUniqueId: buyer?.unique_id || '',
+        buyerPhone: buyer?.phone || '',
+        buyerRealName: buyer?.real_name || '',
       });
+    });
 
     // 按时间倒序排列
     records.sort((a, b) => new Date(b.transferTime).getTime() - new Date(a.transferTime).getTime());
@@ -195,7 +263,7 @@ export async function GET(request: NextRequest) {
       total: records.length,
     });
   } catch (error) {
-    console.error('获取流转记录失败:', error);
+    console.error('[transfer-records] 获取流转记录失败:', error);
     return NextResponse.json({ success: false, error: '服务器错误' }, { status: 500 });
   }
 }

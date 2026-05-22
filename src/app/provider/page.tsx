@@ -532,21 +532,22 @@ export default function ProviderPage() {
             const providerId = localStorage.getItem("userId");
             const params = new URLSearchParams();
             if (providerId) params.append('providerId', providerId);
-            if (startDate) params.append('startDate', startDate);
-            if (endDate) params.append('endDate', endDate);
-            else {
-                const twoDaysAgo = new Date();
-                twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
-                params.append('startDate', twoDaysAgo.toISOString().split('T')[0]);
-                params.append('endDate', new Date().toISOString().split('T')[0]);
+            if (startDate && endDate) {
+                params.append('startDate', startDate);
+                params.append('endDate', endDate);
             }
+            // 不传日期则API默认2天
             const response = await authFetch(`/api/provider/transfer-records?${params.toString()}`);
             const data = await response.json();
             if (data.success) {
                 setTransferRecords(data.data || []);
+            } else {
+                console.error('流转记录API错误:', data.error);
+                setTransferRecords([]);
             }
         } catch (error) {
             console.error('加载流转记录失败:', error);
+            setTransferRecords([]);
         }
     };
 
