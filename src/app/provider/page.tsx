@@ -64,6 +64,8 @@ import {
     Search,
     X,
     Check,
+    Download,
+    Calendar,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -276,6 +278,9 @@ export default function ProviderPage() {
     const [salesStats, setSalesStats] = useState<any>({ total: 0, available: 0, sold: 0, pending: 0, totalAmount: 0 });
     const [salesFilter, setSalesFilter] = useState<string>("all");
     const [selectedAllocation, setSelectedAllocation] = useState<string>("");
+    const [transferRecords, setTransferRecords] = useState<any[]>([]);
+    const [transferStartDate, setTransferStartDate] = useState<string>("");
+    const [transferEndDate, setTransferEndDate] = useState<string>("");
 
     // 用户名编辑状态
     const [editingUsername, setEditingUsername] = useState(false);
@@ -399,8 +404,8 @@ export default function ProviderPage() {
     const [withdrawAlipayName, setWithdrawAlipayName] = useState("");
     const [withdrawRecords, setWithdrawRecords] = useState<any[]>([]);
 
-    // 转账记录相关状态
-    const [transferRecords, setTransferRecords] = useState<any[]>([]);
+    // 转账记录相关状态（旧能量值转账）
+    const [energyTransferRecords, setEnergyTransferRecords] = useState<any[]>([]);
     const [transferStats, setTransferStats] = useState<any>({});
     const [transferFilter, setTransferFilter] = useState<string>("all");
 
@@ -520,6 +525,53 @@ export default function ProviderPage() {
         } catch (error) {
             console.error('加载销售记录失败:', error);
         }
+    };
+
+    const loadTransferRecords = async (startDate?: string, endDate?: string) => {
+        try {
+            const params = new URLSearchParams();
+            if (startDate) params.append('startDate', startDate);
+            if (endDate) params.append('endDate', endDate);
+            else {
+                const twoDaysAgo = new Date();
+                twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+                params.append('startDate', twoDaysAgo.toISOString().split('T')[0]);
+                params.append('endDate', new Date().toISOString().split('T')[0]);
+            }
+            const response = await authFetch(`/api/provider/transfer-records?${params.toString()}`);
+            const data = await response.json();
+            if (data.success) {
+                setTransferRecords(data.data || []);
+            }
+        } catch (error) {
+            console.error('加载流转记录失败:', error);
+        }
+    };
+
+    const exportTransferExcel = () => {
+        if (transferRecords.length === 0) {
+            showMessage("error", "没有可导出的记录");
+            return;
+        }
+        const XLSX = require('xlsx');
+        const exportData = transferRecords.map((r: any) => ({
+            '产品编号': r.productCode || '',
+            '流转时间': r.transferTime || '',
+            '流转金额(¥)': r.transferAmount || 0,
+            '卖方用户名': r.sellerName || '',
+            '卖方专属ID': r.sellerUniqueId || '',
+            '卖方手机号': r.sellerPhone || '',
+            '买方用户名': r.buyerName || '',
+            '买方专属ID': r.buyerUniqueId || '',
+            '买方手机号': r.buyerPhone || '',
+            '卖方收益(¥)': r.sellerProfit || 0,
+            '流转类型': r.transferType || ''
+        }));
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, '产品流转记录');
+        const dateRange = transferStartDate && transferEndDate ? `_${transferStartDate}_${transferEndDate}` : `_近2天`;
+        XLSX.writeFile(wb, `产品流转记录${dateRange}.xlsx`);
     };
 
     // 处理购买订单（确认/拒绝）
@@ -1555,8 +1607,8 @@ export default function ProviderPage() {
         }
     };
 
-    // 加载转账记录
-    const loadTransferRecords = async () => {
+    // 加载转账记录（旧能量值转账）
+    const loadEnergyTransferRecords = async () => {
         const providerId = localStorage.getItem("userId");
         if (!providerId) return;
 
@@ -1564,7 +1616,7 @@ export default function ProviderPage() {
             const response = await authFetch(`/api/energy/transactions?userId=${providerId}&limit=20`);
             const data = await response.json();
             if (data.success) {
-                setTransferRecords(data.data || []);
+                setEnergyTransferRecords(data.data || []);
                 setTransferStats(data.stats || {});
             }
         } catch (error) {
@@ -2806,7 +2858,7 @@ export default function ProviderPage() {
                             <button onClick={() => { setPowerSubTab('products'); }} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${powerSubTab === 'products' ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-purple-50'}`}>
                                 <Package className="w-3.5 h-3.5 inline mr-1" />Token列表
                             </button>
-                            <button onClick={() => { setPowerSubTab('sales'); loadSalesRecords(); }} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${powerSubTab === 'sales' ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-purple-50'}`}>
+                            <button onClick={() => { setPowerSubTab('sales'); loadSalesRecords(); loadTransferRecords(transferStartDate, transferEndDate); }} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${powerSubTab === 'sales' ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-purple-50'}`}>
                                 <TrendingUp className="w-3.5 h-3.5 inline mr-1" />销售记录
                             </button>
                             <button onClick={() => { setPowerSubTab('buyorders'); loadPendingBuyOrders(); }} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${powerSubTab === 'buyorders' ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-purple-50'}`}>
@@ -3483,6 +3535,99 @@ export default function ProviderPage() {
                                                 <tr>
                                                     <td colSpan={7} className="py-8 text-center text-gray-500">
                                                         暂无销售记录
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </CardContent>
+                        </Card>
+                        {/* 产品流转记录 */}
+                        <Card className="border shadow-sm">
+                            <CardHeader className="pb-3">
+                                <div className="flex items-center justify-between">
+                                    <CardTitle className="text-base">产品流转记录</CardTitle>
+                                    <Button size="sm" variant="outline" className="gap-1" onClick={exportTransferExcel}>
+                                        <Download className="w-4 h-4" />
+                                        导出Excel
+                                    </Button>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                {/* 时间筛选栏 */}
+                                <div className="flex flex-wrap items-end gap-3 mb-4 p-3 bg-muted/50 rounded-lg">
+                                    <div>
+                                        <label className="text-xs text-muted-foreground block mb-1">开始日期</label>
+                                        <Input type="date" className="w-40 h-8 text-sm" value={transferStartDate} onChange={e => setTransferStartDate(e.target.value)} />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-muted-foreground block mb-1">结束日期</label>
+                                        <Input type="date" className="w-40 h-8 text-sm" value={transferEndDate} onChange={e => setTransferEndDate(e.target.value)} />
+                                    </div>
+                                    <Button size="sm" className="h-8" onClick={() => loadTransferRecords(transferStartDate, transferEndDate)}>查询</Button>
+                                    <Button size="sm" variant="outline" className="h-8" onClick={() => {
+                                        const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+                                        setTransferStartDate(twoDaysAgo);
+                                        setTransferEndDate(new Date().toISOString().slice(0, 10));
+                                        setTimeout(() => loadTransferRecords(), 100);
+                                    }}>近2天</Button>
+                                    <span className="text-xs text-muted-foreground ml-auto">
+                                        {transferRecords.length > 0 && `共 ${transferRecords.length} 条记录`}
+                                    </span>
+                                </div>
+                                {/* 流转记录表格 */}
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="border-b bg-muted/50">
+                                                <th className="text-left py-2 px-3">产品编号</th>
+                                                <th className="text-left py-2 px-3">流转时间</th>
+                                                <th className="text-left py-2 px-3">流转金额</th>
+                                                <th className="text-left py-2 px-3">卖方(A)</th>
+                                                <th className="text-left py-2 px-3">买方(B)</th>
+                                                <th className="text-left py-2 px-3">A的收益</th>
+                                                <th className="text-left py-2 px-3">流转类型</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {transferRecords.map((record, idx) => (
+                                                <tr key={idx} className="border-b hover:bg-muted/30">
+                                                    <td className="py-2 px-3 font-mono text-xs">{record.productCode}</td>
+                                                    <td className="py-2 px-3 text-xs">{record.transferTime?.slice(0, 16)?.replace('T', ' ') || '-'}</td>
+                                                    <td className="py-2 px-3 text-green-600 font-medium">¥{(record.transferAmount || 0).toLocaleString()}</td>
+                                                    <td className="py-2 px-3">
+                                                        <div>
+                                                            <p className="font-medium text-xs">{record.sellerName || '-'}</p>
+                                                            <p className="text-xs text-muted-foreground">{record.sellerUniqueId || ''} {record.sellerPhone ? `(${record.sellerPhone?.slice(0, 3)}****${record.sellerPhone?.slice(-4)})` : ''}</p>
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-2 px-3">
+                                                        <div>
+                                                            <p className="font-medium text-xs">{record.buyerName || '-'}</p>
+                                                            <p className="text-xs text-muted-foreground">{record.buyerUniqueId || ''} {record.buyerPhone ? `(${record.buyerPhone?.slice(0, 3)}****${record.buyerPhone?.slice(-4)})` : ''}</p>
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-2 px-3 text-orange-600 font-medium">¥{(record.sellerProfit || 0).toLocaleString()}</td>
+                                                    <td className="py-2 px-3">
+                                                        <Badge className={
+                                                            record.transferType === 'first_purchase' ? 'bg-blue-100 text-blue-700' :
+                                                            record.transferType === 'member_transfer' ? 'bg-purple-100 text-purple-700' :
+                                                            record.transferType === 'provider_repurchase' ? 'bg-amber-100 text-amber-700' :
+                                                            'bg-gray-100 text-gray-700'
+                                                        }>
+                                                            {record.transferType === 'first_purchase' ? '首次购买' :
+                                                             record.transferType === 'member_transfer' ? '会员流转' :
+                                                             record.transferType === 'provider_repurchase' ? '服务商回购' :
+                                                             record.transferType || '-'}
+                                                        </Badge>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            {transferRecords.length === 0 && (
+                                                <tr>
+                                                    <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                                                        暂无流转记录
                                                     </td>
                                                 </tr>
                                             )}
