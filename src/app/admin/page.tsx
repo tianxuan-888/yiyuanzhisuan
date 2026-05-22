@@ -88,14 +88,10 @@ type MenuItem = {
 // 导航菜单配置
 const menuItems: MenuItem[] = [
   { id: 'my-profile', name: '我的', icon: <User className="w-5 h-5" /> },
-  { id: 'overview', name: '数据总览', icon: <LayoutDashboard className="w-5 h-5" /> },
-  { id: 'quota', name: '算力额度管理', icon: <Database className="w-5 h-5" /> },
-  { id: 'branches', name: '服务网点管理', icon: <Building2 className="w-5 h-5" /> },
-  { id: 'providers', name: '服务商管理', icon: <UserCog className="w-5 h-5" /> },
-  { id: 'members', name: '会员管理', icon: <Users className="w-5 h-5" /> },
-  { id: 'income', name: '市场费分配', icon: <TrendingUp className="w-5 h-5" /> },
-  { id: 'finance', name: '财务管理', icon: <Wallet className="w-5 h-5" /> },
-  { id: 'system-config', name: '系统设置', icon: <Settings className="w-5 h-5" /> },
+  { id: 'release', name: '释放收益', icon: <TrendingUp className="w-5 h-5" /> },
+  { id: 'quota', name: '额度分配', icon: <Database className="w-5 h-5" /> },
+  { id: 'withdraw', name: '提现回购', icon: <Wallet className="w-5 h-5" /> },
+  { id: 'accounts', name: '人员账户', icon: <Users className="w-5 h-5" /> },
 ];
 
 // 统计数据类型
@@ -222,6 +218,14 @@ export default function AdminPage() {
   const [quotaAccounts, setQuotaAccounts] = useState<any[]>([]);
   const [quotaRecords, setQuotaRecords] = useState<any[]>([]);
   const [quotaStats, setQuotaStats] = useState({ totalIssued: 0, totalIdle: 0, totalUsed: 0 });
+
+  // 释放收益记录相关state
+  const [releaseRecords, setReleaseRecords] = useState<any[]>([]);
+  const [releaseLoading, setReleaseLoading] = useState(false);
+  const [releaseDateRange, setReleaseDateRange] = useState<{start: string; end: string}>({start: '', end: ''});
+
+  // 人员账户Tab
+  const [accountsTab, setAccountsTab] = useState('branches');
   
   // 算力额度对话框状态
   const [showCreateQuotaDialog, setShowCreateQuotaDialog] = useState(false);
@@ -4288,6 +4292,145 @@ export default function AdminPage() {
     </Card>
   );
 
+  // 渲染释放收益记录
+  const loadReleaseRecords = async (startDate?: string, endDate?: string) => {
+    setReleaseLoading(true);
+    try {
+      const userStr = localStorage.getItem('user');
+      if (!userStr) return;
+      const user = JSON.parse(userStr);
+      let url = `/api/admin/release-records?adminId=${user.id}`;
+      if (startDate) url += `&startDate=${startDate}`;
+      if (endDate) url += `&endDate=${endDate}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.success) {
+        setReleaseRecords(data.data || []);
+      }
+    } catch (e) {
+      console.error('加载释放收益记录失败', e);
+    } finally {
+      setReleaseLoading(false);
+    }
+  };
+
+  const renderReleaseRecords = () => (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="w-5 h-5" />
+            释放收益记录
+          </CardTitle>
+          <CardDescription>产品购买时总台释放5%收益，按7项比例分配</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* 筛选区 */}
+          <div className="flex items-center gap-3 mb-4 flex-wrap">
+            <Input type="date" className="w-40" value={releaseDateRange.start} onChange={e => setReleaseDateRange(prev => ({...prev, start: e.target.value}))} />
+            <span className="text-muted-foreground">至</span>
+            <Input type="date" className="w-40" value={releaseDateRange.end} onChange={e => setReleaseDateRange(prev => ({...prev, end: e.target.value}))} />
+            <Button onClick={() => loadReleaseRecords(releaseDateRange.start, releaseDateRange.end)}>查询</Button>
+            <Button variant="outline" onClick={() => { setReleaseDateRange({start: '', end: ''}); loadReleaseRecords(); }}>全部</Button>
+          </div>
+          {/* 统计卡片 */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <Card className="bg-primary/5">
+              <CardContent className="p-4">
+                <div className="text-sm text-muted-foreground">释放总金额</div>
+                <div className="text-2xl font-bold text-primary">¥{releaseRecords.reduce((s: number, r: any) => s + (Number(r.release_amount) || 0), 0).toLocaleString()}</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-primary/5">
+              <CardContent className="p-4">
+                <div className="text-sm text-muted-foreground">释放笔数</div>
+                <div className="text-2xl font-bold text-primary">{releaseRecords.length}</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-primary/5">
+              <CardContent className="p-4">
+                <div className="text-sm text-muted-foreground">会员分配</div>
+                <div className="text-2xl font-bold text-primary">¥{releaseRecords.reduce((s: number, r: any) => s + (Number(r.member_share) || 0), 0).toLocaleString()}</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-primary/5">
+              <CardContent className="p-4">
+                <div className="text-sm text-muted-foreground">服务商分配</div>
+                <div className="text-2xl font-bold text-primary">¥{releaseRecords.reduce((s: number, r: any) => s + (Number(r.provider_share) || 0), 0).toLocaleString()}</div>
+              </CardContent>
+            </Card>
+          </div>
+          {/* 表格 */}
+          {releaseLoading ? (
+            <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></div>
+          ) : releaseRecords.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">暂无释放收益记录</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>产品编号</TableHead>
+                    <TableHead>释放时间</TableHead>
+                    <TableHead>产品价格</TableHead>
+                    <TableHead>释放金额</TableHead>
+                    <TableHead>会员</TableHead>
+                    <TableHead>会员分配</TableHead>
+                    <TableHead>服务商</TableHead>
+                    <TableHead>服务商分配</TableHead>
+                    <TableHead>服务网点分配</TableHead>
+                    <TableHead>平台运营</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {releaseRecords.map((r: any) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-mono text-xs">{r.product_name || '-'}</TableCell>
+                      <TableCell className="text-xs">{new Date(r.created_at).toLocaleString('zh-CN')}</TableCell>
+                      <TableCell>¥{Number(r.product_price).toLocaleString()}</TableCell>
+                      <TableCell className="font-bold text-primary">¥{Number(r.release_amount).toLocaleString()}</TableCell>
+                      <TableCell>{r.member_name || '-'}</TableCell>
+                      <TableCell>¥{Number(r.member_share).toLocaleString()}</TableCell>
+                      <TableCell>-</TableCell>
+                      <TableCell>¥{Number(r.provider_share).toLocaleString()}</TableCell>
+                      <TableCell>¥{Number(r.branch_share).toLocaleString()}</TableCell>
+                      <TableCell>¥{Number(r.company_share).toLocaleString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+
+  // 渲染人员账户管理
+  const renderAccountsManagement = () => (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="w-5 h-5" />
+            人员账户信息
+          </CardTitle>
+          <CardDescription>四端人员管理：总台、服务网点、服务商、会员</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2 mb-4">
+            <Button variant={accountsTab === 'branches' ? 'default' : 'outline'} onClick={() => setAccountsTab('branches')}>服务网点</Button>
+            <Button variant={accountsTab === 'providers' ? 'default' : 'outline'} onClick={() => setAccountsTab('providers')}>服务商</Button>
+            <Button variant={accountsTab === 'members' ? 'default' : 'outline'} onClick={() => setAccountsTab('members')}>会员</Button>
+          </div>
+          {accountsTab === 'branches' && <BranchesManagement />}
+          {accountsTab === 'providers' && <ProviderManagement />}
+          {accountsTab === 'members' && <MemberManagement />}
+        </CardContent>
+      </Card>
+    </div>
+  );
+
   // 渲染提现审核
   const renderWithdrawAudit = () => (
     <Card>
@@ -7788,65 +7931,14 @@ export default function AdminPage() {
     switch (activeMenu) {
       case 'my-profile':
         return <MyProfile />;
-      case 'home':
-        return renderHomeContent();
-      case 'overview':
-        return renderOverviewContent();
+      case 'release':
+        return renderReleaseRecords();
       case 'quota':
         return renderQuotaManagement();
-      case 'finance':
-        return <FinanceManagementPanel />;
-      case 'members':
-        return <MemberManagement />;
-      case 'member-list':
-        return <MemberManagement />;
-      case 'member-audit':
-        return <MemberManagement />;
-      case 'order-stats':
-        return renderOrderStats();
-      case 'revenue-stats':
-        return renderRevenueStats();
-      case 'user-stats':
-        return renderUserStats();
-      case 'normal-orders':
-        return renderOrderList();
-      case 'warehouse-orders':
-        return renderWarehouseOrders();
-      case 'warehouse-match':
-        return renderWarehouseMatch();
-      case 'reserve-orders':
-        return renderReserveOrders();
-      case 'withdraw-audit':
-        return renderWithdrawAudit();
-      case 'recharge-list':
-        return renderRechargeList();
-      case 'transaction-list':
-        return renderTransactionList();
-      case 'chat':
-        return renderChatManagement();
-      case 'provider-list':
-        return renderProviderList();
-      case 'provider-audit':
-        return renderProviderAudit();
-      case 'product-list':
-        return renderProductList();
-      case 'system-config':
-        return renderSystemConfig();
-      case 'announcements':
-        return renderAnnouncements();
       case 'withdraw':
-        return renderBranchWithdrawManagement();
-      case 'income':
-      case 'income-overview':
-      case 'income-detail':
-      case 'income-withdraw':
-        return incomeTab === 'withdraw' ? renderWithdrawManagement() : (incomeTab === 'detail' ? renderIncomeDetail() : renderIncomeOverview());
-      case 'branches':
-        return <BranchesManagement />;
-      case 'providers':
-        return <ProviderManagement />;
-      case 'members':
-        return <MemberManagement />;
+        return renderWithdrawAudit();
+      case 'accounts':
+        return renderAccountsManagement();
       default:
         return (
           <Card>

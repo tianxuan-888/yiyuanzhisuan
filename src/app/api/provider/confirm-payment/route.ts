@@ -4,59 +4,39 @@ import { authenticateRequest, authorizeRole } from '@/lib/auth';
 import { getSupabaseUrl, getSupabaseServiceRoleKey } from '@/lib/env';
 import { execute, queryOne } from '@/lib/pg-client';
 
-// 获取管理员 Supabase 客户端（绕过 RLS）
 function getAdminSupabase() {
   const url = getSupabaseUrl();
   const key = getSupabaseServiceRoleKey();
-  if (!url || !key) {
-    throw new Error('Missing Supabase configuration');
-  }
+  if (!url || !key) throw new Error('Missing Supabase configuration');
   return createClient(url, key);
 }
 
-// 服务商确认收款接口
-// 新流程：购买时已创建 user_products(pending_confirm) + 扣除收益
-// 确认时：更新 user_products → holding, 产品 → sold, 分配收益
+// 服务商确认收款（确认线下收到本金后执行）
+// 新流程：确认后产品进入持有状态，总台释放5%收益按7项分配
 export async function POST(request: NextRequest) {
   try {
-    // 鉴权：仅服务商可操作
     const authUser = authenticateRequest(request);
     if (!authUser || !authorizeRole(authUser, ['provider'])) {
       return NextResponse.json({ error: '无权操作' }, { status: 403 });
     }
 
     const providerId = authUser.userId;
-
     const body = await request.json();
     const { orderId } = body;
 
-    if (!orderId) {
-      return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
-    }
+    if (!orderId) return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
 
-    // 使用管理员客户端绕过RLS
     const client = getAdminSupabase();
 
-    // 查询订单信息
+    // 查询订单
     const { data: order, error: orderError } = await client
       .from('orders')
       .select('*')
       .eq('id', orderId)
       .maybeSingle();
 
-    if (orderError) {
-      throw new Error(`查询订单失败: ${orderError.message}`);
-    }
-
-    if (!order) {
-      return NextResponse.json({ error: '订单不存在' }, { status: 404 });
-    }
-
-    // 验证订单状态
-    if (!order.status) {
-      return NextResponse.json({ error: '订单状态异常' }, { status: 400 });
-    }
-    
+    if (orderError) throw new Error(`查询订单失败: ${orderError.message}`);
+    if (!order) return NextResponse.json({ error: '订单不存在' }, { status: 404 });
     if (order.status !== 'pending') {
       return NextResponse.json({ error: `订单状态为 ${order.status}，无法审核` }, { status: 400 });
     }
@@ -76,69 +56,24 @@ export async function POST(request: NextRequest) {
     let userProduct = null;
     let price = 0;
     let productName = '';
-    let marketFee = 0;
 
-    // 如果有 product_id，验证服务商权限并更新用户产品记录
     if (order.product_id) {
-      // 查询产品信息
       const { data: product, error: productError } = await client
         .from('products')
         .select('*')
         .eq('id', order.product_id)
         .maybeSingle();
 
-      if (productError) {
-        throw new Error(`查询产品失败: ${productError.message}`);
-      }
-
-      if (!product) {
-        return NextResponse.json({ error: '产品不存在' }, { status: 404 });
-      }
-
-      // 验证服务商权限
+      if (productError) throw new Error(`查询产品失败: ${productError.message}`);
+      if (!product) return NextResponse.json({ error: '产品不存在' }, { status: 404 });
       if (product.provider_id !== providerId) {
         return NextResponse.json({ error: '无权操作此订单' }, { status: 403 });
       }
 
       price = parseFloat(product.price);
       productName = product.name;
-      marketFee = price * (parseFloat(product.market_rate) / 100);
 
-      // ========== 持仓金额检查（上限2万）==========
-      const maxHolding = 20000;
-      const currentHoldingResult: any = await client
-        .from('user_products')
-        .select('purchase_price')
-        .eq('user_id', order.user_id)
-        .eq('status', 'holding');
-
-      const currentHolding = (currentHoldingResult?.data || []).reduce(
-        (sum: number, up: any) => sum + parseFloat(up.purchase_price || 0), 0
-      );
-      const newTotalHolding = currentHolding + price;
-
-      if (newTotalHolding > maxHolding) {
-        // 回滚订单状态
-        await client
-          .from('orders')
-          .update({ status: 'pending' })
-          .eq('id', orderId)
-          .eq('status', 'paid');
-
-        return NextResponse.json({
-          success: false,
-          error: '持仓金额超限',
-          data: {
-            code: 'HOLDING_LIMIT',
-            message: `购买后持仓金额为 ${newTotalHolding.toLocaleString()} 元，超过上限 ${maxHolding.toLocaleString()} 元`,
-            currentHolding,
-            productPrice: price,
-            maxHolding,
-          }
-        }, { status: 400 });
-      }
-
-      // ========== 更新已有的 user_products 记录（pending_confirm → holding）==========
+      // 更新已有的 user_products 记录（pending_confirm → holding）
       if (order.user_product_id) {
         const { data: updatedUP, error: updateUPError } = await client
           .from('user_products')
@@ -153,14 +88,9 @@ export async function POST(request: NextRequest) {
           .select()
           .single();
 
-        if (updateUPError) {
-          console.error('更新持仓记录失败:', updateUPError);
-          throw new Error(`更新持仓记录失败: ${updateUPError.message}`);
-        }
-
+        if (updateUPError) throw new Error(`更新持仓记录失败: ${updateUPError.message}`);
         userProduct = updatedUP;
       } else {
-        // 兼容旧流程：没有 user_product_id 时创建新记录
         const purchaseDate = new Date();
         const expireDate = new Date(purchaseDate);
         expireDate.setDate(expireDate.getDate() + product.period);
@@ -177,135 +107,130 @@ export async function POST(request: NextRequest) {
             purchase_date: purchaseDate.toISOString(),
             expire_date: expireDate.toISOString(),
             expected_profit: expectedProfit.toFixed(2),
-            market_fee: marketFee.toFixed(2),
-            energy_cost: order.energy_cost || marketFee,
             status: 'holding',
+            seller_id: providerId,
+            transfer_type: 'provider_match',
           })
           .select()
           .single();
 
         if (createUserProductError) {
-          await client
-            .from('orders')
-            .update({ status: 'pending' })
-            .eq('id', orderId);
+          await client.from('orders').update({ status: 'pending' }).eq('id', orderId);
           throw new Error(`创建用户产品记录失败: ${createUserProductError.message}`);
         }
-
         userProduct = newUserProduct;
       }
 
       // 更新产品状态为已售
-      const { error: updateProductError } = await client
-        .from('products')
-        .update({
-          status: 'sold',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', order.product_id);
+      await client.from('products').update({
+        status: 'sold',
+        updated_at: new Date().toISOString(),
+      }).eq('id', order.product_id);
 
-      if (updateProductError) {
-        throw new Error(`更新产品状态失败: ${updateProductError.message}`);
+      // ========== 总台释放5%收益，按7项分配 ==========
+      const releaseAmount = price * 0.05;
+
+      const memberShare = Math.round(price * 0.02 * 100) / 100;
+      const directReward = Math.round(price * 0.003 * 100) / 100;
+      const providerShare = Math.round(price * 0.02 * 100) / 100;
+      const parentShare = Math.round(price * 0.003 * 100) / 100;
+      const seniorShare = Math.round(price * 0.0015 * 100) / 100;
+      const branchShare = Math.round(price * 0.0015 * 100) / 100;
+      const companyShare = Math.round(price * 0.001 * 100) / 100;
+
+      // 获取会员信息
+      const member = await queryOne('SELECT id, inviter_id, provider_id, username FROM users WHERE id = $1', [order.user_id]);
+
+      // 1. 会员2% → balance
+      if (memberShare > 0) {
+        await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [memberShare, order.user_id]);
       }
 
-      // ========== 收益分配（市场费按产品价格比例→各角色balance收益）==========
-      // 会员2% + 直推0.3% + 服务商2% + 上级服务商0.3% + 高级服务商0.15% + 服务网点0.15% + 智算平台运营0.10% = 5%
-      if (marketFee > 0) {
-        const memberShare = Math.round(price * 0.02 * 100) / 100;
-        const directReward = Math.round(price * 0.003 * 100) / 100;
-        const providerShare = Math.round(price * 0.02 * 100) / 100;
-        const parentProviderShare = Math.round(price * 0.003 * 100) / 100;
-        const seniorProviderShare = Math.round(price * 0.0015 * 100) / 100;
-        const branchShare = Math.round(price * 0.0015 * 100) / 100;
-        const companyShare = Math.round(price * 0.001 * 100) / 100;
-
-        // 1. 会员2% → balance
-        if (memberShare > 0) {
-          await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [memberShare, order.user_id]);
+      // 2. 直推人0.3% → balance
+      let directRewardTo: string | null = null;
+      if (directReward > 0 && member?.inviter_id) {
+        const inviter = await queryOne('SELECT id FROM users WHERE id = $1', [member.inviter_id]);
+        if (inviter) {
+          directRewardTo = inviter.id;
+          await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [directReward, inviter.id]);
         }
+      }
 
-        // 2. 给直推人增加收益余额（0.3%）
-        const member = await queryOne('SELECT id, inviter_id, provider_id FROM users WHERE id = $1', [order.user_id]);
-        let directRewardTo = null;
-        if (member?.inviter_id) {
-          const inviter = await queryOne('SELECT id FROM users WHERE id = $1', [member.inviter_id]);
-          if (inviter) {
-            directRewardTo = inviter.id;
-            if (directReward > 0) {
-              await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [directReward, inviter.id]);
-            }
+      // 3. 服务商2% → balance
+      if (providerShare > 0) {
+        await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [providerShare, providerId]);
+      }
+
+      // 4. 上级服务商0.3% → balance
+      const providerInfo = await queryOne('SELECT branch_id, parent_provider_id FROM providers WHERE user_id = $1', [providerId]);
+      let parentProviderId: string | null = null;
+      if (providerInfo?.parent_provider_id && parentShare > 0) {
+        const parentProvider = await queryOne('SELECT user_id FROM providers WHERE id = $1', [providerInfo.parent_provider_id]);
+        if (parentProvider?.user_id) {
+          parentProviderId = parentProvider.user_id;
+          await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [parentShare, parentProvider.user_id]);
+        }
+      }
+
+      // 5. 高级服务商0.15% → balance
+      let seniorProviderId: string | null = null;
+      if (providerInfo?.parent_provider_id) {
+        let currentProviderId = providerInfo.parent_provider_id;
+        let depth = 0;
+        while (currentProviderId && depth < 20) {
+          const sp: any = await queryOne('SELECT id, user_id, parent_provider_id, is_senior FROM providers WHERE id = $1', [currentProviderId]);
+          if (!sp) break;
+          if (sp.is_senior) {
+            seniorProviderId = sp.user_id;
+            await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [seniorShare, sp.user_id]);
+            break;
           }
+          currentProviderId = sp.parent_provider_id;
+          depth++;
         }
+      }
 
-        // 3. 给服务商增加收益余额（2%）
-        if (providerShare > 0) {
-          await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [providerShare, providerId]);
+      // 6. 服务网点0.15% → balance
+      let distributionBranchId: string | null = providerInfo?.branch_id || null;
+      if (providerInfo?.branch_id && branchShare > 0) {
+        await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [branchShare, providerInfo.branch_id]);
+      }
+
+      // 7. 智算平台运营0.10%（+无上级/高级时的剩余份额）→ balance
+      const noParentExtra = parentProviderId ? 0 : parentShare;
+      const noSeniorExtra = seniorProviderId ? 0 : seniorShare;
+      const finalCompanyShare = companyShare + noParentExtra + noSeniorExtra;
+      if (finalCompanyShare > 0) {
+        const adminUser = await queryOne("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
+        if (adminUser) {
+          await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [finalCompanyShare, adminUser.id]);
         }
+      }
 
-        // 4. 给上级服务商增加收益余额（0.3%）—— 无上级则归智算平台运营
-        const providerInfo = await queryOne('SELECT branch_id, parent_provider_id FROM providers WHERE user_id = $1', [providerId]);
-
-        let actualParentProviderId = providerInfo?.parent_provider_id || null;
-        if (providerInfo?.parent_provider_id && parentProviderShare > 0) {
-          const parentProvider = await queryOne('SELECT user_id FROM providers WHERE id = $1', [providerInfo.parent_provider_id]);
-          if (parentProvider?.user_id) {
-            await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [parentProviderShare, parentProvider.user_id]);
-          }
-        }
-
-        // 5. 给高级服务商增加收益余额（0.15%）—— 向上查找最近的高级服务商，无则归智算平台运营
-        let actualSeniorProviderId: string | null = null;
-        if (providerInfo?.parent_provider_id) {
-          let currentProviderId = providerInfo.parent_provider_id;
-          let depth = 0;
-          while (currentProviderId && depth < 20) {
-            const sp: any = await queryOne('SELECT id, user_id, parent_provider_id, is_senior FROM providers WHERE id = $1', [currentProviderId]);
-            if (!sp) break;
-            if (sp.is_senior) {
-              actualSeniorProviderId = sp.id;
-              await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [seniorProviderShare, sp.user_id]);
-              break;
-            }
-            currentProviderId = sp.parent_provider_id;
-            depth++;
-          }
-        }
-
-        // 6. 给服务网点增加收益余额（0.15%）
-        if (providerInfo?.branch_id && branchShare > 0) {
-          await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [branchShare, providerInfo.branch_id]);
-        }
-
-        // 7. 给智算平台运营增加收益余额（0.10% + 无上级服务商时的0.3% + 无高级服务商时的0.15%）
-        const noParentExtra = actualParentProviderId ? 0 : parentProviderShare;
-        const noSeniorExtra = actualSeniorProviderId ? 0 : seniorProviderShare;
-        const finalCompanyShare = companyShare + noParentExtra + noSeniorExtra;
-        if (finalCompanyShare > 0) {
-          const adminUser = await queryOne("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
-          if (adminUser) {
-            await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [finalCompanyShare, adminUser.id]);
-          }
-        }
-
-        // 记录收益分配明细（使用 execute(SQL) 避免 REST API insert 静默失败）
-        const branchId = providerInfo?.branch_id || null;
-        const distId = crypto.randomUUID();
+      // 记录释放收益
+      try {
         await execute(
-          `INSERT INTO provider_revenue_distribution 
-            (id, order_id, product_id, provider_id, member_id, member_inviter_id, product_price,
-             market_fee, provider_share, direct_reward, direct_reward_to,
-             parent_provider_id, parent_provider_share, branch_id, branch_share, company_share, status, created_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW())`,
+          `INSERT INTO release_records 
+           (product_id, product_name, product_price, release_amount, release_rate,
+            member_id, member_name, member_share,
+            direct_referral_id, direct_referral_share,
+            provider_id, provider_share,
+            parent_provider_id, parent_provider_share,
+            senior_provider_id, senior_provider_share,
+            branch_id, branch_share, company_share)
+           VALUES ($1, $2, $3, $4, 0.05, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
           [
-            distId, orderId, product.id, providerId, order.user_id, member?.inviter_id || null, price,
-            marketFee.toFixed(2), providerShare.toFixed(2),
-            directReward.toFixed(2), directRewardTo,
-            actualParentProviderId || null,
-            actualParentProviderId ? parentProviderShare.toFixed(2) : '0',
-            branchId, branchShare.toFixed(2),
-            finalCompanyShare.toFixed(2), 'completed',
+            product.id, productName, price, releaseAmount,
+            order.user_id, member?.username || order.user_id, memberShare,
+            directRewardTo, directReward,
+            providerId, providerShare,
+            parentProviderId, parentProviderId ? parentShare : 0,
+            seniorProviderId, seniorProviderId ? seniorShare : 0,
+            distributionBranchId, branchShare, finalCompanyShare
           ]
         );
+      } catch (e) {
+        console.error('记录释放收益失败:', e);
       }
 
       // 发送通知给会员
@@ -325,7 +250,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: { order, userProduct, message: '收款已确认，产品分配成功' },
+      data: { order, userProduct, message: '收款已确认，产品分配成功，收益已释放' },
     });
   } catch (error) {
     console.error('确认收款失败:', error);

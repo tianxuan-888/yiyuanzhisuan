@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne, execute } from '@/storage/database/pg-client';
 import { randomUUID } from 'crypto';
 
-// 市场费分配比例（各角色占产品价格的百分比，合计5%）
-const PRICE_SHARE_RATIOS = {
+// 释放收益分配比例（各角色占产品价格的百分比，合计5%）
+const RELEASE_SHARE_RATIOS = {
   member: 0.02,             // 会员 2%
   directReward: 0.003,      // 直推奖励 0.3%
   provider: 0.02,           // 服务商 2%
@@ -22,13 +22,11 @@ async function addBalance(
 ): Promise<void> {
   if (amount <= 0) return;
   
-  // 更新 users.balance
   await execute(
     `UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
     [amount, userId]
   );
   
-  // 记录到 member_revenue 表
   await execute(
     `INSERT INTO member_revenue (id, user_id, type, amount, note, status, created_at)
      VALUES ($1, $2, $3, $4, $5, 'completed', NOW())`,
@@ -40,7 +38,7 @@ async function addBalance(
 async function findNearestSeniorProvider(providerId: string): Promise<{ userId: string; providerId: string } | null> {
   let currentProviderId = providerId;
   let depth = 0;
-  const maxDepth = 20; // 防止无限循环
+  const maxDepth = 20;
   
   while (currentProviderId && depth < maxDepth) {
     const provider: any = await queryOne(
@@ -50,12 +48,10 @@ async function findNearestSeniorProvider(providerId: string): Promise<{ userId: 
     
     if (!provider) break;
     
-    // 检查当前服务商是否是高级服务商（跳过自己）
     if (provider.is_senior && provider.id !== providerId) {
       return { userId: provider.user_id, providerId: provider.id };
     }
     
-    // 往上找
     currentProviderId = provider.parent_provider_id;
     depth++;
   }
@@ -63,62 +59,146 @@ async function findNearestSeniorProvider(providerId: string): Promise<{ userId: 
   return null;
 }
 
-// 更新高级服务商状态
-async function updateSeniorProviderStatus(providerId: string): Promise<boolean> {
-  try {
-    // 统计该服务商的直推服务商数量
-    const result: any = await queryOne(
-      `SELECT COUNT(*) as count FROM providers WHERE parent_provider_id = $1`,
-      [providerId]
-    );
-    
-    const count = parseInt(result?.count || '0');
-    const isSenior = count >= 3;
-    
-    await execute(
-      'UPDATE providers SET is_senior = $1 WHERE id = $2',
-      [isSenior, providerId]
-    );
-    
-    return isSenior;
-  } catch (e) {
-    console.error('更新高级服务商状态失败:', e);
-    return false;
-  }
-}
-
-// 记录服务商收益分配
-async function recordProviderRevenueDistribution(
+// 释放5%收益并记录
+async function releaseAndDistribute(
   orderId: string,
-  providerId: string,
-  memberId: string,
   productId: string,
   productPrice: number,
-  marketFee: number,
-  providerShare: number,
-  directReward: number,
-  directRewardTo: string | null,
-  parentProviderShare: number,
-  parentProviderId: string | null,
-  seniorProviderShare: number,
-  seniorProviderId: string | null,
-  branchShare: number,
-  branchId: string | null,
-  companyShare: number
+  memberId: string,
+  providerId: string,
+  member: any,
+  providerRecord: any
 ) {
-  // 检查表是否存在 senior_provider 相关字段，如果不存在则添加
+  const releaseAmount = productPrice * 0.05;
+
+  // 1. 会员收益 2%
+  const memberShare = Math.round(productPrice * RELEASE_SHARE_RATIOS.member);
+  await addBalance(memberId, memberShare, 'member_share', '购买产品释放收益 (2%)');
+
+  // 2. 直推奖励 0.3%
+  let directRewardTo: string | null = null;
+  const directRewardAmount = Math.round(productPrice * RELEASE_SHARE_RATIOS.directReward);
+  const inviterIsProvider = member?.inviter_id && member.inviter_id === providerId;
+
+  if (member?.inviter_id && !inviterIsProvider) {
+    directRewardTo = member.inviter_id;
+    await addBalance(directRewardTo!, directRewardAmount, 'direct_reward', '直推会员购买产品奖励 (0.3%)');
+  } else if (inviterIsProvider && providerId) {
+    await addBalance(providerId, directRewardAmount, 'direct_reward_merged', '直推奖励(0.3%)合并到服务商收益');
+  }
+
+  // 3. 服务商收益 2%
+  const providerShare = Math.round(productPrice * RELEASE_SHARE_RATIOS.provider);
+  if (providerId) {
+    await addBalance(providerId, providerShare, 'provider_share', '会员购买产品收益分成 (2%)');
+  }
+
+  // 4. 上级服务商 0.3%
+  let parentProviderId: string | null = null;
+  let parentProviderUserId: string | null = null;
+  const parentProviderShare = Math.round(productPrice * RELEASE_SHARE_RATIOS.parentProvider);
+
+  if (providerRecord?.parent_provider_id) {
+    parentProviderId = providerRecord.parent_provider_id;
+    const parentProvider: any = await queryOne(
+      'SELECT user_id FROM providers WHERE id = $1',
+      [parentProviderId]
+    );
+    if (parentProvider?.user_id) {
+      parentProviderUserId = parentProvider.user_id;
+      await addBalance(parentProvider.user_id, parentProviderShare, 'parent_provider_share', '下级服务商会员购买产品分成 (0.3%)');
+    }
+  }
+
+  // 5. 高级服务商 0.15%
+  let seniorProviderId: string | null = null;
+  let seniorProviderUserId: string | null = null;
+  const seniorProviderShare = Math.round(productPrice * RELEASE_SHARE_RATIOS.seniorProvider);
+
+  if (providerRecord?.id) {
+    const seniorProvider = await findNearestSeniorProvider(providerRecord.id);
+    if (seniorProvider) {
+      seniorProviderId = seniorProvider.providerId;
+      seniorProviderUserId = seniorProvider.userId;
+      await addBalance(seniorProvider.userId, seniorProviderShare, 'senior_provider_share', '高级服务商团队销售分成 (0.15%)');
+    }
+  }
+
+  // 6. 服务网点 0.15%
+  const branchId = providerRecord?.branch_id || member?.branch_id;
+  const branchShare = Math.round(productPrice * RELEASE_SHARE_RATIOS.branch);
+  let distributionBranchId: string | null = null;
+
+  if (branchId) {
+    const branchUser: any = await queryOne(
+      'SELECT id FROM users WHERE id = $1 AND role = $2',
+      [branchId, 'branch']
+    );
+    if (branchUser) {
+      distributionBranchId = branchUser.id;
+      await addBalance(branchUser.id, branchShare, 'branch_share', '服务商会员购买产品分成 (0.15%)');
+    }
+  }
+
+  // 7. 智算平台运营 0.10% + 无上级时的0.3% + 无高级服务商时的0.15%
+  const companyBaseShare = Math.round(productPrice * RELEASE_SHARE_RATIOS.company);
+  const noParentShare = parentProviderId ? 0 : parentProviderShare;
+  const noSeniorShare = seniorProviderId ? 0 : seniorProviderShare;
+  const companyShare = companyBaseShare + noParentShare + noSeniorShare;
+
+  if (companyShare > 0) {
+    const adminUser: any = await queryOne(
+      "SELECT id FROM users WHERE role = 'admin' LIMIT 1",
+      []
+    );
+    if (adminUser) {
+      await addBalance(adminUser.id, companyShare, 'company_share', '平台运营收益');
+    }
+  }
+
+  // 记录释放收益
+  try {
+    await execute(
+      `INSERT INTO release_records 
+       (product_id, product_name, product_price, release_amount, release_rate,
+        member_id, member_name, member_share,
+        direct_referral_id, direct_referral_share,
+        provider_id, provider_share,
+        parent_provider_id, parent_provider_share,
+        senior_provider_id, senior_provider_share,
+        branch_id, branch_share, company_share)
+       VALUES ($1, $2, $3, $4, 0.05, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+      [
+        productId, '', productPrice, releaseAmount,
+        memberId, member?.username || memberId, memberShare,
+        directRewardTo, directRewardAmount,
+        providerId, providerShare,
+        parentProviderUserId, parentProviderId ? parentProviderShare : 0,
+        seniorProviderUserId, seniorProviderId ? seniorProviderShare : 0,
+        distributionBranchId, branchShare, companyShare
+      ]
+    );
+  } catch (e) {
+    console.error('记录释放收益失败:', e);
+  }
+
+  // 记录服务商收益分配
   try {
     await execute(
       `INSERT INTO provider_revenue_distribution 
        (id, order_id, provider_id, member_id, product_id, product_price, market_fee, 
         provider_share, direct_reward, direct_reward_to, parent_provider_share, parent_provider_id, 
         branch_share, branch_id, company_share, status, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'completed', NOW())`,
+       VALUES ($1, $2, $3, $4, $5, $6, 0, $7, $8, $9, $10, $11, $12, $13, $14, 'completed', NOW())`,
       [
         randomUUID(), orderId, providerId, memberId, productId, productPrice,
-        marketFee, providerShare, directReward, directRewardTo,
-        parentProviderShare, parentProviderId,
-        branchShare, branchId,
+        providerShare + (inviterIsProvider ? directRewardAmount : 0),
+        inviterIsProvider ? 0 : directRewardAmount,
+        directRewardTo,
+        parentProviderId ? parentProviderShare : 0,
+        parentProviderUserId,
+        branchShare,
+        distributionBranchId,
         companyShare
       ]
     );
@@ -163,13 +243,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'reject') {
-      // ========== 拒绝订单 ==========
       await query(
         `UPDATE orders SET status = 'cancelled', reviewed_by = $1, reviewed_at = NOW(), review_note = $2 WHERE id = $3`,
         [reviewerId, note || '审核拒绝', orderId]
       );
 
-      // 更新 user_products 为 cancelled
       if (order.user_product_id) {
         await query(
           "UPDATE user_products SET status = 'cancelled', updated_at = NOW() WHERE id = $1",
@@ -177,7 +255,6 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 产品恢复为 available
       if (order.product_id) {
         await query(
           "UPDATE products SET status = 'available', updated_at = NOW() WHERE id = $1",
@@ -185,7 +262,6 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 通知会员
       if (order.user_id) {
         await query(
           `INSERT INTO notifications (id, receiver_id, receiver_role, sender_id, sender_name, type, title, content, created_at)
@@ -208,184 +284,26 @@ export async function POST(request: NextRequest) {
       );
 
       const productPrice = Number(product?.price) || Number(order.amount);
-      const marketFee = Number(order.energy_cost) || 0; // 历史兼容
 
-      // 获取会员信息
       const member: any = await queryOne(
         'SELECT * FROM users WHERE id = $1',
         [order.user_id]
       );
 
-      // 获取服务商信息
       const providerRecord: any = await queryOne(
         'SELECT * FROM providers WHERE user_id = $1',
         [product?.provider_id]
       );
 
-      // ===== 按新比例分配市场费到各角色 balance（按产品价格比例） =====
-      
-      const providerUserId = product?.provider_id;
-
-      // 1. 会员收益返还 2%
-      const memberShare = Math.round(productPrice * PRICE_SHARE_RATIOS.member);
-      await addBalance(
-        order.user_id,
-        memberShare,
-        'member_share',
-        `购买产品收益返还 (2%)`
-      );
-
-      // 2. 直推奖励 0.3%
-      let directRewardTo: string | null = null;
-      const directRewardAmount = Math.round(productPrice * PRICE_SHARE_RATIOS.directReward);
-      const inviterIsProvider = member?.inviter_id && member.inviter_id === providerUserId;
-      
-      if (member?.inviter_id && !inviterIsProvider) {
-        directRewardTo = member.inviter_id;
-        await addBalance(
-          directRewardTo as string,
-          directRewardAmount,
-          'direct_reward',
-          `直推会员购买产品奖励 (0.3%)`
-        );
-      } else if (inviterIsProvider && providerUserId) {
-        // 推荐人就是服务商，合并到服务商收益
-        await addBalance(
-          providerUserId,
-          directRewardAmount,
-          'direct_reward_merged',
-          `直推奖励(0.3%)合并到服务商收益`
-        );
-      }
-
-      // 3. 服务商收益 2%
-      const providerShare = Math.round(productPrice * PRICE_SHARE_RATIOS.provider);
-      
-      if (providerUserId) {
-        await addBalance(
-          providerUserId,
-          providerShare,
-          'provider_share',
-          `会员购买产品收益分成 (2%)`
-        );
-      }
-
-      // 4. 上级服务商 0.3%
-      let parentProviderId: string | null = null;
-      const parentProviderShare = Math.round(productPrice * PRICE_SHARE_RATIOS.parentProvider);
-      
-      if (providerRecord?.parent_provider_id) {
-        parentProviderId = providerRecord.parent_provider_id;
-        const parentProvider: any = await queryOne(
-          'SELECT user_id FROM providers WHERE id = $1',
-          [parentProviderId]
-        );
-        if (parentProvider?.user_id) {
-          await addBalance(
-            parentProvider.user_id,
-            parentProviderShare,
-            'parent_provider_share',
-            `下级服务商会员购买产品分成 (0.3%)`
-          );
-        }
-      }
-
-      // 5. 高级服务商 0.15%（向上查找最近的高级服务商）
-      let seniorProviderId: string | null = null;
-      let seniorProviderShare = Math.round(productPrice * PRICE_SHARE_RATIOS.seniorProvider);
-      let seniorProviderUserId: string | null = null;
-      
-      if (providerRecord?.id) {
-        const seniorProvider = await findNearestSeniorProvider(providerRecord.id);
-        if (seniorProvider) {
-          seniorProviderId = seniorProvider.providerId;
-          seniorProviderUserId = seniorProvider.userId;
-          await addBalance(
-            seniorProvider.userId,
-            seniorProviderShare,
-            'senior_provider_share',
-            `高级服务商团队销售分成 (0.15%)`
-          );
-        }
-      }
-      
-      // 如果没有高级服务商，0.15%归智算平台运营
-      const companyExtraIfNoSenior = seniorProviderId ? 0 : seniorProviderShare;
-
-      // 6. 服务网点 0.15%
-      const branchId = providerRecord?.branch_id || member?.branch_id;
-      const branchShare = Math.round(productPrice * PRICE_SHARE_RATIOS.branch);
-      
-      if (branchId) {
-        const branchUser: any = await queryOne(
-          'SELECT id FROM users WHERE id = $1 AND role = $2',
-          [branchId, 'branch']
-        );
-        if (branchUser) {
-          await addBalance(
-            branchUser.id,
-            branchShare,
-            'branch_share',
-            `服务商会员购买产品分成 (0.15%)`
-          );
-          
-          // 记录服务网点现金收益
-          await execute(
-            `INSERT INTO branch_revenue_records (branch_id, type, amount, related_user_id, related_order_id, note, status, created_at)
-             VALUES ($1, 'market_fee_share', $2, $3, $4, $5, 'received', NOW())`,
-            [branchId, branchShare, order.user_id, orderId, `市场费分润0.15% (订单: ${orderId})`]
-          );
-        }
-      }
-
-      // 7. 智算平台运营 0.10% + 无上级服务商时的0.3% + 无高级服务商时的0.15%
-      const companyBaseShare = Math.round(productPrice * PRICE_SHARE_RATIOS.company);
-      const noParentShare = parentProviderId ? 0 : parentProviderShare;
-      const companyShare = companyBaseShare + noParentShare + companyExtraIfNoSenior;
-      
-      if (companyShare > 0) {
-        const adminUser: any = await queryOne(
-          "SELECT id FROM users WHERE role = 'admin' LIMIT 1",
-          []
-        );
-        if (adminUser) {
-          const noteParts = [`平台运营0.10%`];
-          if (noParentShare > 0) noteParts.push(`上级服务商0.3%`);
-          if (companyExtraIfNoSenior > 0) noteParts.push(`高级服务商0.15%`);
-          
-          await addBalance(
-            adminUser.id,
-            companyShare,
-            'company_share',
-            `公司收益: ${noteParts.join('+')}`
-          );
-          
-          await execute(
-            `INSERT INTO company_fee_records (type, amount, source_user_id, source_role, source_order_id, note, created_at)
-             VALUES ('market_fee_ops', $1, $2, 'member', $3, $4, NOW())`,
-            [companyShare, order.user_id, orderId, `公司收益 (订单: ${orderId})`]
-          );
-        }
-      }
-
-      // 记录服务商收益分配
-      await recordProviderRevenueDistribution(
+      // 总台释放5%收益，按7项分配（不再扣能量值）
+      await releaseAndDistribute(
         orderId,
-        product?.provider_id,
-        order.user_id,
-        order.product_id,
+        product?.id,
         productPrice,
-        marketFee,
-        providerShare + (inviterIsProvider ? directRewardAmount : 0),
-        inviterIsProvider ? 0 : directRewardAmount,
-        directRewardTo,
-        parentProviderShare,
-        parentProviderId,
-        seniorProviderShare,
-        seniorProviderId,
-        branchShare,
-        branchId,
-        companyShare
+        order.user_id,
+        product?.provider_id,
+        member,
+        providerRecord
       );
 
       // 更新订单状态
@@ -422,20 +340,9 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: '审核通过，产品已转入会员持仓',
+        message: '审核通过，收益已释放，产品已转入会员持仓',
         data: {
-          marketFee,
-          distribution: {
-            provider: providerShare,
-            directReward: inviterIsProvider ? 0 : directRewardAmount,
-            directRewardTo,
-            parentProvider: parentProviderId ? parentProviderShare : 0,
-            parentProviderToCompany: parentProviderId ? 0 : parentProviderShare,
-            seniorProvider: seniorProviderId ? seniorProviderShare : 0,
-            seniorProviderToCompany: companyExtraIfNoSenior,
-            branch: branchShare,
-            company: companyShare,
-          }
+          releaseAmount: productPrice * 0.05,
         }
       });
 

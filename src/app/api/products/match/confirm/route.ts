@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     // 获取所有待确认的产品
     const { data: products, error: productsError } = await supabase
       .from('products')
-      .select('id, name, price, period, total_rate, market_rate, profit_rate, status, provider_id, previous_holder_id, pending_match_user_id')
+      .select('id, name, price, period, total_rate, profit_rate, status, provider_id, previous_holder_id, pending_match_user_id')
       .in('id', productIds);
 
     if (productsError || !products || products.length === 0) {
@@ -54,10 +54,10 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      // 检查目标会员收益
+      // 检查目标会员
       const { data: targetUser } = await supabase
         .from('users')
-        .select('id, username, energy_value, balance, provider_id')
+        .select('id, username, balance, provider_id, inviter_id')
         .eq('id', product.pending_match_user_id)
         .single();
 
@@ -66,67 +66,47 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      const marketFee = product.price * (product.market_rate / 100);
       const profitAmount = product.price * (product.profit_rate / 100);
 
-      if (targetUser.energy_value < marketFee) {
-        // 收益不足，清除匹配，回到待匹配列表
-        await supabase.rpc('rpc_execute', {
-          sql_query: `UPDATE products SET pending_match_user_id = NULL WHERE id = '${product.id}'`
-        });
-        results.push({ productId: product.id, success: false, message: `${targetUser.username}收益不足(${targetUser.energy_value}/${marketFee})` });
-        continue;
-      }
-
       // === 匹配成功，执行所有操作 ===
+      // 不再扣除能量值，不再有市场费
+      // 总台释放5%收益，按7项分配到各角色balance
 
-      // 1. 扣除目标会员收益
-      const { error: deductError } = await supabase.rpc('rpc_execute', {
-        sql_query: `UPDATE users SET energy_value = energy_value - ${marketFee} WHERE id = '${targetUser.id}' AND energy_value >= ${marketFee}`
-      });
-      if (deductError) {
-        console.error('[MATCH CONFIRM] 扣除收益失败:', deductError);
-        results.push({ productId: product.id, success: false, message: '扣除收益失败' });
-        continue;
-      }
+      const releaseRate = 0.05; // 总台释放5%
+      const memberShare = product.price * 0.02;       // 会员2%
+      const directShare = product.price * 0.003;       // 直推0.3%
+      const providerShare = product.price * 0.02;      // 服务商2%
+      const parentProviderShare = product.price * 0.003; // 上级服务商0.3%
+      const seniorProviderShare = product.price * 0.0015; // 高级服务商0.15%
+      const branchShare = product.price * 0.0015;      // 服务网点0.15%
+      const companyShare = product.price * 0.001;      // 智算平台运营0.10%
+      const totalReleased = product.price * releaseRate;
 
-      // 2. 分配市场费到各角色收益(balance) —— 按产品价格比例分配
-      // 会员2% + 直推0.3% + 服务商2% + 上级服务商0.3% + 高级服务商0.15% + 服务网点0.15% + 智算平台运营0.10% = 5%
-      const memberShare = product.price * 0.02;
-      const directShare = product.price * 0.003;
-      const providerShare = product.price * 0.02;
-      const parentProviderShare = product.price * 0.003;
-      const seniorProviderShare = product.price * 0.0015;
-      const branchShare = product.price * 0.0015;
-      const companyShare = product.price * 0.001;
-
-      // 会员收益返还
+      // 1. 会员收益
       await supabase.rpc('rpc_execute', {
         sql_query: `UPDATE users SET balance = COALESCE(balance, 0) + ${memberShare} WHERE id = '${targetUser.id}'`
       });
 
-      // 直推人收益
-      const { data: prevHolder } = await supabase.from('users').select('inviter_id').eq('id', targetUser.id).single();
-      if (prevHolder?.inviter_id) {
+      // 2. 直推人收益
+      if (targetUser.inviter_id) {
         await supabase.rpc('rpc_execute', {
-          sql_query: `UPDATE users SET balance = COALESCE(balance, 0) + ${directShare} WHERE id = '${prevHolder.inviter_id}'`
+          sql_query: `UPDATE users SET balance = COALESCE(balance, 0) + ${directShare} WHERE id = '${targetUser.inviter_id}'`
         });
       }
 
-      // 服务商收益
+      // 3. 服务商收益
       await supabase.rpc('rpc_execute', {
         sql_query: `UPDATE users SET balance = COALESCE(balance, 0) + ${providerShare} WHERE id = '${user.userId}'`
       });
 
-      // 上级服务商收益
-      const { data: targetUserData } = await supabase.from('users').select('provider_id').eq('id', targetUser.id).single();
-      if (targetUserData?.provider_id && targetUserData.provider_id !== user.userId) {
+      // 4. 上级服务商收益
+      if (targetUser.provider_id && targetUser.provider_id !== user.userId) {
         await supabase.rpc('rpc_execute', {
-          sql_query: `UPDATE users SET balance = COALESCE(balance, 0) + ${parentProviderShare} WHERE id = '${targetUserData.provider_id}'`
+          sql_query: `UPDATE users SET balance = COALESCE(balance, 0) + ${parentProviderShare} WHERE id = '${targetUser.provider_id}'`
         });
       }
 
-      // 高级服务商收益（服务商的上级服务商链中最近的高级服务商）
+      // 5. 高级服务商收益（服务商的上级服务商）
       const { data: currentProviderData } = await supabase.from('users').select('provider_id').eq('id', user.userId).single();
       if (currentProviderData?.provider_id) {
         await supabase.rpc('rpc_execute', {
@@ -134,7 +114,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // 服务网点收益
+      // 6. 服务网点收益
       const { data: providerData } = await supabase.from('providers').select('branch_id').eq('user_id', user.userId).single();
       if (providerData?.branch_id) {
         await supabase.rpc('rpc_execute', {
@@ -142,7 +122,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // 智算平台运营收益
+      // 7. 智算平台运营收益
       const { data: adminUser } = await supabase.from('users').select('id').eq('role', 'admin').limit(1);
       if (adminUser && adminUser[0]) {
         await supabase.rpc('rpc_execute', {
@@ -150,7 +130,30 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // 3. 原持有人本金到账
+      // 8. 创建释放收益记录
+      await supabase.from('release_records').insert({
+        product_id: product.id,
+        product_name: product.name,
+        product_price: product.price,
+        release_amount: totalReleased,
+        release_rate: releaseRate,
+        member_id: targetUser.id,
+        member_name: targetUser.username,
+        member_share: memberShare,
+        direct_referral_id: targetUser.inviter_id || null,
+        direct_referral_share: directShare,
+        provider_id: user.userId,
+        provider_share: providerShare,
+        parent_provider_id: targetUser.provider_id || null,
+        parent_provider_share: parentProviderShare,
+        senior_provider_id: currentProviderData?.provider_id || null,
+        senior_provider_share: seniorProviderShare,
+        branch_id: providerData?.branch_id || null,
+        branch_share: branchShare,
+        company_share: companyShare
+      });
+
+      // 9. 原持有人本金到账
       if (product.previous_holder_id) {
         await supabase.rpc('rpc_execute', {
           sql_query: `UPDATE users SET balance = COALESCE(balance, 0) + ${product.price} WHERE id = '${product.previous_holder_id}'`
@@ -162,7 +165,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // 4. 创建新持有记录
+      // 10. 创建新持有记录（不再扣除市场费）
       const now = new Date();
       const expireDate = new Date(now.getTime() + product.period * 24 * 60 * 60 * 1000);
 
@@ -175,7 +178,7 @@ export async function POST(request: NextRequest) {
           purchase_date: now.toISOString(),
           expire_date: expireDate.toISOString(),
           expected_profit: profitAmount,
-          market_fee: marketFee,
+          market_fee: 0, // 不再收取市场费
           seller_id: product.previous_holder_id || null,
           transfer_type: product.previous_holder_id ? 'member_transfer' : 'provider_match',
           status: 'holding'
@@ -187,12 +190,12 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      // 5. 更新产品状态为sold，清除匹配信息
+      // 11. 更新产品状态为sold，清除匹配信息
       await supabase.rpc('rpc_execute', {
         sql_query: `UPDATE products SET status = 'sold', pending_match_user_id = NULL WHERE id = '${product.id}'`
       });
 
-      // 6. 创建订单记录
+      // 12. 创建订单记录
       await supabase.from('orders').insert({
         user_id: targetUser.id,
         user_product_id: null,
@@ -201,17 +204,17 @@ export async function POST(request: NextRequest) {
         status: 'completed'
       });
 
-      // 7. 通知目标会员
+      // 13. 通知目标会员
       await supabase.from('notifications').insert({
         receiver_id: targetUser.id,
         receiver_role: 'member',
         type: 'product_matched',
         title: '产品匹配成功',
-        content: `您已成功匹配产品「${product.name}」，金额¥${product.price}，收益已扣除${marketFee}`,
+        content: `您已成功匹配产品「${product.name}」，金额¥${product.price}，到期收益¥${profitAmount}`,
         is_read: false
       });
 
-      // 8. 通知原持有人本金到账
+      // 14. 通知原持有人本金到账
       if (product.previous_holder_id) {
         await supabase.from('notifications').insert({
           receiver_id: product.previous_holder_id,
@@ -223,7 +226,11 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      console.log('[MATCH CONFIRM] 匹配成功:', { productId: product.id, targetUser: targetUser.username });
+      console.log('[MATCH CONFIRM] 匹配成功，释放收益:', {
+        productId: product.id,
+        targetUser: targetUser.username,
+        releaseAmount: totalReleased
+      });
       results.push({ productId: product.id, success: true, message: '匹配成功' });
     }
 

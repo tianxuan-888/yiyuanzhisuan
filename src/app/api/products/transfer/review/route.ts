@@ -13,7 +13,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { transferId, action, reviewNote } = body;
 
-    // 使用 token 中的 userId 作为审核者身份
     const reviewerId = user.userId;
 
     if (!transferId || !action) {
@@ -34,7 +33,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '流转记录不存在' }, { status: 404 });
     }
 
-    // 验证流转状态
     if (!['awaiting_payment', 'buyer_confirmed', 'seller_confirmed'].includes(transfer.status)) {
       return NextResponse.json({ error: '该流转已被处理或状态不允许审核' }, { status: 400 });
     }
@@ -58,9 +56,7 @@ export async function POST(request: NextRequest) {
     // ========== 拒绝审核 ==========
     if (action === 'reject') {
       await query(
-        `UPDATE product_transfers 
-         SET status = 'rejected', updated_at = NOW()
-         WHERE id = $1`,
+        `UPDATE product_transfers SET status = 'rejected', updated_at = NOW() WHERE id = $1`,
         [transferId]
       );
 
@@ -87,7 +83,6 @@ export async function POST(request: NextRequest) {
 
     // ========== 审核通过 ==========
     
-    // 关键检查：卖家必须已确认收款
     if (transfer.status !== 'seller_confirmed') {
       return NextResponse.json({ 
         error: '卖家尚未确认收款，无法审核通过',
@@ -95,12 +90,10 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 验证买家存在
     if (!transfer.to_user_id) {
       return NextResponse.json({ error: '买家信息缺失' }, { status: 400 });
     }
 
-    // 查询原持有用户（卖方）的购买信息
     const userProduct = await queryOne<any>(
       "SELECT * FROM user_products WHERE product_id = $1 AND user_id = $2 AND status IN ('transferring', 'pending_sell')",
       [transfer.product_id, transfer.from_user_id]
@@ -112,15 +105,13 @@ export async function POST(request: NextRequest) {
 
     const transferPrice = parseFloat(transfer.transfer_price) || parseFloat(product.price);
     const profitRate = parseFloat(product.profit_rate) || 0;
-    const marketRate = parseFloat(product.market_rate) || 0;
-    const marketFee = Math.floor(transferPrice * marketRate / 100);
 
     // 卖家收益 = 本金 × profit_rate%
     const sellerProfit = Math.floor(transferPrice * profitRate / 100);
 
-    // ========== 扣除买家收益（市场费） ==========
+    // 查询买家信息
     const buyer = await queryOne<any>(
-      'SELECT id, username, energy_value, provider_id, inviter_id FROM users WHERE id = $1',
+      'SELECT id, username, provider_id, inviter_id FROM users WHERE id = $1',
       [transfer.to_user_id]
     );
 
@@ -128,147 +119,129 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '买家用户不存在' }, { status: 404 });
     }
 
-    if (marketFee > 0 && parseFloat(buyer.energy_value) < marketFee) {
-      return NextResponse.json({ 
-        error: `买家收益不足（需 ${marketFee}，当前 ${parseFloat(buyer.energy_value)}），无法完成流转`,
-      }, { status: 400 });
-    }
+    // ========== 总台释放5%收益，按7项分配（不再扣能量值） ==========
+    const releaseRate = 0.05;
+    const memberShare = Math.round(transferPrice * 0.02 * 100) / 100;
+    const directShare = Math.round(transferPrice * 0.003 * 100) / 100;
+    const providerShare = Math.round(transferPrice * 0.02 * 100) / 100;
+    const parentProviderShare = Math.round(transferPrice * 0.003 * 100) / 100;
+    const seniorProviderShare = Math.round(transferPrice * 0.0015 * 100) / 100;
+    const branchShare = Math.round(transferPrice * 0.0015 * 100) / 100;
+    const companyShare = Math.round(transferPrice * 0.001 * 100) / 100;
+    const totalReleased = transferPrice * releaseRate;
 
-    if (marketFee > 0) {
+    let distributionBranchId: string | null = null;
+    let distributionParentProviderId: string | null = null;
+    let distributionSeniorProviderId: string | null = null;
+
+    // 1. 会员收益2%（买家）
+    if (memberShare > 0) {
       await query(
-        'UPDATE users SET energy_value = GREATEST(0, energy_value - $1), updated_at = NOW() WHERE id = $2',
-        [marketFee, transfer.to_user_id]
-      );
-
-      // 记录收益流水
-      await query(
-        `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, status, created_at)
-         VALUES ($1, 'transfer_out', $2, $1, NULL, $3, 'completed', NOW())`,
-        [transfer.to_user_id, marketFee, `购买流转产品 ${product.name} 支付市场费 ${marketFee}`]
-      );
-    }
-
-    // ========== 市场费按比例分成到各角色balance ==========
-    // 按产品价格比例分配：会员2% + 直推0.3% + 服务商2% + 上级服务商0.3% + 高级服务商0.15% + 服务网点0.15% + 智算平台运营0.10% = 5%
-    if (marketFee > 0) {
-      const memberShare = Math.floor(transferPrice * 0.02);
-      const directReferralShare = Math.floor(transferPrice * 0.003);
-      const providerShare = Math.floor(transferPrice * 0.02);
-      const upstreamProviderShare = Math.floor(transferPrice * 0.003);
-      const seniorProviderShare = Math.floor(transferPrice * 0.0015);
-      const branchShare = Math.floor(transferPrice * 0.0015);
-      const companyShare = Math.floor(transferPrice * 0.001);
-
-      let distributionBranchId: string | null = null;
-      let distributionParentProviderId: string | null = null;
-
-      // 1. 会员收益返还2%
-      if (memberShare > 0) {
-        await query(
-          'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
-          [memberShare, transfer.to_user_id]
-        );
-      }
-
-      // 2. 直推人获得0.3%（买家的推荐人）
-      if (directReferralShare > 0 && buyer.inviter_id) {
-        await query(
-          'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
-          [directReferralShare, buyer.inviter_id]
-        );
-      }
-
-      // 3. 服务商获得2%
-      if (providerShare > 0 && product.provider_id) {
-        await query(
-          'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
-          [providerShare, product.provider_id]
-        );
-      }
-
-      // 4. 上级服务商获得0.3%
-      let distributionSeniorProviderId: string | null = null;
-      if (upstreamProviderShare > 0 && product.provider_id) {
-        const providerUser = await queryOne<any>(
-          'SELECT provider_id FROM users WHERE id = $1',
-          [product.provider_id]
-        );
-        if (providerUser?.provider_id) {
-          distributionParentProviderId = providerUser.provider_id;
-          await query(
-            'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
-            [upstreamProviderShare, providerUser.provider_id]
-          );
-        }
-      }
-
-      // 5. 高级服务商获得0.15%（服务商的上级服务商链中最近的高级服务商）
-      if (seniorProviderShare > 0 && product.provider_id) {
-        const currentProviderUser = await queryOne<any>(
-          'SELECT provider_id FROM users WHERE id = $1',
-          [product.provider_id]
-        );
-        if (currentProviderUser?.provider_id && currentProviderUser.provider_id !== distributionParentProviderId) {
-          distributionSeniorProviderId = currentProviderUser.provider_id;
-          await query(
-            'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
-            [seniorProviderShare, currentProviderUser.provider_id]
-          );
-        }
-      }
-
-      // 6. 服务网点获得0.15%
-      if (branchShare > 0 && buyer.provider_id) {
-        const providerInfo = await queryOne<any>(
-          'SELECT branch_id FROM providers WHERE user_id = $1',
-          [buyer.provider_id]
-        );
-        if (providerInfo?.branch_id) {
-          distributionBranchId = providerInfo.branch_id;
-          await query(
-            'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
-            [branchShare, providerInfo.branch_id]
-          );
-        }
-      }
-
-      // 7. 智算平台运营获得0.10%
-      if (companyShare > 0) {
-        const adminUser = await queryOne<any>(
-          "SELECT id FROM users WHERE role = 'admin' LIMIT 1"
-        );
-        if (adminUser) {
-          await query(
-            'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
-            [companyShare, adminUser.id]
-          );
-        }
-      }
-
-      // 记录市场费分配
-      await query(
-        `INSERT INTO provider_revenue_distribution 
-         (provider_id, member_id, product_id, product_price, market_fee, provider_share, direct_reward, direct_reward_to, parent_provider_share, parent_provider_id, senior_provider_share, senior_provider_id, branch_share, branch_id, company_share, status, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'completed', NOW(), NOW())`,
-        [
-          product.provider_id, transfer.to_user_id, product.id, transferPrice, marketFee,
-          providerShare, directReferralShare, buyer.inviter_id || null,
-          upstreamProviderShare, distributionParentProviderId,
-          seniorProviderShare, distributionSeniorProviderId,
-          branchShare, distributionBranchId,
-          companyShare
-        ]
+        'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
+        [memberShare, transfer.to_user_id]
       );
     }
+
+    // 2. 直推人0.3%
+    if (directShare > 0 && buyer.inviter_id) {
+      await query(
+        'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
+        [directShare, buyer.inviter_id]
+      );
+    }
+
+    // 3. 服务商2%
+    if (providerShare > 0 && product.provider_id) {
+      await query(
+        'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
+        [providerShare, product.provider_id]
+      );
+    }
+
+    // 4. 上级服务商0.3%
+    if (parentProviderShare > 0 && product.provider_id) {
+      const providerUser = await queryOne<any>(
+        'SELECT provider_id FROM users WHERE id = $1',
+        [product.provider_id]
+      );
+      if (providerUser?.provider_id) {
+        distributionParentProviderId = providerUser.provider_id;
+        await query(
+          'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
+          [parentProviderShare, providerUser.provider_id]
+        );
+      }
+    }
+
+    // 5. 高级服务商0.15%
+    if (seniorProviderShare > 0 && product.provider_id) {
+      const currentProviderUser = await queryOne<any>(
+        'SELECT provider_id FROM users WHERE id = $1',
+        [product.provider_id]
+      );
+      if (currentProviderUser?.provider_id && currentProviderUser.provider_id !== distributionParentProviderId) {
+        distributionSeniorProviderId = currentProviderUser.provider_id;
+        await query(
+          'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
+          [seniorProviderShare, currentProviderUser.provider_id]
+        );
+      }
+    }
+
+    // 6. 服务网点0.15%
+    if (branchShare > 0 && buyer.provider_id) {
+      const providerInfo = await queryOne<any>(
+        'SELECT branch_id FROM providers WHERE user_id = $1',
+        [buyer.provider_id]
+      );
+      if (providerInfo?.branch_id) {
+        distributionBranchId = providerInfo.branch_id;
+        await query(
+          'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
+          [branchShare, providerInfo.branch_id]
+        );
+      }
+    }
+
+    // 7. 智算平台运营0.10%
+    if (companyShare > 0) {
+      const adminUser = await queryOne<any>(
+        "SELECT id FROM users WHERE role = 'admin' LIMIT 1"
+      );
+      if (adminUser) {
+        await query(
+          'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
+          [companyShare, adminUser.id]
+        );
+      }
+    }
+
+    // 创建释放收益记录
+    await query(
+      `INSERT INTO release_records 
+       (product_id, product_name, product_price, release_amount, release_rate,
+        member_id, member_name, member_share,
+        direct_referral_id, direct_referral_share,
+        provider_id, provider_share,
+        parent_provider_id, parent_provider_share,
+        senior_provider_id, senior_provider_share,
+        branch_id, branch_share, company_share)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`,
+      [
+        product.id, product.name, transferPrice, totalReleased, releaseRate,
+        transfer.to_user_id, buyer.username || transfer.to_user_id, memberShare,
+        buyer.inviter_id || null, directShare,
+        product.provider_id, providerShare,
+        distributionParentProviderId, distributionParentProviderId ? parentProviderShare : 0,
+        distributionSeniorProviderId, distributionSeniorProviderId ? seniorProviderShare : 0,
+        distributionBranchId, branchShare, companyShare
+      ]
+    );
 
     // ========== 产品转移 ==========
-    const completedDate = new Date();
-
     // 更新流转状态为 completed
     await query(
-      `UPDATE product_transfers 
-       SET status = 'completed', updated_at = NOW()
-       WHERE id = $1`,
+      `UPDATE product_transfers SET status = 'completed', updated_at = NOW() WHERE id = $1`,
       [transferId]
     );
 
@@ -278,15 +251,15 @@ export async function POST(request: NextRequest) {
       [userProduct.id]
     );
 
-    // 为买家创建新的用户产品记录
+    // 为买家创建新的用户产品记录（不收市场费）
     const expectedProfit = Math.floor(transferPrice * profitRate / 100);
     const periodDays = product.period || 7;
 
     await query(
       `INSERT INTO user_products 
        (user_id, product_id, purchase_price, purchase_date, expire_date, expected_profit, market_fee, status, created_at)
-       VALUES ($1, $2, $3, NOW(), NOW() + INTERVAL '1 day' * $4, $5, $6, 'holding', NOW())`,
-      [transfer.to_user_id, transfer.product_id, transferPrice, periodDays, expectedProfit, marketFee]
+       VALUES ($1, $2, $3, NOW(), NOW() + INTERVAL '1 day' * $4, $5, 0, 'holding', NOW())`,
+      [transfer.to_user_id, transfer.product_id, transferPrice, periodDays, expectedProfit]
     );
 
     // 更新产品状态为已售出
@@ -302,46 +275,10 @@ export async function POST(request: NextRequest) {
         [sellerProfit, transfer.from_user_id]
       );
 
-      // 记录收益交易
       await query(
         `INSERT INTO transactions (user_id, order_id, type, amount, created_at)
          VALUES ($1, NULL, 'sell_profit', $2, NOW())`,
-        [
-          transfer.from_user_id,
-          sellerProfit
-        ]
-      );
-
-      // 写入会员收益表，以便"我的收益"页面展示
-      const [sellerProduct] = await query(
-        "SELECT id, purchase_date FROM user_products WHERE product_id = $1 AND user_id = $2 LIMIT 1",
-        [transfer.product_id, transfer.from_user_id]
-      );
-      // 计算持有天数
-      let holdingDays = product.period;
-      if (sellerProduct?.purchase_date) {
-        const purchaseDate = new Date(sellerProduct.purchase_date);
-        const now = new Date();
-        holdingDays = Math.max(1, Math.floor((now.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24)));
-      }
-      await query(
-        `INSERT INTO member_revenue (user_id, order_id, user_product_id, principal, profit, total_amount, converted_to_energy, status, product_name, product_code, product_period, total_rate, profit_rate, market_rate, holding_days, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, 0, 'available', $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())`,
-        [
-          transfer.from_user_id,
-          transfer.id,
-          sellerProduct?.id || '',
-          transfer.transfer_price,
-          sellerProfit,
-          transfer.transfer_price + sellerProfit,
-          product.name,
-          product.code,
-          product.period,
-          product.total_rate,
-          product.profit_rate,
-          product.market_rate,
-          holdingDays,
-        ]
+        [transfer.from_user_id, sellerProfit]
       );
     }
 
@@ -349,20 +286,14 @@ export async function POST(request: NextRequest) {
     await query(
       `INSERT INTO transactions (user_id, order_id, type, amount, created_at)
        VALUES ($1, NULL, 'transfer_out', $2, NOW())`,
-      [
-        transfer.from_user_id,
-        transferPrice
-      ]
+      [transfer.from_user_id, transferPrice]
     );
 
     // 记录买家购买日志
     await query(
       `INSERT INTO transactions (user_id, order_id, type, amount, created_at)
        VALUES ($1, NULL, 'transfer_in', $2, NOW())`,
-      [
-        transfer.to_user_id,
-        transferPrice
-      ]
+      [transfer.to_user_id, transferPrice]
     );
 
     // 通知卖家流转完成
@@ -389,7 +320,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: '流转审核通过，产品已转移',
+      message: '流转审核通过，产品已转移，收益已释放',
       data: {
         transferId,
         fromUser: transfer.from_user_id,
@@ -397,9 +328,7 @@ export async function POST(request: NextRequest) {
         productName: product.name,
         transferPrice,
         sellerProfit,
-        profitRate,
-        marketFee,
-        marketRate,
+        releaseAmount: totalReleased,
       }
     });
   } catch (error) {
