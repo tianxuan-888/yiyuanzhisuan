@@ -246,7 +246,7 @@ export default function AdminPage() {
   const [editStatus, setEditStatus] = useState<string>('');
 
   // 人员账户Tab
-  const [accountsTab, setAccountsTab] = useState('branches');
+  const [accountsTab, setAccountsTab] = useState('list');
   
   // 数据总览 dashboard state
   const [dashboardData, setDashboardData] = useState<any>(null);
@@ -4374,17 +4374,18 @@ export default function AdminPage() {
   const loadAccountsData = async () => {
     setAccountsLoading(true);
     try {
-      const userStr = localStorage.getItem('user');
-      if (!userStr) return;
-      const user = JSON.parse(userStr);
-      const res = await fetch(`/api/admin/accounts?adminId=${user.id}`);
+      const res = await fetch('/api/admin/accounts');
       const data = await res.json();
-      if (data.success) {
-        setAccountsData(data.data || []);
-        setAccountsStats(data.stats || {});
+      console.log('[账户管理] API返回:', data.success, 'users:', data.data?.users?.length, 'stats:', data.data?.stats);
+      if (data.success && data.data) {
+        setAccountsData(data.data);
+        setAccountsStats(data.data.stats || {});
+      } else {
+        setAccountsData({ users: [], stats: {}, hierarchy: [] });
       }
     } catch (e) {
       console.error('加载账户数据失败', e);
+      setAccountsData({ users: [], stats: {}, hierarchy: [] });
     } finally {
       setAccountsLoading(false);
     }
@@ -4393,10 +4394,7 @@ export default function AdminPage() {
   const loadFinancialReport = async () => {
     setFinancialLoading(true);
     try {
-      const userStr = localStorage.getItem('user');
-      if (!userStr) return;
-      const user = JSON.parse(userStr);
-      const res = await fetch(`/api/admin/financial-report?adminId=${user.id}`);
+      const res = await fetch('/api/admin/financial-report');
       const data = await res.json();
       if (data.success) {
         setFinancialData(data.data || {});
