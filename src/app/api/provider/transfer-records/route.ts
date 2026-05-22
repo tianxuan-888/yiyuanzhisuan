@@ -175,7 +175,10 @@ export async function GET(request: NextRequest) {
         sellerName = providerUser?.username || '服务商';
         sellerUniqueId = providerUser?.unique_id || '';
         sellerPhone = providerUser?.phone || '';
-        sellerProfit = 0;
+        // 服务商匹配：服务商收益 = 产品价格 × 服务商市场费分成比例(2%)
+        const marketRate = product.market_rate || 0;
+        const providerShare = 0.02; // 服务商占产品价格的2%
+        sellerProfit = transferAmount * providerShare;
       }
 
       records.push({
@@ -246,7 +249,9 @@ export async function GET(request: NextRequest) {
         sellerName = providerUser?.username || '服务商';
         sellerUniqueId = providerUser?.unique_id || '';
         sellerPhone = providerUser?.phone || '';
-        sellerProfit = 0;
+        // 服务商匹配：服务商收益 = 产品价格 × 服务商市场费分成比例(2%)
+        const providerShare = 0.02;
+        sellerProfit = transferAmount * providerShare;
       }
 
       records.push({
