@@ -59,6 +59,10 @@ import {
   Network,
   Briefcase,
   UserCheck,
+  Trophy,
+  Activity,
+  Coins,
+  ArrowRight,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -72,7 +76,7 @@ import {
   ResponsiveContainer,
   LineChart,
   Line,
-  PieChart,
+  PieChart as RechartsPieChart,
   Pie,
   Cell,
   AreaChart,
@@ -89,6 +93,7 @@ type MenuItem = {
 
 // 导航菜单配置
 const menuItems: MenuItem[] = [
+  { id: 'dashboard', name: '数据总览', icon: <BarChart3 className="w-5 h-5" /> },
   { id: 'my-profile', name: '我的', icon: <User className="w-5 h-5" /> },
   { id: 'release', name: '收益记录', icon: <TrendingUp className="w-5 h-5" /> },
   { id: 'quota', name: 'Token额度管理', icon: <Database className="w-5 h-5" /> },
@@ -242,6 +247,10 @@ export default function AdminPage() {
 
   // 人员账户Tab
   const [accountsTab, setAccountsTab] = useState('branches');
+  
+  // 数据总览 dashboard state
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
   
   // 算力额度对话框状态
   const [showCreateQuotaDialog, setShowCreateQuotaDialog] = useState(false);
@@ -835,6 +844,9 @@ export default function AdminPage() {
     }
     if (activeMenu === 'release') {
       loadReleaseRecords();
+    }
+    if (activeMenu === 'dashboard') {
+      loadDashboardData();
     }
   }, [activeMenu, accountsTab, user]);
 
@@ -3478,7 +3490,7 @@ export default function AdminPage() {
               <CardContent>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
+                    <RechartsPieChart>
                       <Pie
                         data={[
                           { name: `服务商 ${shareBreakdown.provider.rate}`, value: Math.max(shareBreakdown.provider.amount, 1), color: '#8b5cf6' },
@@ -3490,7 +3502,7 @@ export default function AdminPage() {
                         cx="50%"
                         cy="50%"
                         labelLine={false}
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        label={({ name, percent }: { name: string; percent: number }) => `${name} ${(percent * 100).toFixed(0)}%`}
                         outerRadius={80}
                         fill="#8884d8"
                         dataKey="value"
@@ -3506,7 +3518,7 @@ export default function AdminPage() {
                         ))}
                       </Pie>
                       <Tooltip />
-                    </PieChart>
+                    </RechartsPieChart>
                   </ResponsiveContainer>
                 </div>
               </CardContent>
@@ -4322,7 +4334,6 @@ export default function AdminPage() {
     </Card>
   );
 
-  // 渲染释放收益记录
   const loadReleaseRecords = async (startDate?: string, endDate?: string) => {
     setReleaseLoading(true);
     try {
@@ -4342,6 +4353,21 @@ export default function AdminPage() {
       console.error('加载释放收益记录失败', e);
     } finally {
       setReleaseLoading(false);
+    }
+  };
+
+  const loadDashboardData = async () => {
+    setDashboardLoading(true);
+    try {
+      const res = await fetch('/api/admin/dashboard');
+      const data = await res.json();
+      if (data.success) {
+        setDashboardData(data.data);
+      }
+    } catch (e) {
+      console.error('加载数据总览失败', e);
+    } finally {
+      setDashboardLoading(false);
     }
   };
 
@@ -4380,6 +4406,317 @@ export default function AdminPage() {
     } finally {
       setFinancialLoading(false);
     }
+  };
+
+  const renderDashboard = () => {
+    const d = dashboardData as any;
+    if (dashboardLoading || !d) {
+      return (
+        <div className="flex items-center justify-center py-20">
+          <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
+          <span className="ml-3 text-muted-foreground">加载数据总览...</span>
+        </div>
+      );
+    }
+
+    const users = d.users || {};
+    const products = d.products || {};
+    const revenue = d.revenue || {};
+    const quota = d.quota || {};
+    const withdrawals = d.withdrawals || {};
+    const circulation = d.circulation || {};
+
+    return (
+      <div className="space-y-6">
+        {/* 顶部统计卡片 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg"><Users className="w-5 h-5 text-blue-600" /></div>
+                <div>
+                  <p className="text-sm text-muted-foreground">总用户</p>
+                  <p className="text-2xl font-bold">{users.total || 0}</p>
+                  <p className="text-xs text-green-600">今日+{users.todayNew || 0}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 rounded-lg"><ShoppingCart className="w-5 h-5 text-green-600" /></div>
+                <div>
+                  <p className="text-sm text-muted-foreground">总销售额</p>
+                  <p className="text-2xl font-bold">¥{((products.totalSalesAmount || 0)).toLocaleString()}</p>
+                  <p className="text-xs text-green-600">今日¥{((products.todayPurchaseAmount || 0)).toLocaleString()}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-amber-100 rounded-lg"><TrendingUp className="w-5 h-5 text-amber-600" /></div>
+                <div>
+                  <p className="text-sm text-muted-foreground">总释放收益</p>
+                  <p className="text-2xl font-bold">¥{((revenue.totalReleaseAmount || 0)).toLocaleString()}</p>
+                  <p className="text-xs text-green-600">今日¥{((revenue.todayReleaseAmount || 0)).toLocaleString()}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-red-100 rounded-lg"><Wallet className="w-5 h-5 text-red-600" /></div>
+                <div>
+                  <p className="text-sm text-muted-foreground">待审核提现</p>
+                  <p className="text-2xl font-bold">{withdrawals.pendingCount || 0}笔</p>
+                  <p className="text-xs text-red-600">¥{((withdrawals.pendingAmount || 0)).toLocaleString()}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* 数据流动图 - 中心概览 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Activity className="w-5 h-5" />平台数据流动</CardTitle>
+            <CardDescription>额度下发 → 产品生成 → 会员购买 → 收益释放 → 提现回流</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between gap-2 overflow-x-auto py-4">
+              {/* 总台额度 */}
+              <div className="flex-shrink-0 text-center p-4 bg-primary/5 border-2 border-primary/20 rounded-xl min-w-[140px]">
+                <Database className="w-8 h-8 mx-auto text-primary mb-2" />
+                <p className="text-sm font-semibold text-primary">总台额度</p>
+                <p className="text-lg font-bold">¥{((quota.companyQuota?.total_quota || 0) / 10000).toFixed(0)}万</p>
+                <p className="text-xs text-muted-foreground">可用 ¥{((quota.companyQuota?.available_quota || 0) / 10000).toFixed(0)}万</p>
+              </div>
+              <ArrowRight className="w-6 h-6 text-muted-foreground flex-shrink-0" />
+              {/* 服务商额度 */}
+              <div className="flex-shrink-0 text-center p-4 bg-blue-50 border-2 border-blue-200 rounded-xl min-w-[140px]">
+                <Briefcase className="w-8 h-8 mx-auto text-blue-600 mb-2" />
+                <p className="text-sm font-semibold text-blue-700">服务商额度</p>
+                <p className="text-lg font-bold">¥{((quota.totalProviderQuota || 0) / 10000).toFixed(1)}万</p>
+                <p className="text-xs text-blue-600">已用 ¥{((quota.totalProviderUsedQuota || 0) / 10000).toFixed(1)}万</p>
+              </div>
+              <ArrowRight className="w-6 h-6 text-muted-foreground flex-shrink-0" />
+              {/* 产品销售 */}
+              <div className="flex-shrink-0 text-center p-4 bg-green-50 border-2 border-green-200 rounded-xl min-w-[140px]">
+                <ShoppingCart className="w-8 h-8 mx-auto text-green-600 mb-2" />
+                <p className="text-sm font-semibold text-green-700">产品销售</p>
+                <p className="text-lg font-bold">{products.sold || 0}件</p>
+                <p className="text-xs text-green-600">闲置 {products.available || 0}件</p>
+              </div>
+              <ArrowRight className="w-6 h-6 text-muted-foreground flex-shrink-0" />
+              {/* 收益释放 */}
+              <div className="flex-shrink-0 text-center p-4 bg-amber-50 border-2 border-amber-200 rounded-xl min-w-[140px]">
+                <TrendingUp className="w-8 h-8 mx-auto text-amber-600 mb-2" />
+                <p className="text-sm font-semibold text-amber-700">收益释放(5%)</p>
+                <p className="text-lg font-bold">¥{((revenue.totalReleaseAmount || 0)).toLocaleString()}</p>
+                <p className="text-xs text-amber-600">7项分配</p>
+              </div>
+              <ArrowRight className="w-6 h-6 text-muted-foreground flex-shrink-0" />
+              {/* 提现回流 */}
+              <div className="flex-shrink-0 text-center p-4 bg-red-50 border-2 border-red-200 rounded-xl min-w-[140px]">
+                <Wallet className="w-8 h-8 mx-auto text-red-600 mb-2" />
+                <p className="text-sm font-semibold text-red-700">提现回流</p>
+                <p className="text-lg font-bold">¥{((withdrawals.approvedAmount || 0)).toLocaleString()}</p>
+                <p className="text-xs text-red-600">待审 ¥{((withdrawals.pendingAmount || 0)).toLocaleString()}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 趋势图表区域 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* 购买趋势 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2"><ShoppingCart className="w-4 h-4" />近7天购买趋势</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(products.purchaseTrend || []).length > 0 ? (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={products.purchaseTrend}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v: string) => v.slice(5)} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip formatter={(v: number) => `¥${v.toLocaleString()}`} />
+                    <Bar dataKey="amount" fill="#22c55e" name="销售金额" radius={[4,4,0,0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : <p className="text-center text-muted-foreground py-8">暂无数据</p>}
+            </CardContent>
+          </Card>
+
+          {/* 注册趋势 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2"><Users className="w-4 h-4" />近7天注册趋势</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(users.registrationTrend || []).length > 0 ? (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={users.registrationTrend}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v: string) => v.slice(5)} />
+                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#3b82f6" name="注册人数" radius={[4,4,0,0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : <p className="text-center text-muted-foreground py-8">暂无数据</p>}
+            </CardContent>
+          </Card>
+
+          {/* 释放收益趋势 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2"><TrendingUp className="w-4 h-4" />近7天释放收益趋势</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(revenue.releaseTrend || []).length > 0 ? (
+                <ResponsiveContainer width="100%" height={220}>
+                  <AreaChart data={revenue.releaseTrend}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v: string) => v.slice(5)} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip formatter={(v: number) => `¥${v.toLocaleString()}`} />
+                    <Area type="monotone" dataKey="amount" stroke="#f59e0b" fill="#fef3c7" name="释放金额" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : <p className="text-center text-muted-foreground py-8">暂无数据</p>}
+            </CardContent>
+          </Card>
+
+          {/* 释放分配饼图 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2"><PieChartIcon className="w-4 h-4" />收益释放分配</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {revenue.releaseDistribution ? (
+                <ResponsiveContainer width="100%" height={220}>
+                  <RechartsPieChart>
+                    <Pie
+                      data={[
+                        { name: '会员(2%)', value: revenue.releaseDistribution.memberShare || 0 },
+                        { name: '直推(0.3%)', value: revenue.releaseDistribution.directReferralShare || 0 },
+                        { name: '服务商(2%)', value: revenue.releaseDistribution.providerShare || 0 },
+                        { name: '上级(0.3%)', value: revenue.releaseDistribution.parentProviderShare || 0 },
+                        { name: '高级(0.15%)', value: revenue.releaseDistribution.seniorProviderShare || 0 },
+                        { name: '网点(0.15%)', value: revenue.releaseDistribution.branchShare || 0 },
+                        { name: '平台(0.10%)', value: revenue.releaseDistribution.companyShare || 0 },
+                      ]}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {['#22c55e','#3b82f6','#a855f7','#f97316','#06b6d4','#eab308','#ef4444'].map((color, i) => (
+                        <Cell key={i} fill={color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(v: number) => `¥${v.toLocaleString()}`} />
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+              ) : <p className="text-center text-muted-foreground py-8">暂无数据</p>}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* 团队排名 + 平台流通 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* 服务商排名 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2"><Trophy className="w-4 h-4" />服务商收益排名</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(d.teamRanking || []).length > 0 ? (
+                <div className="space-y-2">
+                  {(d.teamRanking as any[]).slice(0, 10).map((team: any, idx: number) => (
+                    <div key={team.providerId} className="flex items-center justify-between py-2 border-b last:border-0">
+                      <div className="flex items-center gap-3">
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${idx < 3 ? 'bg-amber-100 text-amber-700' : 'bg-muted text-muted-foreground'}`}>{idx + 1}</span>
+                        <div>
+                          <p className="text-sm font-medium">{team.providerName}</p>
+                          <p className="text-xs text-muted-foreground">{team.memberCount}会员 | {team.soldCount}笔销售</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-green-600">¥{(team.totalRevenue || 0).toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">额度¥{(team.quota || 0).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="text-center text-muted-foreground py-8">暂无数据</p>}
+            </CardContent>
+          </Card>
+
+          {/* 网点排名 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2"><Building2 className="w-4 h-4" />服务网点排名</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(d.branchRanking || []).length > 0 ? (
+                <div className="space-y-2">
+                  {(d.branchRanking as any[]).slice(0, 10).map((branch: any, idx: number) => (
+                    <div key={branch.branchId} className="flex items-center justify-between py-2 border-b last:border-0">
+                      <div className="flex items-center gap-3">
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${idx < 3 ? 'bg-blue-100 text-blue-700' : 'bg-muted text-muted-foreground'}`}>{idx + 1}</span>
+                        <div>
+                          <p className="text-sm font-medium">{branch.branchName}</p>
+                          <p className="text-xs text-muted-foreground">{branch.providerCount}服务商 | {branch.memberCount}会员</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-blue-600">¥{(branch.totalRevenue || 0).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="text-center text-muted-foreground py-8">暂无数据</p>}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* 平台流通数据 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2"><Coins className="w-4 h-4" />平台流通数据</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center p-4 bg-green-50 rounded-lg">
+                <p className="text-2xl font-bold text-green-700">¥{((circulation.totalBalance || 0)).toLocaleString()}</p>
+                <p className="text-sm text-green-600">智算金流通总额</p>
+              </div>
+              <div className="text-center p-4 bg-amber-50 rounded-lg">
+                <p className="text-2xl font-bold text-amber-700">{((circulation.totalPoints || 0)).toLocaleString()}</p>
+                <p className="text-sm text-amber-600">积分总量</p>
+              </div>
+              <div className="text-center p-4 bg-blue-50 rounded-lg">
+                <p className="text-2xl font-bold text-blue-700">{users.branches || 0}</p>
+                <p className="text-sm text-blue-600">服务网点</p>
+              </div>
+              <div className="text-center p-4 bg-purple-50 rounded-lg">
+                <p className="text-2xl font-bold text-purple-700">{users.providers || 0}</p>
+                <p className="text-sm text-purple-600">服务商</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   };
 
   const renderReleaseRecords = () => {
@@ -8365,6 +8702,8 @@ export default function AdminPage() {
     switch (activeMenu) {
       case 'my-profile':
         return <MyProfile />;
+      case 'dashboard':
+        return renderDashboard();
       case 'release':
         return renderReleaseRecords();
       case 'quota':
@@ -8374,14 +8713,7 @@ export default function AdminPage() {
       case 'accounts':
         return renderAccountsManagement();
       default:
-        return (
-          <Card>
-            <CardContent className="py-12 text-center text-gray-500">
-              <Settings className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-              <p>该功能模块正在开发中...</p>
-            </CardContent>
-          </Card>
-        );
+        return renderDashboard();
     }
   };
 

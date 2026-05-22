@@ -114,6 +114,7 @@ const PUBLIC_PATHS = [
   '/api/admin/withdraw-review',
   '/api/balance/transfer',
   '/api/balance/convert-to-points',
+  '/api/admin/dashboard',
 ];
 
 // 静态资源和页面路径不走 API 认证
