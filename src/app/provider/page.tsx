@@ -514,9 +514,10 @@ export default function ProviderPage() {
     };
 
     // 加载产品销售记录（包含持有人信息）
-    const loadSalesRecords = async () => {
+    const loadSalesRecords = async (status?: string) => {
         try {
-            const response = await authFetch(`/api/provider/products/sales-records?status=${salesFilter}`);
+            const filterStatus = status ?? salesFilter;
+            const response = await authFetch(`/api/provider/products/sales-records?status=${filterStatus}`);
             const data = await response.json();
             if (data.success) {
                 setSalesRecords(data.data?.records || []);
@@ -3450,8 +3451,9 @@ export default function ProviderPage() {
                                             className="px-3 py-2 border rounded-lg text-sm"
                                             value={salesFilter}
                                             onChange={e => {
-                                                setSalesFilter(e.target.value);
-                                                setTimeout(() => loadSalesRecords(), 0);
+                                                const newFilter = e.target.value;
+                                                setSalesFilter(newFilter);
+                                                loadSalesRecords(newFilter);
                                             }}>
                                             <option value="all">全部状态</option>
                                             <option value="available">在售</option>

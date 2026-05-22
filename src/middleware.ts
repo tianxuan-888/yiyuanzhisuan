@@ -99,6 +99,14 @@ const PUBLIC_PATHS = [
   '/api/products/transfer/repurchase',
   '/api/products/transfer/confirm-repurchase',
   '/api/products/transfer/check-timeout',
+  '/api/provider/transfer-records',
+  '/api/products/match/list',
+  '/api/products/match/assign',
+  '/api/products/match/confirm',
+  '/api/products/match/cancel',
+  '/api/member/confirm-sell',
+  '/api/member/energy-recharge-requests',
+  '/api/provider/withdraw',
 ];
 
 // 静态资源和页面路径不走 API 认证
