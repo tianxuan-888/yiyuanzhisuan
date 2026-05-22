@@ -57,6 +57,9 @@ import {
   Cpu,
   Search,
   Ticket,
+  Network,
+  Briefcase,
+  UserCheck,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -88,10 +91,10 @@ type MenuItem = {
 // 导航菜单配置
 const menuItems: MenuItem[] = [
   { id: 'my-profile', name: '我的', icon: <User className="w-5 h-5" /> },
-  { id: 'release', name: '释放收益', icon: <TrendingUp className="w-5 h-5" /> },
-  { id: 'quota', name: '额度分配', icon: <Database className="w-5 h-5" /> },
-  { id: 'withdraw', name: '提现回购', icon: <Wallet className="w-5 h-5" /> },
-  { id: 'accounts', name: '人员账户', icon: <Users className="w-5 h-5" /> },
+  { id: 'release', name: '收益记录', icon: <TrendingUp className="w-5 h-5" /> },
+  { id: 'quota', name: 'Token额度管理', icon: <Database className="w-5 h-5" /> },
+  { id: 'withdraw', name: '提现审核', icon: <Wallet className="w-5 h-5" /> },
+  { id: 'accounts', name: '账户管理', icon: <Users className="w-5 h-5" /> },
 ];
 
 // 统计数据类型
@@ -4407,29 +4410,109 @@ export default function AdminPage() {
   );
 
   // 渲染人员账户管理
-  const renderAccountsManagement = () => (
+  const renderAccountsManagement = () => {
+    // 加载账户数据
+    const loadAccountsData = async () => {
+      try {
+        const res = await authFetch('/api/admin/accounts');
+        const data = await res.json();
+        if (data.success) {
+          // 存储到state
+        }
+      } catch (e) {
+        console.error('加载账户数据失败', e);
+      }
+    };
+
+    // 加载财务报表
+    const loadFinancialReport = async () => {
+      try {
+        const res = await authFetch('/api/admin/financial-report');
+        const data = await res.json();
+        if (data.success) {
+          // 存储到state
+        }
+      } catch (e) {
+        console.error('加载财务报表失败', e);
+      }
+    };
+
+    return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="w-5 h-5" />
-            人员账户信息
-          </CardTitle>
-          <CardDescription>四端人员管理：总台、服务网点、服务商、会员</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2 mb-4">
-            <Button variant={accountsTab === 'branches' ? 'default' : 'outline'} onClick={() => setAccountsTab('branches')}>服务网点</Button>
-            <Button variant={accountsTab === 'providers' ? 'default' : 'outline'} onClick={() => setAccountsTab('providers')}>服务商</Button>
-            <Button variant={accountsTab === 'members' ? 'default' : 'outline'} onClick={() => setAccountsTab('members')}>会员</Button>
-          </div>
-          {accountsTab === 'branches' && <BranchesManagement />}
-          {accountsTab === 'providers' && <ProviderManagement />}
-          {accountsTab === 'members' && <MemberManagement />}
-        </CardContent>
-      </Card>
+      {/* 子Tab切换 */}
+      <div className="flex gap-2">
+        <Button variant={accountsTab === 'list' ? 'default' : 'outline'} size="sm" onClick={() => setAccountsTab('list')}>
+          <Users className="w-4 h-4 mr-1" />账户列表
+        </Button>
+        <Button variant={accountsTab === 'hierarchy' ? 'default' : 'outline'} size="sm" onClick={() => setAccountsTab('hierarchy')}>
+          <Network className="w-4 h-4 mr-1" />层级明细
+        </Button>
+        <Button variant={accountsTab === 'finance' ? 'default' : 'outline'} size="sm" onClick={() => setAccountsTab('finance')}>
+          <BarChart3 className="w-4 h-4 mr-1" />财务报表
+        </Button>
+      </div>
+
+      {/* 账户列表 */}
+      {accountsTab === 'list' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              账户列表
+            </CardTitle>
+            <CardDescription>管理所有账户信息，支持修改身份、状态管控</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2 mb-4">
+              <Button variant="outline" size="sm" onClick={() => { /* load branches */ }}>
+                <Building2 className="w-4 h-4 mr-1" />服务网点
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => { /* load providers */ }}>
+                <Briefcase className="w-4 h-4 mr-1" />服务商
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => { /* load members */ }}>
+                <UserCheck className="w-4 h-4 mr-1" />会员
+              </Button>
+            </div>
+            <BranchesManagement />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 层级明细 */}
+      {accountsTab === 'hierarchy' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Network className="w-5 h-5" />
+              层级明细
+            </CardTitle>
+            <CardDescription>服务网点 → 服务商 → 会员 层级关系</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm text-muted-foreground">加载层级数据中...</div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 财务报表 */}
+      {accountsTab === 'finance' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5" />
+              财务报表
+            </CardTitle>
+            <CardDescription>额度分配与收益比例分析，收益超额度30%预警</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm text-muted-foreground">加载报表数据中...</div>
+          </CardContent>
+        </Card>
+      )}
     </div>
-  );
+    );
+  };
 
   // 渲染提现审核
   const renderWithdrawAudit = () => (

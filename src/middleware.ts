@@ -102,6 +102,8 @@ const PUBLIC_PATHS = [
   '/api/provider/transfer-records',
   '/api/products/match/list',
   '/api/products/match/assign',
+  '/api/admin/accounts',
+  '/api/admin/financial-report',
   '/api/products/match/confirm',
   '/api/products/match/cancel',
   '/api/member/confirm-sell',
