@@ -176,6 +176,8 @@ export async function POST(request: NextRequest) {
           expire_date: expireDate.toISOString(),
           expected_profit: profitAmount,
           market_fee: marketFee,
+          seller_id: product.previous_holder_id || null,
+          transfer_type: product.previous_holder_id ? 'member_transfer' : 'provider_match',
           status: 'holding'
         });
 

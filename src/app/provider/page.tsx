@@ -529,7 +529,9 @@ export default function ProviderPage() {
 
     const loadTransferRecords = async (startDate?: string, endDate?: string) => {
         try {
+            const providerId = localStorage.getItem("userId");
             const params = new URLSearchParams();
+            if (providerId) params.append('providerId', providerId);
             if (startDate) params.append('startDate', startDate);
             if (endDate) params.append('endDate', endDate);
             else {
@@ -1723,6 +1725,7 @@ export default function ProviderPage() {
                     showMessage("error", "匹配失败: " + (result?.error || "目标会员余额不足"));
                 }
                 loadTransferData();
+                loadTransferRecords();
             } else {
                 showMessage("error", "操作失败: " + data.error);
             }
@@ -1731,7 +1734,7 @@ export default function ProviderPage() {
         } finally {
             setMatchConfirming(false);
         }
-    }, [loadTransferData, showMessage]);
+    }, [loadTransferData, loadTransferRecords, showMessage]);
 
     // 取消匹配（将 pending_match_user_id 清空）
     const handleCancelAssign = useCallback(async (productId: string) => {
@@ -3613,11 +3616,13 @@ export default function ProviderPage() {
                                                         <Badge className={
                                                             record.transferType === 'first_purchase' ? 'bg-blue-100 text-blue-700' :
                                                             record.transferType === 'member_transfer' ? 'bg-purple-100 text-purple-700' :
+                                                            record.transferType === 'provider_match' ? 'bg-green-100 text-green-700' :
                                                             record.transferType === 'provider_repurchase' ? 'bg-amber-100 text-amber-700' :
                                                             'bg-gray-100 text-gray-700'
                                                         }>
                                                             {record.transferType === 'first_purchase' ? '首次购买' :
                                                              record.transferType === 'member_transfer' ? '会员流转' :
+                                                             record.transferType === 'provider_match' ? '服务商匹配' :
                                                              record.transferType === 'provider_repurchase' ? '服务商回购' :
                                                              record.transferType || '-'}
                                                         </Badge>

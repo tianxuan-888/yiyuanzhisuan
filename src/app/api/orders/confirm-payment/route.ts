@@ -178,6 +178,7 @@ export async function POST(request: NextRequest) {
       purchase_price: price, purchase_date: purchaseDate.toISOString(),
       expire_date: expireDate.toISOString(), expected_profit: expectedProfit.toFixed(2),
       market_fee: marketFee.toFixed(2), status: 'holding',
+      seller_id: null, transfer_type: 'provider_match',
     });
 
     // 更新产品状态
