@@ -165,6 +165,24 @@ export async function GET(request: NextRequest) {
 
     if (usersError) throw usersError;
 
+    // 查询每个用户的持有Token值（holding状态的user_products总purchase_price）
+    const { data: holdingData } = await client
+      .from('user_products')
+      .select('user_id, purchase_price')
+      .eq('status', 'holding');
+
+    const holdingTokenMap: Record<string, number> = {};
+    (holdingData || []).forEach((h: any) => {
+      const uid = h.user_id;
+      holdingTokenMap[uid] = (holdingTokenMap[uid] || 0) + (Number(h.purchase_price) || 0);
+    });
+
+    // 给每个用户附加 holding_token 值
+    const usersWithHolding = (allUsers || []).map((u: any) => ({
+      ...u,
+      holding_token: holdingTokenMap[u.id] || 0,
+    }));
+
     // 统计
     const stats = {
       totalUsers: allUsers?.length || 0,
@@ -173,12 +191,13 @@ export async function GET(request: NextRequest) {
       totalMembers: allUsers?.filter((u: any) => u.role === 'member').length || 0,
       totalBalance: allUsers?.reduce((s: number, u: any) => s + (Number(u.balance) || 0), 0) || 0,
       totalPoints: allUsers?.reduce((s: number, u: any) => s + (Number(u.points) || 0), 0) || 0,
+      totalHoldingToken: Object.values(holdingTokenMap).reduce((s: number, v: any) => s + Number(v), 0) || 0,
     };
 
-    // 层级数据
-    const branches = allUsers?.filter((u: any) => u.role === 'branch') || [];
-    const providers = allUsers?.filter((u: any) => u.role === 'provider') || [];
-    const members = allUsers?.filter((u: any) => u.role === 'member') || [];
+    // 层级数据 - 使用 usersWithHolding
+    const branches = usersWithHolding?.filter((u: any) => u.role === 'branch') || [];
+    const providers = usersWithHolding?.filter((u: any) => u.role === 'provider') || [];
+    const members = usersWithHolding?.filter((u: any) => u.role === 'member') || [];
 
     // 查询 providers 表获取额度信息
     const { data: providerRecords } = await client
@@ -246,7 +265,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        users: allUsers,
+        users: usersWithHolding,
         stats,
         hierarchy,
       },

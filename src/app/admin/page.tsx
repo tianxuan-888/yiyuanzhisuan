@@ -247,6 +247,7 @@ export default function AdminPage() {
 
   // 人员账户Tab
   const [accountsTab, setAccountsTab] = useState('list');
+  const [accountSearch, setAccountSearch] = useState('');
   
   // 数据总览 dashboard state
   const [dashboardData, setDashboardData] = useState<any>(null);
@@ -838,7 +839,7 @@ export default function AdminPage() {
     if (!user) return;
     if (activeMenu === 'accounts') {
       loadAccountsData();
-      if (accountsTab === 'report') {
+      if (accountsTab === 'finance') {
         loadFinancialReport();
       }
     }
@@ -3822,7 +3823,7 @@ export default function AdminPage() {
         const res = await authFetch('/api/admin/withdraw-review', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ withdrawalId, action }),
+          body: JSON.stringify({ withdrawalId, action, adminUserId: user?.id }),
         });
         const data = await res.json();
         if (data.success) {
@@ -4397,7 +4398,7 @@ export default function AdminPage() {
       const res = await fetch('/api/admin/financial-report');
       const data = await res.json();
       if (data.success) {
-        setFinancialData(data.data || {});
+        setFinancialReport(data.data || {});
       }
     } catch (e) {
       console.error('加载财务报表失败', e);
@@ -4922,16 +4923,27 @@ export default function AdminPage() {
                 </CardTitle>
                 <CardDescription>管理所有账户信息，支持修改身份、状态管控</CardDescription>
               </div>
-              <Button variant="outline" size="sm" onClick={loadAccountsData}>
-                <RefreshCw className="w-4 h-4 mr-1" />刷新
-              </Button>
+              <div className="flex gap-2 items-center">
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="搜索用户名/手机号/专属ID"
+                    className="pl-9 w-56"
+                    value={accountSearch}
+                    onChange={e => setAccountSearch(e.target.value)}
+                  />
+                </div>
+                <Button variant="outline" size="sm" onClick={loadAccountsData}>
+                  <RefreshCw className="w-4 h-4 mr-1" />刷新
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
             {accountsData ? (
               <div className="space-y-6">
                 {/* 角色统计卡片 */}
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-5 gap-4">
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
                     <div className="text-2xl font-bold text-blue-600">{accountsData.stats?.totalBranches || 0}</div>
                     <div className="text-sm text-blue-600">服务网点</div>
@@ -4948,6 +4960,10 @@ export default function AdminPage() {
                     <div className="text-2xl font-bold text-orange-600">{accountsData.stats?.totalUsers || 0}</div>
                     <div className="text-sm text-orange-600">总用户数</div>
                   </div>
+                  <div className="bg-teal-50 border border-teal-200 rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold text-teal-600">¥{(accountsData.stats?.totalHoldingToken || 0).toLocaleString()}</div>
+                    <div className="text-sm text-teal-600">持有Token总值</div>
+                  </div>
                 </div>
 
                 {/* 账户表格 */}
@@ -4958,13 +4974,21 @@ export default function AdminPage() {
                         <th className="text-left py-3 px-4">用户名</th>
                         <th className="text-left py-3 px-4">角色</th>
                         <th className="text-left py-3 px-4">手机号</th>
-                        <th className="text-left py-3 px-4">收益余额</th>
+                        <th className="text-left py-3 px-4">专属ID</th>
+                        <th className="text-left py-3 px-4">智算金</th>
+                        <th className="text-left py-3 px-4">持有Token值</th>
                         <th className="text-left py-3 px-4">状态</th>
                         <th className="text-left py-3 px-4">操作</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {accountsData.users?.map((u: { id: string; username: string; role: string; phone: string; balance: number; is_active: boolean }) => (
+                      {accountsData.users?.filter((u: { id: string; username: string; role: string; phone: string; unique_id: string; balance: number; holding_token: number; is_active: boolean }) => {
+                        if (!accountSearch.trim()) return true;
+                        const q = accountSearch.trim().toLowerCase();
+                        return (u.username || '').toLowerCase().includes(q)
+                          || (u.phone || '').includes(q)
+                          || (u.unique_id || '').toLowerCase().includes(q);
+                      }).map((u: { id: string; username: string; role: string; phone: string; unique_id: string; balance: number; holding_token: number; is_active: boolean }) => (
                         <tr key={u.id} className="border-b hover:bg-muted/30">
                           <td className="py-3 px-4 font-medium">{u.username}</td>
                           <td className="py-3 px-4">
@@ -4978,7 +5002,9 @@ export default function AdminPage() {
                             </Badge>
                           </td>
                           <td className="py-3 px-4">{u.phone || '-'}</td>
+                          <td className="py-3 px-4 font-mono text-xs">{u.unique_id || '-'}</td>
                           <td className="py-3 px-4 text-green-600 font-medium">¥{(u.balance || 0).toLocaleString()}</td>
+                          <td className="py-3 px-4 text-blue-600 font-medium">¥{(u.holding_token || 0).toLocaleString()}</td>
                           <td className="py-3 px-4">
                             <Badge className={u.is_active !== false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
                               {statusLabel(u.is_active !== false)}
@@ -5108,93 +5134,194 @@ export default function AdminPage() {
 
       {/* 财务报表 */}
       {accountsTab === 'finance' && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5" />
-                  财务报表
-                </CardTitle>
-                <CardDescription>额度分配与收益比例分析，收益超额度30%预警</CardDescription>
-              </div>
-              <Button variant="outline" size="sm" onClick={loadFinancialReport}>
-                <RefreshCw className="w-4 h-4 mr-1" />刷新
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {financialReport ? (
-              <div className="space-y-6">
-                {/* 总览统计 */}
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-muted/50 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold">¥{(financialReport.totalAllocatedQuota || 0).toLocaleString()}</div>
-                    <div className="text-sm text-muted-foreground">总分配额度</div>
-                  </div>
-                  <div className="bg-muted/50 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-green-600">¥{(financialReport.totalRevenue || 0).toLocaleString()}</div>
-                    <div className="text-sm text-muted-foreground">体系总收益</div>
-                  </div>
-                  <div className="bg-muted/50 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold">{((financialReport.totalRevenue || 0) / (financialReport.totalAllocatedQuota || 1) * 100).toFixed(1)}%</div>
-                    <div className="text-sm text-muted-foreground">收益/额度比</div>
-                  </div>
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5" />
+                    财务报表
+                  </CardTitle>
+                  <CardDescription>额度分配与收益比例分析，收益超额度30%预警</CardDescription>
                 </div>
+                <Button variant="outline" size="sm" onClick={loadFinancialReport}>
+                  <RefreshCw className="w-4 h-4 mr-1" />刷新
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {financialReport ? (
+                <div className="space-y-6">
+                  {/* 总览统计 */}
+                  <div className="grid grid-cols-4 gap-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-blue-600">¥{(financialReport.company?.total_quota || 0).toLocaleString()}</div>
+                      <div className="text-sm text-blue-600">系统总额度</div>
+                    </div>
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-green-600">¥{(financialReport.summary?.total_allocated || 0).toLocaleString()}</div>
+                      <div className="text-sm text-green-600">已分配额度</div>
+                    </div>
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-orange-600">¥{(financialReport.summary?.total_revenue || 0).toLocaleString()}</div>
+                      <div className="text-sm text-orange-600">体系总收益（智算金）</div>
+                    </div>
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-red-600">{financialReport.summary?.warning_count || 0}</div>
+                      <div className="text-sm text-red-600">30%预警数</div>
+                    </div>
+                  </div>
 
-                {/* 团队报表 */}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b bg-muted/50">
-                        <th className="text-left py-3 px-4">团队/服务商</th>
-                        <th className="text-left py-3 px-4">Token额度</th>
-                        <th className="text-left py-3 px-4">体系收益</th>
-                        <th className="text-left py-3 px-4">收益/额度比</th>
-                        <th className="text-left py-3 px-4">30%阈值</th>
-                        <th className="text-left py-3 px-4">状态</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(financialReport.teams || []).map((team: { id: string; name: string; quota: number; revenue: number; warning: boolean }, idx: number) => {
-                        const ratio = team.quota > 0 ? (team.revenue / team.quota * 100) : 0;
-                        const threshold = team.quota * 0.3;
-                        return (
-                          <tr key={team.id || idx} className={`border-b ${team.warning ? 'bg-red-50' : 'hover:bg-muted/30'}`}>
-                            <td className="py-3 px-4 font-medium">{team.name}</td>
-                            <td className="py-3 px-4">¥{team.quota.toLocaleString()}</td>
-                            <td className="py-3 px-4 text-green-600 font-medium">¥{team.revenue.toLocaleString()}</td>
-                            <td className="py-3 px-4">
-                              <div className="flex items-center gap-2">
-                                <div className="w-24 bg-gray-200 rounded-full h-2">
-                                  <div className={`h-2 rounded-full ${ratio > 30 ? 'bg-red-500' : ratio > 20 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{width: `${Math.min(ratio, 100)}%`}} />
+                  {/* 收益/额度比进度 */}
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">整体收益/额度比</span>
+                      <span className="text-sm font-bold">
+                        {((financialReport.summary?.total_revenue || 0) / (financialReport.summary?.total_allocated || 1) * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-3">
+                      <div
+                        className={`h-3 rounded-full ${
+                          ((financialReport.summary?.total_revenue || 0) / (financialReport.summary?.total_allocated || 1) * 100) > 30
+                            ? 'bg-red-500' : 'bg-green-500'
+                        }`}
+                        style={{width: `${Math.min(((financialReport.summary?.total_revenue || 0) / (financialReport.summary?.total_allocated || 1) * 100), 100)}%`}}
+                      />
+                    </div>
+                    <div className="relative w-full mt-1">
+                      <div className="absolute left-[30%] top-0 w-px h-2 bg-red-400" />
+                      <span className="absolute left-[30%] -translate-x-1/2 top-3 text-xs text-red-400">30%预警线</span>
+                    </div>
+                  </div>
+
+                  {/* 各服务商报表 */}
+                  <h3 className="text-base font-semibold flex items-center gap-2">
+                    <Briefcase className="w-4 h-4" />
+                    服务商收益与Token额度
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/50">
+                          <th className="text-left py-3 px-4">服务商</th>
+                          <th className="text-left py-3 px-4">Token额度</th>
+                          <th className="text-left py-3 px-4">已用额度</th>
+                          <th className="text-left py-3 px-4">闲置Token</th>
+                          <th className="text-left py-3 px-4">体系收益(智算金)</th>
+                          <th className="text-left py-3 px-4">收益/额度比</th>
+                          <th className="text-left py-3 px-4">30%阈值</th>
+                          <th className="text-left py-3 px-4">状态</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(financialReport.providers || []).map((p: any, idx: number) => {
+                          const ratio = Number(p.quota_ratio) || (p.quota > 0 ? (p.total_revenue / p.quota * 100) : 0);
+                          const threshold = p.quota * 0.3;
+                          const idleQuota = (p.quota || 0) - (p.used_quota || 0);
+                          return (
+                            <tr key={p.id || idx} className={`border-b ${p.is_warning ? 'bg-red-50' : 'hover:bg-muted/30'}`}>
+                              <td className="py-3 px-4 font-medium">
+                                {p.username || p.real_name || '-'}
+                                {p.phone ? <span className="text-xs text-muted-foreground ml-2">{p.phone}</span> : null}
+                              </td>
+                              <td className="py-3 px-4">¥{(p.quota || 0).toLocaleString()}</td>
+                              <td className="py-3 px-4">¥{(p.used_quota || 0).toLocaleString()}</td>
+                              <td className="py-3 px-4 text-orange-600">¥{idleQuota.toLocaleString()}</td>
+                              <td className="py-3 px-4 text-green-600 font-medium">¥{(p.total_revenue || 0).toLocaleString()}</td>
+                              <td className="py-3 px-4">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-24 bg-gray-200 rounded-full h-2">
+                                    <div className={`h-2 rounded-full ${ratio > 30 ? 'bg-red-500' : ratio > 20 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{width: `${Math.min(ratio, 100)}%`}} />
+                                  </div>
+                                  <span className={ratio > 30 ? 'text-red-600 font-bold' : ''}>{ratio.toFixed(1)}%</span>
                                 </div>
-                                <span className={ratio > 30 ? 'text-red-600 font-bold' : ''}>{ratio.toFixed(1)}%</span>
-                              </div>
-                            </td>
-                            <td className="py-3 px-4">¥{threshold.toLocaleString()}</td>
-                            <td className="py-3 px-4">
-                              {team.warning ? (
-                                <Badge className="bg-red-100 text-red-700">⚠ 超过30%预警</Badge>
-                              ) : (
-                                <Badge className="bg-green-100 text-green-700">正常</Badge>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                              </td>
+                              <td className="py-3 px-4">¥{threshold.toLocaleString()}</td>
+                              <td className="py-3 px-4">
+                                {p.is_warning ? (
+                                  <Badge className="bg-red-100 text-red-700">⚠ 超过30%预警</Badge>
+                                ) : (
+                                  <Badge className="bg-green-100 text-green-700">正常</Badge>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* 各网点报表 */}
+                  {(financialReport.branches || []).length > 0 && (
+                    <>
+                      <h3 className="text-base font-semibold flex items-center gap-2">
+                        <Building2 className="w-4 h-4" />
+                        网点维度统计
+                      </h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b bg-muted/50">
+                              <th className="text-left py-3 px-4">网点</th>
+                              <th className="text-left py-3 px-4">服务商数</th>
+                              <th className="text-left py-3 px-4">Token总额度</th>
+                              <th className="text-left py-3 px-4">体系收益</th>
+                              <th className="text-left py-3 px-4">智算金余额</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(financialReport.branches || []).map((b: any, idx: number) => (
+                              <tr key={b.id || idx} className="border-b hover:bg-muted/30">
+                                <td className="py-3 px-4 font-medium">{b.username || b.real_name || '-'}</td>
+                                <td className="py-3 px-4">{b.provider_count || 0}</td>
+                                <td className="py-3 px-4">¥{(b.quota || 0).toLocaleString()}</td>
+                                <td className="py-3 px-4 text-green-600 font-medium">¥{(b.total_revenue || 0).toLocaleString()}</td>
+                                <td className="py-3 px-4 text-blue-600">¥{(b.balance || 0).toLocaleString()}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+
+                  {/* 智算金分布 */}
+                  <h3 className="text-base font-semibold flex items-center gap-2">
+                    <Coins className="w-4 h-4" />
+                    智算金分布
+                  </h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-blue-600">
+                        ¥{(financialReport.providers || []).reduce((s: number, p: any) => s + (Number(p.balance) || 0), 0).toLocaleString()}
+                      </div>
+                      <div className="text-sm text-blue-600">服务商持有</div>
+                    </div>
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-purple-600">
+                        ¥{(financialReport.branches || []).reduce((s: number, b: any) => s + (Number(b.balance) || 0), 0).toLocaleString()}
+                      </div>
+                      <div className="text-sm text-purple-600">网点持有</div>
+                    </div>
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-green-600">
+                        ¥{(financialReport.summary?.total_revenue || 0).toLocaleString()}
+                      </div>
+                      <div className="text-sm text-green-600">体系总收益</div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="text-center py-12 text-muted-foreground">
-                <BarChart3 className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                <p>加载报表数据中...</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <BarChart3 className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                  <p>{financialLoading ? '加载报表数据中...' : '点击刷新加载报表数据'}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
     );
@@ -6241,15 +6368,16 @@ export default function AdminPage() {
       setProcessingId(id);
       try {
         const adminId = localStorage.getItem('userId');
-        const res = await authFetch('/api/admin/branch-withdraw-review', {
+        const res = await authFetch('/api/admin/withdraw-review', {
           method: 'POST',
-          body: JSON.stringify({ requestId: id, action, adminId, note: withdrawNote }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ withdrawalId: id, action, adminUserId: adminId, note: withdrawNote }),
         });
         const data = await res.json();
         if (data.success) {
           setMessage({ type: 'success', text: data.message });
           // 重新加载数据
-          const withdrawRes = await authFetch('/api/admin/branch-withdraw-list');
+          const withdrawRes = await authFetch('/api/admin/withdraw-review');
           const withdrawData = await withdrawRes.json();
           if (withdrawData.success) {
             setBranchWithdrawals(withdrawData.data?.records || []);

@@ -4866,14 +4866,15 @@ export default function ProviderPage() {
                                                 method: "POST",
                                                 headers: { "Content-Type": "application/json" },
                                                 body: JSON.stringify({
+                                                    userId: user?.id,
                                                     amount: withdrawAmount,
-                                                    alipayAccount: withdrawAlipay.trim(),
-                                                    realName: withdrawAlipayName.trim(),
+                                                    alipayAccount: withdrawAlipay?.trim() || '',
+                                                    realName: withdrawAlipayName?.trim() || '',
                                                 }),
                                             });
                                             const data = await res.json();
                                             if (data.success) {
-                                                showMessage("success", `提现申请已提交！手续费${data.data?.fee || 0}元，实际到账${data.data?.actualAmount || 0}元，等待服务网点审核`);
+                                                showMessage("success", "提现申请已提交，等待总台审核");
                                                 setShowWithdrawDialog(false);
                                                 setWithdrawAmount("");
                                                 setWithdrawAlipay("");

@@ -918,7 +918,7 @@ export default function BranchPage() {
     }
 
     if (amount > branchEnergyBalance) {
-      showMessage('error', '收益余额不足');
+      showMessage('error', '智算金余额不足');
       return;
     }
 
@@ -927,12 +927,15 @@ export default function BranchPage() {
       const branchId = localStorage.getItem('userId');
       if (!branchId) return;
 
-      const response = await authFetch('/api/energy/withdraw-request', {
+      const response = await authFetch('/api/branch/withdraw', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          branchId: branchId,
           amount: amount,
-          note: '服务网点申请变现'
+          alipayAccount: '',
+          realName: '',
+          note: '服务网点申请提现'
         })
       });
 
@@ -957,7 +960,7 @@ export default function BranchPage() {
   // 加载变现申请记录
   const loadWithdrawRequests = async () => {
     try {
-      const response = await authFetch('/api/energy/withdraw-request?role=branch');
+      const response = await authFetch('/api/branch/withdraw?role=branch&branchId=' + localStorage.getItem('userId'));
       const data = await response.json();
       if (data.success) {
         setWithdrawRequests(data.data || []);
@@ -1046,10 +1049,12 @@ export default function BranchPage() {
     }
     try {
       setSubmitting(true);
+      const branchId = localStorage.getItem('userId');
       const response = await authFetch('/api/branch/withdraw', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          branchId,
           amount: branchWithdrawAmount,
           alipayAccount: branchWithdrawAlipay.trim(),
           realName: branchWithdrawRealName.trim(),

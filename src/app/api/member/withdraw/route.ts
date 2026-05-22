@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne, execute } from '@/lib/supabase-client';
-import { authenticateRequest } from '@/lib/auth';
 
 // 会员提现申请（统一到智算总台审核，申请时不扣balance，审核通过后才扣）
 export async function POST(request: NextRequest) {
   try {
-    const authUser = authenticateRequest(request);
-    if (!authUser) {
+    const body = await request.json();
+    const { userId, amount, alipayAccount, realName } = body;
+
+    if (!userId) {
       return NextResponse.json({ error: '未登录' }, { status: 401 });
     }
-
-    const body = await request.json();
-    const { amount, alipayAccount, realName } = body;
-    const userId = authUser.userId;
 
     if (!amount || !alipayAccount || !realName) {
       return NextResponse.json({ error: '缺少必要参数：金额、支付宝账号、真实姓名' }, { status: 400 });
@@ -29,7 +26,7 @@ export async function POST(request: NextRequest) {
 
     // 检查余额是否足够
     const user = await queryOne(
-      'SELECT id, username, balance FROM users WHERE id = __PARAM_1__',
+      'SELECT id, username, balance FROM users WHERE id = $1',
       [userId]
     );
 
@@ -50,7 +47,7 @@ export async function POST(request: NextRequest) {
     // 只创建提现记录，不扣balance（等总台审核通过后才扣）
     await execute(
       `INSERT INTO withdrawals (user_id, user_role, amount, fee, actual_amount, alipay_account, real_name, status, created_at)
-       VALUES (__PARAM_1__, __PARAM_2__, __PARAM_3__, __PARAM_4__, __PARAM_5__, __PARAM_6__, __PARAM_7__, 'pending', NOW())`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', NOW())`,
       [userId, 'member', withdrawAmount.toFixed(2), fee.toFixed(2), actualAmount.toFixed(2), alipayAccount, realName]
     );
 
@@ -76,20 +73,20 @@ export async function POST(request: NextRequest) {
 // 获取会员提现记录
 export async function GET(request: NextRequest) {
   try {
-    const authUser = authenticateRequest(request);
-    if (!authUser) {
-      return NextResponse.json({ error: '未登录' }, { status: 401 });
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId');
+
+    if (!userId) {
+      return NextResponse.json({ error: '缺少userId参数' }, { status: 400 });
     }
 
-    const userId = authUser.userId;
-    const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
 
-    let sql = 'SELECT * FROM withdrawals WHERE user_id = __PARAM_1__';
+    let sql = 'SELECT * FROM withdrawals WHERE user_id = $1';
     const params: any[] = [userId];
 
     if (status) {
-      sql += ' AND status = __PARAM_2__';
+      sql += ' AND status = $2';
       params.push(status);
     }
 

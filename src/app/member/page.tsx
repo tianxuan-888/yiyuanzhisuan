@@ -2664,6 +2664,8 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                 className="flex-1 bg-white/20 hover:bg-white/30 text-white border-0 text-xs"
                                                 onClick={() => {
                                                     setWithdrawAmount("");
+                                                    setWithdrawAlipay("");
+                                                    setWithdrawRealName("");
                                                     setShowWithdrawDialog(true);
                                                 }}
                                             >
@@ -2894,66 +2896,28 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             <Banknote className="w-5 h-5 text-rose-500" />
                                             收益提现
                                         </CardTitle>
-                                        <span className="text-xs text-muted-foreground">
-                                            可提现: ¥{Number(user?.balance || 0).toLocaleString()}
-                                        </span>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-xs text-muted-foreground">
+                                                可提现: ¥{Number(user?.balance || 0).toLocaleString()}
+                                            </span>
+                                            <Button
+                                                size="sm"
+                                                className="bg-rose-500 hover:bg-rose-600 text-white"
+                                                onClick={() => {
+                                                    setWithdrawAmount("");
+                                                    setWithdrawAlipay("");
+                                                    setWithdrawRealName("");
+                                                    setShowWithdrawDialog(true);
+                                                }}
+                                            >
+                                                <Banknote className="w-4 h-4 mr-1" />
+                                                申请提现
+                                            </Button>
+                                        </div>
                                     </div>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="text-sm text-muted-foreground mb-1 block">提现金额</label>
-                                            <Input
-                                                type="number"
-                                                placeholder="请输入提现金额（最低100元）"
-                                                value={withdrawAmount}
-                                                onChange={e => setWithdrawAmount(e.target.value)}
-                                                min="50"
-                                                max={user?.balance || 0}
-                                            />
-                                            <p className="text-xs text-muted-foreground mt-1">
-                                                可提现余额: ¥{Number(user?.balance || 0).toLocaleString()}
-                                                {Number(withdrawAmount) > 0 && (
-                                                    <span className="ml-3">
-                                                        手续费(5%): ¥{(Number(withdrawAmount) * 0.05).toFixed(2)}
-                                                        ，实际到账: ¥{(Number(withdrawAmount) * 0.95).toFixed(2)}
-                                                    </span>
-                                                )}
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <label className="text-sm text-muted-foreground mb-1 block">支付宝账号</label>
-                                            <Input
-                                                placeholder="请输入支付宝账号"
-                                                value={withdrawAlipay}
-                                                onChange={e => setWithdrawAlipay(e.target.value)}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-sm text-muted-foreground mb-1 block">真实姓名</label>
-                                            <Input
-                                                placeholder="请输入真实姓名（需与支付宝一致）"
-                                                value={withdrawRealName}
-                                                onChange={e => setWithdrawRealName(e.target.value)}
-                                            />
-                                        </div>
-                                        <Button
-                                            className="w-full bg-rose-500 hover:bg-rose-600"
-                                            disabled={!withdrawAmount || Number(withdrawAmount) < 100 || !withdrawAlipay || !withdrawRealName}
-                                            onClick={handleWithdraw}
-                                        >
-                                            提交提现申请
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* 提现记录 */}
-                            <Card>
-                                <CardHeader className="pb-3">
-                                    <CardTitle className="text-base">提现记录</CardTitle>
-                                </CardHeader>
-                                <CardContent>
+                                    {/* 提现记录 */}
                                     {withdrawRecords.length > 0 ? (
                                         <div className="space-y-3">
                                             {withdrawRecords.map((record: any) => (
@@ -3026,7 +2990,75 @@ const [copySuccess, setCopySuccess] = useState(false);
                         </div>
                     )}
 
-                    {/* 积分 Tab */}
+                    {/* 提现对话框 */}
+                    {showWithdrawDialog && (
+                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                            <Card className="w-full max-w-md mx-4">
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Banknote className="w-5 h-5 text-rose-500" />
+                                        收益提现
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="bg-rose-50 p-3 rounded-lg">
+                                        <p className="text-sm text-rose-700">
+                                            <strong>说明：</strong>提现手续费5%，最低提现金额100元，提交后等待总台审核打款。
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label className="text-sm text-muted-foreground mb-1 block">可提现智算金</label>
+                                        <p className="text-xl font-bold text-green-600">¥{Number(user?.balance || 0).toLocaleString()}</p>
+                                    </div>
+                                    <div>
+                                        <label className="text-sm text-muted-foreground mb-1 block">提现金额</label>
+                                        <Input
+                                            type="number"
+                                            placeholder="请输入提现金额（最低100元）"
+                                            value={withdrawAmount}
+                                            onChange={e => setWithdrawAmount(e.target.value)}
+                                            min="100"
+                                            max={user?.balance || 0}
+                                        />
+                                        {Number(withdrawAmount) > 0 && (
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                手续费(5%): ¥{(Number(withdrawAmount) * 0.05).toFixed(2)}
+                                                ，实际到账: ¥{(Number(withdrawAmount) * 0.95).toFixed(2)}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <label className="text-sm text-muted-foreground mb-1 block">支付宝账号</label>
+                                        <Input
+                                            placeholder="请输入支付宝账号"
+                                            value={withdrawAlipay}
+                                            onChange={e => setWithdrawAlipay(e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-sm text-muted-foreground mb-1 block">真实姓名</label>
+                                        <Input
+                                            placeholder="请输入真实姓名（需与支付宝一致）"
+                                            value={withdrawRealName}
+                                            onChange={e => setWithdrawRealName(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="flex gap-3 pt-2">
+                                        <Button variant="outline" className="flex-1" onClick={() => setShowWithdrawDialog(false)}>
+                                            取消
+                                        </Button>
+                                        <Button
+                                            className="flex-1 bg-rose-500 hover:bg-rose-600"
+                                            disabled={!withdrawAmount || Number(withdrawAmount) < 100 || !withdrawAlipay || !withdrawRealName}
+                                            onClick={handleWithdraw}
+                                        >
+                                            确认提现
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
                     {activeTab === "points" && <div className="space-y-3 md:space-y-6">
                         <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white">
                             <CardContent className="pt-4">
