@@ -1391,7 +1391,7 @@ export default function ProviderPage() {
             return;
         }
 
-        if (amount < 50) {
+        if (amount < 100) {
             showMessage("error", "转账金额不能少于50");
             return;
         }
@@ -4625,7 +4625,7 @@ export default function ProviderPage() {
                             <div className="space-y-4 py-4">
                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                                     <p className="text-sm text-blue-700">
-                                        <strong>说明：</strong>可向所属服务网点、其他服务商或自己的会员转账智算金。互转时5%自动转化为积分（归您），95%到账对方智算金。最低转账金额为50。
+                                        <strong>说明：</strong>可向所属服务网点、其他服务商或自己的会员转账智算金。互转时5%自动转化为积分（归您），95%到账对方智算金。最低转账金额为100。
                                     </p>
                                 </div>
                                 <div>
@@ -4687,7 +4687,7 @@ export default function ProviderPage() {
                                     <label className="text-sm font-medium mb-2 block">转账金额</label>
                                     <Input
                                         type="number"
-                                        placeholder="请输入转账收益（最低50）"
+                                        placeholder="请输入转账收益（最低100）"
                                         value={transferAmount}
                                         onChange={(e) => setTransferAmount(e.target.value)}
                                         min="50"

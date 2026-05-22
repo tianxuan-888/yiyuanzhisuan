@@ -466,8 +466,8 @@ export default function BranchPage() {
 
   // 服务网点向智算总台申请收益
   const handleApplyEnergy = async () => {
-    if (!applyEnergyAmount || parseFloat(applyEnergyAmount) < 50) {
-      alert('申请金额最低为50收益');
+    if (!applyEnergyAmount || parseFloat(applyEnergyAmount) < 100) {
+      alert('申请金额最低为100收益');
       return;
     }
     
@@ -1881,12 +1881,12 @@ export default function BranchPage() {
               <label className="text-gray-400 text-sm">申请金额</label>
               <Input
                 type="number"
-                placeholder="最低50收益"
+                placeholder="最低100收益"
                 value={applyEnergyAmount}
                 onChange={(e) => setApplyEnergyAmount(e.target.value)}
                 className="bg-slate-700 border-slate-600 text-white mt-1"
               />
-              <p className="text-gray-500 text-xs mt-1">最低申请金额：50收益</p>
+              <p className="text-gray-500 text-xs mt-1">最低申请金额：100收益</p>
             </div>
 
             <div>

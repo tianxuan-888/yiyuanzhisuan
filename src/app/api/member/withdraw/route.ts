@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, withTransaction } from '@/lib/pg-client';
+import { query, queryOne, execute } from '@/lib/supabase-client';
 import { authenticateRequest } from '@/lib/auth';
 
-// 会员提现申请（统一到智算总台审核，全额回流）
+// 会员提现申请（统一到智算总台审核，申请时不扣balance，审核通过后才扣）
 export async function POST(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);
@@ -27,63 +27,48 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '最小提现金额为 100 元' }, { status: 400 });
     }
 
+    // 检查余额是否足够
+    const user = await queryOne(
+      'SELECT id, username, balance FROM users WHERE id = __PARAM_1__',
+      [userId]
+    );
+
+    if (!user) {
+      return NextResponse.json({ error: '用户不存在' }, { status: 404 });
+    }
+
+    const currentBalance = parseFloat(user.balance) || 0;
+
+    if (currentBalance < withdrawAmount) {
+      return NextResponse.json({ error: '智算金余额不足，当前余额 ' + currentBalance.toFixed(2) + ' 元' }, { status: 400 });
+    }
+
+    // 计算手续费5%
     const fee = Math.round(withdrawAmount * 0.05 * 100) / 100;
     const actualAmount = withdrawAmount - fee;
 
-    const result = await withTransaction(async (client) => {
-      const userRes = await client.query(
-        'SELECT id, username, balance FROM users WHERE id = $1',
-        [userId]
-      );
-
-      if (!userRes.rows || userRes.rows.length === 0) {
-        throw Object.assign(new Error('用户不存在'), { statusCode: 404 });
-      }
-
-      const user = userRes.rows[0];
-      const currentBalance = parseFloat(user.balance) || 0;
-
-      if (currentBalance < withdrawAmount) {
-        throw Object.assign(new Error('余额不足，当前余额 ' + currentBalance.toFixed(2) + ' 元'), { statusCode: 400 });
-      }
-
-      const newBalance = currentBalance - withdrawAmount;
-
-      // 1. 扣减会员余额
-      await client.query(
-        'UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2',
-        [newBalance.toFixed(2), userId]
-      );
-
-      // 2. 创建提现记录（状态pending，等待总台审核）
-      const withdrawalRes = await client.query(
-        `INSERT INTO withdrawals (user_id, user_role, amount, fee, actual_amount, alipay_account, real_name, status, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', NOW()) RETURNING id`,
-        [userId, 'member', withdrawAmount.toFixed(2), fee.toFixed(2), actualAmount.toFixed(2), alipayAccount, realName]
-      );
-
-      const withdrawalId = withdrawalRes.rows[0].id;
-
-      return { withdrawalId, newBalance, fee, actualAmount };
-    });
+    // 只创建提现记录，不扣balance（等总台审核通过后才扣）
+    await execute(
+      `INSERT INTO withdrawals (user_id, user_role, amount, fee, actual_amount, alipay_account, real_name, status, created_at)
+       VALUES (__PARAM_1__, __PARAM_2__, __PARAM_3__, __PARAM_4__, __PARAM_5__, __PARAM_6__, __PARAM_7__, 'pending', NOW())`,
+      [userId, 'member', withdrawAmount.toFixed(2), fee.toFixed(2), actualAmount.toFixed(2), alipayAccount, realName]
+    );
 
     return NextResponse.json({
       success: true,
       data: {
-        withdrawalId: result.withdrawalId,
         amount: withdrawAmount.toFixed(2),
-        fee: result.fee.toFixed(2),
-        actualAmount: result.actualAmount.toFixed(2),
-        balance: result.newBalance.toFixed(2),
+        fee: fee.toFixed(2),
+        actualAmount: actualAmount.toFixed(2),
+        currentBalance: currentBalance.toFixed(2),
       },
       message: '提现申请已提交，等待智算总台审核',
     });
   } catch (error: any) {
     console.error('会员提现申请失败:', error);
-    const statusCode = error.statusCode || 500;
     return NextResponse.json(
       { error: error.message || '提现申请失败' },
-      { status: statusCode }
+      { status: 500 }
     );
   }
 }
@@ -100,11 +85,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
 
-    let sql = 'SELECT * FROM withdrawals WHERE user_id = $1';
+    let sql = 'SELECT * FROM withdrawals WHERE user_id = __PARAM_1__';
     const params: any[] = [userId];
 
     if (status) {
-      sql += ' AND status = $2';
+      sql += ' AND status = __PARAM_2__';
       params.push(status);
     }
 

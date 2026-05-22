@@ -23,8 +23,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 最低转账金额
-    if (transferAmount < 50) {
-      return NextResponse.json({ success: false, error: '最低转账金额为50' }, { status: 400 });
+    if (transferAmount < 100) {
+      return NextResponse.json({ success: false, error: '最低转账金额为100' }, { status: 400 });
     }
 
     // 不能转给自己

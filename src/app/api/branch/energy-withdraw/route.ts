@@ -76,9 +76,9 @@ export async function POST(request: NextRequest) {
     }
 
     const withdrawAmount = parseFloat(amount);
-    if (isNaN(withdrawAmount) || withdrawAmount < 50) {
+    if (isNaN(withdrawAmount) || withdrawAmount < 100) {
       return NextResponse.json(
-        { success: false, error: '变现金额最低为50' },
+        { success: false, error: '变现金额最低为100' },
         { status: 400 }
       );
     }

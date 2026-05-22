@@ -42,8 +42,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: '请输入有效金额' }, { status: 400 });
     }
 
-    if (Number(amount) < 50) {
-      return NextResponse.json({ success: false, error: '最低转换额度为50元' }, { status: 400 });
+    if (Number(amount) < 100) {
+      return NextResponse.json({ success: false, error: '最低转换额度为100元' }, { status: 400 });
     }
 
     const convertAmount = Number(amount);

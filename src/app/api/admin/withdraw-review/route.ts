@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, execute, withTransaction } from '@/lib/pg-client';
+import { query, queryOne, execute } from '@/lib/supabase-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 
 // 智算总台审核提现申请
-// 审核通过：提现金额全额回流到总台，手续费5%归平台
-// 审核拒绝：退还余额给用户
+// 申请时不扣balance，审核通过时才扣
+// 审核通过：从用户balance扣除，全额回流到总台
+// 审核拒绝：不扣钱（因为申请时没扣）
 export async function POST(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);
@@ -28,16 +29,14 @@ export async function POST(request: NextRequest) {
     }
 
     // 查询提现记录
-    const withdrawal = await query<any>(
-      'SELECT * FROM withdrawals WHERE id = $1',
+    const wd = await queryOne(
+      'SELECT * FROM withdrawals WHERE id = __PARAM_1__',
       [withdrawalId]
     );
 
-    if (!withdrawal || withdrawal.length === 0) {
+    if (!wd) {
       return NextResponse.json({ error: '提现记录不存在' }, { status: 404 });
     }
-
-    const wd = withdrawal[0];
 
     if (wd.status !== 'pending') {
       return NextResponse.json({ error: `提现状态为 ${wd.status}，无法审核` }, { status: 400 });
@@ -48,77 +47,80 @@ export async function POST(request: NextRequest) {
     const actualAmount = parseFloat(wd.actual_amount) || 0;
 
     if (action === 'approve') {
-      // 审核通过：提现金额全额回流到总台
-      const result = await withTransaction(async (client) => {
-        // 1. 更新提现记录状态为 approved
-        await client.query(
-          "UPDATE withdrawals SET status = 'approved', reviewed_at = NOW(), reviewed_by = $1, review_note = $2, updated_at = NOW() WHERE id = $3",
-          [authUser.userId, note || '', withdrawalId]
+      // 审核通过：从用户balance扣除提现金额，全额回流到总台
+
+      // 1. 检查用户余额是否足够（可能在申请后余额变化了）
+      const user = await queryOne(
+        'SELECT id, balance FROM users WHERE id = __PARAM_1__',
+        [wd.user_id]
+      );
+
+      if (!user) {
+        return NextResponse.json({ error: '用户不存在' }, { status: 404 });
+      }
+
+      const currentBalance = parseFloat(user.balance) || 0;
+      if (currentBalance < withdrawAmount) {
+        // 余额不足，自动拒绝
+        await execute(
+          "UPDATE withdrawals SET status = 'rejected', reviewed_at = NOW(), review_note = '审核时余额不足，自动拒绝', updated_at = NOW() WHERE id = __PARAM_1__",
+          [withdrawalId]
         );
+        return NextResponse.json({ error: '用户当前余额不足，已自动拒绝' }, { status: 400 });
+      }
 
-        // 2. 提现金额全额回流到总台（加到admin的balance）
-        const adminRes = await client.query("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
-        if (adminRes.rows && adminRes.rows.length > 0) {
-          await client.query(
-            'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
-            [withdrawAmount.toFixed(2), adminRes.rows[0].id]
-          );
-        }
+      // 2. 从用户balance扣除
+      await execute(
+        'UPDATE users SET balance = balance - __PARAM_1__, updated_at = NOW() WHERE id = __PARAM_2__',
+        [withdrawAmount.toFixed(2), wd.user_id]
+      );
 
-        // 3. 记录手续费到 company_fee_records
-        await client.query(
-          `INSERT INTO company_fee_records (type, amount, source_user_id, source_role, source_withdrawal_id, note, created_at)
-           VALUES ('withdrawal_fee', $1, $2, $3, $4, $5, NOW())`,
-          [fee.toFixed(2), wd.user_id, wd.user_role, withdrawalId, `提现手续费5%: ${fee}元，提现金额${withdrawAmount}元全额回流`]
+      // 3. 提现金额全额回流到总台（加到admin的balance）
+      const admin = await queryOne("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
+      if (admin) {
+        await execute(
+          'UPDATE users SET balance = COALESCE(balance, 0) + __PARAM_1__, updated_at = NOW() WHERE id = __PARAM_2__',
+          [withdrawAmount.toFixed(2), admin.id]
         );
+      }
 
-        // 4. 发送通知给用户
-        await client.query(
-          `INSERT INTO notifications (id, receiver_id, receiver_role, sender_id, type, title, content, created_at)
-           VALUES ($1, $2, $3, $4, 'withdraw_approved', '提现审核通过', $5, NOW())`,
-          [crypto.randomUUID(), wd.user_id, wd.user_role, authUser.userId,
-           `您的提现申请 ${withdrawAmount} 元已审核通过，手续费 ${fee} 元，实际到账 ${actualAmount} 元，请注意查收。`]
-        );
+      // 4. 更新提现记录状态为 approved
+      await execute(
+        "UPDATE withdrawals SET status = 'approved', reviewed_at = NOW(), reviewed_by = __PARAM_1__, review_note = __PARAM_2__, updated_at = NOW() WHERE id = __PARAM_3__",
+        [authUser.userId, note || '', withdrawalId]
+      );
 
-        return { withdrawAmount, fee, actualAmount };
-      });
+      // 5. 记录交易流水
+      await execute(
+        `INSERT INTO transactions (user_id, type, amount, note, created_at)
+         VALUES (__PARAM_1__, 'withdraw', __PARAM_2__, __PARAM_3__, NOW())`,
+        [wd.user_id, withdrawAmount.toFixed(2), `提现审核通过，金额${withdrawAmount}元，手续费${fee}元，实际到账${actualAmount}元`]
+      );
 
       return NextResponse.json({
         success: true,
-        message: `提现审核通过，${withdrawAmount} 元已回流到总台，手续费 ${fee} 元`,
-        data: result,
+        message: `提现审核通过，${withdrawAmount}元已从用户扣除并回流到总台，手续费${fee}元`,
+        data: { withdrawAmount, fee, actualAmount },
       });
 
     } else {
-      // 审核拒绝：退还余额给用户
-      const result = await withTransaction(async (client) => {
-        // 1. 更新提现记录状态为 rejected
-        await client.query(
-          "UPDATE withdrawals SET status = 'rejected', reviewed_at = NOW(), reviewed_by = $1, review_note = $2, updated_at = NOW() WHERE id = $3",
-          [authUser.userId, note || '审核拒绝', withdrawalId]
-        );
+      // 审核拒绝：不需要退钱（因为申请时没扣balance）
+      await execute(
+        "UPDATE withdrawals SET status = 'rejected', reviewed_at = NOW(), reviewed_by = __PARAM_1__, review_note = __PARAM_2__, updated_at = NOW() WHERE id = __PARAM_3__",
+        [authUser.userId, note || '审核拒绝', withdrawalId]
+      );
 
-        // 2. 退还余额给用户
-        await client.query(
-          'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
-          [withdrawAmount.toFixed(2), wd.user_id]
-        );
-
-        // 3. 发送通知
-        await client.query(
-          `INSERT INTO notifications (id, receiver_id, receiver_role, sender_id, type, title, content, created_at)
-           VALUES ($1, $2, $3, $4, 'withdraw_rejected', '提现审核拒绝', $5, NOW())`,
-          [crypto.randomUUID(), wd.user_id, wd.user_role, authUser.userId,
-           `您的提现申请 ${withdrawAmount} 元已被拒绝，金额已退回您的账户。${note ? '原因：' + note : ''}`]
-        );
-
-        return { withdrawAmount };
-      });
+      // 记录交易流水
+      await execute(
+        `INSERT INTO transactions (user_id, type, amount, note, created_at)
+         VALUES (__PARAM_1__, 'withdraw_rejected', __PARAM_2__, __PARAM_3__, NOW())`,
+        [wd.user_id, '0', `提现申请${withdrawAmount}元被拒绝。${note ? '原因：' + note : ''}`]
+      );
 
       return NextResponse.json({
         success: true,
-        message: `提现审核已拒绝，${withdrawAmount} 元已退回用户账户`,
-        data: result,
+        message: `提现审核已拒绝`,
+        data: { withdrawAmount },
       });
     }
   } catch (error) {
@@ -144,53 +146,37 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
-    const userRole = searchParams.get('userRole');
-    const page = parseInt(searchParams.get('page') || '1');
-    const pageSize = parseInt(searchParams.get('pageSize') || '20');
 
     let sql = `SELECT w.*, u.username, u.role as user_role_name, u.phone 
                FROM withdrawals w 
                LEFT JOIN users u ON w.user_id = u.id 
                WHERE 1=1`;
     const params: any[] = [];
-    let paramIndex = 1;
 
     if (status) {
-      sql += ` AND w.status = $${paramIndex++}`;
+      sql += ` AND w.status = __PARAM_${params.length + 1}__`;
       params.push(status);
     }
 
-    if (userRole) {
-      sql += ` AND w.user_role = $${paramIndex++}`;
-      params.push(userRole);
-    }
+    sql += ' ORDER BY w.created_at DESC LIMIT 50';
 
-    // 获取总数
-    const countSql = sql.replace('SELECT w.*, u.username, u.role as user_role_name, u.phone', 'SELECT COUNT(*) as total');
-    const countResult = await query<any>(countSql, params);
-    const total = countResult?.[0]?.total || 0;
-
-    // 分页
-    sql += ` ORDER BY w.created_at DESC LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
-    params.push(pageSize, (page - 1) * pageSize);
-
-    const data = await query<any>(sql, params);
+    const data = await query(sql, params);
 
     // 统计
-    const statsSql = `SELECT 
-      COUNT(*) as total_count,
-      COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) as pending_amount,
-      COALESCE(SUM(CASE WHEN status = 'approved' THEN amount ELSE 0 END), 0) as approved_amount,
-      COALESCE(SUM(CASE WHEN status = 'approved' THEN fee ELSE 0 END), 0) as total_fee
-    FROM withdrawals`;
-    const stats = await query<any>(statsSql);
+    const stats = await queryOne(
+      `SELECT 
+        COUNT(*) as total_count,
+        COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) as pending_amount,
+        COALESCE(SUM(CASE WHEN status = 'approved' THEN amount ELSE 0 END), 0) as approved_amount,
+        COALESCE(SUM(CASE WHEN status = 'approved' THEN fee ELSE 0 END), 0) as total_fee
+      FROM withdrawals`
+    );
 
     return NextResponse.json({
       success: true,
       data: {
         records: data,
-        pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
-        stats: stats?.[0] || {},
+        stats: stats || {},
       },
     });
   } catch (error) {

@@ -23,8 +23,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '提现金额无效' }, { status: 400 });
     }
 
-    if (withdrawAmount < 50) {
-      return NextResponse.json({ error: '最低提现金额为50元' }, { status: 400 });
+    if (withdrawAmount < 100) {
+      return NextResponse.json({ error: '最低提现金额为100元' }, { status: 400 });
     }
 
     // 查询服务商balance

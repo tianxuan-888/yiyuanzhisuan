@@ -945,8 +945,8 @@ const [copySuccess, setCopySuccess] = useState(false);
         if (!userId) return;
 
         const amount = parseFloat(withdrawAmount);
-        if (!amount || amount < 50) {
-            showMessage("error", "提现金额不能少于50");
+        if (!amount || amount < 100) {
+            showMessage("error", "提现金额不能少于100");
             return;
         }
         if (!withdrawAlipay.trim()) {
@@ -973,7 +973,7 @@ const [copySuccess, setCopySuccess] = useState(false);
             const data = await response.json();
             if (data.success) {
                 const w = data.data || {};
-                showMessage("success", `提现申请已提交！手续费${w.fee || 0}元，实际到账${w.actualAmount || 0}元，等待服务网点审核`);
+                showMessage("success", `提现申请已提交！手续费${w.fee || 0}元，实际到账${w.actualAmount || 0}元，等待总台审核`);
                 setShowWithdrawDialog(false);
                 setWithdrawAmount("");
                 setWithdrawAlipay("");
@@ -2634,44 +2634,16 @@ const [copySuccess, setCopySuccess] = useState(false);
                     {/* 我的收益 Tab */}
                     {activeTab === "profit" && (
                         <div className="space-y-3 md:space-y-6">
-                            {/* 收益统计卡片 */}
+                            {/* 收益统计卡片 - 统一显示智算金（收益值） */}
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
                                     <CardContent className="pt-4">
                                         <div className="flex items-center gap-2 mb-2">
                                             <Wallet className="w-5 h-5" />
-                                            <span className="text-sm opacity-80">持仓Token值</span>
+                                            <span className="text-sm opacity-80">收益值（智算金）</span>
                                         </div>
-                                        <p className="text-2xl font-bold">¥{profitStats.holdingPrincipal?.toLocaleString() || 0}</p>
-                                        <p className="text-xs opacity-70 mt-1">已收回Token值: ¥{profitStats.totalPrincipal?.toLocaleString() || 0}</p>
-                                    </CardContent>
-                                </Card>
-                                <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-                                    <CardContent className="pt-4">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <TrendingUp className="w-5 h-5" />
-                                            <span className="text-sm opacity-80">预期收益</span>
-                                        </div>
-                                        <p className="text-2xl font-bold">¥{profitStats.holdingExpectedProfit?.toLocaleString() || 0}</p>
-                                        <p className="text-xs opacity-70 mt-1">已到账收益: ¥{profitStats.totalProfit?.toLocaleString() || 0}</p>
-                                    </CardContent>
-                                </Card>
-                                <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
-                                    <CardContent className="pt-4">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <Zap className="w-5 h-5" />
-                                            <span className="text-sm opacity-80">已转入收益</span>
-                                        </div>
-                                        <p className="text-2xl font-bold">¥{profitStats.converted?.toLocaleString() || 0}</p>
-                                    </CardContent>
-                                </Card>
-                                <Card className="bg-gradient-to-br from-amber-500 to-orange-600 text-white">
-                                    <CardContent className="pt-4">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <Coins className="w-5 h-5" />
-                                            <span className="text-sm opacity-80">智算金余额</span>
-                                        </div>
-                                        <p className="text-2xl font-bold">¥{user?.balance?.toLocaleString() || 0}</p>
+                                        <p className="text-2xl font-bold">¥{user?.balance?.toLocaleString() || '0'}</p>
+                                        <p className="text-xs opacity-70 mt-1">可提现/互转/转积分</p>
                                         <div className="flex gap-1 mt-2">
                                             <Button
                                                 size="sm"
@@ -2698,6 +2670,36 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                 提现
                                             </Button>
                                         </div>
+                                    </CardContent>
+                                </Card>
+                                <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                                    <CardContent className="pt-4">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <TrendingUp className="w-5 h-5" />
+                                            <span className="text-sm opacity-80">持仓Token值</span>
+                                        </div>
+                                        <p className="text-2xl font-bold">¥{profitStats.holdingPrincipal?.toLocaleString() || 0}</p>
+                                        <p className="text-xs opacity-70 mt-1">已收回Token值: ¥{profitStats.totalPrincipal?.toLocaleString() || 0}</p>
+                                    </CardContent>
+                                </Card>
+                                <Card className="bg-gradient-to-br from-amber-500 to-orange-600 text-white">
+                                    <CardContent className="pt-4">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <TrendingUp className="w-5 h-5" />
+                                            <span className="text-sm opacity-80">预期收益</span>
+                                        </div>
+                                        <p className="text-2xl font-bold">¥{profitStats.holdingExpectedProfit?.toLocaleString() || 0}</p>
+                                        <p className="text-xs opacity-70 mt-1">已到账收益: ¥{profitStats.totalProfit?.toLocaleString() || 0}</p>
+                                    </CardContent>
+                                </Card>
+                                <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+                                    <CardContent className="pt-4">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Zap className="w-5 h-5" />
+                                            <span className="text-sm opacity-80">积分余额</span>
+                                        </div>
+                                        <p className="text-2xl font-bold">{user?.points?.toLocaleString() || '0'}</p>
+                                        <p className="text-xs opacity-70 mt-1">可用于购买产品</p>
                                     </CardContent>
                                 </Card>
                             </div>
@@ -2903,7 +2905,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             <label className="text-sm text-muted-foreground mb-1 block">提现金额</label>
                                             <Input
                                                 type="number"
-                                                placeholder="请输入提现金额（最低50元）"
+                                                placeholder="请输入提现金额（最低100元）"
                                                 value={withdrawAmount}
                                                 onChange={e => setWithdrawAmount(e.target.value)}
                                                 min="50"
@@ -2937,7 +2939,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                         </div>
                                         <Button
                                             className="w-full bg-rose-500 hover:bg-rose-600"
-                                            disabled={!withdrawAmount || Number(withdrawAmount) < 50 || !withdrawAlipay || !withdrawRealName}
+                                            disabled={!withdrawAmount || Number(withdrawAmount) < 100 || !withdrawAlipay || !withdrawRealName}
                                             onClick={handleWithdraw}
                                         >
                                             提交提现申请
@@ -3215,7 +3217,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                     <div className="space-y-4 py-4">
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                             <p className="text-sm text-blue-700">
-                                <strong>说明：</strong>互转时5%自动转化为积分（归您），95%到账对方智算金。最低转账金额为50。
+                                <strong>说明：</strong>互转时5%自动转化为积分（归您），95%到账对方智算金。最低转账金额为100。
                             </p>
                         </div>
                         <div className="bg-slate-100 rounded-lg p-3">
@@ -3241,7 +3243,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                             <label className="text-sm font-medium mb-2 block">转账金额</label>
                             <Input
                                 type="number"
-                                placeholder="请输入转账金额（最低50）"
+                                placeholder="请输入转账金额（最低100）"
                                 value={transferToAmount}
                                 onChange={(e) => setTransferToAmount(e.target.value)}
                                 min="50"
@@ -3265,7 +3267,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                         <Button variant="outline" onClick={() => setShowBalanceTransferDialog(false)}>取消</Button>
                         <Button
                             className="bg-blue-600"
-                            disabled={submitting || !transferToUserId || !transferToAmount || parseFloat(transferToAmount) < 50}
+                            disabled={submitting || !transferToUserId || !transferToAmount || parseFloat(transferToAmount) < 100}
                             onClick={async () => {
                                 const userId = localStorage.getItem("userId");
                                 if (!userId || !transferToUserId || !transferToAmount) return;

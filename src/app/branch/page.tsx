@@ -869,8 +869,8 @@ export default function BranchPage() {
       return;
     }
 
-    if (amount < 50) {
-      showMessage('error', '申请金额最低为50收益');
+    if (amount < 100) {
+      showMessage('error', '申请金额最低为100收益');
       return;
     }
 
@@ -912,8 +912,8 @@ export default function BranchPage() {
       return;
     }
 
-    if (amount < 50) {
-      showMessage('error', '最低变现金额为50收益');
+    if (amount < 100) {
+      showMessage('error', '最低变现金额为100收益');
       return;
     }
 
@@ -1199,7 +1199,7 @@ export default function BranchPage() {
     }
 
     const amount = parseFloat(transferAmount);
-    if (amount < 50) {
+    if (amount < 100) {
       showMessage('error', '转账金额不能少于50');
       return;
     }
