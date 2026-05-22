@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { BranchesManagement } from '@/components/admin/BranchesManagement';
 import { ProviderManagement } from '@/components/admin/ProviderManagement';
 import { MyProfile } from '@/components/admin/MyProfile';
 import { 
@@ -227,6 +226,19 @@ export default function AdminPage() {
   const [releaseLoading, setReleaseLoading] = useState(false);
   const [releaseDateRange, setReleaseDateRange] = useState<{start: string; end: string}>({start: '', end: ''});
   const [releaseStats, setReleaseStats] = useState<any>(null);
+
+  // 账户管理相关state
+  const [accountsData, setAccountsData] = useState<any>(null);
+  const [accountsStats, setAccountsStats] = useState<any>(null);
+  const [accountsLoading, setAccountsLoading] = useState(false);
+  const [financialData, setFinancialData] = useState<any>(null);
+  const [financialReport, setFinancialReport] = useState<any>(null);
+  const [financialLoading, setFinancialLoading] = useState(false);
+  const [accountFilter, setAccountFilter] = useState<string>('all');
+  const [editingAccount, setEditingAccount] = useState<any>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editRole, setEditRole] = useState<string>('');
+  const [editStatus, setEditStatus] = useState<string>('');
 
   // 人员账户Tab
   const [accountsTab, setAccountsTab] = useState('branches');
@@ -811,6 +823,20 @@ export default function AdminPage() {
       loadIncomeData(incomeTab === 'withdraw' ? 'withdraw' : incomeTab === 'detail' ? 'detail' : 'overview');
     }
   }, [activeMenu, incomeTab, user, loadIncomeData]);
+
+  // 账户管理/收益记录 tab 切换时加载数据
+  useEffect(() => {
+    if (!user) return;
+    if (activeMenu === 'accounts') {
+      loadAccountsData();
+      if (accountsTab === 'report') {
+        loadFinancialReport();
+      }
+    }
+    if (activeMenu === 'release') {
+      loadReleaseRecords();
+    }
+  }, [activeMenu, accountsTab, user]);
 
   // 系统设置 tab 切换时加载配置
   useEffect(() => {
@@ -4319,6 +4345,43 @@ export default function AdminPage() {
     }
   };
 
+  const loadAccountsData = async () => {
+    setAccountsLoading(true);
+    try {
+      const userStr = localStorage.getItem('user');
+      if (!userStr) return;
+      const user = JSON.parse(userStr);
+      const res = await fetch(`/api/admin/accounts?adminId=${user.id}`);
+      const data = await res.json();
+      if (data.success) {
+        setAccountsData(data.data || []);
+        setAccountsStats(data.stats || {});
+      }
+    } catch (e) {
+      console.error('加载账户数据失败', e);
+    } finally {
+      setAccountsLoading(false);
+    }
+  };
+
+  const loadFinancialReport = async () => {
+    setFinancialLoading(true);
+    try {
+      const userStr = localStorage.getItem('user');
+      if (!userStr) return;
+      const user = JSON.parse(userStr);
+      const res = await fetch(`/api/admin/financial-report?adminId=${user.id}`);
+      const data = await res.json();
+      if (data.success) {
+        setFinancialData(data.data || {});
+      }
+    } catch (e) {
+      console.error('加载财务报表失败', e);
+    } finally {
+      setFinancialLoading(false);
+    }
+  };
+
   const renderReleaseRecords = () => {
     // 从releaseStats获取统计数据
     const stats = releaseStats as any;
@@ -4485,31 +4548,17 @@ export default function AdminPage() {
 
   // 渲染人员账户管理
   const renderAccountsManagement = () => {
-    // 加载账户数据
-    const loadAccountsData = async () => {
-      try {
-        const res = await authFetch('/api/admin/accounts');
-        const data = await res.json();
-        if (data.success) {
-          // 存储到state
-        }
-      } catch (e) {
-        console.error('加载账户数据失败', e);
+    const roleLabel = (role: string) => {
+      switch(role) {
+        case 'admin': return '总台';
+        case 'branch': return '服务网点';
+        case 'provider': return '服务商';
+        case 'member': return '会员';
+        default: return role;
       }
     };
 
-    // 加载财务报表
-    const loadFinancialReport = async () => {
-      try {
-        const res = await authFetch('/api/admin/financial-report');
-        const data = await res.json();
-        if (data.success) {
-          // 存储到state
-        }
-      } catch (e) {
-        console.error('加载财务报表失败', e);
-      }
-    };
+    const statusLabel = (status: boolean) => status ? '正常' : '停用';
 
     return (
     <div className="space-y-4">
@@ -4530,25 +4579,124 @@ export default function AdminPage() {
       {accountsTab === 'list' && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              账户列表
-            </CardTitle>
-            <CardDescription>管理所有账户信息，支持修改身份、状态管控</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-2 mb-4">
-              <Button variant="outline" size="sm" onClick={() => { /* load branches */ }}>
-                <Building2 className="w-4 h-4 mr-1" />服务网点
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => { /* load providers */ }}>
-                <Briefcase className="w-4 h-4 mr-1" />服务商
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => { /* load members */ }}>
-                <UserCheck className="w-4 h-4 mr-1" />会员
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  账户列表
+                </CardTitle>
+                <CardDescription>管理所有账户信息，支持修改身份、状态管控</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={loadAccountsData}>
+                <RefreshCw className="w-4 h-4 mr-1" />刷新
               </Button>
             </div>
-            <BranchesManagement />
+          </CardHeader>
+          <CardContent>
+            {accountsData ? (
+              <div className="space-y-6">
+                {/* 角色统计卡片 */}
+                <div className="grid grid-cols-4 gap-4">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold text-blue-600">{accountsData.stats?.totalBranches || 0}</div>
+                    <div className="text-sm text-blue-600">服务网点</div>
+                  </div>
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold text-purple-600">{accountsData.stats?.totalProviders || 0}</div>
+                    <div className="text-sm text-purple-600">服务商</div>
+                  </div>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold text-green-600">{accountsData.stats?.totalMembers || 0}</div>
+                    <div className="text-sm text-green-600">会员</div>
+                  </div>
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold text-orange-600">{accountsData.stats?.totalUsers || 0}</div>
+                    <div className="text-sm text-orange-600">总用户数</div>
+                  </div>
+                </div>
+
+                {/* 账户表格 */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left py-3 px-4">用户名</th>
+                        <th className="text-left py-3 px-4">角色</th>
+                        <th className="text-left py-3 px-4">手机号</th>
+                        <th className="text-left py-3 px-4">收益余额</th>
+                        <th className="text-left py-3 px-4">状态</th>
+                        <th className="text-left py-3 px-4">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {accountsData.users?.map((u: { id: string; username: string; role: string; phone: string; balance: number; is_active: boolean }) => (
+                        <tr key={u.id} className="border-b hover:bg-muted/30">
+                          <td className="py-3 px-4 font-medium">{u.username}</td>
+                          <td className="py-3 px-4">
+                            <Badge className={
+                              u.role === 'admin' ? 'bg-red-100 text-red-700' :
+                              u.role === 'branch' ? 'bg-blue-100 text-blue-700' :
+                              u.role === 'provider' ? 'bg-purple-100 text-purple-700' :
+                              'bg-green-100 text-green-700'
+                            }>
+                              {roleLabel(u.role)}
+                            </Badge>
+                          </td>
+                          <td className="py-3 px-4">{u.phone || '-'}</td>
+                          <td className="py-3 px-4 text-green-600 font-medium">¥{(u.balance || 0).toLocaleString()}</td>
+                          <td className="py-3 px-4">
+                            <Badge className={u.is_active !== false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                              {statusLabel(u.is_active !== false)}
+                            </Badge>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex gap-1">
+                              <Button size="sm" variant="outline" onClick={async () => {
+                                const newRole = u.role === 'member' ? 'provider' : u.role === 'provider' ? 'member' : u.role;
+                                if (newRole === u.role) return;
+                                try {
+                                  const res = await authFetch('/api/admin/accounts', {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ userId: u.id, action: 'changeRole', role: newRole })
+                                  });
+                                  const data = await res.json();
+                                  if (data.success) {
+                                    loadAccountsData();
+                                  }
+                                } catch(e) { console.error(e); }
+                              }}>
+                                修改身份
+                              </Button>
+                              <Button size="sm" variant={u.is_active !== false ? 'destructive' : 'default'} onClick={async () => {
+                                try {
+                                  const res = await authFetch('/api/admin/accounts', {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ userId: u.id, action: 'toggleStatus', isActive: u.is_active === false })
+                                  });
+                                  const data = await res.json();
+                                  if (data.success) {
+                                    loadAccountsData();
+                                  }
+                                } catch(e) { console.error(e); }
+                              }}>
+                                {u.is_active !== false ? '停用' : '启用'}
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <Users className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                <p>加载账户数据中...</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -4557,14 +4705,68 @@ export default function AdminPage() {
       {accountsTab === 'hierarchy' && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Network className="w-5 h-5" />
-              层级明细
-            </CardTitle>
-            <CardDescription>服务网点 → 服务商 → 会员 层级关系</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Network className="w-5 h-5" />
+                  层级明细
+                </CardTitle>
+                <CardDescription>服务网点 → 服务商 → 会员 层级关系</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={loadAccountsData}>
+                <RefreshCw className="w-4 h-4 mr-1" />刷新
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-sm text-muted-foreground">加载层级数据中...</div>
+            {accountsData?.hierarchy ? (
+              <div className="space-y-4">
+                {(accountsData.hierarchy as Array<{ branchId: string; branchName: string; providers: Array<{ providerId: string; providerName: string; memberCount: number; quota: number; usedQuota: number }> }>).map((branch) => (
+                  <div key={branch.branchId} className="border rounded-lg overflow-hidden">
+                    {/* 服务网点头 */}
+                    <div className="bg-blue-50 border-b border-blue-200 p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Building2 className="w-5 h-5 text-blue-600" />
+                          <div>
+                            <h3 className="font-semibold text-blue-800">{branch.branchName}</h3>
+                            <p className="text-xs text-blue-600">服务网点</p>
+                          </div>
+                        </div>
+                        <div className="text-sm text-blue-700">
+                          服务商: {branch.providers?.length || 0} 个
+                        </div>
+                      </div>
+                    </div>
+                    {/* 服务商列表 */}
+                    {branch.providers?.map((provider) => (
+                      <div key={provider.providerId} className="border-b last:border-b-0">
+                        <div className="bg-purple-50 p-3 pl-10 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Briefcase className="w-4 h-4 text-purple-600" />
+                            <span className="font-medium text-purple-800">{provider.providerName}</span>
+                            <Badge className="bg-purple-100 text-purple-700 text-xs">服务商</Badge>
+                          </div>
+                          <div className="flex gap-4 text-sm text-purple-700">
+                            <span>会员: {provider.memberCount} 人</span>
+                            <span>额度: ¥{(provider.quota || 0).toLocaleString()}</span>
+                            <span>已用: ¥{(provider.usedQuota || 0).toLocaleString()}</span>
+                          </div>
+                        </div>
+                        <div className="bg-green-50/50 p-2 pl-20 text-sm text-green-700">
+                          <UserCheck className="w-3 h-3 inline mr-1" />会员数: {provider.memberCount} 人
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <Network className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                <p>加载层级数据中...</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -4573,14 +4775,89 @@ export default function AdminPage() {
       {accountsTab === 'finance' && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="w-5 h-5" />
-              财务报表
-            </CardTitle>
-            <CardDescription>额度分配与收益比例分析，收益超额度30%预警</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5" />
+                  财务报表
+                </CardTitle>
+                <CardDescription>额度分配与收益比例分析，收益超额度30%预警</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={loadFinancialReport}>
+                <RefreshCw className="w-4 h-4 mr-1" />刷新
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-sm text-muted-foreground">加载报表数据中...</div>
+            {financialReport ? (
+              <div className="space-y-6">
+                {/* 总览统计 */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="bg-muted/50 rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold">¥{(financialReport.totalAllocatedQuota || 0).toLocaleString()}</div>
+                    <div className="text-sm text-muted-foreground">总分配额度</div>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold text-green-600">¥{(financialReport.totalRevenue || 0).toLocaleString()}</div>
+                    <div className="text-sm text-muted-foreground">体系总收益</div>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold">{((financialReport.totalRevenue || 0) / (financialReport.totalAllocatedQuota || 1) * 100).toFixed(1)}%</div>
+                    <div className="text-sm text-muted-foreground">收益/额度比</div>
+                  </div>
+                </div>
+
+                {/* 团队报表 */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left py-3 px-4">团队/服务商</th>
+                        <th className="text-left py-3 px-4">Token额度</th>
+                        <th className="text-left py-3 px-4">体系收益</th>
+                        <th className="text-left py-3 px-4">收益/额度比</th>
+                        <th className="text-left py-3 px-4">30%阈值</th>
+                        <th className="text-left py-3 px-4">状态</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(financialReport.teams || []).map((team: { id: string; name: string; quota: number; revenue: number; warning: boolean }, idx: number) => {
+                        const ratio = team.quota > 0 ? (team.revenue / team.quota * 100) : 0;
+                        const threshold = team.quota * 0.3;
+                        return (
+                          <tr key={team.id || idx} className={`border-b ${team.warning ? 'bg-red-50' : 'hover:bg-muted/30'}`}>
+                            <td className="py-3 px-4 font-medium">{team.name}</td>
+                            <td className="py-3 px-4">¥{team.quota.toLocaleString()}</td>
+                            <td className="py-3 px-4 text-green-600 font-medium">¥{team.revenue.toLocaleString()}</td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                <div className="w-24 bg-gray-200 rounded-full h-2">
+                                  <div className={`h-2 rounded-full ${ratio > 30 ? 'bg-red-500' : ratio > 20 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{width: `${Math.min(ratio, 100)}%`}} />
+                                </div>
+                                <span className={ratio > 30 ? 'text-red-600 font-bold' : ''}>{ratio.toFixed(1)}%</span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">¥{threshold.toLocaleString()}</td>
+                            <td className="py-3 px-4">
+                              {team.warning ? (
+                                <Badge className="bg-red-100 text-red-700">⚠ 超过30%预警</Badge>
+                              ) : (
+                                <Badge className="bg-green-100 text-green-700">正常</Badge>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <BarChart3 className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                <p>加载报表数据中...</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
