@@ -1377,8 +1377,8 @@ export default function ProviderPage() {
         }
     };
 
-    // 处理收益互转
-    const handleTransferEnergy = async () => {
+    // 处理智算金互转
+    const handleTransferBalance = async () => {
         const providerId = localStorage.getItem("userId");
         if (!providerId || !transferUserId || !transferAmount) {
             showMessage("error", "请填写完整信息");
@@ -1391,19 +1391,19 @@ export default function ProviderPage() {
             return;
         }
 
-        if (amount < 100) {
-            showMessage("error", "转账金额不能少于100");
+        if (amount < 50) {
+            showMessage("error", "转账金额不能少于50");
             return;
         }
 
         setSubmitting(true);
         try {
-            const response = await authFetch("/api/energy/transfer", {
+            const response = await authFetch("/api/balance/transfer", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    from_user_id: providerId,
-                    to_user_id: transferUserId,
+                    fromUserId: providerId,
+                    toUserId: transferUserId,
                     amount: amount,
                     note: transferNote,
                 }),
@@ -4510,7 +4510,7 @@ export default function ProviderPage() {
                                         min="1"
                                     />
                                     <p className="text-xs text-gray-500 mt-1">
-                                        您当前收益: {user?.balance?.toLocaleString() || 0}
+                                        您当前智算金: {user?.balance?.toLocaleString() || 0} | 转出后5%转化为积分，95%到账对方
                                     </p>
                                 </div>
                                 <div>
@@ -4613,19 +4613,19 @@ export default function ProviderPage() {
                         </DialogContent>
                     </Dialog>
 
-                    {/* 收益互转对话框 */}
-                    <Dialog open={false && showTransferDialog} onOpenChange={setShowTransferDialog}>
+                    {/* 智算金互转对话框 */}
+                    <Dialog open={showTransferDialog} onOpenChange={setShowTransferDialog}>
                         <DialogContent>
                             <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">
                                     <ArrowLeftRight className="w-5 h-5 text-purple-600" />
-                                    收益互转
+                                    智算金互转
                                 </DialogTitle>
                             </DialogHeader>
                             <div className="space-y-4 py-4">
                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                                     <p className="text-sm text-blue-700">
-                                        <strong>说明：</strong>可向所属服务网点、其他服务商或自己的会员转账收益，最低转账金额为50。
+                                        <strong>说明：</strong>可向所属服务网点、其他服务商或自己的会员转账智算金。互转时5%自动转化为积分（归您），95%到账对方智算金。最低转账金额为50。
                                     </p>
                                 </div>
                                 <div>
@@ -4711,7 +4711,7 @@ export default function ProviderPage() {
                                 </Button>
                                 <Button 
                                     className="bg-purple-600" 
-                                    onClick={handleTransferEnergy}
+                                    onClick={handleTransferBalance}
                                     disabled={submitting || !transferUserId || !transferAmount}
                                 >
                                     {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ArrowLeftRight className="w-4 h-4 mr-2" />}
@@ -4721,42 +4721,42 @@ export default function ProviderPage() {
                         </DialogContent>
                     </Dialog>
 
-                    {/* 收益转入收益对话框 */}
-                    <Dialog open={false && showConvertDialog} onOpenChange={setShowConvertDialog}>
+                    {/* 智算金转积分对话框 */}
+                    <Dialog open={showConvertDialog} onOpenChange={setShowConvertDialog}>
                         <DialogContent>
                             <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">
                                     <Zap className="w-5 h-5 text-green-600" />
-                                    收益转入收益
+                                    智算金转积分
                                 </DialogTitle>
                             </DialogHeader>
                             <div className="space-y-4 py-4">
                                 <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                                     <p className="text-sm text-green-700">
-                                        <strong>说明：</strong>收益转为收益时，5%转为积分，95%转为收益。收益可用于给会员充值。
+                                        <strong>说明：</strong>将智算金按1:1转换为积分。积分未来可用于购买产品，但不可转回智算金。
                                     </p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="bg-slate-100 rounded-lg p-3">
-                                        <p className="text-xs text-gray-500">智算金</p>
-                                        <p className="text-xl font-bold text-green-600">¥{revenueStats.balance?.toLocaleString() || 0}</p>
+                                        <p className="text-xs text-gray-500">智算金余额</p>
+                                        <p className="text-xl font-bold text-green-600">{user?.balance?.toLocaleString() || 0}</p>
                                     </div>
                                     <div className="bg-slate-100 rounded-lg p-3">
-                                        <p className="text-xs text-gray-500">当前收益</p>
-                                        <p className="text-xl font-bold text-purple-600">{user?.balance?.toLocaleString() || 0}</p>
+                                        <p className="text-xs text-gray-500">当前积分</p>
+                                        <p className="text-xl font-bold text-purple-600">{user?.points?.toLocaleString() || 0}</p>
                                     </div>
                                 </div>
                                 <div>
                                     <label className="text-sm font-medium mb-2 block">转换金额</label>
                                     <Input
                                         type="number"
-                                        placeholder="请输入要转换的收益金额"
+                                        placeholder="请输入要转换的智算金金额（最低10）"
                                         value={withdrawAmount}
                                         onChange={(e) => setWithdrawAmount(e.target.value)}
-                                        min="1"
+                                        min="10"
                                     />
                                     <p className="text-xs text-gray-500 mt-1">
-                                        积分: {withdrawAmount ? (parseFloat(withdrawAmount) * 0.05).toFixed(2) : "0.00"} | 收益: {withdrawAmount ? (parseFloat(withdrawAmount) * 0.95).toFixed(2) : "0.00"}
+                                        转换比例: 1智算金 = 1积分 | 不可逆转
                                     </p>
                                 </div>
                                 <Button 
@@ -4764,16 +4764,17 @@ export default function ProviderPage() {
                                     onClick={async () => {
                                         if (!withdrawAmount || parseFloat(withdrawAmount) <= 0) return;
                                         
+                                        const userId = localStorage.getItem("userId");
                                         setSubmitting(true);
                                         try {
-                                            const res = await authFetch("/api/provider/convert-to-energy", {
+                                            const res = await authFetch("/api/balance/convert-to-points", {
                                                 method: "POST",
                                                 headers: { "Content-Type": "application/json" },
-                                                body: JSON.stringify({ amount: withdrawAmount }),
+                                                body: JSON.stringify({ userId, amount: withdrawAmount }),
                                             });
                                             const data = await res.json();
                                             if (data.success) {
-                                                showMessage("success", `转换成功！${data.data?.pointsAdded || 0}→积分，${data.data?.energyAdded || 0}→收益`);
+                                                showMessage("success", data.message);
                                                 setShowConvertDialog(false);
                                                 setWithdrawAmount("");
                                                 refreshAll();
@@ -4786,7 +4787,7 @@ export default function ProviderPage() {
                                             setSubmitting(false);
                                         }
                                     }}
-                                    disabled={submitting || !withdrawAmount || parseFloat(withdrawAmount) <= 0}
+                                    disabled={submitting || !withdrawAmount || parseFloat(withdrawAmount) <= 0 || parseFloat(withdrawAmount) < 10}
                                 >
                                     {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
                                     确认转换

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne } from '@/storage/database/pg-client';
 import { authenticateRequest } from '@/lib/auth';
 
-// 智算金（balance）互转 - 所有用户都可以互相转账
+// 智算金（balance）互转 - 5%转化为积分，95%到账对方智算金
 export async function POST(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
 
     // 查询转出方余额
     const fromUser: any = await queryOne(
-      'SELECT id, username, balance, role FROM users WHERE id::text = $1',
+      'SELECT id, username, balance, points, role FROM users WHERE id::text = $1',
       [fromUserId]
     );
 
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     // 查询转入方
     const toUser: any = await queryOne(
-      'SELECT id, username, balance, role FROM users WHERE id::text = $1',
+      'SELECT id, username, balance, points, role FROM users WHERE id::text = $1',
       [toUserId]
     );
 
@@ -62,36 +62,74 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: '转入方用户不存在' }, { status: 404 });
     }
 
+    // 计算互转分配：5%→积分，95%→对方智算金
+    const pointsFee = Math.round(transferAmount * 0.05 * 100) / 100; // 5%转为积分
+    const actualReceive = Math.round((transferAmount - pointsFee) * 100) / 100; // 95%到账
+
     // 执行转账（使用SQL直接执行，避免REST API静默失败）
-    // 1. 扣除转出方余额
+    // 1. 扣除转出方全部转账金额
     await query(
       'UPDATE users SET balance = (balance::float - $1)::numeric WHERE id::text = $2',
       [transferAmount, fromUserId]
     );
 
-    // 2. 增加转入方余额
+    // 2. 转出方获得5%积分
     await query(
-      'UPDATE users SET balance = (balance::float + $1)::numeric WHERE id::text = $2',
-      [transferAmount, toUserId]
+      'UPDATE users SET points = (COALESCE(points::float, 0) + $1)::numeric WHERE id::text = $2',
+      [pointsFee, fromUserId]
     );
 
-    // 3. 记录交易 - 转出方
+    // 3. 转入方获得95%智算金
+    await query(
+      'UPDATE users SET balance = (balance::float + $1)::numeric WHERE id::text = $2',
+      [actualReceive, toUserId]
+    );
+
+    // 4. 记录交易 - 转出方（扣减智算金）
     await query(
       `INSERT INTO transactions (id, user_id, order_id, type, amount, status, description, created_at)
        VALUES (gen_random_uuid(), $1, NULL, 'balance_transfer_out', $2, 'completed', $3, NOW())`,
-      [fromUserId, transferAmount, JSON.stringify({ toUser: toUser.username, toUserId, note: note || '智算金转出' })]
+      [fromUserId, transferAmount, JSON.stringify({ 
+        toUser: toUser.username, toUserId, 
+        actualReceive, pointsFee,
+        note: note || '智算金转出' 
+      })]
     );
 
-    // 4. 记录交易 - 转入方
+    // 5. 记录交易 - 转出方获得积分
+    await query(
+      `INSERT INTO transactions (id, user_id, order_id, type, amount, status, description, created_at)
+       VALUES (gen_random_uuid(), $1, NULL, 'points_from_transfer', $2, 'completed', $3, NOW())`,
+      [fromUserId, pointsFee, JSON.stringify({ 
+        fromTransfer: true, 
+        originalAmount: transferAmount,
+        note: '互转获得5%积分' 
+      })]
+    );
+
+    // 6. 记录交易 - 转入方（收到智算金）
     await query(
       `INSERT INTO transactions (id, user_id, order_id, type, amount, status, description, created_at)
        VALUES (gen_random_uuid(), $1, NULL, 'balance_transfer_in', $2, 'completed', $3, NOW())`,
-      [toUserId, transferAmount, JSON.stringify({ fromUser: fromUser.username, fromUserId, note: note || '智算金转入' })]
+      [toUserId, actualReceive, JSON.stringify({ 
+        fromUser: fromUser.username, fromUserId, 
+        originalAmount: transferAmount,
+        pointsFee,
+        note: note || '智算金转入' 
+      })]
+    );
+
+    // 7. 记录积分流水到 points_records
+    await query(
+      `INSERT INTO points_records (id, user_id, type, amount, balance_after, description, created_at)
+       VALUES (gen_random_uuid(), $1, 'transfer_fee', $2, 
+        (SELECT points FROM users WHERE id::text = $1), $3, NOW())`,
+      [fromUserId, pointsFee, `互转${transferAmount}智算金，获得5%积分`]
     );
 
     // 查询更新后的余额
     const updatedFromUser: any = await queryOne(
-      'SELECT balance FROM users WHERE id::text = $1',
+      'SELECT balance, points FROM users WHERE id::text = $1',
       [fromUserId]
     );
     const updatedToUser: any = await queryOne(
@@ -101,11 +139,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `成功转账 ${transferAmount} 智算金给 ${toUser.username}`,
+      message: `成功转账 ${transferAmount} 智算金给 ${toUser.username}（对方到账 ${actualReceive}，您获得 ${pointsFee} 积分）`,
       data: {
         fromBalance: parseFloat(String(updatedFromUser?.balance)) || 0,
+        fromPoints: parseFloat(String(updatedFromUser?.points)) || 0,
         toBalance: parseFloat(String(updatedToUser?.balance)) || 0,
         amount: transferAmount,
+        actualReceive,
+        pointsFee,
       },
     });
   } catch (error) {
@@ -133,7 +174,6 @@ export async function GET(request: NextRequest) {
 
     // 根据角色获取可转账对象
     if (role === 'admin') {
-      // 总公司可以转给所有服务网点和服务商
       const branches: any = await query(
         'SELECT id, username, role, balance, unique_id, phone FROM users WHERE role = $1 AND is_active = true ORDER BY username',
         ['branch']
@@ -144,7 +184,6 @@ export async function GET(request: NextRequest) {
       );
       targets.push(...(branches || []), ...(providers || []));
     } else if (role === 'branch') {
-      // 服务网点可以转给下属服务商和会员
       const branchUser: any = await queryOne(
         'SELECT id FROM users WHERE id::text = $1 AND role = $2',
         [userId, 'branch']
@@ -161,7 +200,6 @@ export async function GET(request: NextRequest) {
         targets.push(...(providers || []), ...(members || []));
       }
     } else if (role === 'provider') {
-      // 服务商可以转给下属会员
       const members: any = await query(
         'SELECT id, username, role, balance, unique_id, phone FROM users WHERE role = $1 AND provider_id::text = $2 AND is_active = true ORDER BY username',
         ['member', userId]

@@ -45,6 +45,7 @@ import {
     EyeOff,
     Banknote,
     ArrowRightLeft,
+    ArrowLeftRight,
     Info,
     RefreshCw,
     Phone,
@@ -227,6 +228,12 @@ const [copySuccess, setCopySuccess] = useState(false);
     });
     const [showProfitConvertDialog, setShowProfitConvertDialog] = useState(false);
     const [convertAmount, setConvertAmount] = useState("");
+    const [showBalanceTransferDialog, setShowBalanceTransferDialog] = useState(false);
+    const [showBalanceConvertDialog, setShowBalanceConvertDialog] = useState(false);
+    const [transferTargets, setTransferTargets] = useState<any[]>([]);
+    const [transferToUserId, setTransferToUserId] = useState("");
+    const [transferToAmount, setTransferToAmount] = useState("");
+    const [transferToNote, setTransferToNote] = useState("");
     const [profitConvertAmount, setProfitConvertAmount] = useState("");
     const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
     const [withdrawAmount, setWithdrawAmount] = useState("");
@@ -2662,22 +2669,35 @@ const [copySuccess, setCopySuccess] = useState(false);
                                     <CardContent className="pt-4">
                                         <div className="flex items-center gap-2 mb-2">
                                             <Coins className="w-5 h-5" />
-                                            <span className="text-sm opacity-80">可提现</span>
+                                            <span className="text-sm opacity-80">智算金余额</span>
                                         </div>
-                                        <p className="text-2xl font-bold">¥{profitStats.available?.toLocaleString() || 0}</p>
-                                        {Number(profitStats.available) > 0 && (
+                                        <p className="text-2xl font-bold">¥{user?.balance?.toLocaleString() || 0}</p>
+                                        <div className="flex gap-1 mt-2">
                                             <Button
                                                 size="sm"
-                                                className="mt-2 w-full bg-white/20 hover:bg-white/30 text-white border-0"
+                                                className="flex-1 bg-white/20 hover:bg-white/30 text-white border-0 text-xs"
+                                                onClick={() => setShowBalanceTransferDialog(true)}
+                                            >
+                                                互转
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                className="flex-1 bg-white/20 hover:bg-white/30 text-white border-0 text-xs"
+                                                onClick={() => setShowBalanceConvertDialog(true)}
+                                            >
+                                                转积分
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                className="flex-1 bg-white/20 hover:bg-white/30 text-white border-0 text-xs"
                                                 onClick={() => {
-                                                    setConvertAmount(profitStats.available?.toString() || "0");
-                                                    setShowProfitConvertDialog(true);
+                                                    setWithdrawAmount("");
+                                                    setShowWithdrawDialog(true);
                                                 }}
                                             >
-                                                <Zap className="w-4 h-4 mr-1" />
-                                                转入收益
+                                                提现
                                             </Button>
-                                        )}
+                                        </div>
                                     </CardContent>
                                 </Card>
                             </div>
@@ -3167,6 +3187,196 @@ const [copySuccess, setCopySuccess] = useState(false);
                 </div>
 
             </main>
+
+            {/* 智算金互转对话框 */}
+            <Dialog open={showBalanceTransferDialog} onOpenChange={(open) => {
+                setShowBalanceTransferDialog(open);
+                if (open) {
+                    // 加载可转账对象
+                    const userId = localStorage.getItem("userId");
+                    const role = localStorage.getItem("userRole");
+                    if (userId) {
+                        authFetch(`/api/balance/transfer?userId=${userId}&role=${role || 'member'}`)
+                            .then(r => r.json())
+                            .then(data => {
+                                if (data.success) setTransferTargets(data.data || []);
+                            })
+                            .catch(() => {});
+                    }
+                }
+            }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <ArrowLeftRight className="w-5 h-5 text-blue-600" />
+                            智算金互转
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <p className="text-sm text-blue-700">
+                                <strong>说明：</strong>互转时5%自动转化为积分（归您），95%到账对方智算金。最低转账金额为50。
+                            </p>
+                        </div>
+                        <div className="bg-slate-100 rounded-lg p-3">
+                            <p className="text-xs text-gray-500">您的智算金余额</p>
+                            <p className="text-xl font-bold text-green-600">¥{user?.balance?.toLocaleString() || 0}</p>
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium mb-2 block">选择转账对象</label>
+                            <select
+                                className="w-full p-2 border rounded-md bg-white"
+                                value={transferToUserId}
+                                onChange={(e) => setTransferToUserId(e.target.value)}
+                            >
+                                <option value="">请选择</option>
+                                {transferTargets.map((t: any) => (
+                                    <option key={t.id} value={t.id}>
+                                        {t.username} {t.uniqueId ? `[${t.uniqueId}]` : ''} {t.phone ? `(${t.phone})` : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium mb-2 block">转账金额</label>
+                            <Input
+                                type="number"
+                                placeholder="请输入转账金额（最低50）"
+                                value={transferToAmount}
+                                onChange={(e) => setTransferToAmount(e.target.value)}
+                                min="50"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                                {transferToAmount && parseFloat(transferToAmount) > 0 
+                                    ? `到账: ${(parseFloat(transferToAmount) * 0.95).toFixed(2)} | 积分: ${(parseFloat(transferToAmount) * 0.05).toFixed(2)}`
+                                    : '互转时5%转化为积分，95%到账对方'}
+                            </p>
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium mb-2 block">备注（可选）</label>
+                            <Input
+                                placeholder="如: 业务转账"
+                                value={transferToNote}
+                                onChange={(e) => setTransferToNote(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowBalanceTransferDialog(false)}>取消</Button>
+                        <Button
+                            className="bg-blue-600"
+                            disabled={submitting || !transferToUserId || !transferToAmount || parseFloat(transferToAmount) < 50}
+                            onClick={async () => {
+                                const userId = localStorage.getItem("userId");
+                                if (!userId || !transferToUserId || !transferToAmount) return;
+                                setSubmitting(true);
+                                try {
+                                    const res = await authFetch("/api/balance/transfer", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({
+                                            fromUserId: userId,
+                                            toUserId: transferToUserId,
+                                            amount: parseFloat(transferToAmount),
+                                            note: transferToNote,
+                                        }),
+                                    });
+                                    const data = await res.json();
+                                    if (data.success) {
+                                        showMessage("success", data.message);
+                                        setShowBalanceTransferDialog(false);
+                                        setTransferToUserId("");
+                                        setTransferToAmount("");
+                                        setTransferToNote("");
+                                        refreshAll();
+                                    } else {
+                                        showMessage("error", data.error || "转账失败");
+                                    }
+                                } catch (err) {
+                                    showMessage("error", "网络错误");
+                                } finally {
+                                    setSubmitting(false);
+                                }
+                            }}
+                        >
+                            {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ArrowLeftRight className="w-4 h-4 mr-2" />}
+                            确认转账
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* 智算金转积分对话框 */}
+            <Dialog open={showBalanceConvertDialog} onOpenChange={setShowBalanceConvertDialog}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Zap className="w-5 h-5 text-green-600" />
+                            智算金转积分
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                            <p className="text-sm text-green-700">
+                                <strong>说明：</strong>将智算金按1:1转换为积分。积分未来可用于购买产品，但不可转回智算金。
+                            </p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-slate-100 rounded-lg p-3">
+                                <p className="text-xs text-gray-500">智算金余额</p>
+                                <p className="text-xl font-bold text-green-600">¥{user?.balance?.toLocaleString() || 0}</p>
+                            </div>
+                            <div className="bg-slate-100 rounded-lg p-3">
+                                <p className="text-xs text-gray-500">当前积分</p>
+                                <p className="text-xl font-bold text-purple-600">{user?.points?.toLocaleString() || 0}</p>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium mb-2 block">转换金额</label>
+                            <Input
+                                type="number"
+                                placeholder="请输入转换金额（最低10）"
+                                value={convertAmount}
+                                onChange={(e) => setConvertAmount(e.target.value)}
+                                min="10"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">转换比例: 1智算金 = 1积分 | 不可逆转</p>
+                        </div>
+                        <Button
+                            className="w-full bg-green-600 hover:bg-green-700"
+                            disabled={submitting || !convertAmount || parseFloat(convertAmount) < 10}
+                            onClick={async () => {
+                                const userId = localStorage.getItem("userId");
+                                if (!userId || !convertAmount) return;
+                                setSubmitting(true);
+                                try {
+                                    const res = await authFetch("/api/balance/convert-to-points", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ userId, amount: convertAmount }),
+                                    });
+                                    const data = await res.json();
+                                    if (data.success) {
+                                        showMessage("success", data.message);
+                                        setShowBalanceConvertDialog(false);
+                                        setConvertAmount("");
+                                        refreshAll();
+                                    } else {
+                                        showMessage("error", data.error || "转换失败");
+                                    }
+                                } catch (err) {
+                                    showMessage("error", "网络错误");
+                                } finally {
+                                    setSubmitting(false);
+                                }
+                            }}
+                        >
+                            {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
+                            确认转换
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
