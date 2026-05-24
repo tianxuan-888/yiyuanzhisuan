@@ -2589,7 +2589,7 @@ export default function BranchPage() {
                             </div>
                             <div className="text-right">
                               <p className="text-xl font-bold text-orange-600">¥{Number(w.amount).toLocaleString()}</p>
-                              <p className="text-xs text-gray-500">手续费: ¥{Number(w.fee).toLocaleString()}</p>
+                              <p className="text-xs text-gray-500">手续费: ¥{Number(w.fee_amount || w.fee).toLocaleString()}</p>
                             </div>
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-sm mb-3">

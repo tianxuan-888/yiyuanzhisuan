@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne, execute } from '@/lib/supabase-client';
 
 // 智算总台审核提现申请（仅审核服务网点的提现，会员/服务商提现由服务网点审核）
-// 申请时已冻结余额，审核通过：95%到总台balance（总台线下付款给网点）+ 5%手续费到总台balance，审核拒绝：退还冻结余额
+// 申请时已冻结余额，审核通过：100%到总台balance（总台线下付款给网点），审核拒绝：退还冻结余额
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     const withdrawAmount = parseFloat(wd.amount) || 0;
-    const fee = parseFloat(wd.fee) || Math.round(withdrawAmount * 0.05 * 100) / 100;
+    const fee = parseFloat(wd.fee_amount) || Math.round(withdrawAmount * 0.05 * 100) / 100;
     const actualAmount = withdrawAmount - fee;
 
     if (action === 'reject') {
@@ -43,13 +43,13 @@ export async function POST(request: NextRequest) {
       );
 
       await execute(
-        "UPDATE withdrawals SET status = 'rejected', reviewer_id = $1, reject_reason = $2, reviewed_at = NOW(), updated_at = NOW() WHERE id = $3",
+        "UPDATE withdrawals SET status = 'rejected', reviewed_by = $1, review_note = $2, updated_at = NOW() WHERE id = $3",
         [adminUserId || 'admin', note || '审核拒绝', withdrawalId]
       );
 
       // 记录交易流水
       await execute(
-        `INSERT INTO transactions (user_id, type, amount, note, created_at)
+        `INSERT INTO transactions (user_id, type, amount, description, created_at)
          VALUES ($1, 'withdraw_rejected', $2, $3, NOW())`,
         [wd.user_id, withdrawAmount.toFixed(2), `提现申请${withdrawAmount}元被总台拒绝，已退还冻结金额`]
       );
@@ -62,36 +62,36 @@ export async function POST(request: NextRequest) {
     }
 
     // 审核通过：余额已在申请时冻结
-    // 1. 网点提现的95%到总台balance（总台线下付款给网点），5%手续费也到总台balance
+    // 100%到总台balance（总台线下付款给网点，5%是手续费）
     const admin = await queryOne("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
     if (admin) {
-      // 95%到总台（线下付款给网点）+ 5%手续费到总台 = 100%到总台
       await execute(
         'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
         [withdrawAmount.toFixed(2), admin.id]
       );
-      // 记录总台收款
+      // 记录总台手续费收入
       await execute(
-        `INSERT INTO transactions (user_id, type, amount, note, created_at)
+        `INSERT INTO transactions (user_id, type, amount, description, created_at)
          VALUES ($1, 'withdrawal_fee', $2, $3, NOW())`,
         [admin.id, fee.toFixed(2), `网点提现手续费收入：网点提现${withdrawAmount}元，手续费${fee}元`]
       );
+      // 记录网点提现到账（95%待线下付款给网点）
       await execute(
-        `INSERT INTO transactions (user_id, type, amount, note, created_at)
+        `INSERT INTO transactions (user_id, type, amount, description, created_at)
          VALUES ($1, 'branch_withdraw', $2, $3, NOW())`,
         [admin.id, actualAmount.toFixed(2), `网点提现到账：网点提现${withdrawAmount}元，95%即${actualAmount.toFixed(2)}元待线下付款给网点`]
       );
     }
 
-    // 2. 更新提现记录状态为 approved
+    // 更新提现记录状态为 approved
     await execute(
-      "UPDATE withdrawals SET status = 'approved', reviewer_id = $1, reviewed_at = NOW(), transferred_at = NOW(), note = $2, updated_at = NOW() WHERE id = $3",
+      "UPDATE withdrawals SET status = 'approved', reviewed_by = $1, processed_at = NOW(), review_note = $2, updated_at = NOW() WHERE id = $3",
       [adminUserId || 'admin', note || '', withdrawalId]
     );
 
-    // 3. 记录交易流水
+    // 记录提现人交易流水
     await execute(
-      `INSERT INTO transactions (user_id, type, amount, note, created_at)
+      `INSERT INTO transactions (user_id, type, amount, description, created_at)
        VALUES ($1, 'withdraw', $2, $3, NOW())`,
       [wd.user_id, withdrawAmount.toFixed(2), `总台审核网点提现通过，金额${withdrawAmount}元，手续费${fee}元回流总台，实际到账${actualAmount.toFixed(2)}元`]
     );
@@ -110,36 +110,53 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 获取所有提现记录（总台只看网点提现，会员/服务商提现由网点审核）
+// 获取所有提现记录（总台可看所有角色的提现记录，但只能审核网点提现）
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
+    const role = searchParams.get('role');
 
-    // 总台只审核服务网点提现（user_role = 'branch'）
-    let sql = `SELECT w.*, u.username, u.role as user_role_name, u.phone 
+    // 总台查看所有提现记录，通过JOIN users获取角色
+    let sql = `SELECT w.*, u.username, u.role as user_role, u.phone,
+               b_user.username as reviewer_name
                FROM withdrawals w 
                LEFT JOIN users u ON w.user_id = u.id 
-               WHERE w.user_role = 'branch'`;
+               LEFT JOIN users b_user ON w.reviewed_by = b_user.id 
+               WHERE 1=1`;
     const params: any[] = [];
+
+    if (role) {
+      sql += ` AND u.role = $${params.length + 1}`;
+      params.push(role);
+    }
 
     if (status) {
       sql += ` AND w.status = $${params.length + 1}`;
       params.push(status);
     }
 
-    sql += ' ORDER BY w.created_at DESC LIMIT 50';
+    sql += ' ORDER BY w.created_at DESC LIMIT 100';
 
     const data = await query(sql, params);
 
-    // 统计 - 只统计网点提现
+    // 统计 - 所有角色
     const stats = await queryOne(
       `SELECT 
         COUNT(*) as total_count,
         COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) as pending_amount,
         COALESCE(SUM(CASE WHEN status = 'approved' THEN amount ELSE 0 END), 0) as approved_amount,
-        COALESCE(SUM(CASE WHEN status = 'approved' THEN COALESCE(fee, 0) ELSE 0 END), 0) as total_fee
-      FROM withdrawals WHERE user_role = 'branch'`
+        COALESCE(SUM(CASE WHEN status = 'approved' THEN COALESCE(fee_amount, 0) ELSE 0 END), 0) as total_fee
+      FROM withdrawals`
+    );
+
+    // 按角色统计（通过JOIN users）
+    const roleStats = await query(
+      `SELECT u.role as user_role, 
+        COUNT(*) as count,
+        COALESCE(SUM(CASE WHEN w.status = 'pending' THEN w.amount ELSE 0 END), 0) as pending_amount,
+        COALESCE(SUM(CASE WHEN w.status = 'approved' THEN w.amount ELSE 0 END), 0) as approved_amount
+      FROM withdrawals w LEFT JOIN users u ON w.user_id = u.id GROUP BY u.role`
     );
 
     return NextResponse.json({
@@ -147,6 +164,7 @@ export async function GET(request: NextRequest) {
       data: {
         records: data,
         stats: stats || {},
+        roleStats: roleStats || [],
       },
     });
   } catch (error) {

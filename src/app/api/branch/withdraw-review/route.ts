@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, data: [], stats: { pendingCount: 0, pendingAmount: 0 } });
     }
 
-    let sql = 'SELECT w.*, u.username, u.phone, u.role as user_role_name FROM withdrawals w LEFT JOIN users u ON w.user_id = u.id WHERE w.user_id = ANY($1)';
+    let sql = 'SELECT w.*, u.username, u.phone, u.role as user_role FROM withdrawals w LEFT JOIN users u ON w.user_id = u.id WHERE w.user_id = ANY($1)';
     const params: any[] = [allUserIds];
 
     if (status !== 'all') {
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
     }
 
     const withdrawAmount = parseFloat(String(withdrawal.amount)) || 0;
-    const fee = parseFloat(String(withdrawal.fee)) || Math.round(withdrawAmount * 0.05 * 100) / 100;
+    const fee = parseFloat(String(withdrawal.fee_amount)) || Math.round(withdrawAmount * 0.05 * 100) / 100;
     const actualAmount = withdrawAmount - fee;
 
     if (action === 'reject') {
@@ -105,13 +105,13 @@ export async function POST(request: NextRequest) {
       );
 
       await execute(
-        "UPDATE withdrawals SET status = 'rejected', reviewer_id = $1, reject_reason = $2, reviewed_at = NOW(), updated_at = NOW() WHERE id = $3",
+        "UPDATE withdrawals SET status = 'rejected', reviewed_by = $1, review_note = $2, updated_at = NOW() WHERE id = $3",
         [reviewerId || '', note || '审核拒绝', withdrawalId]
       );
 
       // 记录交易流水
       await execute(
-        `INSERT INTO transactions (user_id, type, amount, note, created_at)
+        `INSERT INTO transactions (user_id, type, amount, description, created_at)
          VALUES ($1, 'withdraw_rejected', $2, $3, NOW())`,
         [withdrawal.user_id, withdrawAmount.toFixed(2), `提现申请${withdrawAmount}元被网点拒绝，已退还冻结金额`]
       );
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
     );
     // 记录网点收入
     await execute(
-      `INSERT INTO transactions (user_id, type, amount, note, created_at)
+      `INSERT INTO transactions (user_id, type, amount, description, created_at)
        VALUES ($1, 'withdraw_to_branch', $2, $3, NOW())`,
       [reviewerId, branchAmount.toFixed(2), `审核提现收入：用户${withdrawal.user_id}提现${withdrawAmount}元，95%（${branchAmount.toFixed(2)}元）到网点账`]
     );
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
       );
       // 记录总台手续费收入
       await execute(
-        `INSERT INTO transactions (user_id, type, amount, note, created_at)
+        `INSERT INTO transactions (user_id, type, amount, description, created_at)
          VALUES ($1, 'withdrawal_fee', $2, $3, NOW())`,
         [admin.id, fee.toFixed(2), `提现手续费收入：用户${withdrawal.user_id}提现${withdrawAmount}元，手续费${fee}元`]
       );
@@ -150,13 +150,13 @@ export async function POST(request: NextRequest) {
 
     // 3. 更新提现记录状态为 approved
     await execute(
-      "UPDATE withdrawals SET status = 'approved', reviewer_id = $1, reviewed_at = NOW(), transferred_at = NOW(), note = $2, updated_at = NOW() WHERE id = $3",
+      "UPDATE withdrawals SET status = 'approved', reviewed_by = $1, processed_at = NOW(), review_note = $2, updated_at = NOW() WHERE id = $3",
       [reviewerId || '', note || '', withdrawalId]
     );
 
     // 4. 记录提现人交易流水
     await execute(
-      `INSERT INTO transactions (user_id, type, amount, note, created_at)
+      `INSERT INTO transactions (user_id, type, amount, description, created_at)
        VALUES ($1, 'withdraw', $2, $3, NOW())`,
       [withdrawal.user_id, withdrawAmount.toFixed(2), `网点审核提现通过，金额${withdrawAmount}元，手续费${fee}元回流总台，95%（${actualAmount.toFixed(2)}元）到网点账`]
     );

@@ -1574,7 +1574,7 @@ export default function ProviderDashboard() {
                         <div>
                           <p className="font-medium">申请金额: {record.amount}</p>
                           <p className="text-sm text-gray-500">
-                            实际到账: {record.actual_amount} · 手续费: {record.fee}
+                            实际到账: {record.actual_amount} · 手续费: {record.fee_amount || record.fee}
                           </p>
                           <p className="text-sm text-gray-500">
                             {formatDate(record.created_at)}

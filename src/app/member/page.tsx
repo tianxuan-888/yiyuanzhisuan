@@ -2964,7 +2964,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                             )}
                                                         </div>
                                                         <p className="text-xs text-muted-foreground mt-1">
-                                                            实际到账: ¥{Number(record.actual_amount).toLocaleString()} | 手续费: ¥{Number(record.fee).toLocaleString()}
+                                                            实际到账: ¥{Number(record.actual_amount).toLocaleString()} | 手续费: ¥{Number(record.fee_amount || record.fee).toLocaleString()}
                                                         </p>
                                                         <p className="text-xs text-muted-foreground">
                                                             支付宝: {record.alipay_account} | {record.real_name}

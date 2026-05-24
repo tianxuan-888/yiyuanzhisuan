@@ -67,9 +67,9 @@ export async function POST(request: NextRequest) {
 
     // 创建提现申请（已冻结余额，等服务网点审核）
     await execute(
-      `INSERT INTO withdrawals (user_id, user_role, amount, fee, actual_amount, alipay_account, real_name, status, note, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, NOW())`,
-      [userId, user.role, withdrawAmount.toFixed(2), fee.toFixed(2), actualAmount.toFixed(2), alipayAccount || '', realName || '', note || `${user.role}提现申请`]
+      `INSERT INTO withdrawals (user_id, amount, fee_amount, actual_amount, alipay_account, real_name, status, review_note, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, NOW())`,
+      [userId, withdrawAmount.toFixed(2), fee.toFixed(2), actualAmount.toFixed(2), alipayAccount || '', realName || '', note || '服务商提现申请']
     );
     
     return NextResponse.json({ 

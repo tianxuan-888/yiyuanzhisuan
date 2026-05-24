@@ -3802,7 +3802,9 @@ export default function AdminPage() {
   // 渲染财务管理（不使用内部状态，通过父组件financeTab管理）
   const FinanceManagementPanel = React.memo(() => {
     // 加载服务网点提现和手续费记录
-    const [branchWithdrawals, setBranchWithdrawals] = useState<any[]>([]);
+    const [allWithdrawals, setAllWithdrawals] = useState<any[]>([]);
+    const [withdrawRoleFilter, setWithdrawRoleFilter] = useState<string>('all');
+    const [withdrawStats, setWithdrawStats] = useState<any>({});
     const [feeRecords, setFeeRecords] = useState<any[]>([]);
     const [feeStats, setFeeStats] = useState<any>({});
     const [financeLoading, setFinanceLoading] = useState(false);
@@ -3835,7 +3837,10 @@ export default function AdminPage() {
         const withdrawalData = await withdrawalRes.json();
         const feeData = await feeRes.json();
         const adminData = await adminRes.json();
-        if (withdrawalData.success) setBranchWithdrawals(withdrawalData.data || []);
+        if (withdrawalData.success) {
+          setAllWithdrawals(withdrawalData.data?.records || []);
+          setWithdrawStats(withdrawalData.data?.stats || {});
+        }
         if (feeData.success) {
           setFeeRecords(feeData.data?.records || []);
           setFeeStats(feeData.data?.stats || {});
@@ -3915,7 +3920,7 @@ export default function AdminPage() {
     const totalFee = Number(feeStats.total_fee || 0);
     const withdrawFee = Number(feeStats.total_withdrawal_fee || 0);
     const marketFeeOps = Number(feeStats.total_market_fee_ops || 0);
-    const pendingWithdrawals = branchWithdrawals.filter((w: any) => w.status === 'pending');
+    const pendingWithdrawals = allWithdrawals.filter((w: any) => w.status === 'pending');
 
     return (
       <div className="space-y-3 md:space-y-6">
@@ -3927,7 +3932,7 @@ export default function AdminPage() {
           </div>
           <div className="flex items-center gap-1 px-4">
             <button onClick={() => setFinanceSubTab('overview')} className={`px-4 py-2 rounded-md transition-colors ${financeSubTab === 'overview' ? 'bg-purple-500 text-white' : 'bg-purple-800/50 text-white/80 hover:bg-purple-700'}`}>财务总览</button>
-            <button onClick={() => setFinanceSubTab('withdraw-review')} className={`px-4 py-2 rounded-md transition-colors flex items-center gap-1 ${financeSubTab === 'withdraw-review' ? 'bg-purple-500 text-white' : 'bg-purple-800/50 text-white/80 hover:bg-purple-700'}`}>服务网点提现审核{pendingWithdrawals.length > 0 && <Badge className="bg-red-500 text-white text-xs ml-1">{pendingWithdrawals.length}</Badge>}</button>
+            <button onClick={() => setFinanceSubTab('withdraw-review')} className={`px-4 py-2 rounded-md transition-colors flex items-center gap-1 ${financeSubTab === 'withdraw-review' ? 'bg-purple-500 text-white' : 'bg-purple-800/50 text-white/80 hover:bg-purple-700'}`}>提现记录{pendingWithdrawals.length > 0 && <Badge className="bg-red-500 text-white text-xs ml-1">{pendingWithdrawals.length}</Badge>}</button>
             <button onClick={() => setFinanceSubTab('fee-records')} className={`px-4 py-2 rounded-md transition-colors ${financeSubTab === 'fee-records' ? 'bg-purple-500 text-white' : 'bg-purple-800/50 text-white/80 hover:bg-purple-700'}`}>手续费记录</button>
             <button onClick={() => setFinanceSubTab('transfer-balance')} className={`px-4 py-2 rounded-md transition-colors ${financeSubTab === 'transfer-balance' ? 'bg-purple-500 text-white' : 'bg-purple-800/50 text-white/80 hover:bg-purple-700'}`}>转智算金</button>
             <button onClick={() => setFinanceSubTab('revenue-account')} className={`px-4 py-2 rounded-md transition-colors ${financeSubTab === 'revenue-account' ? 'bg-purple-500 text-white' : 'bg-purple-800/50 text-white/80 hover:bg-purple-700'}`}>收益账户</button>
@@ -4004,32 +4009,80 @@ export default function AdminPage() {
           </>
         )}
 
-        {financeSubTab === 'withdraw-review' && (
+        {financeSubTab === 'withdraw-review' && (() => {
+          // 角色筛选
+          const filteredWithdrawals = allWithdrawals.filter((w: any) => {
+            if (withdrawRoleFilter !== 'all') {
+              const wRole = w.user_role || w.user_role_name;
+              if (withdrawRoleFilter !== wRole) return false;
+            }
+            return true;
+          });
+          const roleLabel = (r: string) => r === 'member' ? '会员' : r === 'provider' ? '服务商' : r === 'branch' ? '服务网点' : r || '未知';
+          const roleBadgeColor = (r: string) => r === 'member' ? 'bg-blue-500' : r === 'provider' ? 'bg-purple-500' : r === 'branch' ? 'bg-orange-500' : 'bg-gray-500';
+          // 统计
+          const memberW = allWithdrawals.filter(w => (w.user_role || w.user_role_name) === 'member');
+          const providerW = allWithdrawals.filter(w => (w.user_role || w.user_role_name) === 'provider');
+          const branchW = allWithdrawals.filter(w => (w.user_role || w.user_role_name) === 'branch');
+
+          return (
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <FileCheck className="w-5 h-5" />
-                  服务网点提现审核
+                  提现记录
                 </CardTitle>
-                <Button variant="outline" size="sm" onClick={loadFinanceData} disabled={financeLoading}>
-                  <RefreshCw className={`w-4 h-4 mr-1 ${financeLoading ? 'animate-spin' : ''}`} />刷新
-                </Button>
+                <div className="flex gap-2 items-center">
+                  <select value={withdrawRoleFilter} onChange={(e) => setWithdrawRoleFilter(e.target.value)} className="border rounded-md px-3 py-1.5 text-sm bg-white">
+                    <option value="all">全部角色</option>
+                    <option value="member">会员</option>
+                    <option value="provider">服务商</option>
+                    <option value="branch">服务网点</option>
+                  </select>
+                  <Button variant="outline" size="sm" onClick={loadFinanceData} disabled={financeLoading}>
+                    <RefreshCw className={`w-4 h-4 mr-1 ${financeLoading ? 'animate-spin' : ''}`} />刷新
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
-              {branchWithdrawals.length > 0 ? (
+              {/* 角色统计卡片 */}
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="bg-blue-50 rounded-lg p-3 text-center">
+                  <div className="text-xs text-blue-600 font-medium">会员提现</div>
+                  <div className="text-lg font-bold text-blue-700">{memberW.length}笔</div>
+                  <div className="text-xs text-blue-500">待审核: {memberW.filter(w => w.status === 'pending').length}</div>
+                </div>
+                <div className="bg-purple-50 rounded-lg p-3 text-center">
+                  <div className="text-xs text-purple-600 font-medium">服务商提现</div>
+                  <div className="text-lg font-bold text-purple-700">{providerW.length}笔</div>
+                  <div className="text-xs text-purple-500">待审核: {providerW.filter(w => w.status === 'pending').length}</div>
+                </div>
+                <div className="bg-orange-50 rounded-lg p-3 text-center">
+                  <div className="text-xs text-orange-600 font-medium">网点提现</div>
+                  <div className="text-lg font-bold text-orange-700">{branchW.length}笔</div>
+                  <div className="text-xs text-orange-500">待审核: {branchW.filter(w => w.status === 'pending').length}</div>
+                </div>
+              </div>
+              {filteredWithdrawals.length > 0 ? (
                 <div className="space-y-4">
-                  {branchWithdrawals.map((w: any) => (
+                  {filteredWithdrawals.map((w: any) => {
+                    const wRole = w.user_role || w.user_role_name || 'unknown';
+                    const isBranchWithdraw = wRole === 'branch';
+                    return (
                     <div key={w.id} className="border rounded-lg p-4 hover:bg-gray-50">
                       <div className="flex justify-between items-start mb-3">
                         <div>
-                          <p className="font-medium">{w.username || '服务网点'}</p>
-                          <p className="text-sm text-gray-500">申请时间: {w.created_at ? new Date(w.created_at).toLocaleString() : '-'}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{w.username || '用户'}</p>
+                            <Badge className={roleBadgeColor(wRole)}>{roleLabel(wRole)}</Badge>
+                          </div>
+                          <p className="text-sm text-gray-500">{w.phone ? `${w.phone}` : ''} {w.created_at ? `· ${new Date(w.created_at).toLocaleString()}` : ''}</p>
                         </div>
                         <div className="text-right">
                           <p className="text-xl font-bold text-orange-600">¥{Number(w.amount).toLocaleString()}</p>
-                          <p className="text-xs text-gray-500">手续费: ¥{Number(w.fee).toLocaleString()} | 实际: ¥{Number(w.actual_amount).toLocaleString()}</p>
+                          <p className="text-xs text-gray-500">手续费: ¥{Number(w.fee_amount || w.fee).toLocaleString()} | 实际: ¥{Number(w.actual_amount).toLocaleString()}</p>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-sm mb-3">
@@ -4040,25 +4093,30 @@ export default function AdminPage() {
                         <Badge className={w.status === 'pending' ? 'bg-yellow-500' : w.status === 'approved' ? 'bg-blue-500' : w.status === 'transferred' ? 'bg-green-500' : w.status === 'completed' ? 'bg-gray-500' : 'bg-red-500'}>
                           {w.status === 'pending' ? '待审核' : w.status === 'approved' ? '已审核' : w.status === 'transferred' ? '已打款' : w.status === 'completed' ? '已完成' : '已拒绝'}
                         </Badge>
-                        {w.status === 'pending' && (
+                        {w.status === 'pending' && isBranchWithdraw && (
                           <div className="flex gap-2 ml-2">
                             <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleReviewBranchWithdrawal(w.id, 'approve')}>审核通过</Button>
                             <Button size="sm" variant="destructive" onClick={() => handleReviewBranchWithdrawal(w.id, 'reject')}>拒绝</Button>
                           </div>
                         )}
-                        {w.status === 'approved' && (
-                          <Button size="sm" className="bg-blue-600 hover:bg-blue-700 ml-2" onClick={() => handleReviewBranchWithdrawal(w.id, 'confirm_transfer')}>确认已转账</Button>
+                        {w.status === 'pending' && !isBranchWithdraw && (
+                          <span className="text-xs text-gray-400 ml-2">（由服务网点审核）</span>
+                        )}
+                        {w.status === 'approved' && isBranchWithdraw && (
+                          <span className="text-xs text-green-600 ml-2">已审核通过</span>
                         )}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
-                <p className="text-gray-500 text-center py-8">暂无服务网点提现申请</p>
+                <p className="text-gray-500 text-center py-8">暂无提现记录</p>
               )}
             </CardContent>
           </Card>
-        )}
+          );
+        })()}
 
         {financeSubTab === 'fee-records' && (() => {
           // 筛选逻辑（使用组件级state）
