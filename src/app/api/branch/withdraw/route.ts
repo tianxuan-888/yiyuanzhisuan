@@ -38,8 +38,8 @@ export async function POST(request: NextRequest) {
 
     // 创建提现记录（已冻结余额，等总台审核）
     await execute(
-      `INSERT INTO withdrawals (user_id, amount, fee_amount, actual_amount, alipay_account, real_name, status, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW())`,
+      `INSERT INTO withdrawals (user_id, user_role, amount, fee, actual_amount, alipay_account, real_name, status, created_at)
+       VALUES ($1, 'branch', $2, $3, $4, $5, $6, 'pending', NOW())`,
       [branchId, withdrawAmount.toFixed(2), fee.toFixed(2), actualAmount.toFixed(2), alipayAccount || '', realName || '']
     );
 
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
 
     // 查询该网点的提现记录
     const records = await query(
-      `SELECT id, amount, alipay_account, real_name, status, fee_amount, actual_amount, created_at, updated_at
+      `SELECT id, amount, alipay_account, real_name, status, fee, actual_amount, created_at, updated_at
        FROM withdrawals
        WHERE user_id = $1
        ORDER BY created_at DESC

@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     const withdrawAmount = parseFloat(wd.amount) || 0;
-    const fee = parseFloat(wd.fee_amount) || Math.round(withdrawAmount * 0.05 * 100) / 100;
+    const fee = parseFloat(wd.fee) || Math.round(withdrawAmount * 0.05 * 100) / 100;
     const actualAmount = withdrawAmount - fee;
 
     if (action === 'reject') {
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       );
 
       await execute(
-        "UPDATE withdrawals SET status = 'rejected', reviewed_by = $1, review_note = $2, updated_at = NOW() WHERE id = $3",
+        "UPDATE withdrawals SET status = 'rejected', reviewer_id = $1, reject_reason = $2, updated_at = NOW() WHERE id = $3",
         [adminUserId || 'admin', note || '审核拒绝', withdrawalId]
       );
 
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
 
     // 更新提现记录状态为 approved
     await execute(
-      "UPDATE withdrawals SET status = 'approved', reviewed_by = $1, processed_at = NOW(), review_note = $2, updated_at = NOW() WHERE id = $3",
+      "UPDATE withdrawals SET status = 'approved', reviewer_id = $1, transferred_at = NOW(), note = $2, updated_at = NOW() WHERE id = $3",
       [adminUserId || 'admin', note || '', withdrawalId]
     );
 
@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
                b_user.username as reviewer_name
                FROM withdrawals w 
                LEFT JOIN users u ON w.user_id = u.id 
-               LEFT JOIN users b_user ON w.reviewed_by = b_user.id 
+               LEFT JOIN users b_user ON w.reviewer_id = b_user.id 
                WHERE 1=1`;
     const params: any[] = [];
 
@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
         COUNT(*) as total_count,
         COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) as pending_amount,
         COALESCE(SUM(CASE WHEN status = 'approved' THEN amount ELSE 0 END), 0) as approved_amount,
-        COALESCE(SUM(CASE WHEN status = 'approved' THEN COALESCE(fee_amount, 0) ELSE 0 END), 0) as total_fee
+        COALESCE(SUM(CASE WHEN status = 'approved' THEN COALESCE(fee, 0) ELSE 0 END), 0) as total_fee
       FROM withdrawals`
     );
 
