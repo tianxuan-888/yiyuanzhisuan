@@ -259,6 +259,13 @@ export default function AdminPage() {
   const [acctTransferring, setAcctTransferring] = useState(false);
   const [acctTransferDialogOpen, setAcctTransferDialogOpen] = useState(false);
 
+  // 账户列表清除数据
+  const [clearDataUser, setClearDataUser] = useState<any>(null);
+  const [clearDataType, setClearDataType] = useState<'quota' | 'balance'>('quota');
+  const [clearDataConfirm, setClearDataConfirm] = useState('');
+  const [clearDataDialogOpen, setClearDataDialogOpen] = useState(false);
+  const [acctClearLoading, setAcctClearLoading] = useState(false);
+
   // 数据总览 dashboard state
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [dashboardLoading, setDashboardLoading] = useState(false);
@@ -5356,6 +5363,16 @@ export default function AdminPage() {
                               }}>
                                 转智算金
                               </Button>
+                              {u.role !== 'admin' && u.role !== 'branch' && (
+                              <Button size="sm" variant="outline" className="text-red-600 border-red-300 hover:bg-red-50" onClick={() => {
+                                setClearDataUser(u);
+                                setClearDataType('quota');
+                                setClearDataConfirm('');
+                                setClearDataDialogOpen(true);
+                              }}>
+                                清除数据
+                              </Button>
+                              )}
                               <Button size="sm" variant="outline" onClick={() => {
                                 setRoleChangeUser({ id: u.id, username: u.username, role: u.role });
                                 setSelectedNewRole(u.role);
@@ -5749,6 +5766,118 @@ export default function AdminPage() {
               }}
             >
               {acctTransferring ? '转账中...' : '确认转账'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 清除数据弹窗 */}
+      <Dialog open={clearDataDialogOpen} onOpenChange={setClearDataDialogOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>清除用户数据</DialogTitle>
+            <DialogDescription>此操作不可逆，请谨慎执行</DialogDescription>
+          </DialogHeader>
+          {clearDataUser && (
+            <div className="space-y-4 py-2">
+              <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">用户名</span>
+                  <span className="font-medium">{clearDataUser.username}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">身份</span>
+                  <Badge className={clearDataUser.role === 'provider' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}>
+                    {clearDataUser.role === 'provider' ? '服务商' : '会员'}
+                  </Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">当前收益</span>
+                  <span className="font-medium text-green-600">¥{(clearDataUser.balance || 0).toLocaleString()}</span>
+                </div>
+                {clearDataUser.role === 'member' && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">持有产品额度</span>
+                    <span className="font-medium text-blue-600">¥{(clearDataUser.holding_token || 0).toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">选择清除类型</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    className={`p-3 rounded-lg border-2 text-center transition-colors ${clearDataType === 'quota' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 hover:border-gray-300'}`}
+                    onClick={() => setClearDataType('quota')}
+                  >
+                    <div className="font-medium">{clearDataUser.role === 'provider' ? '清除算力额度' : '清除产品额度'}</div>
+                    <div className="text-xs mt-1 opacity-70">
+                      {clearDataUser.role === 'provider' ? '额度回到网点可分配额度' : '销毁产品，额度回到服务商'}
+                    </div>
+                  </button>
+                  <button
+                    className={`p-3 rounded-lg border-2 text-center transition-colors ${clearDataType === 'balance' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 hover:border-gray-300'}`}
+                    onClick={() => setClearDataType('balance')}
+                  >
+                    <div className="font-medium">清除收益</div>
+                    <div className="text-xs mt-1 opacity-70">将收益余额清零</div>
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-sm text-red-700 font-medium">⚠️ 操作提示</p>
+                <p className="text-sm text-red-600 mt-1">
+                  {clearDataType === 'quota'
+                    ? (clearDataUser.role === 'provider'
+                      ? `将清除服务商 ${clearDataUser.username} 的算力额度，额度将归还到网点可分配额度`
+                      : `将销毁会员 ${clearDataUser.username} 持有的所有产品，算力额度归还给服务商`)
+                    : `将清除 ${clearDataUser.username} 的收益余额 ¥${(clearDataUser.balance || 0).toLocaleString()}，清零后不可恢复`
+                  }
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">请输入 <span className="text-red-600 font-bold">确认清除</span> 以确认操作</label>
+                <Input
+                  placeholder='请输入"确认清除"'
+                  value={clearDataConfirm}
+                  onChange={(e) => setClearDataConfirm(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setClearDataDialogOpen(false)}>取消</Button>
+            <Button
+              variant="destructive"
+              disabled={clearDataConfirm !== '确认清除' || acctClearLoading}
+              onClick={async () => {
+                if (!clearDataUser || clearDataConfirm !== '确认清除') return;
+                setAcctClearLoading(true);
+                try {
+                  const res = await authFetch('/api/admin/clear-user-data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: clearDataUser.id, clearType: clearDataType }),
+                  });
+                  const data = await res.json();
+                  if (data.success) {
+                    alert(data.message);
+                    setClearDataDialogOpen(false);
+                    loadAccountsData();
+                  } else {
+                    alert(data.error || '操作失败');
+                  }
+                } catch (e) {
+                  console.error(e);
+                  alert('操作失败');
+                } finally {
+                  setAcctClearLoading(false);
+                }
+              }}
+            >
+              {acctClearLoading ? '执行中...' : '确认清除'}
             </Button>
           </DialogFooter>
         </DialogContent>
