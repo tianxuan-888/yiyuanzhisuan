@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { queryOne, execute, query } from '@/lib/supabase-client';
 
 // 服务网点审核提现（会员/服务商的提现由服务网点审核，网点提现由总台审核）
-// 审核通过：从用户balance扣除提现金额，5%手续费回流网点，95%记录为实际到账
+// 审核通过：从用户balance扣除提现金额，手续费5%回流总台，95%记录为实际到账
 
 export async function GET(request: NextRequest) {
   try {
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
 }
 
 // 服务网点审核提现（审核会员/服务商的提现申请）
-// 审核通过：扣用户balance，手续费5%回流网点balance
+// 审核通过：扣用户balance，手续费5%回流总台balance
 // 审核拒绝：不扣钱（因为申请时没扣）
 export async function POST(request: NextRequest) {
   try {
@@ -142,11 +142,12 @@ export async function POST(request: NextRequest) {
       [withdrawAmount.toFixed(2), withdrawal.user_id]
     );
 
-    // 3. 提现金额全额回流到网点balance
-    if (reviewerId) {
+    // 3. 提现金额全额回流到总台（手续费归总台收益账户）
+    const admin = await queryOne("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
+    if (admin) {
       await execute(
         'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
-        [withdrawAmount.toFixed(2), reviewerId]
+        [withdrawAmount.toFixed(2), admin.id]
       );
     }
 
@@ -160,12 +161,12 @@ export async function POST(request: NextRequest) {
     await execute(
       `INSERT INTO transactions (user_id, type, amount, note, created_at)
        VALUES ($1, 'withdraw', $2, $3, NOW())`,
-      [withdrawal.user_id, withdrawAmount.toFixed(2), `网点审核提现通过，金额${withdrawAmount}元，手续费${fee}元，实际到账${actualAmount.toFixed(2)}元`]
+      [withdrawal.user_id, withdrawAmount.toFixed(2), `网点审核提现通过，金额${withdrawAmount}元，手续费${fee}元回流总台，实际到账${actualAmount.toFixed(2)}元`]
     );
 
     return NextResponse.json({
       success: true,
-      message: `提现审核通过，${withdrawAmount}元已从用户扣除并回流到网点，手续费${fee}元`,
+      message: `提现审核通过，${withdrawAmount}元已从用户扣除并回流到总台，手续费${fee}元`,
       data: { withdrawAmount, fee, actualAmount },
     });
   } catch (error) {

@@ -3806,7 +3806,7 @@ export default function AdminPage() {
     const [feeRecords, setFeeRecords] = useState<any[]>([]);
     const [feeStats, setFeeStats] = useState<any>({});
     const [financeLoading, setFinanceLoading] = useState(false);
-    const [financeSubTab, setFinanceSubTab] = useState<'overview' | 'withdraw-review' | 'fee-records' | 'transfer-balance'>('overview');
+    const [financeSubTab, setFinanceSubTab] = useState<'overview' | 'withdraw-review' | 'fee-records' | 'transfer-balance' | 'revenue-account'>('overview');
     const [feeTypeFilter, setFeeTypeFilter] = useState<string>('all');
     const [feeRoleFilter, setFeeRoleFilter] = useState<string>('all');
     const [feeDateFrom, setFeeDateFrom] = useState<string>('');
@@ -3821,20 +3821,27 @@ export default function AdminPage() {
     const [tbNote, setTbNote] = useState('');
     const [tbTransferring, setTbTransferring] = useState(false);
     const [tbTransferResult, setTbTransferResult] = useState<any>(null);
+    // 收益账户状态
+    const [adminAccount, setAdminAccount] = useState<any>(null);
 
     const loadFinanceData = async () => {
       setFinanceLoading(true);
       try {
-        const [withdrawalRes, feeRes] = await Promise.all([
+        const [withdrawalRes, feeRes, adminRes] = await Promise.all([
           authFetch('/api/admin/withdraw-review'),
           authFetch('/api/admin/fee-records'),
+          authFetch('/api/admin/accounts?search=&role=admin'),
         ]);
         const withdrawalData = await withdrawalRes.json();
         const feeData = await feeRes.json();
+        const adminData = await adminRes.json();
         if (withdrawalData.success) setBranchWithdrawals(withdrawalData.data || []);
         if (feeData.success) {
           setFeeRecords(feeData.data?.records || []);
           setFeeStats(feeData.data?.stats || {});
+        }
+        if (adminData.success && adminData.data?.users?.length > 0) {
+          setAdminAccount(adminData.data.users[0]);
         }
       } catch (err) {
         console.error('加载财务数据失败', err);
@@ -3923,6 +3930,7 @@ export default function AdminPage() {
             <button onClick={() => setFinanceSubTab('withdraw-review')} className={`px-4 py-2 rounded-md transition-colors flex items-center gap-1 ${financeSubTab === 'withdraw-review' ? 'bg-purple-500 text-white' : 'bg-purple-800/50 text-white/80 hover:bg-purple-700'}`}>服务网点提现审核{pendingWithdrawals.length > 0 && <Badge className="bg-red-500 text-white text-xs ml-1">{pendingWithdrawals.length}</Badge>}</button>
             <button onClick={() => setFinanceSubTab('fee-records')} className={`px-4 py-2 rounded-md transition-colors ${financeSubTab === 'fee-records' ? 'bg-purple-500 text-white' : 'bg-purple-800/50 text-white/80 hover:bg-purple-700'}`}>手续费记录</button>
             <button onClick={() => setFinanceSubTab('transfer-balance')} className={`px-4 py-2 rounded-md transition-colors ${financeSubTab === 'transfer-balance' ? 'bg-purple-500 text-white' : 'bg-purple-800/50 text-white/80 hover:bg-purple-700'}`}>转智算金</button>
+            <button onClick={() => setFinanceSubTab('revenue-account')} className={`px-4 py-2 rounded-md transition-colors ${financeSubTab === 'revenue-account' ? 'bg-purple-500 text-white' : 'bg-purple-800/50 text-white/80 hover:bg-purple-700'}`}>收益账户</button>
           </div>
         </div>
 
@@ -4293,7 +4301,86 @@ export default function AdminPage() {
               )}
             </CardContent>
           </Card>
-        )}      </div>
+        )}
+
+        {financeSubTab === 'revenue-account' && (() => {
+          const adminBalance = adminAccount ? Number(adminAccount.balance || 0) : 0;
+          const adminPoints = adminAccount ? Number(adminAccount.points || 0) : 0;
+          const withdrawFeeTotal = feeRecords.filter((r: any) => r.type === 'withdrawal_fee').reduce((s: number, r: any) => s + Number(r.amount || 0), 0);
+          const marketOpsTotal = feeRecords.filter((r: any) => r.type === 'market_fee_ops').reduce((s: number, r: any) => s + Number(r.amount || 0), 0);
+
+          return (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Card className="bg-gradient-to-br from-amber-500 to-amber-700 text-white">
+                  <CardContent className="p-4">
+                    <div className="text-sm opacity-80">总台智算金余额</div>
+                    <div className="text-3xl font-bold mt-1">¥{adminBalance.toLocaleString()}</div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-blue-500 to-blue-700 text-white">
+                  <CardContent className="p-4">
+                    <div className="text-sm opacity-80">提现手续费收入</div>
+                    <div className="text-3xl font-bold mt-1">¥{withdrawFeeTotal.toLocaleString()}</div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-green-500 to-green-700 text-white">
+                  <CardContent className="p-4">
+                    <div className="text-sm opacity-80">市场费运营沉淀</div>
+                    <div className="text-3xl font-bold mt-1">¥{marketOpsTotal.toLocaleString()}</div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-purple-500 to-purple-700 text-white">
+                  <CardContent className="p-4">
+                    <div className="text-sm opacity-80">总台积分余额</div>
+                    <div className="text-3xl font-bold mt-1">{adminPoints.toLocaleString()}</div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>收益来源明细</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {feeRecords.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>时间</TableHead>
+                          <TableHead>来源类型</TableHead>
+                          <TableHead>金额</TableHead>
+                          <TableHead>来源角色</TableHead>
+                          <TableHead>说明</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {feeRecords.map((r: any) => (
+                          <TableRow key={r.id}>
+                            <TableCell className="text-sm">{r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={r.type === 'withdrawal_fee' ? 'border-blue-300 text-blue-600' : r.type === 'market_fee_ops' ? 'border-green-300 text-green-600' : 'border-gray-300'}>
+                                {r.type === 'withdrawal_fee' ? '提现手续费' : r.type === 'market_fee_ops' ? '市场费运营' : r.type === 'admin_transfer_in' ? '智算金转入' : r.type}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-green-600 font-medium">+¥{Number(r.amount).toLocaleString()}</TableCell>
+                            <TableCell>
+                              {r.source_role === 'member' ? '会员' : r.source_role === 'provider' ? '服务商' : r.source_role === 'branch' ? '服务网点' : r.source_role || '-'}
+                            </TableCell>
+                            <TableCell className="text-sm text-gray-500 max-w-xs truncate">{r.note || '-'}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <p className="text-gray-500 text-center py-8">暂无收益记录</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          );
+        })()}
+      </div>
     );
   });
 
