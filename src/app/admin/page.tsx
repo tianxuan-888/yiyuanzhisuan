@@ -279,11 +279,12 @@ export default function AdminPage() {
     todaySales: 0,
   });
   const [shareBreakdown, setShareBreakdown] = useState<any>({
-    provider: { amount: 0, rate: '70%' },
-    directReward: { amount: 0, rate: '10%' },
-    parentProvider: { amount: 0, rate: '10%' },
-    branch: { amount: 0, rate: '5%' },
-    company: { amount: 0, rate: '5%' },
+    member: { amount: 0, rate: '2%' },
+    provider: { amount: 0, rate: '2%' },
+    directReward: { amount: 0, rate: '0.25%' },
+    parentProvider: { amount: 0, rate: '0.25%' },
+    branch: { amount: 0, rate: '0.1%' },
+    company: { amount: 0, rate: '0.4%' },
   });
   const [incomeRecords, setIncomeRecords] = useState<any[]>([]);
   const [providerIncome, setProviderIncome] = useState<any[]>([]);
@@ -3430,8 +3431,14 @@ export default function AdminPage() {
             </Card>
           </div>
 
-          {/* 市场费分配比例卡片 - 使用真实分配数据 */}
-          <div className="grid grid-cols-5 gap-2 md:gap-3">
+          {/* 5%分润分配比例卡片 - 使用真实分配数据 */}
+          <div className="grid grid-cols-6 gap-2 md:gap-3">
+            <Card className="mobile-compact-card text-center">
+              <CardContent className="p-3">
+                <div className="text-xs text-gray-500 mobile-label">会员 {shareBreakdown.member.rate}</div>
+                <div className="text-lg font-bold text-blue-600 mobile-num">¥{shareBreakdown.member.amount.toLocaleString()}</div>
+              </CardContent>
+            </Card>
             <Card className="mobile-compact-card text-center">
               <CardContent className="p-3">
                 <div className="text-xs text-gray-500 mobile-label">服务商 {shareBreakdown.provider.rate}</div>
@@ -3446,7 +3453,7 @@ export default function AdminPage() {
             </Card>
             <Card className="mobile-compact-card text-center">
               <CardContent className="p-3">
-                <div className="text-xs text-gray-500 mobile-label">上级服务商 {shareBreakdown.parentProvider.rate}</div>
+                <div className="text-xs text-gray-500 mobile-label">下级服务商 {shareBreakdown.parentProvider.rate}</div>
                 <div className="text-lg font-bold text-indigo-600 mobile-num">¥{shareBreakdown.parentProvider.amount.toLocaleString()}</div>
               </CardContent>
             </Card>
@@ -3458,7 +3465,7 @@ export default function AdminPage() {
             </Card>
             <Card className="mobile-compact-card text-center">
               <CardContent className="p-3">
-                <div className="text-xs text-gray-500 mobile-label">公司运营 {shareBreakdown.company.rate}</div>
+                <div className="text-xs text-gray-500 mobile-label">总台运营 {shareBreakdown.company.rate}</div>
                 <div className="text-lg font-bold text-emerald-600 mobile-num">¥{shareBreakdown.company.amount.toLocaleString()}</div>
               </CardContent>
             </Card>
@@ -3499,9 +3506,9 @@ export default function AdminPage() {
                         data={[
                           { name: `服务商 ${shareBreakdown.provider.rate}`, value: Math.max(shareBreakdown.provider.amount, 1), color: '#8b5cf6' },
                           { name: `直推奖励 ${shareBreakdown.directReward.rate}`, value: Math.max(shareBreakdown.directReward.amount, 1), color: '#ec4899' },
-                          { name: `上级服务商 ${shareBreakdown.parentProvider.rate}`, value: Math.max(shareBreakdown.parentProvider.amount, 1), color: '#6366f1' },
+                          { name: `下级服务商 ${shareBreakdown.parentProvider.rate}`, value: Math.max(shareBreakdown.parentProvider.amount, 1), color: '#6366f1' },
                           { name: `服务网点 ${shareBreakdown.branch.rate}`, value: Math.max(shareBreakdown.branch.amount, 1), color: '#14b8a6' },
-                          { name: `公司运营 ${shareBreakdown.company.rate}`, value: Math.max(shareBreakdown.company.amount, 1), color: '#10b981' },
+                          { name: `总台运营 ${shareBreakdown.company.rate}`, value: Math.max(shareBreakdown.company.amount, 1), color: '#10b981' },
                         ]}
                         cx="50%"
                         cy="50%"
