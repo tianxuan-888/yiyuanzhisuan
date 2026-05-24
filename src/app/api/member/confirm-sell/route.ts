@@ -50,98 +50,22 @@ export async function POST(request: NextRequest) {
     // 更新用户产品状态
     await client.from('user_products').update({ status: 'sold', sell_price: purchasePrice, sell_date: new Date().toISOString() }).eq('id', order.user_product_id);
 
-    // ========== 总台释放5%收益，按7项分配 ==========
+    // ========== 卖出时：会员获得延迟2%收益 + 产品收益 ==========
+    // 产品收益(expected_profit)已在上方到账
+    // 会员2%延迟收益：购买时未发放，卖出时才到账
     const productPrice = purchasePrice;
-    const releaseAmount = productPrice * 0.05;
-    const distributionResult: Record<string, number> = {};
+    const deferredMemberShare = Math.round(productPrice * 0.02 * 100) / 100;
 
-    const memberShare = Math.round(productPrice * 0.02 * 100) / 100;
-    const directReward = Math.round(productPrice * 0.0025 * 100) / 100;
-    const providerShare = Math.round(productPrice * 0.02 * 100) / 100;
-    const parentShare = Math.round(productPrice * 0.0025 * 100) / 100;
-    const branchShare = Math.round(productPrice * 0.001 * 100) / 100;
-    const companyShare = Math.round(productPrice * 0.004 * 100) / 100;
-
-    const inviterId = userRow?.inviter_id;
-    const provId = userRow?.provider_id;
-
-    // 1. 会员2% → balance
-    if (memberShare > 0) {
+    if (deferredMemberShare > 0) {
       const mRow = await queryOne('SELECT balance FROM users WHERE id = $1', [userId]);
       if (mRow) {
-        const newMBal = Math.round((parseFloat(String(mRow.balance)) + memberShare) * 100) / 100;
+        const newMBal = Math.round((parseFloat(String(mRow.balance)) + deferredMemberShare) * 100) / 100;
         await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newMBal, userId]);
       }
     }
-    distributionResult.member = memberShare;
 
-    // 2. 直推人0.25% → balance
-    if (directReward > 0 && inviterId) {
-      const invRow = await queryOne('SELECT balance FROM users WHERE id = $1', [inviterId]);
-      if (invRow) {
-        const newInvBal = Math.round((parseFloat(String(invRow.balance)) + directReward) * 100) / 100;
-        await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newInvBal, inviterId]);
-      }
-    }
-    distributionResult.direct = directReward;
-
-    // 3. 下级服务商0.25% → balance（无上级则归总台运营）
-    let parentProviderId: string | null = null;
-    if (parentShare > 0 && provId) {
-      const { data: provData } = await client.from('providers').select('parent_provider_id').eq('user_id', provId).maybeSingle();
-      parentProviderId = provData?.parent_provider_id || null;
-      
-      if (parentProviderId) {
-        const ppRow = await queryOne('SELECT balance FROM users WHERE id = $1', [parentProviderId]);
-        if (ppRow) {
-          const newPPBal = Math.round((parseFloat(String(ppRow.balance)) + parentShare) * 100) / 100;
-          await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newPPBal, parentProviderId]);
-        }
-      }
-    }
-    distributionResult.parentProvider = parentShare;
-
-    // 4. 服务商2% → balance
-    if (providerShare > 0 && provId) {
-      const provRow = await queryOne('SELECT balance FROM users WHERE id = $1', [provId]);
-      if (provRow) {
-        const newProvBal = Math.round((parseFloat(String(provRow.balance)) + providerShare) * 100) / 100;
-        await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newProvBal, provId]);
-      }
-    }
-    distributionResult.provider = providerShare;
-
-    // 5. 服务网点0.1% → balance
-    let distributionBranchId: string | null = null;
-    if (branchShare > 0 && provId) {
-      const { data: provData } = await client.from('providers').select('branch_id').eq('user_id', provId).maybeSingle();
-      if (provData?.branch_id) {
-        distributionBranchId = provData.branch_id;
-        const brRow = await queryOne('SELECT balance FROM users WHERE id = $1', [provData.branch_id]);
-        if (brRow) {
-          const newBrBal = Math.round((parseFloat(String(brRow.balance)) + branchShare) * 100) / 100;
-          await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newBrBal, provData.branch_id]);
-        }
-      }
-    }
-    distributionResult.branch = branchShare;
-
-    // 6. 总台运营0.4%（+无上级服务商时的0.25%）→ balance
-    const noParentExtra = parentProviderId ? 0 : parentShare;
-    const finalCompanyShare = companyShare + noParentExtra;
-    if (finalCompanyShare > 0) {
-      const { data: adminUser } = await client.from('users').select('id').eq('role', 'admin').limit(1).maybeSingle();
-      if (adminUser) {
-        const adRow = await queryOne('SELECT balance FROM users WHERE id = $1', [adminUser.id]);
-        if (adRow) {
-          const newAdBal = Math.round((parseFloat(String(adRow.balance)) + finalCompanyShare) * 100) / 100;
-          await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newAdBal, adminUser.id]);
-        }
-      }
-    }
-    distributionResult.company = companyShare;
-
-    // 记录释放收益
+    // 记录会员延迟2%收益到账
+    const releaseAmount = productPrice * 0.05;
     try {
       await execute(
         `INSERT INTO release_records 
@@ -154,11 +78,12 @@ export async function POST(request: NextRequest) {
          VALUES ($1, $2, $3, $4, 0.05, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
         [
           userProduct.product_id, userProduct.products?.name || '', productPrice, releaseAmount,
-          userId, userRow?.username || userId, memberShare,
-          inviterId || null, directReward,
-          provId, providerShare,
-          parentProviderId, parentProviderId ? parentShare : 0,
-          distributionBranchId, branchShare, finalCompanyShare
+          userId, userRow?.username || userId, deferredMemberShare,
+          null, 0, // 直推已在购买时到账
+          null, 0, // 服务商已在购买时到账
+          null, 0, // 下级服务商已在购买时到账
+          null, 0, // 网点已在购买时到账
+          0  // 总台已在购买时到账
         ]
       );
     } catch (e) {
@@ -177,13 +102,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `收益¥${expectedProfit}已到账智算金，5%释放收益已分配`,
+      message: `收益¥${expectedProfit}已到账智算金，延迟2%收益¥${deferredMemberShare}已到账`,
       data: {
         user: { beforeBalance: currentBalance, afterBalance: newBalance },
-        profit: { totalProfit: expectedProfit },
+        profit: { totalProfit: expectedProfit, deferredShare: deferredMemberShare },
         tokenValue: purchasePrice,
         releaseAmount,
-        distribution: distributionResult,
       },
     });
   } catch (error) {

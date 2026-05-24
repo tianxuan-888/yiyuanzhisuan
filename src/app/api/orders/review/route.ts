@@ -33,7 +33,7 @@ async function addBalance(
   );
 }
 
-// 释放5%收益并记录
+// 释放5%收益并记录（购买时只分配3%，会员2%延迟到卖出时到账）
 async function releaseAndDistribute(
   orderId: string,
   productId: string,
@@ -45,11 +45,10 @@ async function releaseAndDistribute(
 ) {
   const releaseAmount = productPrice * 0.05;
 
-  // 1. 会员收益 2%
+  // 1. 会员收益 2% → 延迟到卖出/流转时到账，购买时不发放
   const memberShare = Math.round(productPrice * RELEASE_SHARE_RATIOS.member);
-  await addBalance(memberId, memberShare, 'member_share', '购买产品释放收益 (2%)');
 
-  // 2. 直推奖励 0.25%
+  // 2. 直推奖励 0.25%（购买时立即到账）
   let directRewardTo: string | null = null;
   const directRewardAmount = Math.round(productPrice * RELEASE_SHARE_RATIOS.directReward);
   const inviterIsProvider = member?.inviter_id && member.inviter_id === providerId;
@@ -254,7 +253,7 @@ export async function POST(request: NextRequest) {
         [product?.provider_id]
       );
 
-      // 总台释放5%收益，按6项分配（无高级服务商）
+      // 总台释放5%收益，购买时只分配3%（会员2%延迟到卖出时到账）
       await releaseAndDistribute(
         orderId,
         product?.id,

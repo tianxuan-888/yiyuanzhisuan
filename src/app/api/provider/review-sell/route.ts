@@ -84,90 +84,21 @@ export async function POST(request: NextRequest) {
       const newBalance = Math.round((currentBalance + expectedProfit) * 100) / 100;
       await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newBalance, userProduct.user_id]);
 
-      // ========== 总台释放5%收益，按6项分配（无高级服务商） ==========
+      // ========== 卖出时：会员获得延迟2%收益（其他3%已在购买时到账） ==========
       const productPrice = purchasePrice;
-      const releaseAmount = productPrice * 0.05;
+      const deferredMemberShare = Math.round(productPrice * 0.02 * 100) / 100;
 
-      const memberShare = Math.round(productPrice * 0.02 * 100) / 100;
-      const directReward = Math.round(productPrice * 0.0025 * 100) / 100;
-      const providerShare = Math.round(productPrice * 0.02 * 100) / 100;
-      const parentShare = Math.round(productPrice * 0.0025 * 100) / 100;
-      const branchShare = Math.round(productPrice * 0.001 * 100) / 100;
-      const companyBaseShare = Math.round(productPrice * 0.004 * 100) / 100;
-
-      const inviterId = productUser.inviter_id;
-
-      // 1. 会员2% → balance
-      if (memberShare > 0) {
+      // 会员2%延迟收益到账
+      if (deferredMemberShare > 0) {
         const mRow = await queryOne('SELECT balance FROM users WHERE id = $1', [userProduct.user_id]);
         if (mRow) {
-          const newMBal = Math.round((parseFloat(String(mRow.balance)) + memberShare) * 100) / 100;
+          const newMBal = Math.round((parseFloat(String(mRow.balance)) + deferredMemberShare) * 100) / 100;
           await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newMBal, userProduct.user_id]);
         }
       }
 
-      // 2. 直推人0.25% → balance
-      if (directReward > 0 && inviterId) {
-        const invRow = await queryOne('SELECT balance FROM users WHERE id = $1', [inviterId]);
-        if (invRow) {
-          const newInvBal = Math.round((parseFloat(String(invRow.balance)) + directReward) * 100) / 100;
-          await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newInvBal, inviterId]);
-        }
-      }
-
-      // 3. 服务商2% → balance
-      if (providerShare > 0) {
-        const provRow = await queryOne('SELECT balance FROM users WHERE id = $1', [providerId]);
-        if (provRow) {
-          const newProvBal = Math.round((parseFloat(String(provRow.balance)) + providerShare) * 100) / 100;
-          await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newProvBal, providerId]);
-        }
-      }
-
-      // 4. 下级服务商0.25% → balance（无上级则归总台运营）
-      let parentProviderId: string | null = null;
-      if (parentShare > 0) {
-        const { data: provData } = await client.from('providers').select('parent_provider_id').eq('user_id', providerId).maybeSingle();
-        parentProviderId = provData?.parent_provider_id || null;
-        
-        if (parentProviderId) {
-          const ppRow = await queryOne('SELECT balance FROM users WHERE id = $1', [parentProviderId]);
-          if (ppRow) {
-            const newPPBal = Math.round((parseFloat(String(ppRow.balance)) + parentShare) * 100) / 100;
-            await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newPPBal, parentProviderId]);
-          }
-        }
-      }
-
-      // 5. 服务网点0.1% → balance
-      let distributionBranchId: string | null = null;
-      if (branchShare > 0) {
-        const { data: provData } = await client.from('providers').select('branch_id').eq('user_id', providerId).maybeSingle();
-        if (provData?.branch_id) {
-          distributionBranchId = provData.branch_id;
-          const brRow = await queryOne('SELECT balance FROM users WHERE id = $1', [provData.branch_id]);
-          if (brRow) {
-            const newBrBal = Math.round((parseFloat(String(brRow.balance)) + branchShare) * 100) / 100;
-            await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newBrBal, provData.branch_id]);
-          }
-        }
-      }
-
-      // 6. 智算平台运营0.4%（+无上级服务商时的0.25%归总台）→ balance
-      const noParentExtra = parentProviderId ? 0 : parentShare;
-      const finalCompanyShare = companyBaseShare + noParentExtra;
-      if (finalCompanyShare > 0) {
-        const { data: adminUser } = await client.from('users').select('id').eq('role', 'admin').limit(1).maybeSingle();
-        if (adminUser) {
-          const adRow = await queryOne('SELECT balance FROM users WHERE id = $1', [adminUser.id]);
-          if (adRow) {
-            const newAdBal = Math.round((parseFloat(String(adRow.balance)) + finalCompanyShare) * 100) / 100;
-            await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newAdBal, adminUser.id]);
-          }
-        }
-      }
-
-      // 记录释放收益
+      // 记录会员延迟2%收益到账
+      const releaseAmount = productPrice * 0.05;
       try {
         await execute(
           `INSERT INTO release_records 
@@ -177,14 +108,15 @@ export async function POST(request: NextRequest) {
             provider_id, provider_share,
             parent_provider_id, parent_provider_share,
             branch_id, branch_share, company_share)
-           VALUES ($1, $2, $3, $4, 0.05, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+           VALUES ($1, $2, $3, $4, 0.05, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
           [
             userProduct.product_id, productName, productPrice, releaseAmount,
-            userProduct.user_id, productUser.username || userProduct.user_id, memberShare,
-            inviterId || null, directReward,
-            providerId, providerShare,
-            parentProviderId, parentProviderId ? parentShare : 0,
-            distributionBranchId, branchShare, finalCompanyShare
+            userProduct.user_id, productUser.username || userProduct.user_id, deferredMemberShare,
+            null, 0, // 直推已在购买时到账
+            null, 0, // 服务商已在购买时到账
+            null, 0, // 下级服务商已在购买时到账
+            null, 0, // 网点已在购买时到账
+            0  // 总台已在购买时到账
           ]
         );
       } catch (e) {

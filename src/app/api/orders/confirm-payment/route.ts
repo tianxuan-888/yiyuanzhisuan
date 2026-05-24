@@ -56,9 +56,9 @@ export async function POST(request: NextRequest) {
 
     if (updateError) throw new Error(`更新订单失败: ${updateError.message}`);
 
-    // ========== 总台释放5%收益，按6项分配（无高级服务商） ==========
+    // ========== 总台释放5%收益，购买时只分配3%（会员2%延迟到卖出时到账） ==========
     const releaseRate = 0.05;
-    const memberShare = Math.round(price * 0.02 * 100) / 100;
+    const memberShare = Math.round(price * 0.02 * 100) / 100; // 延迟到卖出时
     const directShare = Math.round(price * 0.0025 * 100) / 100;
     const providerShare = Math.round(price * 0.02 * 100) / 100;
     const parentProviderShare = Math.round(price * 0.0025 * 100) / 100;
@@ -66,10 +66,7 @@ export async function POST(request: NextRequest) {
     const companyBaseShare = Math.round(price * 0.004 * 100) / 100;
     const totalReleased = price * releaseRate;
 
-    // 1. 会员收益2%
-    if (memberShare > 0) {
-      await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [memberShare, order.user_id]);
-    }
+    // 1. 会员收益2% → 延迟到卖出/流转时到账，购买时不发放
 
     // 2. 直推人0.25%
     const member = await queryOne('SELECT id, inviter_id FROM users WHERE id = $1', [order.user_id]);

@@ -73,20 +73,20 @@ export async function POST(request: NextRequest) {
       // 总台释放5%收益，按7项分配到各角色balance
 
       const releaseRate = 0.05; // 总台释放5%
-      const memberShare = product.price * 0.02;         // 会员2%
-      const directShare = product.price * 0.0025;       // 直推0.25%
-      const providerShare = product.price * 0.02;       // 服务商2%
-      const parentProviderShare = product.price * 0.0025; // 下级服务商0.25%
-      const branchShare = product.price * 0.001;        // 服务网点0.1%
-      const companyShare = product.price * 0.004;       // 总台运营0.4%
+      const memberShare = product.price * 0.02;         // 会员2%（延迟到卖出/流转时到账）
+      const directShare = product.price * 0.0025;       // 直推0.25%（购买时立即到账）
+      const providerShare = product.price * 0.02;       // 服务商2%（购买时立即到账）
+      const parentProviderShare = product.price * 0.0025; // 下级服务商0.25%（购买时立即到账）
+      const branchShare = product.price * 0.001;        // 服务网点0.1%（购买时立即到账）
+      const companyShare = product.price * 0.004;       // 总台运营0.4%（购买时立即到账）
       const totalReleased = product.price * releaseRate;
 
-      // 1. 会员收益
-      await supabase.rpc('rpc_execute', {
-        sql_query: `UPDATE users SET balance = COALESCE(balance, 0) + ${memberShare} WHERE id = '${targetUser.id}'`
-      });
+      // === 购买时：只发放3%（服务商+直推+下级+网点+总台），会员2%延迟到卖出时 ===
 
-      // 2. 直推人收益
+      // 1. 会员收益2% → 延迟到卖出/流转时到账，购买时不发放
+      // memberShare 将在会员卖出或流转时才到账
+
+      // 2. 直推人收益（购买时立即到账）
       if (targetUser.inviter_id) {
         await supabase.rpc('rpc_execute', {
           sql_query: `UPDATE users SET balance = COALESCE(balance, 0) + ${directShare} WHERE id = '${targetUser.inviter_id}'`
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // 8. 创建释放收益记录
+      // 8. 创建释放收益记录（会员2%标记为延迟到账）
       await supabase.from('release_records').insert({
         product_id: product.id,
         product_name: product.name,
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
         release_rate: releaseRate,
         member_id: targetUser.id,
         member_name: targetUser.username,
-        member_share: memberShare,
+        member_share: memberShare, // 记录会员应得2%，但延迟到卖出时到账
         direct_referral_id: targetUser.inviter_id || null,
         direct_referral_share: directShare,
         provider_id: user.userId,

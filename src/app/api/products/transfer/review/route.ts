@@ -119,9 +119,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '买家用户不存在' }, { status: 404 });
     }
 
-    // ========== 总台释放5%收益，按6项分配 ==========
+    // ========== 流转审核通过：双重5%处理 ==========
+    // 卖方：获得延迟2%收益（购买时未发放的部分）+ 产品收益(sellerProfit)
+    // 买方：触发新5%释放，3%即时到账，买方2%延迟到卖出时
+    
     const releaseRate = 0.05;
-    const memberShare = Math.round(transferPrice * 0.02 * 100) / 100;
+    const buyerMemberShare = Math.round(transferPrice * 0.02 * 100) / 100; // 买方2%，延迟到买方卖出时
     const directShare = Math.round(transferPrice * 0.0025 * 100) / 100;
     const providerShare = Math.round(transferPrice * 0.02 * 100) / 100;
     const parentProviderShare = Math.round(transferPrice * 0.0025 * 100) / 100;
@@ -132,15 +135,20 @@ export async function POST(request: NextRequest) {
     let distributionBranchId: string | null = null;
     let distributionParentProviderId: string | null = null;
 
-    // 1. 会员收益2%（买家）
-    if (memberShare > 0) {
+    // === 第一部分：卖方获得延迟2%收益 ===
+    const sellerDeferredShare = Math.round(transferPrice * 0.02 * 100) / 100;
+    if (sellerDeferredShare > 0) {
       await query(
         'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
-        [memberShare, transfer.to_user_id]
+        [sellerDeferredShare, transfer.from_user_id]
       );
     }
 
-    // 2. 直推人0.25%
+    // === 第二部分：买方触发新5%释放（3%即时到账，2%延迟） ===
+
+    // 1. 买方2% → 延迟到买方卖出/流转时到账，本次不发放
+
+    // 2. 直推人0.25%（买方的直推，即时到账）
     if (directShare > 0 && buyer.inviter_id) {
       await query(
         'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
@@ -148,7 +156,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. 服务商2%
+    // 3. 服务商2%（即时到账）
     if (providerShare > 0 && product.provider_id) {
       await query(
         'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
@@ -156,7 +164,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. 下级服务商0.25%
+    // 4. 下级服务商0.25%（即时到账）
     if (parentProviderShare > 0 && product.provider_id) {
       const providerUser = await queryOne<any>(
         'SELECT provider_id FROM users WHERE id = $1',
@@ -171,7 +179,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 5. 服务网点0.1%
+    // 5. 服务网点0.1%（即时到账）
     if (branchShare > 0 && buyer.provider_id) {
       const providerInfo = await queryOne<any>(
         'SELECT branch_id FROM providers WHERE user_id = $1',
@@ -186,20 +194,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 6. 智算平台运营0.4%
-    if (companyShare > 0) {
+    // 6. 智算平台运营0.4%（+无上级服务商时0.25%归总台，即时到账）
+    const noParentExtra = distributionParentProviderId ? 0 : parentProviderShare;
+    const finalCompanyShare = companyShare + noParentExtra;
+    if (finalCompanyShare > 0) {
       const adminUser = await queryOne<any>(
         "SELECT id FROM users WHERE role = 'admin' LIMIT 1"
       );
       if (adminUser) {
         await query(
           'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
-          [companyShare, adminUser.id]
+          [finalCompanyShare, adminUser.id]
         );
       }
     }
 
-    // 创建释放收益记录
+    // 创建释放收益记录（买方5%释放，买方2%延迟，卖方2%已在本次到账）
     await query(
       `INSERT INTO release_records 
        (product_id, product_name, product_price, release_amount, release_rate,
@@ -212,12 +222,12 @@ export async function POST(request: NextRequest) {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`,
       [
         product.id, product.name, transferPrice, totalReleased, releaseRate,
-        transfer.to_user_id, buyer.username || transfer.to_user_id, memberShare,
+        transfer.to_user_id, buyer.username || transfer.to_user_id, buyerMemberShare, // 买方2%延迟到账
         buyer.inviter_id || null, directShare,
         product.provider_id, providerShare,
         distributionParentProviderId, distributionParentProviderId ? parentProviderShare : 0,
         null, 0,
-        distributionBranchId, branchShare, companyShare
+        distributionBranchId, branchShare, finalCompanyShare
       ]
     );
 
@@ -285,7 +295,7 @@ export async function POST(request: NextRequest) {
        VALUES ($1, 'member', 'transfer_completed', '流转完成', $2, $3, 'unread', NOW())`,
       [
         transfer.from_user_id,
-        `产品 ${product.name} 流转已完成，收益 ¥${sellerProfit} 已到账`,
+        `产品 ${product.name} 流转已完成，产品收益 ¥${sellerProfit}，延迟2%收益 ¥${sellerDeferredShare} 已到账`,
         transferId
       ]
     );
@@ -311,6 +321,7 @@ export async function POST(request: NextRequest) {
         productName: product.name,
         transferPrice,
         sellerProfit,
+        sellerDeferredShare,
         releaseAmount: totalReleased,
       }
     });
