@@ -42,17 +42,28 @@ export async function GET(request: NextRequest) {
     const providers = await query<{
       id: string;
       username: string;
-      
+      energy_value: number;
       balance: string;
       created_at: string;
     }>(
-      `SELECT id, username, balance, created_at 
+      `SELECT id, username, COALESCE(energy_value, 0) as energy_value, balance, created_at 
        FROM users 
        WHERE role = 'provider' AND branch_id = $1`,
       [branchId]
     );
 
     const providerIds = providers.map(p => p.id);
+
+    // 从 providers 表获取服务商额度信息
+    const providerQuotas = await query<{
+      user_id: string;
+      quota: number;
+      used_quota: number;
+    }>(
+      `SELECT user_id, quota, used_quota FROM providers WHERE branch_id = $1`,
+      [branchId]
+    );
+    const providerQuotaMap = new Map(providerQuotas.map(p => [p.user_id, p]));
 
     // 查询服务商名下的会员总数
     let totalMembers = 0;
@@ -114,13 +125,19 @@ export async function GET(request: NextRequest) {
           pending_sell_count: parseInt(pendingSells?.[0]?.count || '0'),
           pending_withdrawal_count: parseInt(pendingWithdrawals?.[0]?.count || '0'),
         },
-        providers: providers.map(p => ({
-          id: p.id,
-          username: p.username,
-          
-          balance: parseFloat(p.balance || '0'),
-          created_at: p.created_at,
-        })),
+        providers: providers.map(p => {
+          const providerQuota = providerQuotaMap.get(p.id);
+          return {
+            id: p.id,
+            username: p.username,
+            energy_value: p.energy_value || 0,
+            balance: parseFloat(p.balance || '0'),
+            quota: providerQuota?.quota || 0,
+            used_quota: providerQuota?.used_quota || 0,
+            available_quota: (providerQuota?.quota || 0) - (providerQuota?.used_quota || 0),
+            created_at: p.created_at,
+          };
+        }),
         notifications: notifications || [],
       },
     });
