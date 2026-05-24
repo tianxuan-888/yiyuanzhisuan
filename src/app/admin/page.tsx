@@ -3963,7 +3963,7 @@ export default function AdminPage() {
               </Card>
               <Card className="mobile-compact-card bg-gradient-to-br from-blue-500 to-blue-700 text-white">
                 <CardContent className="p-4">
-                  <div className="text-sm opacity-80">待审核服务网点提现</div>
+                  <div className="text-sm opacity-80">待审核提现</div>
                   <div className="text-3xl font-bold mt-1">{pendingWithdrawals.length}</div>
                 </CardContent>
               </Card>
