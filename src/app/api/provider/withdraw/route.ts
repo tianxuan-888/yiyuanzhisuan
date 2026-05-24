@@ -59,7 +59,13 @@ export async function POST(request: NextRequest) {
     const fee = Math.round(withdrawAmount * 0.05 * 100) / 100;
     const actualAmount = withdrawAmount - fee;
     
-    // 创建提现申请（只记录，不扣balance，等服务网点审核）
+    // 冻结余额（申请时即扣除，避免审核时余额变化）
+    await execute(
+      'UPDATE users SET balance = balance - $1, updated_at = NOW() WHERE id = $2',
+      [withdrawAmount.toFixed(2), userId]
+    );
+
+    // 创建提现申请（已冻结余额，等服务网点审核）
     await execute(
       `INSERT INTO withdrawals (user_id, user_role, amount, fee, actual_amount, alipay_account, real_name, status, note, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, NOW())`,

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { queryOne, execute, query } from '@/lib/supabase-client';
 
 // 服务网点审核提现（会员/服务商的提现由服务网点审核，网点提现由总台审核）
-// 审核通过：从用户balance扣除提现金额，手续费5%回流总台，95%记录为实际到账
+// 申请时已冻结余额，审核通过只处理手续费回流，审核拒绝则退还冻结余额
 
 export async function GET(request: NextRequest) {
   try {
@@ -66,8 +66,7 @@ export async function GET(request: NextRequest) {
 }
 
 // 服务网点审核提现（审核会员/服务商的提现申请）
-// 审核通过：扣用户balance，手续费5%回流总台balance
-// 审核拒绝：不扣钱（因为申请时没扣）
+// 申请时已冻结余额，审核通过：手续费5%回流总台balance，审核拒绝：退还冻结余额
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -99,7 +98,12 @@ export async function POST(request: NextRequest) {
     const actualAmount = withdrawAmount - fee;
 
     if (action === 'reject') {
-      // 拒绝：不扣钱（申请时没扣），只更新状态
+      // 拒绝：退还冻结的余额
+      await execute(
+        'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
+        [withdrawAmount.toFixed(2), withdrawal.user_id]
+      );
+
       await execute(
         "UPDATE withdrawals SET status = 'rejected', reviewer_id = $1, reject_reason = $2, reviewed_at = NOW(), updated_at = NOW() WHERE id = $3",
         [reviewerId || '', note || '审核拒绝', withdrawalId]
@@ -108,56 +112,36 @@ export async function POST(request: NextRequest) {
       // 记录交易流水
       await execute(
         `INSERT INTO transactions (user_id, type, amount, note, created_at)
-         VALUES ($1, 'withdraw_rejected', 0, $2, NOW())`,
-        [withdrawal.user_id, `提现申请${withdrawAmount}元被网点拒绝${note ? '，原因：' + note : ''}`]
+         VALUES ($1, 'withdraw_rejected', $2, $3, NOW())`,
+        [withdrawal.user_id, withdrawAmount.toFixed(2), `提现申请${withdrawAmount}元被网点拒绝，已退还冻结金额`]
       );
 
-      return NextResponse.json({ success: true, message: '已拒绝提现申请' });
+      return NextResponse.json({ success: true, message: '已拒绝提现申请，冻结余额已退还' });
     }
 
-    // 批准：从用户balance扣除提现金额，手续费回流网点
-    // 1. 检查用户余额是否足够
-    const user = await queryOne(
-      'SELECT id, balance FROM users WHERE id = $1',
-      [withdrawal.user_id]
-    );
-
-    if (!user) {
-      return NextResponse.json({ error: '用户不存在' }, { status: 404 });
-    }
-
-    const currentBalance = parseFloat(String(user.balance || '0'));
-    if (currentBalance < withdrawAmount) {
-      // 余额不足，自动拒绝
-      await execute(
-        "UPDATE withdrawals SET status = 'rejected', reviewer_id = $1, reject_reason = '审核时余额不足，自动拒绝', reviewed_at = NOW(), updated_at = NOW() WHERE id = $2",
-        [reviewerId || '', withdrawalId]
-      );
-      return NextResponse.json({ error: '用户当前余额不足，已自动拒绝' }, { status: 400 });
-    }
-
-    // 2. 从用户balance扣除提现金额
-    await execute(
-      'UPDATE users SET balance = balance - $1, updated_at = NOW() WHERE id = $2',
-      [withdrawAmount.toFixed(2), withdrawal.user_id]
-    );
-
-    // 3. 提现金额全额回流到总台（手续费归总台收益账户）
+    // 批准：余额已在申请时冻结，只需处理手续费回流
+    // 1. 手续费5%回流到总台收益账户
     const admin = await queryOne("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
     if (admin) {
       await execute(
         'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
-        [withdrawAmount.toFixed(2), admin.id]
+        [fee.toFixed(2), admin.id]
+      );
+      // 记录总台手续费收入
+      await execute(
+        `INSERT INTO transactions (user_id, type, amount, note, created_at)
+         VALUES ($1, 'withdrawal_fee', $2, $3, NOW())`,
+        [admin.id, fee.toFixed(2), `提现手续费收入：用户${withdrawal.user_id}提现${withdrawAmount}元，手续费${fee}元`]
       );
     }
 
-    // 4. 更新提现记录状态为 approved
+    // 2. 更新提现记录状态为 approved
     await execute(
       "UPDATE withdrawals SET status = 'approved', reviewer_id = $1, reviewed_at = NOW(), transferred_at = NOW(), note = $2, updated_at = NOW() WHERE id = $3",
       [reviewerId || '', note || '', withdrawalId]
     );
 
-    // 5. 记录交易流水
+    // 3. 记录交易流水
     await execute(
       `INSERT INTO transactions (user_id, type, amount, note, created_at)
        VALUES ($1, 'withdraw', $2, $3, NOW())`,
@@ -166,7 +150,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `提现审核通过，${withdrawAmount}元已从用户扣除并回流到总台，手续费${fee}元`,
+      message: `提现审核通过，${withdrawAmount}元已处理，手续费${fee}元回流总台，实际到账${actualAmount.toFixed(2)}元`,
       data: { withdrawAmount, fee, actualAmount },
     });
   } catch (error) {
