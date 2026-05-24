@@ -52,7 +52,7 @@ export async function POST(request: Request) {
         const providerRefunds: Record<string, number> = {};
         for (const h of holdingsList) {
           const pid = h.provider_id;
-          providerRefunds[pid] = (providerRefunds[pid] || 0) + h.purchase_price;
+          providerRefunds[pid] = (providerRefunds[pid] || 0) + Number(h.purchase_price);
         }
 
         // 3. 销毁会员的产品（状态改为cancelled）
@@ -68,10 +68,10 @@ export async function POST(request: Request) {
           [userId]
         );
 
-        // 5. 将算力额度归还给服务商
+        // 5. 将算力额度归还给服务商（providers表没有available_quota列，用quota增加）
         for (const [providerId, amount] of Object.entries(providerRefunds)) {
           await execute(
-            `UPDATE providers SET available_quota = available_quota + $1, updated_at = NOW() WHERE user_id = $2`,
+            `UPDATE providers SET used_quota = GREATEST(used_quota - $1, 0), updated_at = NOW() WHERE user_id = $2`,
             [amount, providerId]
           );
         }
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
       } else if (user.role === 'provider') {
         // 服务商清除算力额度：额度回到网点可分配额度
         const provider = await queryOne(
-          'SELECT user_id, quota, used_quota, available_quota, branch_id FROM providers WHERE user_id = $1',
+          'SELECT user_id, quota, used_quota, branch_id FROM providers WHERE user_id = $1',
           [userId]
         );
 
@@ -92,20 +92,20 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: '服务商记录不存在' }, { status: 404 });
         }
 
-        const returnAmount = provider.available_quota || 0;
+        // 可清除额度 = quota - used_quota（闲置额度）
+        const returnAmount = Number(provider.quota) - Number(provider.used_quota) || 0;
 
         if (returnAmount <= 0) {
-          return NextResponse.json({ success: true, message: '该服务商没有可清除的算力额度' });
+          return NextResponse.json({ success: true, message: '该服务商没有可清除的闲置算力额度' });
         }
 
-        // 1. 清零服务商的额度和可用额度
+        // 1. 将服务商quota设为used_quota（清零闲置额度，保留已用额度）
         await execute(
-          `UPDATE providers SET quota = used_quota, available_quota = 0, updated_at = NOW() WHERE user_id = $1`,
+          `UPDATE providers SET quota = used_quota, updated_at = NOW() WHERE user_id = $1`,
           [userId]
         );
 
         // 2. 将额度归还到网点的可分配额度
-        // 查找网点下对应该服务商的quota_allocations记录
         const allocation = await queryOne(
           `SELECT id, quota_amount, used_amount FROM quota_allocations
            WHERE branch_id = $1 AND provider_id = $2 AND status = 'active'
@@ -124,7 +124,7 @@ export async function POST(request: Request) {
 
         return NextResponse.json({
           success: true,
-          message: `已清除服务商 ${user.username} 的算力额度 ${returnAmount}，已归还到网点可分配额度`
+          message: `已清除服务商 ${user.username} 的闲置算力额度 ${returnAmount}，已归还到网点可分配额度`
         });
 
       } else {

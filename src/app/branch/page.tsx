@@ -336,11 +336,12 @@ export default function BranchPage() {
         fetch(`/api/quota-requests?requesterId=${branchId}&requesterType=branch`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`/api/branch/approve-quota?branchId=${branchId}&status=pending`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`/api/energy/branch-stats?branchId=${branchId}&username=${username || ''}`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`/api/branch/withdraw-review?branchId=${branchId}`, { headers: { 'Authorization': `Bearer ${token}` } }),
       ]);
       console.log('[loadData] 所有API请求完成');
       
       // 调试：显示每个请求的状态
-      const requestNames = ['branch/overview', 'admin/branch-templates', 'quota-allocations', 'provider-applications', 'quota', 'quota-requests', 'branch/approve-quota', 'energy/branch-stats'];
+      const requestNames = ['branch/overview', 'admin/branch-templates', 'quota-allocations', 'provider-applications', 'quota', 'quota-requests', 'branch/approve-quota', 'energy/branch-stats', 'withdraw-review'];
       results.forEach((result, index) => {
         if (result.status === 'rejected') {
           console.error(`[loadData] 请求 ${requestNames[index]} 失败:`, result.reason);
@@ -351,7 +352,7 @@ export default function BranchPage() {
         }
       });
       
-      const [overviewData, branchTemplatesData, allocationsData, applicationsData, quotaData, myQuotaRequestsData, providerQuotaRequestsData, energyStatsData] = await Promise.all(results.map(extractResult));
+      const [overviewData, branchTemplatesData, allocationsData, applicationsData, quotaData, myQuotaRequestsData, providerQuotaRequestsData, energyStatsData, withdrawReviewData] = await Promise.all(results.map(extractResult));
 
       console.log('[loadData] overviewData:', JSON.stringify(overviewData).substring(0, 500));
 
@@ -431,6 +432,12 @@ export default function BranchPage() {
 
       if (myQuotaRequestsData.success) {
         setQuotaRequests(myQuotaRequestsData.data || []);
+      }
+
+      // 加载提现审核数据
+      if (withdrawReviewData.success && withdrawReviewData.data) {
+        const records = withdrawReviewData.data.records || withdrawReviewData.data || [];
+        setPendingWithdrawals(Array.isArray(records) ? records : []);
       }
     } catch (error) {
       console.error('加载数据失败:', error);
@@ -979,7 +986,9 @@ export default function BranchPage() {
       const response = await authFetch(`/api/branch/withdraw-review?branchId=${branchId}`);
       const data = await response.json();
       if (data.success) {
-        setPendingWithdrawals(data.data || []);
+        // API返回 { records, stats }，提取records数组
+        const records = Array.isArray(data.data) ? data.data : (data.data?.records || []);
+        setPendingWithdrawals(records);
       }
     } catch (error) {
       console.error('加载待审核提现失败:', error);
