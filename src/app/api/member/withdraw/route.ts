@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne, execute } from '@/lib/supabase-client';
 
-// 会员提现申请（统一到智算总台审核，申请时不扣balance，审核通过后才扣）
+// 会员提现申请（对接服务网点审核，申请时不扣balance，审核通过后才扣）
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const fee = Math.round(withdrawAmount * 0.05 * 100) / 100;
     const actualAmount = withdrawAmount - fee;
 
-    // 只创建提现记录，不扣balance（等总台审核通过后才扣）
+    // 只创建提现记录，不扣balance（等服务网点审核通过后才扣）
     await execute(
       `INSERT INTO withdrawals (user_id, user_role, amount, fee, actual_amount, alipay_account, real_name, status, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', NOW())`,
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
         actualAmount: actualAmount.toFixed(2),
         currentBalance: currentBalance.toFixed(2),
       },
-      message: '提现申请已提交，等待智算总台审核',
+      message: '提现申请已提交，等待服务网点审核',
     });
   } catch (error: any) {
     console.error('会员提现申请失败:', error);

@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     const fee = Math.round(withdrawAmount * 0.05 * 100) / 100;
     const actualAmount = withdrawAmount - fee;
     
-    // 创建提现申请（只记录，不扣balance，等总台审核）
+    // 创建提现申请（只记录，不扣balance，等服务网点审核）
     await execute(
       `INSERT INTO withdrawals (user_id, user_role, amount, fee, actual_amount, alipay_account, real_name, status, note, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, NOW())`,
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({ 
       success: true, 
-      message: '提现申请已提交，等待总台审核',
+      message: '提现申请已提交，等待服务网点审核',
       data: {
         amount: withdrawAmount.toFixed(2),
         fee: fee.toFixed(2),

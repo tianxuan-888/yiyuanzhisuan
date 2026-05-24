@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne, execute } from '@/lib/supabase-client';
 
-// 智算总台审核提现申请
+// 智算总台审核提现申请（仅审核服务网点的提现，会员/服务商提现由服务网点审核）
 // 用户数据库 withdrawals 表结构:
 // id, user_id, user_role, amount, fee, actual_amount, alipay_account, real_name,
 // reviewer_id, status, reject_reason, reviewed_at, transferred_at, completed_at, note, created_at, updated_at
 
 // 申请时不扣balance，审核通过时才扣
-// 审核通过：从用户balance扣除提现金额，5%手续费回流总台
+// 审核通过：从网点balance扣除提现金额，5%手续费回流总台
 // 审核拒绝：不扣钱（因为申请时没扣）
 export async function POST(request: NextRequest) {
   try {
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
         [withdrawAmount.toFixed(2), wd.user_id]
       );
 
-      // 3. 提现金额全额回流到总台（加到admin的balance）
+      // 3. 提现金额全额回流到总台（网点提现，手续费归总台）
       const admin = await queryOne("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
       if (admin) {
         await execute(
@@ -126,16 +126,17 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 获取所有提现记录（总台查看）
+// 获取所有提现记录（总台只看网点提现，会员/服务商提现由网点审核）
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
 
+    // 总台只审核服务网点提现（user_role = 'branch'）
     let sql = `SELECT w.*, u.username, u.role as user_role_name, u.phone 
                FROM withdrawals w 
                LEFT JOIN users u ON w.user_id = u.id 
-               WHERE 1=1`;
+               WHERE w.user_role = 'branch'`;
     const params: any[] = [];
 
     if (status) {
@@ -147,14 +148,14 @@ export async function GET(request: NextRequest) {
 
     const data = await query(sql, params);
 
-    // 统计 - 使用 fee 列名（用户数据库）
+    // 统计 - 只统计网点提现
     const stats = await queryOne(
       `SELECT 
         COUNT(*) as total_count,
         COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) as pending_amount,
         COALESCE(SUM(CASE WHEN status = 'approved' THEN amount ELSE 0 END), 0) as approved_amount,
         COALESCE(SUM(CASE WHEN status = 'approved' THEN COALESCE(fee, 0) ELSE 0 END), 0) as total_fee
-      FROM withdrawals`
+      FROM withdrawals WHERE user_role = 'branch'`
     );
 
     return NextResponse.json({

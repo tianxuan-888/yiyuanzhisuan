@@ -5691,7 +5691,7 @@ export default function AdminPage() {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>提现审核</CardTitle>
+          <CardTitle>服务网点提现审核</CardTitle>
           <div className="flex gap-2">
             <Button variant="outline" onClick={loadData}>
               <RefreshCw className="w-4 h-4 mr-2" />刷新

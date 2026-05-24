@@ -4911,7 +4911,7 @@ export default function ProviderPage() {
                                             });
                                             const data = await res.json();
                                             if (data.success) {
-                                                showMessage("success", "提现申请已提交，等待总台审核");
+                                                showMessage("success", "提现申请已提交，等待服务网点审核");
                                                 setShowWithdrawDialog(false);
                                                 setWithdrawAmount("");
                                                 setWithdrawAlipay("");

@@ -989,10 +989,11 @@ export default function BranchPage() {
   const handleReviewWithdrawal = async (withdrawalId: string, action: string, rejectReason?: string) => {
     try {
       setSubmitting(true);
+      const reviewerId = localStorage.getItem('userId');
       const response = await authFetch('/api/branch/withdraw-review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ withdrawalId, action, rejectReason }),
+        body: JSON.stringify({ withdrawalId, action, rejectReason, reviewerId }),
       });
       const data = await response.json();
       if (data.success) {
@@ -2582,9 +2583,9 @@ export default function BranchPage() {
                         <div key={w.id} className="border rounded-lg p-4 bg-orange-50">
                           <div className="flex justify-between items-start mb-3">
                             <div>
-                              <p className="font-medium">{w.user?.username || w.real_name || '用户'}</p>
-                              <p className="text-sm text-gray-500">角色: {w.user_role === 'member' ? '会员' : w.user_role === 'provider' ? '服务商' : w.user_role}</p>
-                              <p className="text-sm text-gray-500">手机: {w.user?.phone || '-'}</p>
+                              <p className="font-medium">{w.username || w.real_name || '用户'}</p>
+                              <p className="text-sm text-gray-500">角色: {w.user_role_name === 'member' ? '会员' : w.user_role_name === 'provider' ? '服务商' : w.user_role_name || (w.user_role === 'member' ? '会员' : w.user_role === 'provider' ? '服务商' : w.user_role)}</p>
+                              <p className="text-sm text-gray-500">手机: {w.phone || '-'}</p>
                             </div>
                             <div className="text-right">
                               <p className="text-xl font-bold text-orange-600">¥{Number(w.amount).toLocaleString()}</p>

@@ -973,7 +973,7 @@ const [copySuccess, setCopySuccess] = useState(false);
             const data = await response.json();
             if (data.success) {
                 const w = data.data || {};
-                showMessage("success", `提现申请已提交！手续费${w.fee || 0}元，实际到账${w.actualAmount || 0}元，等待总台审核`);
+                showMessage("success", `提现申请已提交！手续费${w.fee || 0}元，实际到账${w.actualAmount || 0}元，等待服务网点审核`);
                 setShowWithdrawDialog(false);
                 setWithdrawAmount("");
                 setWithdrawAlipay("");
@@ -3003,7 +3003,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                 <CardContent className="space-y-4">
                                     <div className="bg-rose-50 p-3 rounded-lg">
                                         <p className="text-sm text-rose-700">
-                                            <strong>说明：</strong>提现手续费5%，最低提现金额100元，提交后等待总台审核打款。
+                                            <strong>说明：</strong>提现手续费5%，最低提现金额100元，提交后等待服务网点审核打款。
                                         </p>
                                     </div>
                                     <div>
