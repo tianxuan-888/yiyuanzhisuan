@@ -3800,12 +3800,21 @@ export default function AdminPage() {
     const [feeRecords, setFeeRecords] = useState<any[]>([]);
     const [feeStats, setFeeStats] = useState<any>({});
     const [financeLoading, setFinanceLoading] = useState(false);
-    const [financeSubTab, setFinanceSubTab] = useState<'overview' | 'withdraw-review' | 'fee-records'>('overview');
+    const [financeSubTab, setFinanceSubTab] = useState<'overview' | 'withdraw-review' | 'fee-records' | 'transfer-balance'>('overview');
     const [feeTypeFilter, setFeeTypeFilter] = useState<string>('all');
     const [feeRoleFilter, setFeeRoleFilter] = useState<string>('all');
     const [feeDateFrom, setFeeDateFrom] = useState<string>('');
     const [feeDateTo, setFeeDateTo] = useState<string>('');
     const [feeSearch, setFeeSearch] = useState<string>('');
+    // 转智算金相关状态
+    const [tbSearchQuery, setTbSearchQuery] = useState('');
+    const [tbSearchResults, setTbSearchResults] = useState<any[]>([]);
+    const [tbSearching, setTbSearching] = useState(false);
+    const [tbSelectedUser, setTbSelectedUser] = useState<any>(null);
+    const [tbAmount, setTbAmount] = useState('');
+    const [tbNote, setTbNote] = useState('');
+    const [tbTransferring, setTbTransferring] = useState(false);
+    const [tbTransferResult, setTbTransferResult] = useState<any>(null);
 
     const loadFinanceData = async () => {
       setFinanceLoading(true);
@@ -3847,6 +3856,47 @@ export default function AdminPage() {
       }
     };
 
+    // 转智算金 - 搜索用户
+    const handleTbSearch = async () => {
+      if (!tbSearchQuery.trim()) return;
+      setTbSearching(true);
+      setTbSearchResults([]);
+      try {
+        const res = await authFetch(`/api/users/search?q=${encodeURIComponent(tbSearchQuery.trim())}`);
+        const data = await res.json();
+        if (data.success) {
+          setTbSearchResults(data.data || []);
+        }
+      } catch { setTbSearchResults([]); }
+      finally { setTbSearching(false); }
+    };
+
+    // 转智算金 - 执行转账
+    const handleTbTransfer = async () => {
+      if (!tbSelectedUser || !tbAmount) return;
+      const amt = parseFloat(tbAmount);
+      if (isNaN(amt) || amt <= 0) { alert('请输入有效金额'); return; }
+      if (!confirm(`确认向 ${tbSelectedUser.username} 转入 ${amt} 智算金？`)) return;
+      setTbTransferring(true);
+      setTbTransferResult(null);
+      try {
+        const res = await authFetch('/api/admin/transfer-balance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ toUserId: tbSelectedUser.id, amount: amt, note: tbNote }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setTbTransferResult(data);
+          setTbAmount('');
+          setTbNote('');
+        } else {
+          alert(data.error || '转账失败');
+        }
+      } catch { alert('网络错误'); }
+      finally { setTbTransferring(false); }
+    };
+
     useEffect(() => { loadFinanceData(); }, []);
 
     const totalFee = Number(feeStats.total_fee || 0);
@@ -3866,6 +3916,7 @@ export default function AdminPage() {
             <button onClick={() => setFinanceSubTab('overview')} className={`px-4 py-2 rounded-md transition-colors ${financeSubTab === 'overview' ? 'bg-purple-500 text-white' : 'bg-purple-800/50 text-white/80 hover:bg-purple-700'}`}>财务总览</button>
             <button onClick={() => setFinanceSubTab('withdraw-review')} className={`px-4 py-2 rounded-md transition-colors flex items-center gap-1 ${financeSubTab === 'withdraw-review' ? 'bg-purple-500 text-white' : 'bg-purple-800/50 text-white/80 hover:bg-purple-700'}`}>服务网点提现审核{pendingWithdrawals.length > 0 && <Badge className="bg-red-500 text-white text-xs ml-1">{pendingWithdrawals.length}</Badge>}</button>
             <button onClick={() => setFinanceSubTab('fee-records')} className={`px-4 py-2 rounded-md transition-colors ${financeSubTab === 'fee-records' ? 'bg-purple-500 text-white' : 'bg-purple-800/50 text-white/80 hover:bg-purple-700'}`}>手续费记录</button>
+            <button onClick={() => setFinanceSubTab('transfer-balance')} className={`px-4 py-2 rounded-md transition-colors ${financeSubTab === 'transfer-balance' ? 'bg-purple-500 text-white' : 'bg-purple-800/50 text-white/80 hover:bg-purple-700'}`}>转智算金</button>
           </div>
         </div>
 
@@ -4103,7 +4154,140 @@ export default function AdminPage() {
           </Card>
           );
         })()}
-      </div>
+
+        {financeSubTab === 'transfer-balance' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>转智算金</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">给任意账号直接转入智算金，即时到账</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* 搜索用户 */}
+              <div className="space-y-3">
+                <label className="text-sm font-medium">搜索目标账号</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="输入用户名 / 手机号 / 专属ID"
+                      value={tbSearchQuery}
+                      onChange={(e) => setTbSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleTbSearch()}
+                      className="w-full border rounded-md pl-9 pr-3 py-2 text-sm bg-white"
+                    />
+                  </div>
+                  <Button onClick={handleTbSearch} disabled={tbSearching} size="sm">
+                    {tbSearching ? '搜索中...' : '搜索'}
+                  </Button>
+                </div>
+
+                {/* 搜索结果 */}
+                {tbSearchResults.length > 0 && !tbSelectedUser && (
+                  <div className="border rounded-md divide-y max-h-60 overflow-y-auto">
+                    {tbSearchResults.map((u: any) => {
+                      const roleLabel = u.role === 'admin' ? '总台' : u.role === 'branch' ? '服务网点' : u.role === 'provider' ? '服务商' : '会员';
+                      const roleColor = u.role === 'admin' ? 'bg-red-100 text-red-700' : u.role === 'branch' ? 'bg-blue-100 text-blue-700' : u.role === 'provider' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700';
+                      return (
+                        <div key={u.id} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 cursor-pointer" onClick={() => { setTbSelectedUser(u); setTbSearchResults([]); setTbSearchQuery(''); setTbTransferResult(null); }}>
+                          <div>
+                            <span className="font-medium">{u.username}</span>
+                            {u.unique_id && <span className="text-xs text-gray-400 ml-2">[{u.unique_id}]</span>}
+                            {u.phone && <span className="text-xs text-gray-400 ml-2">({u.phone})</span>}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs px-2 py-0.5 rounded ${roleColor}`}>{roleLabel}</span>
+                            <span className="text-xs text-gray-500">智算金: ¥{Number(u.balance || 0).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {tbSearchResults.length === 0 && tbSearchQuery && !tbSearching && !tbSelectedUser && (
+                  <p className="text-sm text-gray-400 text-center py-4">未找到匹配用户</p>
+                )}
+              </div>
+
+              {/* 已选中用户 */}
+              {tbSelectedUser && (
+                <div className="space-y-4">
+                  <div className="p-4 bg-muted/50 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-medium text-base">{tbSelectedUser.username}</span>
+                        {tbSelectedUser.unique_id && <span className="text-sm text-gray-400 ml-2">[{tbSelectedUser.unique_id}]</span>}
+                        {tbSelectedUser.phone && <span className="text-sm text-gray-400 ml-2">({tbSelectedUser.phone})</span>}
+                        <span className={`text-xs px-2 py-0.5 rounded ml-2 ${tbSelectedUser.role === 'admin' ? 'bg-red-100 text-red-700' : tbSelectedUser.role === 'branch' ? 'bg-blue-100 text-blue-700' : tbSelectedUser.role === 'provider' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}`}>
+                          {tbSelectedUser.role === 'admin' ? '总台' : tbSelectedUser.role === 'branch' ? '服务网点' : tbSelectedUser.role === 'provider' ? '服务商' : '会员'}
+                        </span>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => { setTbSelectedUser(null); setTbTransferResult(null); }}>重新选择</Button>
+                    </div>
+                    <div className="text-sm text-gray-500 mt-1">当前智算金余额: ¥{Number(tbSelectedUser.balance || 0).toLocaleString()}</div>
+                  </div>
+
+                  {/* 输入金额和备注 */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium">转账金额（智算金）</label>
+                      <input
+                        type="number"
+                        placeholder="请输入金额"
+                        value={tbAmount}
+                        onChange={(e) => setTbAmount(e.target.value)}
+                        className="w-full border rounded-md px-3 py-2 text-sm bg-white"
+                        min="0.01"
+                        step="0.01"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium">备注（可选）</label>
+                      <input
+                        type="text"
+                        placeholder="转账说明"
+                        value={tbNote}
+                        onChange={(e) => setTbNote(e.target.value)}
+                        className="w-full border rounded-md px-3 py-2 text-sm bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 快捷金额 */}
+                  <div className="flex gap-2 flex-wrap">
+                    {[100, 500, 1000, 5000, 10000].map(v => (
+                      <Button key={v} variant="outline" size="sm" onClick={() => setTbAmount(String(v))}>¥{v.toLocaleString()}</Button>
+                    ))}
+                  </div>
+
+                  {/* 确认按钮 */}
+                  <Button
+                    onClick={handleTbTransfer}
+                    disabled={tbTransferring || !tbAmount}
+                    className="w-full md:w-auto"
+                  >
+                    {tbTransferring ? '转账中...' : `确认转入 ${tbAmount ? '¥' + parseFloat(tbAmount).toLocaleString() : ''} 智算金`}
+                  </Button>
+
+                  {/* 转账结果 */}
+                  {tbTransferResult && (
+                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CheckCircle className="w-5 h-5 text-green-600" />
+                        <span className="font-medium text-green-800">转账成功</span>
+                      </div>
+                      <div className="text-sm text-green-700 space-y-1">
+                        <p>转入账号: {tbTransferResult.data?.toUsername}</p>
+                        <p>转入金额: ¥{Number(tbTransferResult.data?.amount).toLocaleString()}</p>
+                        <p>最新余额: ¥{Number(tbTransferResult.data?.newBalance).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}      </div>
     );
   });
 
