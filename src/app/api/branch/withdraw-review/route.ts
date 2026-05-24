@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
 }
 
 // 服务网点审核提现（审核会员/服务商的提现申请）
-// 申请时已冻结余额，审核通过：手续费5%回流总台balance，审核拒绝：退还冻结余额
+// 申请时已冻结余额，审核通过：95%到网点balance + 5%手续费到总台balance，审核拒绝：退还冻结余额
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -119,8 +119,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, message: '已拒绝提现申请，冻结余额已退还' });
     }
 
-    // 批准：余额已在申请时冻结，只需处理手续费回流
-    // 1. 手续费5%回流到总台收益账户
+    // 批准：余额已在申请时冻结
+    // 1. 95%到网点账上（网点线下付款给提现人）
+    const branchAmount = actualAmount; // withdrawAmount - fee
+    await execute(
+      'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
+      [branchAmount.toFixed(2), reviewerId]
+    );
+    // 记录网点收入
+    await execute(
+      `INSERT INTO transactions (user_id, type, amount, note, created_at)
+       VALUES ($1, 'withdraw_to_branch', $2, $3, NOW())`,
+      [reviewerId, branchAmount.toFixed(2), `审核提现收入：用户${withdrawal.user_id}提现${withdrawAmount}元，95%（${branchAmount.toFixed(2)}元）到网点账`]
+    );
+
+    // 2. 手续费5%回流到总台收益账户
     const admin = await queryOne("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
     if (admin) {
       await execute(
@@ -135,23 +148,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2. 更新提现记录状态为 approved
+    // 3. 更新提现记录状态为 approved
     await execute(
       "UPDATE withdrawals SET status = 'approved', reviewer_id = $1, reviewed_at = NOW(), transferred_at = NOW(), note = $2, updated_at = NOW() WHERE id = $3",
       [reviewerId || '', note || '', withdrawalId]
     );
 
-    // 3. 记录交易流水
+    // 4. 记录提现人交易流水
     await execute(
       `INSERT INTO transactions (user_id, type, amount, note, created_at)
        VALUES ($1, 'withdraw', $2, $3, NOW())`,
-      [withdrawal.user_id, withdrawAmount.toFixed(2), `网点审核提现通过，金额${withdrawAmount}元，手续费${fee}元回流总台，实际到账${actualAmount.toFixed(2)}元`]
+      [withdrawal.user_id, withdrawAmount.toFixed(2), `网点审核提现通过，金额${withdrawAmount}元，手续费${fee}元回流总台，95%（${actualAmount.toFixed(2)}元）到网点账`]
     );
 
     return NextResponse.json({
       success: true,
-      message: `提现审核通过，${withdrawAmount}元已处理，手续费${fee}元回流总台，实际到账${actualAmount.toFixed(2)}元`,
-      data: { withdrawAmount, fee, actualAmount },
+      message: `提现审核通过，${withdrawAmount}元已处理：95%（${actualAmount.toFixed(2)}元）到网点账，手续费${fee}元回流总台`,
+      data: { withdrawAmount, fee, actualAmount, branchAmount },
     });
   } catch (error) {
     console.error('审核提现失败:', error);

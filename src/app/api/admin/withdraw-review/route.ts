@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne, execute } from '@/lib/supabase-client';
 
 // 智算总台审核提现申请（仅审核服务网点的提现，会员/服务商提现由服务网点审核）
-// 申请时已冻结余额，审核通过只处理手续费回流，审核拒绝则退还冻结余额
+// 申请时已冻结余额，审核通过：95%到总台balance（总台线下付款给网点）+ 5%手续费到总台balance，审核拒绝：退还冻结余额
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,19 +61,25 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 审核通过：余额已在申请时冻结，只需处理手续费回流
-    // 1. 手续费5%回流到总台收益账户
+    // 审核通过：余额已在申请时冻结
+    // 1. 网点提现的95%到总台balance（总台线下付款给网点），5%手续费也到总台balance
     const admin = await queryOne("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
     if (admin) {
+      // 95%到总台（线下付款给网点）+ 5%手续费到总台 = 100%到总台
       await execute(
         'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
-        [fee.toFixed(2), admin.id]
+        [withdrawAmount.toFixed(2), admin.id]
       );
-      // 记录总台手续费收入
+      // 记录总台收款
       await execute(
         `INSERT INTO transactions (user_id, type, amount, note, created_at)
          VALUES ($1, 'withdrawal_fee', $2, $3, NOW())`,
-        [admin.id, fee.toFixed(2), `提现手续费收入：网点${wd.user_id}提现${withdrawAmount}元，手续费${fee}元`]
+        [admin.id, fee.toFixed(2), `网点提现手续费收入：网点提现${withdrawAmount}元，手续费${fee}元`]
+      );
+      await execute(
+        `INSERT INTO transactions (user_id, type, amount, note, created_at)
+         VALUES ($1, 'branch_withdraw', $2, $3, NOW())`,
+        [admin.id, actualAmount.toFixed(2), `网点提现到账：网点提现${withdrawAmount}元，95%即${actualAmount.toFixed(2)}元待线下付款给网点`]
       );
     }
 
