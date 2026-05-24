@@ -2425,7 +2425,7 @@ export default function BranchPage() {
                       {providers.map(provider => (
                         <tr key={provider.id} className="border-b hover:bg-gray-50">
                           <td className="py-3 px-4 font-medium">{provider.username}</td>
-                          <td className="py-3 px-4 text-orange-600">{(provider.energy_value || 0).toLocaleString()}</td>
+                          <td className="py-3 px-4 text-orange-600">{(provider.quota || 0).toLocaleString()}</td>
                           <td className="py-3 px-4 text-green-600">¥{(provider.balance || 0).toLocaleString()}</td>
                           <td className="py-3 px-4 text-blue-600">{(provider.used_quota || 0).toLocaleString()}</td>
                           <td className="py-3 px-4 text-purple-600">{(provider.available_quota || 0).toLocaleString()}</td>
