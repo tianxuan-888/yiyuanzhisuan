@@ -4804,12 +4804,11 @@ export default function AdminPage() {
                     <Pie
                       data={[
                         { name: '会员(2%)', value: revenue.releaseDistribution.memberShare || 0 },
-                        { name: '直推(0.3%)', value: revenue.releaseDistribution.directReferralShare || 0 },
                         { name: '服务商(2%)', value: revenue.releaseDistribution.providerShare || 0 },
-                        { name: '上级(0.3%)', value: revenue.releaseDistribution.parentProviderShare || 0 },
-                        { name: '高级(0.15%)', value: revenue.releaseDistribution.seniorProviderShare || 0 },
-                        { name: '网点(0.15%)', value: revenue.releaseDistribution.branchShare || 0 },
-                        { name: '平台(0.10%)', value: revenue.releaseDistribution.companyShare || 0 },
+                        { name: '直推(0.25%)', value: revenue.releaseDistribution.directReferralShare || 0 },
+                        { name: '上级(0.25%)', value: revenue.releaseDistribution.parentProviderShare || 0 },
+                        { name: '网点(0.1%)', value: revenue.releaseDistribution.branchShare || 0 },
+                        { name: '运营(0.4%)', value: revenue.releaseDistribution.companyShare || 0 },
                       ]}
                       cx="50%"
                       cy="50%"
@@ -4927,7 +4926,6 @@ export default function AdminPage() {
     const totalDirect = Number(stats?.total_direct_share) || 0;
     const totalProvider = Number(stats?.total_provider_share) || 0;
     const totalParentProvider = Number(stats?.total_parent_provider_share) || 0;
-    const totalSeniorProvider = Number(stats?.total_senior_provider_share) || 0;
     const totalBranch = Number(stats?.total_branch_share) || 0;
     const totalCompany = Number(stats?.total_company_share) || 0;
 
@@ -4974,39 +4972,34 @@ export default function AdminPage() {
           {/* 7项分配明细统计 */}
           <div className="border rounded-lg p-4">
             <h4 className="font-semibold mb-3 text-sm">5%分配去向明细</h4>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
               <div className="text-center p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                 <div className="text-xs text-muted-foreground mb-1">会员 (2%)</div>
                 <div className="text-lg font-bold text-blue-600">¥{totalMember.toLocaleString()}</div>
                 <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalMember / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
-              </div>
-              <div className="text-center p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
-                <div className="text-xs text-muted-foreground mb-1">直推 (0.3%)</div>
-                <div className="text-lg font-bold text-green-600">¥{totalDirect.toLocaleString()}</div>
-                <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalDirect / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
               </div>
               <div className="text-center p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
                 <div className="text-xs text-muted-foreground mb-1">服务商 (2%)</div>
                 <div className="text-lg font-bold text-purple-600">¥{totalProvider.toLocaleString()}</div>
                 <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalProvider / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
               </div>
+              <div className="text-center p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                <div className="text-xs text-muted-foreground mb-1">直推 (0.25%)</div>
+                <div className="text-lg font-bold text-green-600">¥{totalDirect.toLocaleString()}</div>
+                <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalDirect / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
+              </div>
               <div className="text-center p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
-                <div className="text-xs text-muted-foreground mb-1">上级服务商 (0.3%)</div>
+                <div className="text-xs text-muted-foreground mb-1">上级服务商 (0.25%)</div>
                 <div className="text-lg font-bold text-orange-600">¥{totalParentProvider.toLocaleString()}</div>
                 <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalParentProvider / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
               </div>
-              <div className="text-center p-3 bg-pink-50 dark:bg-pink-950/30 rounded-lg">
-                <div className="text-xs text-muted-foreground mb-1">高级服务商 (0.15%)</div>
-                <div className="text-lg font-bold text-pink-600">¥{totalSeniorProvider.toLocaleString()}</div>
-                <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalSeniorProvider / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
-              </div>
               <div className="text-center p-3 bg-teal-50 dark:bg-teal-950/30 rounded-lg">
-                <div className="text-xs text-muted-foreground mb-1">服务网点 (0.15%)</div>
+                <div className="text-xs text-muted-foreground mb-1">服务网点 (0.1%)</div>
                 <div className="text-lg font-bold text-teal-600">¥{totalBranch.toLocaleString()}</div>
                 <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalBranch / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
               </div>
               <div className="text-center p-3 bg-slate-50 dark:bg-slate-950/30 rounded-lg">
-                <div className="text-xs text-muted-foreground mb-1">平台运营 (0.40%)</div>
+                <div className="text-xs text-muted-foreground mb-1">总台运营 (0.4%)</div>
                 <div className="text-lg font-bold text-slate-600">¥{totalCompany.toLocaleString()}</div>
                 <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalCompany / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
               </div>
@@ -5045,12 +5038,11 @@ export default function AdminPage() {
                     <TableHead>产品价格</TableHead>
                     <TableHead>释放总额(5%)</TableHead>
                     <TableHead>会员(2%)</TableHead>
-                    <TableHead>直推(0.3%)</TableHead>
                     <TableHead>服务商(2%)</TableHead>
-                    <TableHead>上级服务商(0.3%)</TableHead>
-                    <TableHead>高级服务商(0.15%)</TableHead>
-                    <TableHead>服务网点(0.15%)</TableHead>
-                    <TableHead>平台运营(0.40%)</TableHead>
+                    <TableHead>直推(0.25%)</TableHead>
+                    <TableHead>上级(0.25%)</TableHead>
+                    <TableHead>网点(0.1%)</TableHead>
+                    <TableHead>运营(0.4%)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -5064,10 +5056,9 @@ export default function AdminPage() {
                       <TableCell>¥{Number(r.product_price).toLocaleString()}</TableCell>
                       <TableCell className="font-bold text-primary">¥{Number(r.release_amount).toLocaleString()}</TableCell>
                       <TableCell className="text-blue-600">¥{Number(r.member_share).toLocaleString()}</TableCell>
-                      <TableCell className="text-green-600">¥{Number(r.direct_referral_share).toLocaleString()}</TableCell>
                       <TableCell className="text-purple-600">¥{Number(r.provider_share).toLocaleString()}</TableCell>
+                      <TableCell className="text-green-600">¥{Number(r.direct_referral_share).toLocaleString()}</TableCell>
                       <TableCell className="text-orange-600">¥{Number(r.parent_provider_share).toLocaleString()}</TableCell>
-                      <TableCell className="text-pink-600">¥{Number(r.senior_provider_share).toLocaleString()}</TableCell>
                       <TableCell className="text-teal-600">¥{Number(r.branch_share).toLocaleString()}</TableCell>
                       <TableCell className="text-slate-600">¥{Number(r.company_share).toLocaleString()}</TableCell>
                     </TableRow>
