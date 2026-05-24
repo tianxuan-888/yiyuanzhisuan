@@ -3636,12 +3636,12 @@ export default function AdminPage() {
                 <TableHead>购买价</TableHead>
                 <TableHead>市场费</TableHead>
                 <TableHead>会员2%</TableHead>
-                <TableHead>直推0.3%</TableHead>
+                <TableHead>直推0.25%</TableHead>
                 <TableHead>服务商2%</TableHead>
-                <TableHead>上级0.3%</TableHead>
+                <TableHead>上级0.25%</TableHead>
                 <TableHead>高级0.15%</TableHead>
-                <TableHead>网点0.15%</TableHead>
-                <TableHead>运营0.10%</TableHead>
+                <TableHead>网点0.1%</TableHead>
+                <TableHead>运营0.40%</TableHead>
                 <TableHead>买家</TableHead>
                 <TableHead>服务商</TableHead>
               </TableRow>
@@ -4809,7 +4809,7 @@ export default function AdminPage() {
                 <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalBranch / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
               </div>
               <div className="text-center p-3 bg-slate-50 dark:bg-slate-950/30 rounded-lg">
-                <div className="text-xs text-muted-foreground mb-1">平台运营 (0.10%)</div>
+                <div className="text-xs text-muted-foreground mb-1">平台运营 (0.40%)</div>
                 <div className="text-lg font-bold text-slate-600">¥{totalCompany.toLocaleString()}</div>
                 <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalCompany / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
               </div>
@@ -4853,7 +4853,7 @@ export default function AdminPage() {
                     <TableHead>上级服务商(0.3%)</TableHead>
                     <TableHead>高级服务商(0.15%)</TableHead>
                     <TableHead>服务网点(0.15%)</TableHead>
-                    <TableHead>平台运营(0.10%)</TableHead>
+                    <TableHead>平台运营(0.40%)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

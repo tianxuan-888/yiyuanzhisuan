@@ -56,15 +56,14 @@ export async function POST(request: NextRequest) {
 
     if (updateError) throw new Error(`更新订单失败: ${updateError.message}`);
 
-    // ========== 总台释放5%收益，按7项分配 ==========
+    // ========== 总台释放5%收益，按6项分配（无高级服务商） ==========
     const releaseRate = 0.05;
     const memberShare = Math.round(price * 0.02 * 100) / 100;
-    const directShare = Math.round(price * 0.003 * 100) / 100;
+    const directShare = Math.round(price * 0.0025 * 100) / 100;
     const providerShare = Math.round(price * 0.02 * 100) / 100;
-    const parentProviderShare = Math.round(price * 0.003 * 100) / 100;
-    const seniorProviderShare = Math.round(price * 0.0015 * 100) / 100;
-    const branchShare = Math.round(price * 0.0015 * 100) / 100;
-    const companyShare = Math.round(price * 0.001 * 100) / 100;
+    const parentProviderShare = Math.round(price * 0.0025 * 100) / 100;
+    const branchShare = Math.round(price * 0.001 * 100) / 100;
+    const companyBaseShare = Math.round(price * 0.004 * 100) / 100;
     const totalReleased = price * releaseRate;
 
     // 1. 会员收益2%
@@ -72,7 +71,7 @@ export async function POST(request: NextRequest) {
       await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [memberShare, order.user_id]);
     }
 
-    // 2. 直推人0.3%
+    // 2. 直推人0.25%
     const member = await queryOne('SELECT id, inviter_id FROM users WHERE id = $1', [order.user_id]);
     let directRewardTo: string | null = null;
     if (member?.inviter_id && directShare > 0) {
@@ -85,7 +84,7 @@ export async function POST(request: NextRequest) {
       await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [providerShare, order.provider_id]);
     }
 
-    // 4. 上级服务商0.3%
+    // 4. 下级服务商0.25%
     const providerInfo = await queryOne('SELECT branch_id, parent_provider_id FROM providers WHERE user_id = $1', [order.provider_id]);
     let actualParentProviderId: string | null = null;
     if (providerInfo?.parent_provider_id && parentProviderShare > 0) {
@@ -96,33 +95,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 5. 高级服务商0.15%
-    let actualSeniorProviderId: string | null = null;
-    if (providerInfo?.parent_provider_id) {
-      let currentProviderId = providerInfo.parent_provider_id;
-      let depth = 0;
-      while (currentProviderId && depth < 20) {
-        const sp: any = await queryOne('SELECT id, user_id, parent_provider_id, is_senior FROM providers WHERE id = $1', [currentProviderId]);
-        if (!sp) break;
-        if (sp.is_senior) {
-          actualSeniorProviderId = sp.id;
-          await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [seniorProviderShare, sp.user_id]);
-          break;
-        }
-        currentProviderId = sp.parent_provider_id;
-        depth++;
-      }
-    }
-
-    // 6. 服务网点0.15%
+    // 5. 服务网点0.1%
     if (providerInfo?.branch_id && branchShare > 0) {
       await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [branchShare, providerInfo.branch_id]);
     }
 
-    // 7. 智算平台运营0.10% + 无上级时的0.3% + 无高级服务商时的0.15%
+    // 6. 总台运营0.4% + 无上级时的0.25%
     const noParentExtra = actualParentProviderId ? 0 : parentProviderShare;
-    const noSeniorExtra = actualSeniorProviderId ? 0 : seniorProviderShare;
-    const finalCompanyShare = companyShare + noParentExtra + noSeniorExtra;
+    const finalCompanyShare = companyBaseShare + noParentExtra;
     if (finalCompanyShare > 0) {
       const adminUser = await queryOne("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
       if (adminUser) {
@@ -147,7 +127,7 @@ export async function POST(request: NextRequest) {
         directRewardTo, directShare,
         order.provider_id, providerShare,
         actualParentProviderId, actualParentProviderId ? parentProviderShare : 0,
-        actualSeniorProviderId, actualSeniorProviderId ? seniorProviderShare : 0,
+        null, 0,
         providerInfo?.branch_id || null, branchShare, finalCompanyShare
       ]
     );

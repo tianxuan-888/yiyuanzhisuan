@@ -73,13 +73,12 @@ export async function POST(request: NextRequest) {
       // 总台释放5%收益，按7项分配到各角色balance
 
       const releaseRate = 0.05; // 总台释放5%
-      const memberShare = product.price * 0.02;       // 会员2%
-      const directShare = product.price * 0.003;       // 直推0.3%
-      const providerShare = product.price * 0.02;      // 服务商2%
-      const parentProviderShare = product.price * 0.003; // 上级服务商0.3%
-      const seniorProviderShare = product.price * 0.0015; // 高级服务商0.15%
-      const branchShare = product.price * 0.0015;      // 服务网点0.15%
-      const companyShare = product.price * 0.001;      // 智算平台运营0.10%
+      const memberShare = product.price * 0.02;         // 会员2%
+      const directShare = product.price * 0.0025;       // 直推0.25%
+      const providerShare = product.price * 0.02;       // 服务商2%
+      const parentProviderShare = product.price * 0.0025; // 下级服务商0.25%
+      const branchShare = product.price * 0.001;        // 服务网点0.1%
+      const companyShare = product.price * 0.004;       // 总台运营0.4%
       const totalReleased = product.price * releaseRate;
 
       // 1. 会员收益
@@ -99,22 +98,14 @@ export async function POST(request: NextRequest) {
         sql_query: `UPDATE users SET balance = COALESCE(balance, 0) + ${providerShare} WHERE id = '${user.userId}'`
       });
 
-      // 4. 上级服务商收益
+      // 4. 下级服务商收益
       if (targetUser.provider_id && targetUser.provider_id !== user.userId) {
         await supabase.rpc('rpc_execute', {
           sql_query: `UPDATE users SET balance = COALESCE(balance, 0) + ${parentProviderShare} WHERE id = '${targetUser.provider_id}'`
         });
       }
 
-      // 5. 高级服务商收益（服务商的上级服务商）
-      const { data: currentProviderData } = await supabase.from('users').select('provider_id').eq('id', user.userId).single();
-      if (currentProviderData?.provider_id) {
-        await supabase.rpc('rpc_execute', {
-          sql_query: `UPDATE users SET balance = COALESCE(balance, 0) + ${seniorProviderShare} WHERE id = '${currentProviderData.provider_id}'`
-        });
-      }
-
-      // 6. 服务网点收益
+      // 5. 服务网点收益
       const { data: providerData } = await supabase.from('providers').select('branch_id').eq('user_id', user.userId).single();
       if (providerData?.branch_id) {
         await supabase.rpc('rpc_execute', {
@@ -122,7 +113,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // 7. 智算平台运营收益
+      // 6. 总台运营收益
       const { data: adminUser } = await supabase.from('users').select('id').eq('role', 'admin').limit(1);
       if (adminUser && adminUser[0]) {
         await supabase.rpc('rpc_execute', {
@@ -146,8 +137,6 @@ export async function POST(request: NextRequest) {
         provider_share: providerShare,
         parent_provider_id: targetUser.provider_id || null,
         parent_provider_share: parentProviderShare,
-        senior_provider_id: currentProviderData?.provider_id || null,
-        senior_provider_share: seniorProviderShare,
         branch_id: providerData?.branch_id || null,
         branch_share: branchShare,
         company_share: companyShare

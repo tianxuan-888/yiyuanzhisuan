@@ -237,24 +237,22 @@ export const productTierConfig: Record<ProductTier, ProductConfig> = {
 // 收益（市场费）分配配置 — 按产品价格比例，合计5%
 export const releaseDistribution = {
   member: 2, // 会员 2%
-  referral: 0.3, // 直推 0.3%
+  referral: 0.25, // 直推 0.25%
   provider: 2, // 服务商 2%
-  parentProvider: 0.3, // 上级服务商 0.3%
-  seniorProvider: 0.15, // 高级服务商 0.15%
-  branch: 0.15, // 服务网点 0.15%
-  company: 0.10, // 智算平台运营 0.10%
+  parentProvider: 0.25, // 下级服务商 0.25%
+  branch: 0.1, // 服务网点 0.1%
+  company: 0.4, // 智算平台运营 0.4%
   total: 5, // 总计 5%
 };
 
 // 市场费分配配置（旧，保留兼容）
 export const marketFeeDistribution = {
   member: 2,
-  referral: 0.3,
+  referral: 0.25,
   provider: 2,
-  parentProvider: 0.3,
-  seniorProvider: 0.15,
-  branch: 0.15,
-  company: 0.10,
+  parentProvider: 0.25,
+  branch: 0.1,
+  company: 0.4,
   total: 5,
 };
 

@@ -5,12 +5,11 @@ import { randomUUID } from 'crypto';
 // 释放收益分配比例（各角色占产品价格的百分比，合计5%）
 const RELEASE_SHARE_RATIOS = {
   member: 0.02,             // 会员 2%
-  directReward: 0.003,      // 直推奖励 0.3%
+  directReward: 0.0025,     // 直推奖励 0.25%
   provider: 0.02,           // 服务商 2%
-  parentProvider: 0.003,    // 上级服务商 0.3%
-  seniorProvider: 0.0015,   // 高级服务商 0.15%
-  branch: 0.0015,           // 服务网点 0.15%
-  company: 0.001,           // 智算平台运营 0.10%
+  parentProvider: 0.0025,   // 上级服务商 0.25%
+  branch: 0.001,            // 服务网点 0.1%
+  company: 0.004,           // 总台运营 0.4%
 };
 
 // 增加用户余额（balance）并记录
@@ -34,31 +33,6 @@ async function addBalance(
   );
 }
 
-// 查找上级最近的高级服务商
-async function findNearestSeniorProvider(providerId: string): Promise<{ userId: string; providerId: string } | null> {
-  let currentProviderId = providerId;
-  let depth = 0;
-  const maxDepth = 20;
-  
-  while (currentProviderId && depth < maxDepth) {
-    const provider: any = await queryOne(
-      'SELECT id, user_id, parent_provider_id, is_senior FROM providers WHERE id = $1',
-      [currentProviderId]
-    );
-    
-    if (!provider) break;
-    
-    if (provider.is_senior && provider.id !== providerId) {
-      return { userId: provider.user_id, providerId: provider.id };
-    }
-    
-    currentProviderId = provider.parent_provider_id;
-    depth++;
-  }
-  
-  return null;
-}
-
 // 释放5%收益并记录
 async function releaseAndDistribute(
   orderId: string,
@@ -75,16 +49,16 @@ async function releaseAndDistribute(
   const memberShare = Math.round(productPrice * RELEASE_SHARE_RATIOS.member);
   await addBalance(memberId, memberShare, 'member_share', '购买产品释放收益 (2%)');
 
-  // 2. 直推奖励 0.3%
+  // 2. 直推奖励 0.25%
   let directRewardTo: string | null = null;
   const directRewardAmount = Math.round(productPrice * RELEASE_SHARE_RATIOS.directReward);
   const inviterIsProvider = member?.inviter_id && member.inviter_id === providerId;
 
   if (member?.inviter_id && !inviterIsProvider) {
     directRewardTo = member.inviter_id;
-    await addBalance(directRewardTo!, directRewardAmount, 'direct_reward', '直推会员购买产品奖励 (0.3%)');
+    await addBalance(directRewardTo!, directRewardAmount, 'direct_reward', '直推会员购买产品奖励 (0.25%)');
   } else if (inviterIsProvider && providerId) {
-    await addBalance(providerId, directRewardAmount, 'direct_reward_merged', '直推奖励(0.3%)合并到服务商收益');
+    await addBalance(providerId, directRewardAmount, 'direct_reward_merged', '直推奖励(0.25%)合并到服务商收益');
   }
 
   // 3. 服务商收益 2%
@@ -93,7 +67,7 @@ async function releaseAndDistribute(
     await addBalance(providerId, providerShare, 'provider_share', '会员购买产品收益分成 (2%)');
   }
 
-  // 4. 上级服务商 0.3%
+  // 4. 上级服务商 0.25%
   let parentProviderId: string | null = null;
   let parentProviderUserId: string | null = null;
   const parentProviderShare = Math.round(productPrice * RELEASE_SHARE_RATIOS.parentProvider);
@@ -106,25 +80,11 @@ async function releaseAndDistribute(
     );
     if (parentProvider?.user_id) {
       parentProviderUserId = parentProvider.user_id;
-      await addBalance(parentProvider.user_id, parentProviderShare, 'parent_provider_share', '下级服务商会员购买产品分成 (0.3%)');
+      await addBalance(parentProvider.user_id, parentProviderShare, 'parent_provider_share', '下级服务商会员购买产品分成 (0.25%)');
     }
   }
 
-  // 5. 高级服务商 0.15%
-  let seniorProviderId: string | null = null;
-  let seniorProviderUserId: string | null = null;
-  const seniorProviderShare = Math.round(productPrice * RELEASE_SHARE_RATIOS.seniorProvider);
-
-  if (providerRecord?.id) {
-    const seniorProvider = await findNearestSeniorProvider(providerRecord.id);
-    if (seniorProvider) {
-      seniorProviderId = seniorProvider.providerId;
-      seniorProviderUserId = seniorProvider.userId;
-      await addBalance(seniorProvider.userId, seniorProviderShare, 'senior_provider_share', '高级服务商团队销售分成 (0.15%)');
-    }
-  }
-
-  // 6. 服务网点 0.15%
+  // 5. 服务网点 0.1%
   const branchId = providerRecord?.branch_id || member?.branch_id;
   const branchShare = Math.round(productPrice * RELEASE_SHARE_RATIOS.branch);
   let distributionBranchId: string | null = null;
@@ -136,15 +96,14 @@ async function releaseAndDistribute(
     );
     if (branchUser) {
       distributionBranchId = branchUser.id;
-      await addBalance(branchUser.id, branchShare, 'branch_share', '服务商会员购买产品分成 (0.15%)');
+      await addBalance(branchUser.id, branchShare, 'branch_share', '服务商会员购买产品分成 (0.1%)');
     }
   }
 
-  // 7. 智算平台运营 0.10% + 无上级时的0.3% + 无高级服务商时的0.15%
+  // 6. 总台运营 0.4% + 无上级服务商时的0.25%
   const companyBaseShare = Math.round(productPrice * RELEASE_SHARE_RATIOS.company);
   const noParentShare = parentProviderId ? 0 : parentProviderShare;
-  const noSeniorShare = seniorProviderId ? 0 : seniorProviderShare;
-  const companyShare = companyBaseShare + noParentShare + noSeniorShare;
+  const companyShare = companyBaseShare + noParentShare;
 
   if (companyShare > 0) {
     const adminUser: any = await queryOne(
@@ -174,7 +133,7 @@ async function releaseAndDistribute(
         directRewardTo, directRewardAmount,
         providerId, providerShare,
         parentProviderUserId, parentProviderId ? parentProviderShare : 0,
-        seniorProviderUserId, seniorProviderId ? seniorProviderShare : 0,
+        null, 0,  // 无高级服务商
         distributionBranchId, branchShare, companyShare
       ]
     );
@@ -295,7 +254,7 @@ export async function POST(request: NextRequest) {
         [product?.provider_id]
       );
 
-      // 总台释放5%收益，按7项分配（不再扣能量值）
+      // 总台释放5%收益，按6项分配（无高级服务商）
       await releaseAndDistribute(
         orderId,
         product?.id,

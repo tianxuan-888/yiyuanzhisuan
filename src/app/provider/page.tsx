@@ -4035,10 +4035,7 @@ export default function ProviderPage() {
                                             <p className="text-xs opacity-70">培育奖励</p>
                                             <p className="text-sm font-bold">¥{revenueStats.distParentShare?.toLocaleString() || 0}</p>
                                         </div>
-                                        <div className="bg-white/10 rounded-lg p-2">
-                                            <p className="text-xs opacity-70">高级服务商奖励</p>
-                                            <p className="text-sm font-bold">¥{revenueStats.subordinateRevenue?.toLocaleString() || 0}</p>
-                                        </div>
+
                                     </div>
                                 </CardContent>
                             </Card>

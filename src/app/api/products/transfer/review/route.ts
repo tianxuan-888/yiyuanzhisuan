@@ -119,20 +119,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '买家用户不存在' }, { status: 404 });
     }
 
-    // ========== 总台释放5%收益，按7项分配（不再扣能量值） ==========
+    // ========== 总台释放5%收益，按6项分配 ==========
     const releaseRate = 0.05;
     const memberShare = Math.round(transferPrice * 0.02 * 100) / 100;
-    const directShare = Math.round(transferPrice * 0.003 * 100) / 100;
+    const directShare = Math.round(transferPrice * 0.0025 * 100) / 100;
     const providerShare = Math.round(transferPrice * 0.02 * 100) / 100;
-    const parentProviderShare = Math.round(transferPrice * 0.003 * 100) / 100;
-    const seniorProviderShare = Math.round(transferPrice * 0.0015 * 100) / 100;
-    const branchShare = Math.round(transferPrice * 0.0015 * 100) / 100;
-    const companyShare = Math.round(transferPrice * 0.001 * 100) / 100;
+    const parentProviderShare = Math.round(transferPrice * 0.0025 * 100) / 100;
+    const branchShare = Math.round(transferPrice * 0.001 * 100) / 100;
+    const companyShare = Math.round(transferPrice * 0.004 * 100) / 100;
     const totalReleased = transferPrice * releaseRate;
 
     let distributionBranchId: string | null = null;
     let distributionParentProviderId: string | null = null;
-    let distributionSeniorProviderId: string | null = null;
 
     // 1. 会员收益2%（买家）
     if (memberShare > 0) {
@@ -142,7 +140,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2. 直推人0.3%
+    // 2. 直推人0.25%
     if (directShare > 0 && buyer.inviter_id) {
       await query(
         'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
@@ -158,7 +156,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. 上级服务商0.3%
+    // 4. 下级服务商0.25%
     if (parentProviderShare > 0 && product.provider_id) {
       const providerUser = await queryOne<any>(
         'SELECT provider_id FROM users WHERE id = $1',
@@ -173,22 +171,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 5. 高级服务商0.15%
-    if (seniorProviderShare > 0 && product.provider_id) {
-      const currentProviderUser = await queryOne<any>(
-        'SELECT provider_id FROM users WHERE id = $1',
-        [product.provider_id]
-      );
-      if (currentProviderUser?.provider_id && currentProviderUser.provider_id !== distributionParentProviderId) {
-        distributionSeniorProviderId = currentProviderUser.provider_id;
-        await query(
-          'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
-          [seniorProviderShare, currentProviderUser.provider_id]
-        );
-      }
-    }
-
-    // 6. 服务网点0.15%
+    // 5. 服务网点0.1%
     if (branchShare > 0 && buyer.provider_id) {
       const providerInfo = await queryOne<any>(
         'SELECT branch_id FROM providers WHERE user_id = $1',
@@ -203,7 +186,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 7. 智算平台运营0.10%
+    // 6. 智算平台运营0.4%
     if (companyShare > 0) {
       const adminUser = await queryOne<any>(
         "SELECT id FROM users WHERE role = 'admin' LIMIT 1"
@@ -233,7 +216,7 @@ export async function POST(request: NextRequest) {
         buyer.inviter_id || null, directShare,
         product.provider_id, providerShare,
         distributionParentProviderId, distributionParentProviderId ? parentProviderShare : 0,
-        distributionSeniorProviderId, distributionSeniorProviderId ? seniorProviderShare : 0,
+        null, 0,
         distributionBranchId, branchShare, companyShare
       ]
     );

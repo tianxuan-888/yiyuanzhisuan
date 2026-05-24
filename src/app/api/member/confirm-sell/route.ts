@@ -56,12 +56,11 @@ export async function POST(request: NextRequest) {
     const distributionResult: Record<string, number> = {};
 
     const memberShare = Math.round(productPrice * 0.02 * 100) / 100;
-    const directReward = Math.round(productPrice * 0.003 * 100) / 100;
+    const directReward = Math.round(productPrice * 0.0025 * 100) / 100;
     const providerShare = Math.round(productPrice * 0.02 * 100) / 100;
-    const parentShare = Math.round(productPrice * 0.003 * 100) / 100;
-    const seniorShare = Math.round(productPrice * 0.0015 * 100) / 100;
-    const branchShare = Math.round(productPrice * 0.0015 * 100) / 100;
-    const companyShare = Math.round(productPrice * 0.001 * 100) / 100;
+    const parentShare = Math.round(productPrice * 0.0025 * 100) / 100;
+    const branchShare = Math.round(productPrice * 0.001 * 100) / 100;
+    const companyShare = Math.round(productPrice * 0.004 * 100) / 100;
 
     const inviterId = userRow?.inviter_id;
     const provId = userRow?.provider_id;
@@ -76,7 +75,7 @@ export async function POST(request: NextRequest) {
     }
     distributionResult.member = memberShare;
 
-    // 2. 直推人0.3% → balance
+    // 2. 直推人0.25% → balance
     if (directReward > 0 && inviterId) {
       const invRow = await queryOne('SELECT balance FROM users WHERE id = $1', [inviterId]);
       if (invRow) {
@@ -86,7 +85,7 @@ export async function POST(request: NextRequest) {
     }
     distributionResult.direct = directReward;
 
-    // 3. 上级服务商0.3% → balance（无上级则归智算平台运营）
+    // 3. 下级服务商0.25% → balance（无上级则归总台运营）
     let parentProviderId: string | null = null;
     if (parentShare > 0 && provId) {
       const { data: provData } = await client.from('providers').select('parent_provider_id').eq('user_id', provId).maybeSingle();
@@ -102,33 +101,7 @@ export async function POST(request: NextRequest) {
     }
     distributionResult.parentProvider = parentShare;
 
-    // 4. 高级服务商0.15% → balance
-    let seniorProviderId: string | null = null;
-    if (seniorShare > 0 && provId) {
-      const provInfo2 = await queryOne('SELECT id, parent_provider_id FROM providers WHERE user_id = $1', [provId]);
-      if (provInfo2?.parent_provider_id) {
-        let currentProviderId = provInfo2.parent_provider_id;
-        let depth = 0;
-        while (currentProviderId && depth < 20) {
-          const sp: any = await queryOne('SELECT id, user_id, parent_provider_id, is_senior FROM providers WHERE id = $1', [currentProviderId]);
-          if (!sp) break;
-          if (sp.is_senior) {
-            seniorProviderId = sp.user_id;
-            const spRow = await queryOne('SELECT balance FROM users WHERE id = $1', [sp.user_id]);
-            if (spRow) {
-              const newSPBal = Math.round((parseFloat(String(spRow.balance)) + seniorShare) * 100) / 100;
-              await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newSPBal, sp.user_id]);
-            }
-            break;
-          }
-          currentProviderId = sp.parent_provider_id;
-          depth++;
-        }
-      }
-    }
-    distributionResult.seniorProvider = seniorShare;
-
-    // 5. 服务商2% → balance
+    // 4. 服务商2% → balance
     if (providerShare > 0 && provId) {
       const provRow = await queryOne('SELECT balance FROM users WHERE id = $1', [provId]);
       if (provRow) {
@@ -138,7 +111,7 @@ export async function POST(request: NextRequest) {
     }
     distributionResult.provider = providerShare;
 
-    // 6. 服务网点0.15% → balance
+    // 5. 服务网点0.1% → balance
     let distributionBranchId: string | null = null;
     if (branchShare > 0 && provId) {
       const { data: provData } = await client.from('providers').select('branch_id').eq('user_id', provId).maybeSingle();
@@ -153,10 +126,9 @@ export async function POST(request: NextRequest) {
     }
     distributionResult.branch = branchShare;
 
-    // 7. 智算平台运营0.10%（+无上级服务商时的0.3% + 无高级服务商时的0.15%）→ balance
+    // 6. 总台运营0.4%（+无上级服务商时的0.25%）→ balance
     const noParentExtra = parentProviderId ? 0 : parentShare;
-    const noSeniorExtra = seniorProviderId ? 0 : seniorShare;
-    const finalCompanyShare = companyShare + noParentExtra + noSeniorExtra;
+    const finalCompanyShare = companyShare + noParentExtra;
     if (finalCompanyShare > 0) {
       const { data: adminUser } = await client.from('users').select('id').eq('role', 'admin').limit(1).maybeSingle();
       if (adminUser) {
@@ -178,16 +150,14 @@ export async function POST(request: NextRequest) {
           direct_referral_id, direct_referral_share,
           provider_id, provider_share,
           parent_provider_id, parent_provider_share,
-          senior_provider_id, senior_provider_share,
           branch_id, branch_share, company_share)
-         VALUES ($1, $2, $3, $4, 0.05, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+         VALUES ($1, $2, $3, $4, 0.05, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
         [
           userProduct.product_id, userProduct.products?.name || '', productPrice, releaseAmount,
           userId, userRow?.username || userId, memberShare,
           inviterId || null, directReward,
           provId, providerShare,
           parentProviderId, parentProviderId ? parentShare : 0,
-          seniorProviderId, seniorProviderId ? seniorShare : 0,
           distributionBranchId, branchShare, finalCompanyShare
         ]
       );
