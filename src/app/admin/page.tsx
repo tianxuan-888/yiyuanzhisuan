@@ -252,6 +252,13 @@ export default function AdminPage() {
   const [roleChangeUser, setRoleChangeUser] = useState<{id: string; username: string; role: string} | null>(null);
   const [selectedNewRole, setSelectedNewRole] = useState('');
 
+  // 账户列表转智算金
+  const [acctTransferUser, setAcctTransferUser] = useState<any>(null);
+  const [acctTransferAmount, setAcctTransferAmount] = useState('');
+  const [acctTransferNote, setAcctTransferNote] = useState('');
+  const [acctTransferring, setAcctTransferring] = useState(false);
+  const [acctTransferDialogOpen, setAcctTransferDialogOpen] = useState(false);
+
   // 数据总览 dashboard state
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [dashboardLoading, setDashboardLoading] = useState(false);
@@ -3504,6 +3511,7 @@ export default function AdminPage() {
                     <RechartsPieChart>
                       <Pie
                         data={[
+                          { name: `会员 ${shareBreakdown.member.rate}`, value: Math.max(shareBreakdown.member.amount, 1), color: '#3b82f6' },
                           { name: `服务商 ${shareBreakdown.provider.rate}`, value: Math.max(shareBreakdown.provider.amount, 1), color: '#8b5cf6' },
                           { name: `直推奖励 ${shareBreakdown.directReward.rate}`, value: Math.max(shareBreakdown.directReward.amount, 1), color: '#ec4899' },
                           { name: `下级服务商 ${shareBreakdown.parentProvider.rate}`, value: Math.max(shareBreakdown.parentProvider.amount, 1), color: '#6366f1' },
@@ -3646,7 +3654,6 @@ export default function AdminPage() {
                 <TableHead>直推0.25%</TableHead>
                 <TableHead>服务商2%</TableHead>
                 <TableHead>上级0.25%</TableHead>
-                <TableHead>高级0.15%</TableHead>
                 <TableHead>网点0.1%</TableHead>
                 <TableHead>运营0.40%</TableHead>
                 <TableHead>买家</TableHead>
@@ -3667,7 +3674,6 @@ export default function AdminPage() {
                   <TableCell className="text-purple-500">¥{(record.shareDetail?.directReward || 0).toLocaleString()}</TableCell>
                   <TableCell className="text-purple-500">¥{(record.shareDetail?.provider || 0).toLocaleString()}</TableCell>
                   <TableCell className="text-teal-500">¥{(record.shareDetail?.parentProvider || 0).toLocaleString()}</TableCell>
-                  <TableCell className="text-teal-500">¥{(record.shareDetail?.seniorProvider || 0).toLocaleString()}</TableCell>
                   <TableCell className="text-emerald-500">¥{(record.shareDetail?.branch || 0).toLocaleString()}</TableCell>
                   <TableCell className="text-emerald-500">¥{(record.shareDetail?.company || 0).toLocaleString()}</TableCell>
                   <TableCell className="text-sm">{record.buyerName || '-'}</TableCell>
@@ -5206,6 +5212,14 @@ export default function AdminPage() {
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex gap-1">
+                              <Button size="sm" variant="outline" className="text-purple-600 border-purple-300 hover:bg-purple-50" onClick={() => {
+                                setAcctTransferUser(u);
+                                setAcctTransferAmount('');
+                                setAcctTransferNote('');
+                                setAcctTransferDialogOpen(true);
+                              }}>
+                                转智算金
+                              </Button>
                               <Button size="sm" variant="outline" onClick={() => {
                                 setRoleChangeUser({ id: u.id, username: u.username, role: u.role });
                                 setSelectedNewRole(u.role);
@@ -5507,6 +5521,102 @@ export default function AdminPage() {
           </Card>
         </div>
       )}
+
+      {/* 账户列表转智算金弹窗 */}
+      <Dialog open={acctTransferDialogOpen} onOpenChange={setAcctTransferDialogOpen}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>转智算金</DialogTitle>
+            <DialogDescription>直接向该账户转入智算金，即时到账</DialogDescription>
+          </DialogHeader>
+          {acctTransferUser && (
+            <div className="space-y-4 py-2">
+              <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">用户名</span>
+                  <span className="font-medium">{acctTransferUser.username}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">身份</span>
+                  <Badge className={acctTransferUser.role === 'admin' ? 'bg-red-100 text-red-700' : acctTransferUser.role === 'branch' ? 'bg-blue-100 text-blue-700' : acctTransferUser.role === 'provider' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}>
+                    {acctTransferUser.role === 'admin' ? '总台' : acctTransferUser.role === 'branch' ? '服务网点' : acctTransferUser.role === 'provider' ? '服务商' : '会员'}
+                  </Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">当前智算金</span>
+                  <span className="font-medium text-purple-600">¥{(acctTransferUser.balance || 0).toLocaleString()}</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">转入金额</label>
+                <Input
+                  type="number"
+                  placeholder="请输入转入金额"
+                  value={acctTransferAmount}
+                  onChange={(e) => setAcctTransferAmount(e.target.value)}
+                />
+                <div className="flex gap-2 flex-wrap">
+                  {[100, 500, 1000, 5000, 10000].map(v => (
+                    <Button key={v} size="sm" variant="outline" onClick={() => setAcctTransferAmount(String(v))}>
+                      ¥{v.toLocaleString()}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">备注（可选）</label>
+                <Input
+                  placeholder="备注说明"
+                  value={acctTransferNote}
+                  onChange={(e) => setAcctTransferNote(e.target.value)}
+                />
+              </div>
+              {acctTransferAmount && parseFloat(acctTransferAmount) > 0 && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                  <p className="text-sm text-purple-700">
+                    将向 <strong>{acctTransferUser.username}</strong> 转入 <strong>¥{parseFloat(acctTransferAmount).toLocaleString()}</strong> 智算金，即时到账
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAcctTransferDialogOpen(false)}>取消</Button>
+            <Button
+              disabled={!acctTransferAmount || parseFloat(acctTransferAmount) <= 0 || acctTransferring}
+              onClick={async () => {
+                if (!acctTransferUser || !acctTransferAmount) return;
+                const amt = parseFloat(acctTransferAmount);
+                if (isNaN(amt) || amt <= 0) { alert('请输入有效金额'); return; }
+                if (!confirm(`确认向 ${acctTransferUser.username} 转入 ¥${amt.toLocaleString()} 智算金？`)) return;
+                setAcctTransferring(true);
+                try {
+                  const res = await authFetch('/api/admin/transfer-balance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ toUserId: acctTransferUser.id, amount: amt, note: acctTransferNote || `总台转入智算金 ¥${amt}` }),
+                  });
+                  const data = await res.json();
+                  if (data.success) {
+                    alert(`成功转入 ¥${amt.toLocaleString()} 智算金给 ${acctTransferUser.username}`);
+                    setAcctTransferDialogOpen(false);
+                    loadAccountsData();
+                  } else {
+                    alert(data.error || '转账失败');
+                  }
+                } catch (e) {
+                  console.error(e);
+                  alert('转账失败');
+                } finally {
+                  setAcctTransferring(false);
+                }
+              }}
+            >
+              {acctTransferring ? '转账中...' : '确认转账'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* 修改身份确认弹窗 */}
       <Dialog open={!!roleChangeUser} onOpenChange={(open) => { if (!open) setRoleChangeUser(null); }}>
