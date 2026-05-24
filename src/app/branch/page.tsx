@@ -37,6 +37,7 @@ interface Provider {
   id: string;
   username: string;
   balance: number;
+  energy_value: number;
   quota?: number;
   used_quota?: number;
   available_quota?: number;
@@ -2140,7 +2141,7 @@ export default function BranchPage() {
                             ))}
                             {quotaRequests.length === 0 && (
                               <tr>
-                                <td colSpan={4} className="py-8 text-center text-gray-500">
+                                <td colSpan={6} className="py-8 text-center text-gray-500">
                                   暂无申请记录
                                 </td>
                               </tr>
@@ -2413,8 +2414,10 @@ export default function BranchPage() {
                     <thead>
                       <tr className="border-b bg-gray-50">
                         <th className="text-left py-3 px-4">服务商</th>
+                        <th className="text-left py-3 px-4">Token值</th>
                         <th className="text-left py-3 px-4">收益</th>
-                        <th className="text-left py-3 px-4">余额</th>
+                        <th className="text-left py-3 px-4">已生成产品额度</th>
+                        <th className="text-left py-3 px-4">闲置额度</th>
                         <th className="text-left py-3 px-4">操作</th>
                       </tr>
                     </thead>
@@ -2422,7 +2425,10 @@ export default function BranchPage() {
                       {providers.map(provider => (
                         <tr key={provider.id} className="border-b hover:bg-gray-50">
                           <td className="py-3 px-4 font-medium">{provider.username}</td>
+                          <td className="py-3 px-4 text-orange-600">{(provider.energy_value || 0).toLocaleString()}</td>
                           <td className="py-3 px-4 text-green-600">¥{(provider.balance || 0).toLocaleString()}</td>
+                          <td className="py-3 px-4 text-blue-600">{(provider.used_quota || 0).toLocaleString()}</td>
+                          <td className="py-3 px-4 text-purple-600">{(provider.available_quota || 0).toLocaleString()}</td>
                           <td className="py-3 px-4">
                             <Button
                               size="sm"
