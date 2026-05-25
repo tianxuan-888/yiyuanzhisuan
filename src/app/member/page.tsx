@@ -2605,7 +2605,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                         "bg-gray-100 text-gray-700"
                                                                     }>
                                                                     {up.status === "pending_confirm" ? "已申购待确认" : 
-                                                                     up.status === "holding" ? "持有中" : 
+                                                                     up.status === "holding" ? "运算中" : 
                                                                      up.status === "pending_sell" ? "待审核" : 
                                                                      up.status === "transferring" ? "流转中" :
                                                                      up.status === "repurchase_pending" ? "待确认回购" :
@@ -2622,40 +2622,14 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                     variant="outline"
                                                                     disabled
                                                                     className="opacity-50"
-                                                                >锁定中
+                                                                >运算中
                                                                 </Button>}
-                                                                {up.status === "holding" && isExpired && !revenueReleased && <Button
+                                                                {up.status === "holding" && isExpired && <Button
                                                                     size="sm"
-                                                                    className="bg-orange-500 hover:bg-orange-600 text-white"
-                                                                    disabled={releasingRevenue === up.id}
-                                                                    onClick={async () => {
-                                                                        setReleasingRevenue(up.id);
-                                                                        try {
-                                                                            const token = localStorage.getItem('token');
-                                                                            const res = await fetch('/api/products/release-revenue', {
-                                                                                method: 'POST',
-                                                                                headers: {
-                                                                                    'Content-Type': 'application/json',
-                                                                                    'Authorization': `Bearer ${token}`
-                                                                                },
-                                                                                body: JSON.stringify({ userProductId: up.id })
-                                                                            });
-                                                                            const data = await res.json();
-                                                                            if (data.success) {
-                                                                                alert(`收益已释放！会员收益¥${data.data?.memberProfit?.toFixed(2) || '0'}已到账智算金`);
-                                                                                loadData();
-                                                                            } else {
-                                                                                alert(data.message || '释放收益失败');
-                                                                            }
-                                                                        } catch (err) {
-                                                                            alert('释放收益失败，请稍后重试');
-                                                                        } finally {
-                                                                            setReleasingRevenue(null);
-                                                                        }
-                                                                    }}
+                                                                    className="bg-green-500 hover:bg-green-600 text-white"
+                                                                    disabled
                                                                 >
-                                                                    {releasingRevenue === up.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <TrendingUp className="w-3 h-3 mr-1" />}
-                                                                    领取收益
+                                                                    收益已到账
                                                                 </Button>}
                                                                 {up.status === "holding" && isExpired && revenueReleased && <Button
                                                                     size="sm"
