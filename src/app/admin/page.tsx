@@ -266,6 +266,10 @@ export default function AdminPage() {
   const [clearDataDialogOpen, setClearDataDialogOpen] = useState(false);
   const [acctClearLoading, setAcctClearLoading] = useState(false);
 
+  // 账户编辑弹窗
+  const [acctEditUser, setAcctEditUser] = useState<any>(null);
+  const [acctEditDialogOpen, setAcctEditDialogOpen] = useState(false);
+
   // 数据总览 dashboard state
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [dashboardLoading, setDashboardLoading] = useState(false);
@@ -5326,48 +5330,12 @@ export default function AdminPage() {
                             </Badge>
                           </td>
                           <td className="py-3 px-4">
-                            <div className="flex gap-1">
-                              <Button size="sm" variant="outline" className="text-purple-600 border-purple-300 hover:bg-purple-50" onClick={() => {
-                                setAcctTransferUser(u);
-                                setAcctTransferAmount('');
-                                setAcctTransferNote('');
-                                setAcctTransferDialogOpen(true);
-                              }}>
-                                转智算金
-                              </Button>
-                              {u.role !== 'admin' && u.role !== 'branch' && (
-                              <Button size="sm" variant="outline" className="text-red-600 border-red-300 hover:bg-red-50" onClick={() => {
-                                setClearDataUser(u);
-                                setClearDataType('quota');
-                                setClearDataConfirm('');
-                                setClearDataDialogOpen(true);
-                              }}>
-                                清除数据
-                              </Button>
-                              )}
-                              <Button size="sm" variant="outline" onClick={() => {
-                                setRoleChangeUser({ id: u.id, username: u.username, role: u.role });
-                                setSelectedNewRole(u.role);
-                              }}>
-                                修改身份
-                              </Button>
-                              <Button size="sm" variant={u.is_active !== false ? 'destructive' : 'default'} onClick={async () => {
-                                if (!confirm(`确认${u.is_active !== false ? '停用' : '启用'}账户 ${u.username}？`)) return;
-                                try {
-                                  const res = await authFetch('/api/admin/accounts', {
-                                    method: 'PUT',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ userId: u.id, action: 'toggleStatus', isActive: u.is_active === false })
-                                  });
-                                  const data = await res.json();
-                                  if (data.success) {
-                                    loadAccountsData();
-                                  }
-                                } catch(e) { console.error(e); }
-                              }}>
-                                {u.is_active !== false ? '停用' : '启用'}
-                              </Button>
-                            </div>
+                            <Button size="sm" variant="outline" className="text-primary border-primary/30 hover:bg-primary/5" onClick={() => {
+                              setAcctEditUser(u);
+                              setAcctEditDialogOpen(true);
+                            }}>
+                              编辑
+                            </Button>
                           </td>
                         </tr>
                       ))}
@@ -5646,6 +5614,92 @@ export default function AdminPage() {
           </Card>
         </div>
       )}
+
+      {/* 账户编辑弹窗 */}
+      <Dialog open={acctEditDialogOpen} onOpenChange={setAcctEditDialogOpen}>
+        <DialogContent className="sm:max-w-[380px]">
+          <DialogHeader>
+            <DialogTitle>编辑账户</DialogTitle>
+            <DialogDescription>
+              {acctEditUser && (
+                <span className="flex items-center gap-1 mt-1">
+                  {acctEditUser.username}
+                  {acctEditUser.unique_id && <span className="text-muted-foreground text-xs">[{acctEditUser.unique_id}]</span>}
+                  <Badge variant="outline" className="text-xs ml-1">{acctEditUser.role === 'admin' ? '总台' : acctEditUser.role === 'branch' ? '网点' : acctEditUser.role === 'provider' ? '服务商' : '会员'}</Badge>
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Button
+              className="w-full justify-start gap-3 h-12"
+              variant="outline"
+              onClick={() => {
+                setAcctEditDialogOpen(false);
+                setAcctTransferUser(acctEditUser);
+                setAcctTransferAmount('');
+                setAcctTransferNote('');
+                setAcctTransferDialogOpen(true);
+              }}
+            >
+              <span className="text-purple-600 font-medium">转智算金</span>
+              <span className="text-muted-foreground text-xs ml-auto">向该账户转入智算金</span>
+            </Button>
+            {acctEditUser && acctEditUser.role !== 'admin' && acctEditUser.role !== 'branch' && (
+            <Button
+              className="w-full justify-start gap-3 h-12"
+              variant="outline"
+              onClick={() => {
+                setAcctEditDialogOpen(false);
+                setClearDataUser(acctEditUser);
+                setClearDataType('quota');
+                setClearDataConfirm('');
+                setClearDataDialogOpen(true);
+              }}
+            >
+              <span className="text-red-600 font-medium">清除数据</span>
+              <span className="text-muted-foreground text-xs ml-auto">清除额度或收益</span>
+            </Button>
+            )}
+            <Button
+              className="w-full justify-start gap-3 h-12"
+              variant="outline"
+              onClick={() => {
+                setAcctEditDialogOpen(false);
+                setRoleChangeUser({ id: acctEditUser.id, username: acctEditUser.username, role: acctEditUser.role });
+                setSelectedNewRole(acctEditUser.role);
+              }}
+            >
+              <span className="text-amber-600 font-medium">修改身份</span>
+              <span className="text-muted-foreground text-xs ml-auto">变更用户角色</span>
+            </Button>
+            <Button
+              className="w-full justify-start gap-3 h-12"
+              variant="outline"
+              onClick={async () => {
+                if (!confirm(`确认${acctEditUser.is_active !== false ? '停用' : '启用'}账户 ${acctEditUser.username}？`)) return;
+                try {
+                  const res = await authFetch('/api/admin/accounts', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: acctEditUser.id, action: 'toggleStatus', isActive: acctEditUser.is_active === false })
+                  });
+                  const data = await res.json();
+                  if (data.success) {
+                    setAcctEditDialogOpen(false);
+                    loadAccountsData();
+                  }
+                } catch(e) { console.error(e); }
+              }}
+            >
+              <span className={acctEditUser?.is_active !== false ? 'text-red-600' : 'text-green-600'} style={{ fontWeight: 600 }}>
+                {acctEditUser?.is_active !== false ? '停用' : '启用'}
+              </span>
+              <span className="text-muted-foreground text-xs ml-auto">{acctEditUser?.is_active !== false ? '暂停该账户使用' : '恢复该账户使用'}</span>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* 账户列表转智算金弹窗 */}
       <Dialog open={acctTransferDialogOpen} onOpenChange={setAcctTransferDialogOpen}>
