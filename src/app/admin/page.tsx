@@ -6917,60 +6917,36 @@ export default function AdminPage() {
                 </div>
               )}
 
-              {/* 邀请码展示 */}
+              {/* 专属邀请码展示 */}
               <div className="p-6 bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-dashed border-purple-200 rounded-xl text-center">
                 <p className="text-sm text-gray-500 mb-2">智算总台专属邀请码</p>
-                {inviteCodeLoading ? (
-                  <Loader2 className="w-8 h-8 animate-spin text-purple-600 mx-auto" />
-                ) : adminInviteCode ? (
-                  <>
-                    <p className="text-3xl font-bold text-purple-700 tracking-widest">{adminInviteCode}</p>
-                    <p className="text-xs text-gray-400 mt-2">使用此邀请码注册 → 自动成为服务网点</p>
-                    <div className="flex justify-center gap-3 mt-4">
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => {
-                          navigator.clipboard.writeText(adminInviteCode);
-                          setInviteCodeMessage({ type: 'success', text: '邀请码已复制到剪贴板' });
-                          setTimeout(() => setInviteCodeMessage(null), 2000);
-                        }}
-                      >
-                        复制邀请码
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => {
-                          const link = `${window.location.origin}/?invite=${adminInviteCode}`;
-                          navigator.clipboard.writeText(link);
-                          setInviteCodeMessage({ type: 'success', text: '邀请链接已复制到剪贴板' });
-                          setTimeout(() => setInviteCodeMessage(null), 2000);
-                        }}
-                      >
-                        复制邀请链接
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-gray-400">点击下方按钮生成邀请码</p>
-                )}
-              </div>
-
-              {/* 生成/刷新按钮 */}
-              <div className="flex justify-center">
-                <Button 
-                  onClick={loadAdminInviteCode}
-                  disabled={inviteCodeLoading}
-                  className="bg-purple-600 hover:bg-purple-700"
-                >
-                  {inviteCodeLoading ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Ticket className="w-4 h-4 mr-2" />
-                  )}
-                  {adminInviteCode ? '刷新邀请码' : '生成邀请码'}
-                </Button>
+                <p className="text-3xl font-bold text-purple-700 tracking-widest">{user?.unique_id || 'AD00001'}</p>
+                <p className="text-xs text-gray-400 mt-2">使用此邀请码注册 → 自动成为服务网点</p>
+                <div className="flex justify-center gap-3 mt-4">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard.writeText(user?.unique_id || '');
+                      setInviteCodeMessage({ type: 'success', text: '邀请码已复制到剪贴板' });
+                      setTimeout(() => setInviteCodeMessage(null), 2000);
+                    }}
+                  >
+                    复制邀请码
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                    onClick={() => {
+                      const link = `${window.location.origin}/?invite=${user?.unique_id || ''}`;
+                      navigator.clipboard.writeText(link);
+                      setInviteCodeMessage({ type: 'success', text: '邀请链接已复制到剪贴板' });
+                      setTimeout(() => setInviteCodeMessage(null), 2000);
+                    }}
+                  >
+                    复制邀请链接
+                  </Button>
+                </div>
               </div>
 
               {/* 邀请码规则说明 */}
@@ -6978,19 +6954,19 @@ export default function AdminPage() {
                 <p className="text-sm text-yellow-800 font-medium">邀请码类型说明</p>
                 <div className="mt-2 space-y-2">
                   <div className="flex items-center gap-2 text-xs text-yellow-700">
-                    <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded font-mono">ADMIN</span>
+                    <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded font-mono">AD</span>
                     <span>智算总台邀请码 → 注册为<strong>服务网点</strong></span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-yellow-700">
-                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-mono">BRAN</span>
+                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-mono">BR</span>
                     <span>服务网点邀请码 → 注册为<strong>服务商</strong></span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-yellow-700">
-                    <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded font-mono">PROV</span>
+                    <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded font-mono">PV</span>
                     <span>服务商邀请码 → 注册为<strong>会员</strong>（绑定该服务商）</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-yellow-700">
-                    <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded font-mono">MEMB</span>
+                    <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded font-mono">MB</span>
                     <span>会员邀请码 → 注册为<strong>会员</strong>（绑定同服务商）</span>
                   </div>
                 </div>
