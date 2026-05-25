@@ -2877,7 +2877,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                         <div className="text-center py-8 text-gray-500">
                                             <TrendingUp className="w-12 h-12 mx-auto mb-3 opacity-50" />
                                             <p>暂无收益记录</p>
-                                            <p className="text-sm mt-1">产品到期卖出后收益将在此记录</p>
+                                            <p className="text-sm mt-1">产品到期后收益自动到账，记录将在此显示</p>
                                         </div>
                                     )}
                                 </CardContent>

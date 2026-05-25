@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
         `SELECT up.*, p.name as product_name, p.code as product_code, p.period, p.total_rate, p.profit_rate, p.market_rate, p.provider_id as product_provider_id
          FROM user_products up
          JOIN products p ON up.product_id = p.id
-         WHERE up.user_id = $1 AND up.status = 'holding' AND up.revenue_released = false`,
+         WHERE up.user_id = $1 AND up.revenue_released = false AND up.status IN ('holding', 'transferred', 'pending_sell', 'sold')`,
         [userId]
       );
     }
