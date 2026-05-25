@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne, execute } from '@/lib/supabase-client';
 import { authenticateRequest } from '@/lib/auth';
 
-// 会员出售产品 - 到期后可卖，收益在卖出前先释放
+// 会员出售产品 - 到期解锁后可卖出流转（收益已自动到账，卖出只是流转产品）
 export async function POST(request: NextRequest) {
   try {
     const user = authenticateRequest(request);
@@ -58,10 +58,12 @@ export async function POST(request: NextRequest) {
 
     // 持仓时间锁检查 - 按天数计算，到期当天中午12点解锁
     const expireDate = new Date(userProduct.expire_date);
+    const unlockTime = new Date(expireDate);
+    unlockTime.setHours(12, 0, 0, 0);
     const now = new Date();
 
-    if (now < expireDate) {
-      const remainingMs = expireDate.getTime() - now.getTime();
+    if (now < unlockTime) {
+      const remainingMs = unlockTime.getTime() - now.getTime();
       const remainingHours = Math.ceil(remainingMs / (1000 * 60 * 60));
       const remainingDays = Math.floor(remainingHours / 24);
       const hoursLeft = remainingHours % 24;
@@ -77,9 +79,8 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 如果收益未释放，先释放收益
+    // 如果收益尚未释放，自动释放（兜底逻辑，正常情况到期时已自动释放）
     if (!userProduct.revenue_released) {
-      // 调用释放收益API的逻辑
       const profitRate = parseFloat(product?.profit_rate || userProduct.profit_rate || 0);
       const memberProfit = parseFloat(userProduct.purchase_price) * (profitRate / 100);
       const marketRate = parseFloat(product?.market_rate || 0);
@@ -100,21 +101,23 @@ export async function POST(request: NextRequest) {
          memberBalanceBefore, memberBalanceBefore + memberProfit]
       );
 
-      // 服务商收益
+      // 服务商收益 70%
       const providerShare = marketPool * 0.70;
       if (product?.provider_id && providerShare > 0) {
+        const providerBefore = await queryOne<any>('SELECT balance FROM users WHERE id = $1', [product.provider_id]);
+        const providerBalanceBefore = parseFloat(providerBefore?.balance || 0);
         await execute(
           `UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
           [providerShare, product.provider_id]
         );
         await execute(
           `INSERT INTO transactions (user_id, type, amount, description, balance_before, balance_after)
-           VALUES ($1, 'provider_revenue', $2, '会员产品到期，服务商分成70%', 0, $2)`,
-          [product.provider_id, providerShare]
+           VALUES ($1, 'provider_revenue', $2, '会员产品到期，服务商分成70%', $3, $4)`,
+          [product.provider_id, providerShare, providerBalanceBefore, providerBalanceBefore + providerShare]
         );
       }
 
-      // 直推人收益
+      // 直推人收益 10%
       const directShare = marketPool * 0.10;
       const memberData = await queryOne<any>('SELECT inviter_id FROM users WHERE id = $1', [userId]);
       if (memberData?.inviter_id && directShare > 0) {
@@ -124,7 +127,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 上级服务商收益
+      // 上级服务商收益 10%
       const parentProviderShare = marketPool * 0.10;
       if (dbUser.provider_id && dbUser.provider_id !== product?.provider_id && parentProviderShare > 0) {
         await execute(
@@ -133,7 +136,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 网点收益
+      // 网点收益 5%
       const branchShare = marketPool * 0.05;
       if (product?.provider_id) {
         const providerData = await queryOne<any>('SELECT branch_id FROM providers WHERE user_id = $1', [product.provider_id]);
@@ -145,7 +148,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 总台收益
+      // 总台收益 5%
       const companyShare = marketPool * 0.05;
       const adminUser = await queryOne<any>('SELECT id FROM users WHERE role = $1 LIMIT 1', ['admin']);
       if (adminUser && companyShare > 0) {
