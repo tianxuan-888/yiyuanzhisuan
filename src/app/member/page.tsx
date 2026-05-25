@@ -1358,7 +1358,7 @@ const [copySuccess, setCopySuccess] = useState(false);
             </header>
             <main className="container mx-auto px-3 md:px-6 py-4 md:py-8">
                     {/* 资产概览 - 移除余额显示 */}
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4 mb-4 md:mb-8">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4 mb-4 md:mb-8">
                     <Card className="mobile-compact-card bg-gradient-to-br from-blue-500 to-blue-600 text-white">
                         <CardContent className="pt-4">
                             <div className="flex items-center gap-2">
@@ -1389,6 +1389,33 @@ const [copySuccess, setCopySuccess] = useState(false);
                                     <Wallet className="w-3 h-3 mr-1" />提现
                                 </Button>
                             </div>
+                        </CardContent>
+                    </Card>
+                    <Card className="mobile-compact-card bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
+                        <CardContent className="pt-4">
+                            <div className="flex items-center gap-2">
+                                <ShoppingCart className="w-5 h-5 mobile-icon" />
+                                <span className="opacity-80 text-sm mobile-label">购买产品</span>
+                            </div>
+                            <p className="text-2xl font-bold mt-2 mobile-num">{userProducts?.filter(up => up.status === 'holding' || up.status === 'pending_sell' || up.status === 'expired' || up.status === 'recycled').length || 0}<span className="text-sm font-normal opacity-80 ml-1">个</span></p>
+                        </CardContent>
+                    </Card>
+                    <Card className="mobile-compact-card bg-gradient-to-br from-orange-500 to-orange-600 text-white">
+                        <CardContent className="pt-4">
+                            <div className="flex items-center gap-2">
+                                <Users className="w-5 h-5 mobile-icon" />
+                                <span className="opacity-80 text-sm mobile-label">直推人数</span>
+                            </div>
+                            <p className="text-2xl font-bold mt-2 mobile-num">{referralStats?.directCount || 0}<span className="text-sm font-normal opacity-80 ml-1">人</span></p>
+                        </CardContent>
+                    </Card>
+                    <Card className="mobile-compact-card bg-gradient-to-br from-rose-500 to-rose-600 text-white">
+                        <CardContent className="pt-4">
+                            <div className="flex items-center gap-2">
+                                <Gift className="w-5 h-5 mobile-icon" />
+                                <span className="opacity-80 text-sm mobile-label">直推收益</span>
+                            </div>
+                            <p className="text-2xl font-bold mt-2 mobile-num">¥{referralStats?.totalReward?.toLocaleString() || 0}</p>
                         </CardContent>
                     </Card>
                 </div>
@@ -2094,18 +2121,18 @@ const [copySuccess, setCopySuccess] = useState(false);
                         {purchaseLimits && (
                             <div className="grid grid-cols-3 gap-2">
                                 {/* 持仓金额限制 */}
-                                <Card className={`border ${purchaseLimits.limits?.holdingLimitReached ? 'border-red-500 bg-red-900/20' : 'border-amber-500/50 bg-amber-900/20'}`}>
+                                <Card className={`border ${purchaseLimits.limits?.holdingLimitReached ? 'border-red-400 bg-red-600' : 'border-amber-400 bg-amber-600'}`}>
                                     <CardContent className="p-2">
                                         <div className="flex items-center gap-1 mb-1">
-                                            <Wallet className={`w-3.5 h-3.5 ${purchaseLimits.limits?.holdingLimitReached ? 'text-red-400' : 'text-amber-400'}`} />
-                                            <span className="text-xs font-medium text-slate-300">持仓限额</span>
+                                            <Wallet className={`w-3.5 h-3.5 text-white/80`} />
+                                            <span className="text-xs font-medium text-white/80">持仓限额</span>
                                         </div>
                                         <div className="flex justify-between items-end">
                                             <div>
                                                 <p className="text-lg font-bold text-white">{Number(purchaseLimits.limits?.currentHolding || 0).toLocaleString()}</p>
-                                                <p className="text-[10px] text-slate-400">/ {purchaseLimits.limits?.maxHolding?.toLocaleString()} 元</p>
+                                                <p className="text-[10px] text-white/60">/ {purchaseLimits.limits?.maxHolding?.toLocaleString()} 元</p>
                                             </div>
-                                            <Badge variant="outline" className={`text-[10px] ${purchaseLimits.limits?.holdingLimitReached ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                                            <Badge variant="outline" className={`text-[10px] ${purchaseLimits.limits?.holdingLimitReached ? 'bg-red-400/30 text-white border-red-300' : 'bg-amber-400/30 text-white border-amber-300'}`}>
                                                 {purchaseLimits.limits?.holdingLimitReached ? '已达' : `余 ${Number(purchaseLimits.limits?.remainingHolding || 0).toLocaleString()}`}
                                             </Badge>
                                         </div>
@@ -2113,22 +2140,22 @@ const [copySuccess, setCopySuccess] = useState(false);
                                 </Card>
 
                                 {/* 直推会员状态 */}
-                                <Card className={`border ${purchaseLimits.limits?.hasDirectReferral ? 'border-green-600 bg-green-900/20' : 'border-orange-500/50 bg-orange-900/20'}`}>
+                                <Card className={`border ${purchaseLimits.limits?.hasDirectReferral ? 'border-green-400 bg-green-600' : 'border-orange-400 bg-orange-600'}`}>
                                     <CardContent className="p-2">
                                         <div className="flex items-center gap-1 mb-1">
-                                            <Users className={`w-3.5 h-3.5 ${purchaseLimits.limits?.hasDirectReferral ? 'text-green-400' : 'text-orange-400'}`} />
-                                            <span className="text-xs font-medium text-slate-300">直推会员</span>
+                                            <Users className={`w-3.5 h-3.5 text-white/80`} />
+                                            <span className="text-xs font-medium text-white/80">直推会员</span>
                                         </div>
                                         <div className="flex justify-between items-end">
                                             <div>
                                                 <p className="text-lg font-bold text-white">
                                                     {purchaseLimits.limits?.hasDirectReferral ? `${purchaseLimits.limits?.directReferralCount || 1}人` : '无'}
                                                 </p>
-                                                <p className="text-[10px] text-slate-400">
+                                                <p className="text-[10px] text-white/60">
                                                     {purchaseLimits.limits?.hasDirectReferral ? purchaseLimits.limits?.directReferralInfo?.username : '未推荐'}
                                                 </p>
                                             </div>
-                                            <Badge variant="outline" className={`text-[10px] ${purchaseLimits.limits?.hasDirectReferral ? 'bg-green-500/20 text-green-400' : 'bg-orange-500/20 text-orange-400'}`}>
+                                            <Badge variant="outline" className={`text-[10px] ${purchaseLimits.limits?.hasDirectReferral ? 'bg-green-400/30 text-white border-green-300' : 'bg-orange-400/30 text-white border-orange-300'}`}>
                                                 {purchaseLimits.limits?.hasDirectReferral ? '已激活' : '待激活'}
                                             </Badge>
                                         </div>
@@ -2136,40 +2163,40 @@ const [copySuccess, setCopySuccess] = useState(false);
                                 </Card>
 
                                 {/* 保护期状态 */}
-                                <Card className={`border ${purchaseLimits.limits?.isTimeLocked ? 'border-red-500 bg-red-900/20' : purchaseLimits.limits?.graceRemainingDays > 0 ? 'border-green-600 bg-green-900/20' : 'border-slate-600 bg-slate-800/50'}`}>
+                                <Card className={`border ${purchaseLimits.limits?.isTimeLocked ? 'border-red-400 bg-red-600' : purchaseLimits.limits?.graceRemainingDays > 0 ? 'border-green-400 bg-green-600' : 'border-slate-400 bg-slate-600'}`}>
                                     <CardContent className="p-2">
                                         <div className="flex items-center gap-1 mb-1">
-                                            <Clock className={`w-3.5 h-3.5 ${purchaseLimits.limits?.isTimeLocked ? 'text-red-400' : purchaseLimits.limits?.graceRemainingDays > 0 ? 'text-green-400' : 'text-slate-400'}`} />
-                                            <span className="text-xs font-medium text-slate-300">保护期</span>
+                                            <Clock className={`w-3.5 h-3.5 text-white/80`} />
+                                            <span className="text-xs font-medium text-white/80">保护期</span>
                                         </div>
                                         <div className="flex justify-between items-end">
                                             <div>
                                                 {purchaseLimits.limits?.isTimeLocked ? (
                                                     <>
-                                                        <p className="text-lg font-bold text-red-400">已锁定</p>
-                                                        <p className="text-[10px] text-slate-400">需直推会员</p>
+                                                        <p className="text-lg font-bold text-white">已锁定</p>
+                                                        <p className="text-[10px] text-white/60">需直推会员</p>
                                                     </>
                                                 ) : purchaseLimits.limits?.graceRemainingDays > 0 ? (
                                                     <>
-                                                        <p className="text-lg font-bold text-green-400">
+                                                        <p className="text-lg font-bold text-white">
                                                             {purchaseLimits.limits?.graceRemainingDays}
-                                                            <span className="text-xs font-normal text-slate-400"> 天</span>
+                                                            <span className="text-xs font-normal text-white/60"> 天</span>
                                                         </p>
-                                                        <p className="text-[10px] text-slate-400">保护中</p>
+                                                        <p className="text-[10px] text-white/60">保护中</p>
                                                     </>
                                                 ) : purchaseLimits.limits?.hasDirectReferral ? (
                                                     <>
-                                                        <p className="text-lg font-bold text-green-400">已解除</p>
-                                                        <p className="text-[10px] text-slate-400">有直推会员</p>
+                                                        <p className="text-lg font-bold text-white">已解除</p>
+                                                        <p className="text-[10px] text-white/60">有直推会员</p>
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <p className="text-lg font-bold text-orange-400">待激活</p>
-                                                        <p className="text-[10px] text-slate-400">需直推会员</p>
+                                                        <p className="text-lg font-bold text-white">待激活</p>
+                                                        <p className="text-[10px] text-white/60">需直推会员</p>
                                                     </>
                                                 )}
                                             </div>
-                                            <Badge variant="outline" className={`text-[10px] ${purchaseLimits.limits?.isTimeLocked ? 'bg-red-500/20 text-red-400' : purchaseLimits.limits?.graceRemainingDays > 0 ? 'bg-green-500/20 text-green-400' : 'bg-slate-500/20 text-slate-400'}`}>
+                                            <Badge variant="outline" className={`text-[10px] text-white/80 bg-white/10`}>
                                                 {purchaseLimits.limits?.isTimeLocked ? '已锁定' : purchaseLimits.limits?.graceRemainingDays > 0 ? '保护中' : purchaseLimits.limits?.hasDirectReferral ? '已解除' : '待激活'}
                                             </Badge>
                                         </div>
