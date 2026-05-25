@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne, execute } from '@/lib/supabase-client';
 import { authenticateRequest } from '@/lib/auth';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY!
-);
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,13 +21,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 检查产品是否存在且属于该服务商
-    const { data: product, error: productError } = await supabase
-      .from('products')
-      .select('id, name, status, provider_id, pending_match_user_id')
-      .eq('id', productId)
-      .single();
+    const product = await queryOne(
+      `SELECT id, name, status, provider_id, pending_match_user_id FROM products WHERE id = $1`,
+      [productId]
+    );
 
-    if (productError || !product) {
+    if (!product) {
       return NextResponse.json({ success: false, message: '产品不存在' }, { status: 404 });
     }
 
@@ -44,21 +38,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: '该产品未被指定匹配，无需取消' }, { status: 400 });
     }
 
-    // 清空 pending_match_user_id
-    const sql = `UPDATE products SET pending_match_user_id = NULL, updated_at = NOW() WHERE id = '${productId}'`;
-    const { error: updateError } = await supabase.rpc('rpc_execute', { sql_query: sql });
-
-    if (updateError) {
-      console.error('[MATCH CANCEL] 更新失败:', updateError);
-      return NextResponse.json({ success: false, message: '取消匹配失败: ' + updateError.message }, { status: 500 });
-    }
+    // 清空 pending_match_user_id，恢复为 available 状态
+    await execute(
+      `UPDATE products SET pending_match_user_id = NULL, status = 'available', updated_at = NOW() WHERE id = $1`,
+      [productId]
+    );
 
     return NextResponse.json({
       success: true,
       message: '已取消匹配，产品回到待匹配列表'
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : '服务器错误';
     console.error('[MATCH CANCEL] 异常:', error);
-    return NextResponse.json({ success: false, message: '服务器错误' }, { status: 500 });
+    return NextResponse.json({ success: false, message: msg }, { status: 500 });
   }
 }

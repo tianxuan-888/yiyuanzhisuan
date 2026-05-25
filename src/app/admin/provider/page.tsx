@@ -439,15 +439,15 @@ export default function ProviderDashboard() {
         const successCount = results.filter((r: { success: boolean }) => r.success).length;
         const failCount = results.filter((r: { success: boolean }) => !r.success).length;
         let msg = `${successCount}个产品匹配成功`;
-        if (failCount > 0) msg += `，${failCount}个因收益不足匹配失败`;
+        if (failCount > 0) msg += `，${failCount}个匹配失败`;
         setToast({ message: msg, type: successCount > 0 ? 'success' : 'error' });
         fetchMatchProducts();
         setSelectedMatchIds([]);
       } else {
-        setToast({ message: data.error || '匹配失败', type: 'error' });
+        setToast({ message: data.message || '匹配失败', type: 'error' });
       }
-    } catch (err) {
-      setToast({ message: '匹配操作失败', type: 'error' });
+    } catch {
+      setToast({ message: '匹配操作失败，请稍后重试', type: 'error' });
     } finally {
       setMatchConfirming('');
     }
@@ -485,13 +485,16 @@ export default function ProviderDashboard() {
       });
       const data = await res.json();
       if (data.success) {
-        const result = data.data?.results;
-        if (result?.failed > 0) {
-          setToast({ message: `成功匹配${result.succeeded}个，${result.failed}个因收益不足匹配失败`, type: 'error' });
+        const result = data.data;
+        const failCount = result?.failCount || 0;
+        const successCount = result?.successCount || 0;
+        if (failCount > 0) {
+          setToast({ message: `成功匹配${successCount}个，${failCount}个匹配失败`, type: 'error' });
         } else {
-          setToast({ message: `成功匹配${result.succeeded}个产品`, type: 'success' });
+          setToast({ message: `成功匹配${successCount}个产品`, type: 'success' });
         }
         fetchMatchProducts();
+        setSelectedMatchIds([]);
       } else {
         setToast({ message: data.message || '批量匹配失败', type: 'error' });
       }
@@ -1866,7 +1869,7 @@ export default function ProviderDashboard() {
                                   variant="default"
                                   className="bg-green-600 hover:bg-green-700"
                                   disabled={matchConfirming === product.id}
-                                  onClick={() => handleMatchConfirm(product.id)}
+                                  onClick={() => handleMatchConfirm([product.id])}
                                 >
                                   {matchConfirming === product.id ? <Loader2 className="w-4 h-4 animate-spin" /> : '匹配成功'}
                                 </Button>
