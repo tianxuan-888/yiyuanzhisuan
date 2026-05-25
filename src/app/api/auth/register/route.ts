@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/pg-client';
 import { hashPassword } from '@/lib/password';
-import { getInviteCodeType } from '@/lib/invite-code';
+import { getInviteCodeType, generateUniqueId, findUserByInviteCode } from '@/lib/invite-code';
 import { getVerifyCode, deleteVerifyCode } from '@/lib/verify-code';
 import { checkSmsVerifyCode, isAliyunSmsConfigured } from '@/lib/aliyun-sms';
 
@@ -103,6 +103,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 检查手机号是否已注册
+    const existingPhone = await query(
+      'SELECT id FROM users WHERE phone = $1',
+      [phone]
+    );
+    if (existingPhone.length > 0) {
+      return NextResponse.json(
+        { error: '该手机号已注册' },
+        { status: 400 }
+      );
+    }
+
     // 根据邀请码类型处理
     const inviteCodeType = getInviteCodeType(invite_code);
     
@@ -119,20 +131,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 查找邀请人
-    const inviters = await query(
-      'SELECT id, username, provider_id, branch_id, role FROM users WHERE invite_code = $1',
-      [invite_code]
-    );
+    // 查找邀请人（通过 unique_id 查找，因为邀请码=唯一ID）
+    const inviter = await findUserByInviteCode(invite_code);
     
-    if (inviters.length === 0) {
+    if (!inviter) {
       return NextResponse.json(
         { error: '邀请码不存在，请检查后重新输入' },
         { status: 400 }
       );
     }
 
-    const inviter = inviters[0];
     inviterInfo = { id: inviter.id, username: inviter.username };
 
     if (inviteCodeType === 'admin') {
@@ -169,39 +177,10 @@ export async function POST(request: NextRequest) {
     // 对密码进行哈希
     const hashedPassword = await hashPassword(password);
 
-    // 生成专属ID：角色前缀 + 6位随机字母数字（唯一性）
-    const rolePrefixMapForId: Record<string, string> = {
-      admin: 'A',
-      branch: 'B',
-      provider: 'P',
-      member: 'M',
-    };
-    const idPrefix = rolePrefixMapForId[assignedRole] || 'M';
-    const generateUniqueId = (): string => {
-      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 去掉容易混淆的 I/O/0/1
-      let code = idPrefix;
-      for (let i = 0; i < 6; i++) {
-        code += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      return code;
-    };
-    // 确保唯一性（最多尝试10次）
-    let uniqueId = generateUniqueId();
-    for (let i = 0; i < 10; i++) {
-      const existingId = await query('SELECT id FROM users WHERE unique_id = $1', [uniqueId]);
-      if (existingId.length === 0) break;
-      uniqueId = generateUniqueId();
-    }
-
-    // 根据角色生成不同前缀的邀请码
-    const rolePrefixMap: Record<string, string> = {
-      admin: 'ADMIN',
-      branch: 'BRAN',
-      provider: 'PROV',
-      member: 'MEMB',
-    };
-    const prefix = rolePrefixMap[assignedRole] || 'MEMB';
-    const newInviteCode = `${prefix}${Date.now().toString(36).toUpperCase()}`;
+    // 生成唯一ID（= 邀请码）：2字母角色前缀 + 5位数字
+    const uniqueId = await generateUniqueId(assignedRole);
+    // 邀请码 = 唯一ID
+    const newInviteCode = uniqueId;
 
     // 创建用户
     const newUsers = await query(
@@ -256,6 +235,7 @@ export async function POST(request: NextRequest) {
         user: {
           ...userWithoutPassword,
           invite_code: newInviteCode,
+          unique_id: uniqueId,
         },
         inviter: inviterInfo,
         inviteType: inviteCodeTypeLabels[inviteCodeType] || '邀请注册',

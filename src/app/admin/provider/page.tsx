@@ -866,10 +866,19 @@ export default function ProviderDashboard() {
                 <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
                   <p className="text-sm text-purple-600 mb-2">分享您的邀请码给好友</p>
                   <div className="flex items-center gap-4">
-                    <p className="text-2xl font-bold text-purple-700">{user?.invite_code || 'PROV000001'}</p>
-                    <Button size="sm" variant="outline" onClick={() => copyToClipboard(user?.invite_code || 'PROV000001')}>
+                    <p className="text-2xl font-bold text-purple-700">{user?.unique_id || user?.invite_code || 'PV00001'}</p>
+                    <Button size="sm" variant="outline" onClick={() => copyToClipboard(user?.unique_id || user?.invite_code || 'PV00001')}>
                       <Copy className="w-4 h-4 mr-1" />
                       复制
+                    </Button>
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => {
+                      const code = user?.unique_id || user?.invite_code || '';
+                      const link = `${window.location.origin}/?invite=${code}`;
+                      copyToClipboard(link);
+                    }}>
+                      复制邀请链接
                     </Button>
                   </div>
                 </div>

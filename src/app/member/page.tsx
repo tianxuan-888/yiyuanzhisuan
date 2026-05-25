@@ -263,12 +263,12 @@ const [copySuccess, setCopySuccess] = useState(false);
         if (!userId)
             return;
 
-        // 从本地存储获取邀请码
+        // 从本地存储获取邀请码（= 唯一ID）
         if (userDataStr) {
             try {
                 const userData = JSON.parse(userDataStr);
-                // 使用 invite_code 字段
-                const code = userData.invite_code || '';
+                // 优先使用 unique_id，兼容旧 invite_code
+                const code = userData.unique_id || userData.invite_code || '';
                 setInviteCode(code);
             } catch (e) {
                 console.error("解析用户数据失败:", e);

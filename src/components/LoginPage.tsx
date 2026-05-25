@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +43,8 @@ const roleConfig = {
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const inviteFromUrl = searchParams.get('invite') || '';
   
   // 找回密码 - 发送验证码
   const handleForgotSendVerifyCode = async () => {
@@ -182,6 +185,7 @@ export default function LoginPage() {
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [inviterCode, setInviterCode] = useState('');
+  const [inviterCodeLocked, setInviterCodeLocked] = useState(false); // URL带邀请码时锁定
   const [registerPhone, setRegisterPhone] = useState('');
   const [verifyCode, setVerifyCode] = useState('');
   const [verifyCodeSent, setVerifyCodeSent] = useState(false);
@@ -192,6 +196,16 @@ export default function LoginPage() {
   
   // 当前模式：login、register 或 forgot-password
   const [mode, setMode] = useState<'login' | 'register' | 'forgot-password'>('login');
+
+  // 读取URL中的邀请码参数
+  useEffect(() => {
+    if (inviteFromUrl) {
+      setInviterCode(inviteFromUrl);
+      setInviterCodeLocked(true);
+      // 自动切换到注册模式
+      setMode('register');
+    }
+  }, [inviteFromUrl]);
 
   // 找回密码表单状态
   const [forgotPhone, setForgotPhone] = useState('');
@@ -646,13 +660,21 @@ export default function LoginPage() {
                   <Input
                     id="invite-code"
                     type="text"
-                    placeholder="请向服务商获取邀请码"
+                    placeholder="请向推荐人获取邀请码"
                     value={inviterCode}
-                    onChange={(e) => setInviterCode(e.target.value)}
-                    className="pl-10 bg-slate-700/50 border-slate-600 text-white placeholder-gray-400 focus:border-cyan-500 uppercase"
+                    onChange={(e) => { if (!inviterCodeLocked) setInviterCode(e.target.value); }}
+                    readOnly={inviterCodeLocked}
+                    className={`pl-10 bg-slate-700/50 border-slate-600 text-white placeholder-gray-400 focus:border-cyan-500 uppercase ${inviterCodeLocked ? 'opacity-70 cursor-not-allowed' : ''}`}
                   />
+                  {inviterCodeLocked && (
+                    <Lock className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-cyan-400" />
+                  )}
                 </div>
-                <p className="text-xs text-gray-500">注册需填写邀请码，请联系您的服务商获取</p>
+                <p className="text-xs text-gray-500">
+                  {inviterCodeLocked 
+                    ? '推荐码已锁定，来自推荐人的专属邀请链接' 
+                    : '注册需填写邀请码，请联系您的推荐人获取'}
+                </p>
               </div>
 
               {/* 密码输入 */}

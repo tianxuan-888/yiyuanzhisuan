@@ -130,6 +130,7 @@ const PUBLIC_PATHS = [
   '/api/member/balance',
   '/api/provider/recharge-request/approve',
   '/api/products/release-revenue',
+  '/api/admin/migrate-unique-id',
 ];
 
 // 静态资源和页面路径不走 API 认证
