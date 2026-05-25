@@ -604,36 +604,37 @@ export default function ProviderDashboard() {
     }
   };
 
-  // 收益提现
+  // 收益提现 - 统一调用 /api/withdrawals
   const handleEnergyWithdraw = async () => {
     const amount = parseFloat(withdrawAmount);
     if (!amount || amount < 100) {
-      setToast({ message: '最低提现金额为 100 收益', type: 'error' });
+      setToast({ message: '最低提现金额为 100 元', type: 'error' });
       return;
     }
 
     setWithdrawing(true);
     try {
-      const res = await fetch('/api/provider/energy-withdraw', {
+      const res = await fetch('/api/withdrawals', {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({
-          providerId: user?.id,
-          amount: amount
+          amount: amount,
+          alipayAccount: user?.alipay_account || '',
+          realName: user?.real_name || ''
         })
       });
       const data = await res.json();
       if (data.success) {
-        setWithdrawSuccess(`提现成功！实际到账: ${data.data.actualAmount} 收益 (扣除手续费 ${data.data.fee} 收益)`);
+        setWithdrawSuccess(`提现申请已提交！手续费: ¥${data.data.fee}，实际到账: ¥${data.data.actualAmount}，等待网点审核`);
         setWithdrawAmount('');
-        fetchEnergyWithdrawRecords(); // 刷新提现记录
-        fetchEnergy(); // 刷新余额
+        fetchEnergyWithdrawRecords();
+        fetchOverview();
         setTimeout(() => setWithdrawSuccess(''), 5000);
       } else {
-        setToast({ message: data.error, type: 'error' });
+        setToast({ message: data.message || '提现申请失败', type: 'error' });
       }
     } catch (err) {
-      setToast({ message: '提现失败', type: 'error' });
+      setToast({ message: '提现申请失败', type: 'error' });
     }
     setWithdrawing(false);
   };
@@ -689,17 +690,17 @@ export default function ProviderDashboard() {
     }
   };
 
-  // 获取收益提现记录
+  // 获取提现记录 - 统一调用 /api/withdrawals
   const fetchEnergyWithdrawRecords = async () => {
     if (!token) return;
     try {
-      const res = await fetch('/api/provider/energy-withdraw', { headers: getHeaders() });
+      const res = await fetch('/api/withdrawals?tab=mine', { headers: getHeaders() });
       const data = await res.json();
       if (data.success) {
-        setEnergyWithdrawRecords(data.data || []);
+        setEnergyWithdrawRecords(data.data?.records || []);
       }
     } catch (err) {
-      console.error('获取收益提现记录失败:', err);
+      console.error('获取提现记录失败:', err);
     }
   };
 
@@ -1544,9 +1545,9 @@ export default function ProviderDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingDown className="w-5 h-5 text-red-500" />
-                  收益提现
+                  智算金提现
                 </CardTitle>
-                <CardDescription>将收益提现，最低100起，手续费5%</CardDescription>
+                <CardDescription>将智算金提现，最低100起，手续费5%，提交后等待网点审核</CardDescription>
               </CardHeader>
               <CardContent>
                 {withdrawSuccess && (
@@ -1556,9 +1557,9 @@ export default function ProviderDashboard() {
                 )}
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <Label>可提现收益</Label>
+                    <Label>可提现智算金</Label>
                     <Input 
-                      value={balanceInfo.balance}
+                      value={user?.energy_value || 0}
                       disabled
                       className="mt-1 bg-gray-100"
                     />
@@ -1584,7 +1585,7 @@ export default function ProviderDashboard() {
                     </Button>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">手续费5%，最低提现金额100收益</p>
+                <p className="text-xs text-gray-500 mt-2">手续费5%，最低提现金额100元，提交后等待网点审核</p>
               </CardContent>
             </Card>
 
@@ -1630,10 +1631,10 @@ export default function ProviderDashboard() {
               </CardContent>
             </Card>
 
-            {/* 收益提现记录 */}
+            {/* 提现记录 */}
             <Card>
               <CardHeader>
-                <CardTitle>收益提现记录</CardTitle>
+                <CardTitle>提现记录</CardTitle>
               </CardHeader>
               <CardContent>
                 {withdrawSuccess && (
@@ -1651,22 +1652,23 @@ export default function ProviderDashboard() {
                     {energyWithdrawRecords.map((record) => (
                       <div key={record.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                         <div>
-                          <p className="font-medium">申请金额: {record.amount}</p>
+                          <p className="font-medium">申请金额: ¥{record.amount}</p>
                           <p className="text-sm text-gray-500">
-                            实际到账: {record.actual_amount} · 手续费: {record.fee_amount || record.fee}
+                            实际到账: ¥{record.actual_amount} · 手续费: ¥{record.fee}
                           </p>
                           <p className="text-sm text-gray-500">
-                            {formatDate(record.created_at)}
+                            {record.alipay_account ? `支付宝: ${record.alipay_account} · ` : ''}{formatDate(record.created_at)}
                           </p>
                         </div>
                         <Badge variant={
                           record.status === 'pending' ? 'secondary' :
-                          record.status === 'approved' ? 'default' : 'destructive'
+                          record.status === 'completed' ? 'default' : 'destructive'
                         } className={
                           record.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                          record.status === 'approved' ? 'bg-green-100 text-green-700' : ''
+                          record.status === 'completed' ? 'bg-green-100 text-green-700' : ''
                         }>
                           {record.status === 'pending' ? '待审核' :
+                           record.status === 'completed' ? '已完成' :
                            record.status === 'approved' ? '已通过' : '已拒绝'}
                         </Badge>
                       </div>
@@ -2565,16 +2567,21 @@ export default function ProviderDashboard() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>智算金提现</DialogTitle>
-              <DialogDescription>申请提现智算金到支付宝，手续费5%，最低提现¥100</DialogDescription>
+              <DialogDescription>申请提现智算金，手续费5%，最低提现¥100，提交后等待网点审核</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                <p className="text-sm text-amber-700">当前智算金余额: ¥{user?.balance || 0}</p>
+                <p className="text-sm text-amber-700">当前智算金余额: ¥{user?.energy_value || 0}</p>
               </div>
               <div>
                 <Label>提现金额</Label>
                 <Input type="number" placeholder="输入提现金额（最低¥100）" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} />
               </div>
+              {Number(withdrawAmount) > 0 && (
+                <div className="text-sm text-gray-500">
+                  手续费(5%): ¥{(Number(withdrawAmount) * 0.05).toFixed(2)}，实际到账: ¥{(Number(withdrawAmount) * 0.95).toFixed(2)}
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowWithdrawDialog(false)}>取消</Button>
@@ -2582,22 +2589,27 @@ export default function ProviderDashboard() {
                 setWithdrawing(true);
                 try {
                   const token = localStorage.getItem('token');
-                  const res = await fetch('/api/provider/withdraw-request', {
+                  const res = await fetch('/api/withdrawals', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ userId: user?.id, amount: parseFloat(withdrawAmount) })
+                    body: JSON.stringify({
+                      amount: parseFloat(withdrawAmount),
+                      alipayAccount: user?.alipay_account || '',
+                      realName: user?.real_name || ''
+                    })
                   });
                   const data = await res.json();
                   if (data.success) {
-                    alert('提现申请已提交！');
+                    setToast({ message: `提现申请已提交！手续费¥${data.data.fee}，实际到账¥${data.data.actualAmount}，等待网点审核`, type: 'success' });
                     setShowWithdrawDialog(false);
                     setWithdrawAmount('');
                     fetchOverview();
+                    fetchEnergyWithdrawRecords();
                   } else {
-                    alert(data.message || '提现申请失败');
+                    setToast({ message: data.message || '提现申请失败', type: 'error' });
                   }
                 } catch (err) {
-                  alert('提现申请失败');
+                  setToast({ message: '提现申请失败', type: 'error' });
                 } finally {
                   setWithdrawing(false);
                 }

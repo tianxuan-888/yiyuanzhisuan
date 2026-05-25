@@ -133,6 +133,8 @@ const PUBLIC_PATHS = [
   '/api/provider/recharge-request/approve',
   '/api/products/release-revenue',
   '/api/admin/migrate-unique-id',
+  '/api/withdrawals',
+  '/api/withdrawals/confirm',
 ];
 
 // 静态资源和页面路径不走 API 认证

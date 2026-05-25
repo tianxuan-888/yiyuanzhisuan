@@ -16,6 +16,7 @@ interface UserData {
   inviter_id: string | null;
   balance: number;
   points: number;
+  energy_value?: number;
   is_active: boolean;
   created_at: string;
   updated_at: string | null;
@@ -31,6 +32,7 @@ interface UserInfo {
   memberLevel: MemberLevel;
   balance: number;
   points: number;
+  energy_value: number;
   providerId: string | null;
   inviterId: string | null;
   branch_id?: string | null;
@@ -100,13 +102,14 @@ export function useAuth(requiredRole?: string) {
           alipay_account: userData.alipay_account,
           is_active: userData.is_active,
           created_at: userData.created_at,
+          energy_value: Number(userData.energy_value || 0),
         });
       } catch {
         if (userId && userName && userRole) {
           setUser({
             id: userId, phone: '', name: userName, role: userRole,
             memberLevel: 'normal', balance: 0, providerId: null, inviterId: null,
-            unique_id: undefined, branch_id: null, points: 0,
+            unique_id: undefined, branch_id: null, points: 0, energy_value: 0,
           });
         }
       }
@@ -114,7 +117,7 @@ export function useAuth(requiredRole?: string) {
       setUser({
         id: userId, phone: '', name: userName, role: userRole,
         memberLevel: 'normal', balance: 0, providerId: null, inviterId: null,
-        unique_id: undefined, branch_id: null, points: 0,
+        unique_id: undefined, branch_id: null, points: 0, energy_value: 0,
       });
     }
 
@@ -157,6 +160,7 @@ export function useAuth(requiredRole?: string) {
           unique_id: data.data.unique_id || undefined,
           invite_code: data.data.invite_code || undefined,
           points: Number(data.data.points) || 0,
+          energy_value: Number(data.data.energy_value) || 0,
         });
       }
     } catch (err) {

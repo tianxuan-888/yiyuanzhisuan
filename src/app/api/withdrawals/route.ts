@@ -1,102 +1,221 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { authenticateRequest } from '@/lib/auth';
-import { execute } from '@/lib/pg-client';
+import { query, queryOne, execute } from '@/lib/supabase-client';
 
-// 提现申请
+/**
+ * 统一提现API
+ * 
+ * GET  - 查询提现记录（按角色过滤）
+ * POST - 申请提现（通用）
+ * 
+ * 提现来源：
+ *   会员/服务商 → 从 energy_value（智算金）扣除
+ *   网点       → 从 balance（收益）扣除
+ * 
+ * 审核方：
+ *   会员   → 网点审核
+ *   服务商 → 网点审核
+ *   网点   → 总台审核
+ */
+
+// 申请提现
 export async function POST(request: NextRequest) {
   try {
-    // 鉴权：需要登录
-    const user = authenticateRequest(request);
-    if (!user) {
-      return NextResponse.json({ error: '未登录' }, { status: 401 });
-    }
+    const auth = await authenticateRequest(request);
+    if (!auth) return NextResponse.json({ success: false, message: '未授权' }, { status: 401 });
 
     const body = await request.json();
-    const { userId, amount } = body;
+    const { amount, alipayAccount, realName, note } = body;
 
-    // 参数验证
-    if (!userId || !amount) {
-      return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
+    if (!amount || amount < 100) {
+      return NextResponse.json({ success: false, message: '最低提现金额为100元' });
     }
-
-    // 验证操作者权限：管理员或本人
-    if (user.role !== 'admin' && user.userId !== userId) {
-      return NextResponse.json({ error: '无权操作' }, { status: 403 });
-    }
-
-    if (amount <= 0) {
-      return NextResponse.json({ error: '提现金额必须大于0' }, { status: 400 });
-    }
-
-    // 最低提现金额
-    const minWithdrawAmount = 100;
-    if (amount < minWithdrawAmount) {
-      return NextResponse.json({ error: `最低提现金额为 ${minWithdrawAmount} 元` }, { status: 400 });
-    }
-
-    const client = getSupabaseClient();
 
     // 查询用户信息
-    const { data: userData, error: userError } = await client
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
+    const user = await queryOne(
+      `SELECT id, username, role, energy_value, balance, provider_id, branch_id FROM users WHERE id = $1`,
+      [auth.userId]
+    );
 
-    if (userError || !userData) {
-      return NextResponse.json({ error: '用户不存在' }, { status: 404 });
+    if (!user) {
+      return NextResponse.json({ success: false, message: '用户不存在' });
     }
 
-    // 检查余额是否足够
-    const userBalance = parseFloat(userData.balance || '0');
-    if (userBalance < amount) {
-      return NextResponse.json({
-        success: false,
-        error: '余额不足',
-        data: { required: amount, current: userBalance, short: amount - userBalance }
-      }, { status: 400 });
+    // 根据角色确定扣除来源
+    // 会员/服务商 → 扣智算金(energy_value)
+    // 网点 → 扣收益(balance)
+    const isEnergyWithdraw = ['member', 'provider'].includes(user.role);
+    const sourceField = isEnergyWithdraw ? 'energy_value' : 'balance';
+    const sourceLabel = isEnergyWithdraw ? '智算金' : '收益';
+    const availableAmount = isEnergyWithdraw ? user.energy_value : user.balance;
+
+    if (availableAmount < amount) {
+      return NextResponse.json({ success: false, message: `${sourceLabel}余额不足，当前余额¥${availableAmount}` });
     }
 
-    // 查询服务商收款账号
-    const { data: provider } = await client
-      .from('users')
-      .select('wechat_account, alipay_account')
-      .eq('role', 'provider')
-      .maybeSingle();
+    // 计算手续费 5%
+    const feeRate = 0.05;
+    const fee = Math.round(amount * feeRate * 100) / 100;
+    const actualAmount = Math.round((amount - fee) * 100) / 100;
 
-    // 扣除余额 - 使用 SQL 直接更新
-    const newBalance = userBalance - amount;
-    await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newBalance, userId]);
+    // 审核方类型：会员/服务商 → branch审核，网点 → admin审核
+    const reviewerType = user.role === 'branch' ? 'admin' : 'branch';
 
-    // 创建提现记录 - 白名单过滤
-    const { data: withdrawal, error: createError } = await client
-      .from('withdrawals')
-      .insert({
-        user_id: userId,
-        amount: amount,
-        status: 'pending'
-      })
-      .select()
-      .single();
+    // 角色中文
+    const roleLabel = user.role === 'member' ? '会员' : user.role === 'provider' ? '服务商' : '网点';
 
-    if (createError) {
-      // 回滚余额
-      await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [userBalance, userId]);
-      throw new Error(`创建提现记录失败: ${createError.message}`);
-    }
+    // 扣除金额
+    await execute(
+      `UPDATE users SET ${sourceField} = ${sourceField} - $1, updated_at = NOW() WHERE id = $2`,
+      [amount, user.id]
+    );
+
+    // 写入提现记录
+    const result = await queryOne(
+      `INSERT INTO withdrawals (user_id, user_role, amount, fee, actual_amount, alipay_account, real_name, status, reviewer_type, note, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9, NOW(), NOW())
+       RETURNING id`,
+      [user.id, user.role, amount, fee, actualAmount, alipayAccount || null, realName || null, reviewerType, note || `${roleLabel}${sourceLabel}提现`]
+    );
+
+    // 查询更新后的余额
+    const updatedUser = await queryOne(
+      `SELECT ${sourceField} FROM users WHERE id = $1`,
+      [user.id]
+    );
 
     return NextResponse.json({
       success: true,
-      message: '提现申请已提交',
+      message: '提现申请已提交，等待审核',
       data: {
-        withdrawalId: withdrawal.id,
+        withdrawalId: result.id,
         amount,
-        newBalance: userBalance - amount
+        fee,
+        actualAmount,
+        reviewerType,
+        currentBalance: updatedUser[sourceField] || 0
       }
     });
-  } catch (error) {
-    console.error('提现申请失败:', error);
-    return NextResponse.json({ error: '服务器错误' }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : '提现申请失败';
+    return NextResponse.json({ success: false, message }, { status: 500 });
+  }
+}
+
+// 查询提现记录
+export async function GET(request: NextRequest) {
+  try {
+    const auth = await authenticateRequest(request);
+    if (!auth) return NextResponse.json({ success: false, message: '未授权' }, { status: 401 });
+
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get('status');
+    const filterRole = searchParams.get('role');
+    const filterUserId = searchParams.get('userId');
+    const tab = searchParams.get('tab'); // 'mine' 自己的提现, 'review' 待我审核的
+
+    // 查询用户信息确定角色
+    const user = await queryOne(
+      `SELECT id, role, provider_id, branch_id FROM users WHERE id = $1`,
+      [auth.userId]
+    );
+
+    if (!user) {
+      return NextResponse.json({ success: false, message: '用户不存在' });
+    }
+
+    const conditions: string[] = [];
+    const params: (string | number)[] = [];
+    let paramIndex = 1;
+
+    if (user.role === 'admin') {
+      // 总台：看所有提现，主要看网点提现（reviewer_type = admin）
+      if (tab === 'review') {
+        conditions.push(`w.reviewer_type = 'admin'`);
+      } else if (tab === 'mine') {
+        conditions.push(`w.user_id = $${paramIndex++}`);
+        params.push(user.id);
+      }
+      if (filterRole) {
+        conditions.push(`w.user_role = $${paramIndex++}`);
+        params.push(filterRole);
+      }
+      if (filterUserId) {
+        conditions.push(`w.user_id = $${paramIndex++}`);
+        params.push(filterUserId);
+      }
+    } else if (user.role === 'branch') {
+      // 网点：
+      //   review tab: 看待自己审核的提现（会员+服务商的提现，reviewer_type = branch 且属于本网点）
+      //   mine tab: 看自己的提现
+      if (tab === 'review') {
+        conditions.push(`w.reviewer_type = 'branch'`);
+        // 只看本网点下的会员和服务商
+        conditions.push(`(u.branch_id = $${paramIndex++} OR u.provider_id IN (SELECT id FROM users WHERE branch_id = $${paramIndex++}))`);
+        params.push(user.id);
+        params.push(user.id);
+      } else if (tab === 'mine') {
+        conditions.push(`w.user_id = $${paramIndex++}`);
+        params.push(user.id);
+      } else {
+        // 默认：自己的提现 + 待自己审核的提现
+        conditions.push(`(w.user_id = $${paramIndex++} OR (w.reviewer_type = 'branch' AND (u.branch_id = $${paramIndex++} OR u.provider_id IN (SELECT id FROM users WHERE branch_id = $${paramIndex++}))))`);
+        params.push(user.id);
+        params.push(user.id);
+        params.push(user.id);
+      }
+    } else if (user.role === 'provider') {
+      // 服务商：只看自己的提现
+      conditions.push(`w.user_id = $${paramIndex++}`);
+      params.push(user.id);
+    } else {
+      // 会员：只看自己的提现
+      conditions.push(`w.user_id = $${paramIndex++}`);
+      params.push(user.id);
+    }
+
+    if (status) {
+      conditions.push(`w.status = $${paramIndex++}`);
+      params.push(status);
+    }
+
+    const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+
+    const records = await query(
+      `SELECT w.id, w.user_id, w.user_role, w.amount, w.fee, w.actual_amount,
+              w.alipay_account, w.real_name, w.status, w.reject_reason, w.reviewer_type,
+              w.reviewer_id, w.reviewed_at, w.completed_at, w.note, w.created_at, w.updated_at,
+              u.username, u.phone, u.unique_id
+       FROM withdrawals w
+       LEFT JOIN users u ON w.user_id = u.id
+       ${whereClause}
+       ORDER BY w.created_at DESC
+       LIMIT 100`,
+      params
+    );
+
+    // 统计数据
+    const stats = await query(
+      `SELECT 
+         COUNT(*) FILTER (WHERE w.status = 'pending') as pending_count,
+         COALESCE(SUM(w.amount) FILTER (WHERE w.status = 'pending'), 0) as pending_amount,
+         COALESCE(SUM(w.amount) FILTER (WHERE w.status = 'completed'), 0) as completed_amount,
+         COALESCE(SUM(w.amount) FILTER (WHERE w.status = 'approved'), 0) as approved_amount
+       FROM withdrawals w
+       LEFT JOIN users u ON w.user_id = u.id
+       ${whereClause}`,
+      params
+    );
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        records,
+        stats: stats[0] || { pending_count: 0, pending_amount: 0, completed_amount: 0, approved_amount: 0 }
+      }
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : '查询失败';
+    return NextResponse.json({ success: false, message }, { status: 500 });
   }
 }

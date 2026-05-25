@@ -287,7 +287,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                 authFetch(`/api/member/purchase-limits?userId=${userId}`),
                 authFetch(`/api/user/chain?userId=${userId}`),
                 authFetch(`/api/member/pending-orders?userId=${userId}`),
-                authFetch(`/api/member/withdraw?userId=${userId}`),
+                authFetch(`/api/withdrawals?tab=mine`),
                 authFetch(`/api/member/points-records?userId=${userId}`),
                 authFetch(`/api/products/transfer/list?userId=${userId}`),
                 authFetch(`/api/products/transfer/market?memberId=${userId}`),
@@ -317,7 +317,7 @@ const [copySuccess, setCopySuccess] = useState(false);
 
             // 处理提现记录数据
             if (withdrawData.success && withdrawData.data) {
-                setWithdrawRecords(withdrawData.data);
+                setWithdrawRecords(withdrawData.data?.records || withdrawData.data || []);
             }
 
             // 处理积分记录数据
@@ -981,11 +981,8 @@ const [copySuccess, setCopySuccess] = useState(false);
     };
 
 
-    // 会员提现
+    // 会员提现 - 统一调用 /api/withdrawals
     const handleWithdraw = async () => {
-        const userId = localStorage.getItem("userId");
-        if (!userId) return;
-
         const amount = parseFloat(withdrawAmount);
         if (!amount || amount < 100) {
             showMessage("error", "提现金额不能少于100");
@@ -1002,10 +999,9 @@ const [copySuccess, setCopySuccess] = useState(false);
 
         setSubmitting(true);
         try {
-            const response = await authFetch("/api/member/withdraw", {
+            const response = await authFetch("/api/withdrawals", {
                 method: "POST",
                 body: JSON.stringify({
-                    userId,
                     amount,
                     alipayAccount: withdrawAlipay.trim(),
                     realName: withdrawRealName.trim(),
@@ -1015,14 +1011,14 @@ const [copySuccess, setCopySuccess] = useState(false);
             const data = await response.json();
             if (data.success) {
                 const w = data.data || {};
-                showMessage("success", `提现申请已提交！手续费${w.fee || 0}元，实际到账${w.actualAmount || 0}元，等待服务网点审核`);
+                showMessage("success", `提现申请已提交！手续费¥${w.fee || 0}，实际到账¥${w.actualAmount || 0}，等待网点审核`);
                 setShowWithdrawDialog(false);
                 setWithdrawAmount("");
                 setWithdrawAlipay("");
                 setWithdrawRealName("");
                 refreshAll();
             } else {
-                showMessage("error", data.error || "提现失败");
+                showMessage("error", data.message || "提现失败");
             }
         } catch (error) {
             showMessage("error", "网络错误");
@@ -1031,39 +1027,18 @@ const [copySuccess, setCopySuccess] = useState(false);
         }
     };
 
-    // 会员确认收款
+    // 会员确认收款 - 不再需要，审核通过即为完成
     const handleConfirmReceipt = async (withdrawalId: string) => {
-        const userId = localStorage.getItem("userId");
-        if (!userId) return;
-        setSubmitting(true);
-        try {
-            const response = await authFetch("/api/member/withdraw", {
-                method: "POST",
-                body: JSON.stringify({ userId, withdrawalId, action: "confirm_receipt" }),
-            });
-            const data = await response.json();
-            if (data.success) {
-                showMessage("success", "已确认收款，提现完成");
-                refreshAll();
-            } else {
-                showMessage("error", data.error || "操作失败");
-            }
-        } catch (error) {
-            showMessage("error", "网络错误");
-        } finally {
-            setSubmitting(false);
-        }
+        showMessage("success", "提现审核通过后自动完成，无需确认收款");
     };
 
-    // 加载提现记录
+    // 加载提现记录 - 统一调用 /api/withdrawals
     const loadWithdrawRecords = async () => {
-        const userId = localStorage.getItem("userId");
-        if (!userId) return;
         try {
-            const response = await authFetch(`/api/member/withdraw?userId=${userId}`);
+            const response = await authFetch(`/api/withdrawals?tab=mine`);
             const data = await response.json();
             if (data.success) {
-                setWithdrawRecords(data.data || []);
+                setWithdrawRecords(data.data?.records || []);
             }
         } catch (error) {
             console.error("加载提现记录失败", error);
@@ -3045,48 +3020,23 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                             <Badge variant={
                                                                 record.status === 'completed' ? 'default' :
                                                                 record.status === 'rejected' ? 'destructive' :
-                                                                record.status === 'approved' ? 'secondary' :
-                                                                record.status === 'transferred' ? 'outline' :
                                                                 'outline'
                                                             }>
                                                                 {record.status === 'pending' ? '待审核' :
-                                                                 record.status === 'approved' ? '已审核' :
-                                                                 record.status === 'transferred' ? '已打款待确认' :
                                                                  record.status === 'completed' ? '已完成' :
                                                                  record.status === 'rejected' ? '已拒绝' : record.status}
                                                             </Badge>
-                                                            {record.status === 'transferred' && (
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    className="text-xs h-6"
-                                                                    onClick={async () => {
-                                                                        const res = await fetch('/api/member/withdraw', {
-                                                                            method: 'POST',
-                                                                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-                                                                            body: JSON.stringify({ withdrawalId: record.id, action: 'confirm_receipt' })
-                                                                        });
-                                                                        const data = await res.json();
-                                                                        if (data.success) {
-                                                                            alert('已确认收款');
-                                                                            refreshAll();
-                                                                        } else {
-                                                                            alert(data.error || '操作失败');
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    确认收款
-                                                                </Button>
-                                                            )}
                                                         </div>
                                                         <p className="text-xs text-muted-foreground mt-1">
-                                                            实际到账: ¥{Number(record.actual_amount).toLocaleString()} | 手续费: ¥{Number(record.fee_amount || record.fee).toLocaleString()}
+                                                            实际到账: ¥{Number(record.actual_amount).toLocaleString()} | 手续费: ¥{Number(record.fee).toLocaleString()}
                                                         </p>
+                                                        {record.alipay_account && (
+                                                            <p className="text-xs text-muted-foreground">
+                                                                支付宝: {record.alipay_account} | {record.real_name}
+                                                            </p>
+                                                        )}
                                                         <p className="text-xs text-muted-foreground">
-                                                            支付宝: {record.alipay_account} | {record.real_name}
-                                                        </p>
-                                                        <p className="text-xs text-muted-foreground">
-                                                            {new Date(record.createdAt || record.created_at).toLocaleString('zh-CN')}
+                                                            {new Date(record.created_at).toLocaleString('zh-CN')}
                                                         </p>
                                                         {record.reject_reason && (
                                                             <p className="text-xs text-red-500 mt-1">拒绝原因: {record.reject_reason}</p>
@@ -3113,18 +3063,18 @@ const [copySuccess, setCopySuccess] = useState(false);
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
                                         <Banknote className="w-5 h-5 text-rose-500" />
-                                        收益提现
+                                        智算金提现
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                     <div className="bg-rose-50 p-3 rounded-lg">
                                         <p className="text-sm text-rose-700">
-                                            <strong>说明：</strong>提现手续费5%，最低提现金额100元，提交后等待服务网点审核打款。
+                                            <strong>说明：</strong>提现手续费5%，最低提现金额100元，提交后等待网点审核打款。
                                         </p>
                                     </div>
                                     <div>
                                         <label className="text-sm text-muted-foreground mb-1 block">可提现智算金</label>
-                                        <p className="text-xl font-bold text-green-600">¥{Number(user?.balance || 0).toLocaleString()}</p>
+                                        <p className="text-xl font-bold text-green-600">¥{Number(user?.energy_value || 0).toLocaleString()}</p>
                                     </div>
                                     <div>
                                         <label className="text-sm text-muted-foreground mb-1 block">提现金额</label>
@@ -3134,7 +3084,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             value={withdrawAmount}
                                             onChange={e => setWithdrawAmount(e.target.value)}
                                             min="100"
-                                            max={user?.balance || 0}
+                                            max={user?.energy_value || 0}
                                         />
                                         {Number(withdrawAmount) > 0 && (
                                             <p className="text-xs text-muted-foreground mt-1">

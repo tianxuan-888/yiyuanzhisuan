@@ -337,12 +337,12 @@ export default function BranchPage() {
         fetch(`/api/quota-requests?requesterId=${branchId}&requesterType=branch`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`/api/branch/approve-quota?branchId=${branchId}&status=pending`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`/api/energy/branch-stats?branchId=${branchId}&username=${username || ''}`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`/api/branch/withdraw-review?branchId=${branchId}`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`/api/withdrawals?tab=review&status=pending`, { headers: { 'Authorization': `Bearer ${token}` } }),
       ]);
       console.log('[loadData] 所有API请求完成');
       
       // 调试：显示每个请求的状态
-      const requestNames = ['branch/overview', 'admin/branch-templates', 'quota-allocations', 'provider-applications', 'quota', 'quota-requests', 'branch/approve-quota', 'energy/branch-stats', 'withdraw-review'];
+      const requestNames = ['branch/overview', 'admin/branch-templates', 'quota-allocations', 'provider-applications', 'quota', 'quota-requests', 'branch/approve-quota', 'energy/branch-stats', 'withdrawals/review'];
       results.forEach((result, index) => {
         if (result.status === 'rejected') {
           console.error(`[loadData] 请求 ${requestNames[index]} 失败:`, result.reason);
@@ -437,7 +437,7 @@ export default function BranchPage() {
 
       // 加载提现审核数据
       if (withdrawReviewData.success && withdrawReviewData.data) {
-        const records = withdrawReviewData.data.records || withdrawReviewData.data || [];
+        const records = withdrawReviewData.data?.records || [];
         setPendingWithdrawals(Array.isArray(records) ? records : []);
       }
     } catch (error) {
@@ -913,7 +913,7 @@ export default function BranchPage() {
     }
   };
 
-  // 服务网点申请变现收益
+  // 服务网点申请提现 - 统一调用 /api/withdrawals
   const handleBranchWithdraw = async () => {
     const amount = parseFloat(withdrawAmount);
     if (!amount || amount <= 0) {
@@ -922,7 +922,7 @@ export default function BranchPage() {
     }
 
     if (amount < 100) {
-      showMessage('error', '最低变现金额为100收益');
+      showMessage('error', '最低提现金额为100元');
       return;
     }
 
@@ -933,14 +933,11 @@ export default function BranchPage() {
 
     try {
       setSubmitting(true);
-      const branchId = localStorage.getItem('userId');
-      if (!branchId) return;
 
-      const response = await authFetch('/api/branch/withdraw', {
+      const response = await authFetch('/api/withdrawals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          branchId: branchId,
           amount: amount,
           alipayAccount: '',
           realName: '',
@@ -950,14 +947,13 @@ export default function BranchPage() {
 
       const data = await response.json();
       if (data.success) {
-        showMessage('success', data.message);
+        showMessage('success', `提现申请已提交！手续费¥${data.data?.fee || 0}，实际到账¥${data.data?.actualAmount || 0}，等待智算中心审核`);
         setWithdrawAmount('');
         setShowWithdrawDialog(false);
         loadWithdrawRequests();
-        // 刷新余额
         loadEnergyBalance();
       } else {
-        showMessage('error', data.error || '变现申请失败');
+        showMessage('error', data.message || '提现申请失败');
       }
     } catch (error) {
       showMessage('error', '网络错误');
@@ -966,29 +962,26 @@ export default function BranchPage() {
     }
   };
 
-  // 加载变现申请记录
+  // 加载提现申请记录 - 统一调用 /api/withdrawals
   const loadWithdrawRequests = async () => {
     try {
-      const response = await authFetch('/api/branch/withdraw?role=branch&branchId=' + localStorage.getItem('userId'));
+      const response = await authFetch('/api/withdrawals?tab=mine');
       const data = await response.json();
       if (data.success) {
-        setWithdrawRequests(data.data || []);
+        setWithdrawRequests(data.data?.records || []);
       }
     } catch (error) {
-      console.error('加载变现申请记录失败:', error);
+      console.error('加载提现申请记录失败:', error);
     }
   };
 
-  // 加载待审核提现列表
+  // 加载待审核提现列表 - 统一调用 /api/withdrawals
   const loadPendingWithdrawals = async () => {
-    const branchId = localStorage.getItem('userId');
-    if (!branchId) return;
     try {
-      const response = await authFetch(`/api/branch/withdraw-review?branchId=${branchId}`);
+      const response = await authFetch('/api/withdrawals?tab=review&status=pending');
       const data = await response.json();
       if (data.success) {
-        // API返回 { records, stats }，提取records数组
-        const records = Array.isArray(data.data) ? data.data : (data.data?.records || []);
+        const records = data.data?.records || [];
         setPendingWithdrawals(records);
       }
     } catch (error) {
@@ -996,15 +989,14 @@ export default function BranchPage() {
     }
   };
 
-  // 审核提现操作
+  // 审核提现操作 - 统一调用 /api/withdrawals/confirm
   const handleReviewWithdrawal = async (withdrawalId: string, action: string, rejectReason?: string) => {
     try {
       setSubmitting(true);
-      const reviewerId = localStorage.getItem('userId');
-      const response = await authFetch('/api/branch/withdraw-review', {
+      const response = await authFetch('/api/withdrawals/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ withdrawalId, action, note: rejectReason, branchUserId: reviewerId }),
+        body: JSON.stringify({ withdrawalId, action, rejectReason }),
       });
       const data = await response.json();
       if (data.success) {
@@ -1012,7 +1004,7 @@ export default function BranchPage() {
         loadPendingWithdrawals();
         loadBranchRevenueRecords();
       } else {
-        showMessage('error', data.error || '操作失败');
+        showMessage('error', data.message || '操作失败');
       }
     } catch (error) {
       showMessage('error', '网络错误');
@@ -1044,7 +1036,7 @@ export default function BranchPage() {
     }
   };
 
-  // 服务网点提现到智算中心
+  // 服务网点提现到智算中心 - 统一调用 /api/withdrawals
   const handleBranchWithdrawToCompany = async () => {
     const amount = parseFloat(branchWithdrawAmount);
     if (!amount || amount < 100) {
@@ -1061,12 +1053,10 @@ export default function BranchPage() {
     }
     try {
       setSubmitting(true);
-      const branchId = localStorage.getItem('userId');
-      const response = await authFetch('/api/branch/withdraw', {
+      const response = await authFetch('/api/withdrawals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          branchId,
           amount: branchWithdrawAmount,
           alipayAccount: branchWithdrawAlipay.trim(),
           realName: branchWithdrawRealName.trim(),
@@ -1074,14 +1064,15 @@ export default function BranchPage() {
       });
       const data = await response.json();
       if (data.success) {
-        showMessage('success', `提现申请已提交！手续费${data.data?.fee || 0}元，实际到账${data.data?.actualAmount || 0}元，等待智算中心审核`);
+        showMessage('success', `提现申请已提交！手续费¥${data.data?.fee || 0}，实际到账¥${data.data?.actualAmount || 0}，等待智算中心审核`);
         setShowBranchWithdrawDialog(false);
         setBranchWithdrawAmount('');
         setBranchWithdrawAlipay('');
         setBranchWithdrawRealName('');
         loadBranchRevenueRecords();
+        loadEnergyBalance();
       } else {
-        showMessage('error', data.error || '提现失败');
+        showMessage('error', data.message || '提现失败');
       }
     } catch (error) {
       showMessage('error', '网络错误');
@@ -1127,15 +1118,13 @@ export default function BranchPage() {
     }
   };
 
-  // 加载服务网点提现记录
+  // 加载服务网点提现记录 - 统一调用 /api/withdrawals
   const loadBranchWithdrawRecords = async () => {
-    const branchId = localStorage.getItem('userId');
-    if (!branchId) return;
     try {
-      const response = await authFetch(`/api/branch/withdraw?userId=${branchId}`);
+      const response = await authFetch('/api/withdrawals?tab=mine');
       const data = await response.json();
       if (data.success) {
-        setBranchWithdrawRecords(data.data || []);
+        setBranchWithdrawRecords(data.data?.records || []);
       }
     } catch (error) {
       console.error('加载提现记录失败:', error);

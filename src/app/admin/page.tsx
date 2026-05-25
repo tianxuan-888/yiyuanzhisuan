@@ -658,7 +658,7 @@ export default function AdminPage() {
         authFetch('/api/admin/provider-management').catch(e => { console.error('获取服务商列表失败:', e); return null; }),
         authFetch('/api/admin/users?role=branch').catch(e => { console.error('获取服务网点列表失败:', e); return null; }),
         authFetch('/api/quota-requests?status=pending&requesterType=branch').catch(e => { console.error('获取额度申请失败:', e); return null; }),
-        authFetch('/api/admin/branch-withdraw-list').catch(e => { console.error('获取服务网点变现申请失败:', e); return null; }),
+        authFetch('/api/withdrawals?tab=review&role=branch').catch(e => { console.error('获取服务网点提现申请失败:', e); return null; }),
       ]);
 
       // 并行解析JSON
@@ -714,12 +714,6 @@ export default function AdminPage() {
       if (withdrawData?.success) {
         setBranchWithdrawals(withdrawData.data?.records || []);
       }
-
-      // 模拟提现数据
-      setWithdrawals([
-        { id: '1', user_id: 'u1', username: 'test_user', amount: 5000, alipay_account: 'test@alipay.com', status: 'pending', created_at: '2026-04-02 10:00:00' },
-        { id: '2', user_id: 'u2', username: 'member001', amount: 10000, alipay_account: 'member@alipay.com', status: 'pending', created_at: '2026-04-02 09:30:00' },
-      ]);
 
       // 第二批：额度相关数据并行加载
       const adminId = localStorage.getItem('userId');
@@ -3755,18 +3749,18 @@ export default function AdminPage() {
                     {w.status === 'pending' && (
                       <div className="flex gap-1">
                         <Button size="sm" variant="default" onClick={async () => {
-                          await authFetch('/api/energy/approve-withdraw', {
+                          await authFetch('/api/withdrawals/confirm', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ requestId: w.id, reviewerId: user!.id, action: 'approve' }),
+                            body: JSON.stringify({ withdrawalId: w.id, action: 'approve' }),
                           });
                           loadIncomeData('withdraw');
                         }}>通过</Button>
                         <Button size="sm" variant="destructive" onClick={async () => {
-                          await authFetch('/api/energy/approve-withdraw', {
+                          await authFetch('/api/withdrawals/confirm', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ requestId: w.id, reviewerId: user!.id, action: 'reject' }),
+                            body: JSON.stringify({ withdrawalId: w.id, action: 'reject' }),
                           });
                           loadIncomeData('withdraw');
                         }}>拒绝</Button>
@@ -3813,7 +3807,7 @@ export default function AdminPage() {
       setFinanceLoading(true);
       try {
         const [withdrawalRes, feeRes, adminRes] = await Promise.all([
-          authFetch('/api/admin/withdraw-review'),
+          authFetch('/api/withdrawals?tab=review'),
           authFetch('/api/admin/fee-records'),
           authFetch('/api/admin/accounts?search=&role=admin'),
         ]);
@@ -3840,17 +3834,17 @@ export default function AdminPage() {
 
     const handleReviewBranchWithdrawal = async (withdrawalId: string, action: string) => {
       try {
-        const res = await authFetch('/api/admin/withdraw-review', {
+        const res = await authFetch('/api/withdrawals/confirm', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ withdrawalId, action, adminUserId: user?.id }),
+          body: JSON.stringify({ withdrawalId, action }),
         });
         const data = await res.json();
         if (data.success) {
-          alert(data.data?.message || '操作成功');
+          alert(data.message || '操作成功');
           loadFinanceData();
         } else {
-          alert(data.error || '操作失败');
+          alert(data.message || '操作失败');
         }
       } catch (err) {
         alert('网络错误');
@@ -7016,28 +7010,27 @@ export default function AdminPage() {
     </Card>
   );
 
-  // 智算中心 - 服务网点变现管理（原提现管理）
+  // 智算中心 - 提现管理
   const renderBranchWithdrawManagement = () => {
     const handleReview = async (id: string, action: 'approve' | 'reject') => {
       setProcessingId(id);
       try {
-        const adminId = localStorage.getItem('userId');
-        const res = await authFetch('/api/admin/withdraw-review', {
+        const res = await authFetch('/api/withdrawals/confirm', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ withdrawalId: id, action, adminUserId: adminId, note: withdrawNote }),
+          body: JSON.stringify({ withdrawalId: id, action, rejectReason: action === 'reject' ? withdrawNote : undefined }),
         });
         const data = await res.json();
         if (data.success) {
           setMessage({ type: 'success', text: data.message });
           // 重新加载数据
-          const withdrawRes = await authFetch('/api/admin/withdraw-review');
+          const withdrawRes = await authFetch('/api/withdrawals?tab=review');
           const withdrawData = await withdrawRes.json();
           if (withdrawData.success) {
             setBranchWithdrawals(withdrawData.data?.records || []);
           }
         } else {
-          setMessage({ type: 'error', text: data.error });
+          setMessage({ type: 'error', text: data.message });
         }
       } catch (error) {
         setMessage({ type: 'error', text: '处理失败' });
@@ -7046,21 +7039,16 @@ export default function AdminPage() {
       }
     };
 
-    // 计算统计
-    const pendingCount = branchWithdrawals.filter((w: any) => {
-      const details = typeof w.description === 'string' ? JSON.parse(w.description || '{}') : (w.description || {});
-      return details.status === 'pending';
-    }).length;
+    // 计算统计 - 直接从 withdrawals 表的字段读取状态
+    const pendingCount = branchWithdrawals.filter((w: any) => w.status === 'pending').length;
 
     const totalApproved = branchWithdrawals.reduce((sum: number, w: any) => {
-      const details = typeof w.description === 'string' ? JSON.parse(w.description || '{}') : (w.description || {});
-      if (details.status === 'approved') return sum + (w.amount || 0);
+      if (w.status === 'completed') return sum + (Number(w.amount) || 0);
       return sum;
     }, 0);
 
     const totalRejected = branchWithdrawals.reduce((sum: number, w: any) => {
-      const details = typeof w.description === 'string' ? JSON.parse(w.description || '{}') : (w.description || {});
-      if (details.status === 'rejected') return sum + (w.amount || 0);
+      if (w.status === 'rejected') return sum + (Number(w.amount) || 0);
       return sum;
     }, 0);
 
@@ -7142,31 +7130,29 @@ export default function AdminPage() {
                     </TableHeader>
                     <TableBody>
                       {branchWithdrawals.map((withdraw: any) => {
-                        const details = typeof withdraw.description === 'string' 
-                          ? JSON.parse(withdraw.description || '{}') 
-                          : (withdraw.description || {});
-                        const isPending = details.status === 'pending';
+                        const isPending = withdraw.status === 'pending';
                         
                         return (
                           <TableRow key={withdraw.id}>
                             <TableCell>{new Date(withdraw.created_at).toLocaleString()}</TableCell>
                             <TableCell>
                               <div>
-                                <div className="font-medium">{withdraw.from_user?.username || '-'}</div>
-                                <div className="text-xs text-gray-500">{withdraw.from_user?.unique_id || ''}</div>
+                                <div className="font-medium">{withdraw.username || '-'}</div>
+                                <div className="text-xs text-gray-500">{withdraw.unique_id || ''} · {withdraw.user_role === 'branch' ? '网点' : withdraw.user_role === 'provider' ? '服务商' : '会员'}</div>
                               </div>
                             </TableCell>
                             <TableCell className="font-medium text-blue-600">
-                              {withdraw.amount?.toLocaleString()} 收益
+                              ¥{Number(withdraw.amount).toLocaleString()}
                             </TableCell>
                             <TableCell>
                               <Badge className={
-                                details.status === 'approved' ? 'bg-green-100 text-green-700' :
-                                details.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                withdraw.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                withdraw.status === 'rejected' ? 'bg-red-100 text-red-700' :
                                 'bg-yellow-100 text-yellow-700'
                               }>
-                                {details.status === 'approved' ? '已通过' :
-                                 details.status === 'rejected' ? '已拒绝' : '待审核'}
+                                {withdraw.status === 'completed' ? '已完成' :
+                                 withdraw.status === 'rejected' ? '已拒绝' :
+                                 withdraw.status === 'pending' ? '待审核' : withdraw.status}
                               </Badge>
                             </TableCell>
                             <TableCell>
@@ -7190,8 +7176,8 @@ export default function AdminPage() {
                                   </Button>
                                 </div>
                               )}
-                              {!isPending && details.note && (
-                                <span className="text-sm text-gray-500">备注: {details.note}</span>
+                              {!isPending && withdraw.reject_reason && (
+                                <span className="text-sm text-gray-500">原因: {withdraw.reject_reason}</span>
                               )}
                             </TableCell>
                           </TableRow>
@@ -7220,32 +7206,24 @@ export default function AdminPage() {
                   </TableHeader>
                   <TableBody>
                     {branchWithdrawals
-                      .filter((w: any) => {
-                        const details = typeof w.description === 'string' 
-                          ? JSON.parse(w.description || '{}') 
-                          : (w.description || {});
-                        return details.status === 'approved';
-                      })
+                      .filter((w: any) => w.status === 'completed')
                       .map((withdraw: any) => {
-                        const details = typeof withdraw.description === 'string' 
-                          ? JSON.parse(withdraw.description || '{}') 
-                          : (withdraw.description || {});
-                        const depositAmount = Math.floor((withdraw.amount || 0) * 0.05);
+                        const depositAmount = Math.floor((Number(withdraw.amount) || 0) * 0.05);
                         
                         return (
                           <TableRow key={withdraw.id}>
                             <TableCell>{new Date(withdraw.created_at).toLocaleString()}</TableCell>
                             <TableCell>
                               <div>
-                                <div className="font-medium">{withdraw.from_user?.username || '-'}</div>
-                                <div className="text-xs text-gray-500">{withdraw.from_user?.unique_id || ''}</div>
+                                <div className="font-medium">{withdraw.username || '-'}</div>
+                                <div className="text-xs text-gray-500">{withdraw.unique_id || ''} · {withdraw.user_role === 'branch' ? '网点' : withdraw.user_role === 'provider' ? '服务商' : '会员'}</div>
                               </div>
                             </TableCell>
                             <TableCell className="font-medium">
-                              {withdraw.amount?.toLocaleString()} 收益
+                              ¥{Number(withdraw.amount).toLocaleString()}
                             </TableCell>
                             <TableCell className="font-medium text-purple-600">
-                              {depositAmount.toLocaleString()} 收益
+                              ¥{depositAmount.toLocaleString()}
                             </TableCell>
                             <TableCell>
                               <Badge className="bg-green-100 text-green-700">已沉淀</Badge>
@@ -7253,12 +7231,7 @@ export default function AdminPage() {
                           </TableRow>
                         );
                       })}
-                    {branchWithdrawals.filter((w: any) => {
-                      const details = typeof w.description === 'string' 
-                        ? JSON.parse(w.description || '{}') 
-                        : (w.description || {});
-                      return details.status === 'approved';
-                    }).length === 0 && (
+                    {branchWithdrawals.filter((w: any) => w.status === 'completed').length === 0 && (
                       <TableRow>
                         <TableCell colSpan={5} className="text-center py-8 text-gray-500">
                           暂无沉淀记录
@@ -7274,24 +7247,19 @@ export default function AdminPage() {
                     <div>
                       <div className="text-sm text-gray-500">通过笔数</div>
                       <div className="text-xl font-bold text-purple-600">
-                        {branchWithdrawals.filter((w: any) => {
-                          const details = typeof w.description === 'string' 
-                            ? JSON.parse(w.description || '{}') 
-                            : (w.description || {});
-                          return details.status === 'approved';
-                        }).length}
+                        {branchWithdrawals.filter((w: any) => w.status === 'completed').length}
                       </div>
                     </div>
                     <div>
                       <div className="text-sm text-gray-500">总变现金额</div>
                       <div className="text-xl font-bold text-purple-600">
-                        {totalApproved.toLocaleString()} 收益
+                        ¥{totalApproved.toLocaleString()}
                       </div>
                     </div>
                     <div>
                       <div className="text-sm text-gray-500">累计沉淀</div>
                       <div className="text-xl font-bold text-purple-600">
-                        {Math.floor(totalApproved * 0.05).toLocaleString()} 收益
+                        ¥{Math.floor(totalApproved * 0.05).toLocaleString()}
                       </div>
                     </div>
                   </div>
@@ -7751,8 +7719,8 @@ export default function AdminPage() {
       }
       try {
         const url = status 
-          ? `/api/energy/withdraw-request?status=${status}&isAdmin=true` 
-          : '/api/energy/withdraw-request?isAdmin=true';
+          ? `/api/withdrawals?tab=review&status=${status}` 
+          : '/api/withdrawals?tab=review';
         const response = await authFetch(url);
         if (!response.ok) {
           setEnergyLoading(false);
@@ -7760,7 +7728,7 @@ export default function AdminPage() {
         }
         const data = await response.json();
         if (data.success) {
-          setWithdrawRequests(data.data?.requests || []);
+          setWithdrawRequests(data.data?.records || []);
           setWithdrawStats(data.data?.stats || null);
         }
       } catch (error) {
@@ -7772,21 +7740,20 @@ export default function AdminPage() {
 
     // 审核变现申请
     const handleApproveWithdraw = async (requestId: string, action: 'approve' | 'reject', note?: string) => {
-      const adminId = localStorage.getItem('userId');
-      if (!adminId) {
+      if (!user?.id) {
         showMessage('error', '请先登录');
         return;
       }
 
       setSubmitting(true);
       try {
-        const response = await authFetch('/api/energy/approve-withdraw', {
+        const response = await authFetch('/api/withdrawals/confirm', {
           method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            requestId,
-            adminId,
+            withdrawalId: requestId,
             action,
-            note,
+            rejectReason: action === 'reject' ? note : undefined,
           }),
         });
 
