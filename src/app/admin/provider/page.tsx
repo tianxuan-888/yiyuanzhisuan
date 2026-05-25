@@ -1919,6 +1919,15 @@ export default function ProviderDashboard() {
                                 >
                                   取消
                                 </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-red-300 text-red-600 hover:bg-red-50"
+                                  disabled={recycling === product.id}
+                                  onClick={() => handleRecycle(product.id)}
+                                >
+                                  {recycling === product.id ? <Loader2 className="w-4 h-4 animate-spin" /> : '回收'}
+                                </Button>
                               </>
                             )}
                           </div>

@@ -2676,9 +2676,9 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                     className="bg-green-500 hover:bg-green-600 text-white"
                                                                     disabled
                                                                 >
-                                                                    收益已到账
+                                                                    {revenueReleased ? '收益已到账' : '待释放'}
                                                                 </Button>}
-                                                                {up.status === "holding" && isExpired && revenueReleased && <Button
+                                                                {up.status === "holding" && isExpired && <Button
                                                                     size="sm"
                                                                     variant="outline"
                                                                     onClick={() => {
