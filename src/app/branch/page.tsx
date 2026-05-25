@@ -1003,7 +1003,7 @@ export default function BranchPage() {
       const response = await authFetch('/api/branch/withdraw-review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ withdrawalId, action, rejectReason, reviewerId }),
+        body: JSON.stringify({ withdrawalId, action, note: rejectReason, branchUserId: reviewerId }),
       });
       const data = await response.json();
       if (data.success) {
@@ -1753,6 +1753,14 @@ export default function BranchPage() {
                 }`}
               >
                 <Banknote className="w-4 h-4" />收益管理
+              </button>
+              <button
+                onClick={() => { setShowTransferDialog(true); }}
+                className={`px-4 py-2 rounded-md transition-all flex items-center gap-1 ${
+                  showTransferDialog ? 'bg-white text-purple-900 font-semibold shadow-md' : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <ArrowRightLeft className="w-4 h-4" />智算金互转
               </button>
             </div>
           </div>

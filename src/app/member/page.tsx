@@ -231,6 +231,7 @@ const [copySuccess, setCopySuccess] = useState(false);
     const [showBalanceTransferDialog, setShowBalanceTransferDialog] = useState(false);
     const [showBalanceConvertDialog, setShowBalanceConvertDialog] = useState(false);
     const [transferTargets, setTransferTargets] = useState<any[]>([]);
+    const [transferSearchKeyword, setTransferSearchKeyword] = useState("");
     const [transferToUserId, setTransferToUserId] = useState("");
     const [transferToAmount, setTransferToAmount] = useState("");
     const [transferToNote, setTransferToNote] = useState("");
@@ -3225,18 +3226,11 @@ const [copySuccess, setCopySuccess] = useState(false);
             {/* 智算金互转对话框 */}
             <Dialog open={showBalanceTransferDialog} onOpenChange={(open) => {
                 setShowBalanceTransferDialog(open);
-                if (open) {
-                    // 加载可转账对象
-                    const userId = localStorage.getItem("userId");
-                    const role = localStorage.getItem("userRole");
-                    if (userId) {
-                        authFetch(`/api/balance/transfer?userId=${userId}&role=${role || 'member'}`)
-                            .then(r => r.json())
-                            .then(data => {
-                                if (data.success) setTransferTargets(data.data || []);
-                            })
-                            .catch(() => {});
-                    }
+                if (!open) {
+                    setTransferTargets([]);
+                    setTransferToUserId("");
+                    setTransferToAmount("");
+                    setTransferToNote("");
                 }
             }}>
                 <DialogContent>
@@ -3257,20 +3251,66 @@ const [copySuccess, setCopySuccess] = useState(false);
                             <p className="text-xl font-bold text-green-600">¥{user?.balance?.toLocaleString() || 0}</p>
                         </div>
                         <div>
-                            <label className="text-sm font-medium mb-2 block">选择转账对象</label>
-                            <select
-                                className="w-full p-2 border rounded-md bg-white"
-                                value={transferToUserId}
-                                onChange={(e) => setTransferToUserId(e.target.value)}
-                            >
-                                <option value="">请选择</option>
-                                {transferTargets.map((t: any) => (
-                                    <option key={t.id} value={t.id}>
-                                        {t.username} {t.uniqueId ? `[${t.uniqueId}]` : ''} {t.phone ? `(${t.phone})` : ''}
-                                    </option>
-                                ))}
-                            </select>
+                            <label className="text-sm font-medium mb-2 block">搜索转账对象</label>
+                            <div className="flex gap-2">
+                                <Input
+                                    placeholder="输入用户名/手机号/专属ID"
+                                    value={transferSearchKeyword}
+                                    onChange={(e) => setTransferSearchKeyword(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') {
+                                        const userId = localStorage.getItem("userId");
+                                        if (userId && transferSearchKeyword.trim()) {
+                                            authFetch(`/api/balance/transfer?userId=${userId}&keyword=${encodeURIComponent(transferSearchKeyword.trim())}`)
+                                                .then(r => r.json())
+                                                .then(data => {
+                                                    if (data.success) setTransferTargets(data.data || []);
+                                                    else { setTransferTargets([]); showMessage("error", data.error || "搜索失败"); }
+                                                })
+                                                .catch(() => { setTransferTargets([]); showMessage("error", "搜索失败"); });
+                                        }
+                                    }}}
+                                />
+                                <Button variant="outline" onClick={() => {
+                                    const userId = localStorage.getItem("userId");
+                                    if (userId && transferSearchKeyword.trim()) {
+                                        authFetch(`/api/balance/transfer?userId=${userId}&keyword=${encodeURIComponent(transferSearchKeyword.trim())}`)
+                                            .then(r => r.json())
+                                            .then(data => {
+                                                if (data.success) setTransferTargets(data.data || []);
+                                                else { setTransferTargets([]); showMessage("error", data.error || "搜索失败"); }
+                                            })
+                                            .catch(() => { setTransferTargets([]); showMessage("error", "搜索失败"); });
+                                    } else {
+                                        showMessage("error", "请输入搜索关键词");
+                                    }
+                                }}>搜索</Button>
+                            </div>
                         </div>
+                        {transferTargets.length > 0 && (
+                            <div>
+                                <label className="text-sm font-medium mb-2 block">选择转账对象</label>
+                                <select
+                                    className="w-full p-2 border rounded-md bg-white"
+                                    value={transferToUserId}
+                                    onChange={(e) => setTransferToUserId(e.target.value)}
+                                >
+                                    <option value="">请选择</option>
+                                    {transferTargets.map((t: any) => (
+                                        <option key={t.id} value={t.id}>
+                                            {t.username} {t.uniqueId ? `[${t.uniqueId}]` : ''} {t.phone ? `(${t.phone})` : ''} - {t.roleLabel || t.role}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                        {transferToUserId && (
+                            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                                <p className="text-sm text-green-700">
+                                    已选择：{transferTargets.find((t: any) => t.id === transferToUserId)?.username}
+                                    {transferTargets.find((t: any) => t.id === transferToUserId)?.uniqueId ? ` [${transferTargets.find((t: any) => t.id === transferToUserId)?.uniqueId}]` : ''}
+                                </p>
+                            </div>
+                        )}
                         <div>
                             <label className="text-sm font-medium mb-2 block">转账金额</label>
                             <Input

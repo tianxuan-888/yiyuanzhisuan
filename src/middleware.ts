@@ -118,9 +118,15 @@ const PUBLIC_PATHS = [
   '/api/balance/convert-to-points',
   '/api/admin/dashboard',
   '/api/branch/withdraw',
+  '/api/branch/withdraw-review',
   '/api/provider/withdrawals',
   '/api/provider/withdraw-request',
   '/api/users/search',
+  '/api/admin/clear-user-data',
+  '/api/branch/revenue-records',
+  '/api/branch/overview',
+  '/api/member/balance',
+  '/api/provider/recharge-request/approve',
 ];
 
 // 静态资源和页面路径不走 API 认证

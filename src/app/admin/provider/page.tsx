@@ -13,7 +13,7 @@ import {
   Shield, Award, Users, ArrowRightLeft, Plus, LogOut, 
   ChevronRight, ChevronLeft, Gift, Copy, Check, Lock, TrendingUp,
   Search, X, Eye, EyeOff, TrendingDown, ArrowUpRight, ArrowDownRight,
-  DollarSign, CreditCard, ArrowUp, ArrowDown, RefreshCw, Filter, Edit, Menu
+  DollarSign, CreditCard, ArrowUp, ArrowDown, RefreshCw, Filter, Edit, Menu, ArrowLeftRight
 } from 'lucide-react';
 import { ChangePasswordDialog } from '@/components/admin/ChangePasswordDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -149,6 +149,15 @@ export default function ProviderDashboard() {
   const [repurchasingId, setRepurchasingId] = useState<string | null>(null);
 
   const [matchConfirming, setMatchConfirming] = useState<string | null>(null);
+
+  // 智算金互转状态
+  const [showBalanceTransfer, setShowBalanceTransfer] = useState(false);
+  const [transferSearchKeyword, setTransferSearchKeyword] = useState('');
+  const [transferTargets, setTransferTargets] = useState<any[]>([]);
+  const [transferToUserId, setTransferToUserId] = useState('');
+  const [transferToAmount, setTransferToAmount] = useState('');
+  const [transferToNote, setTransferToNote] = useState('');
+  const [transferring, setTransferring] = useState(false);
 
   // Toast
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
@@ -713,6 +722,7 @@ export default function ProviderDashboard() {
     { id: 'transfer', name: '产品匹配', icon: ArrowRightLeft, badge: matchProducts.filter(p => p.status === 'pending_match').length },
     { id: 'quota', name: '算力额度', icon: Database, badge: 0 },
     { id: 'energy', name: '收益管理', icon: Coins, badge: 0 },
+    { id: 'balance-transfer', name: '智算金互转', icon: ArrowLeftRight, badge: 0 },
     { id: 'product-showcase', name: '产品展示', icon: Package, badge: 0 },
   ];
 
@@ -727,6 +737,7 @@ export default function ProviderDashboard() {
     transfer: '产品流转',
     quota: '算力额度',
     energy: '收益管理',
+    'balance-transfer': '智算金互转',
     'product-showcase': '产品展示',
   };
 
@@ -1892,6 +1903,103 @@ export default function ProviderDashboard() {
             </Dialog>
           </div>
         );
+
+      case 'balance-transfer': {
+        const providerUserId = localStorage.getItem('userId') || '';
+        const searchTransferTargets = () => {
+          if (!transferSearchKeyword.trim()) return;
+          fetch(`/api/balance/transfer?userId=${providerUserId}&keyword=${encodeURIComponent(transferSearchKeyword.trim())}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+            .then(r => r.json())
+            .then(data => {
+              if (data.success) setTransferTargets(data.data || []);
+              else { setTransferTargets([]); setToast({ message: data.error || '搜索失败', type: 'error' }); }
+            })
+            .catch(() => { setTransferTargets([]); setToast({ message: '搜索失败', type: 'error' }); });
+        };
+        const handleBalanceTransfer = async () => {
+          if (!transferToUserId || !transferToAmount || parseFloat(transferToAmount) < 100) {
+            setToast({ message: '请选择转账对象且金额不低于100', type: 'error' });
+            return;
+          }
+          setTransferring(true);
+          try {
+            const res = await fetch('/api/balance/transfer', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ fromUserId: providerUserId, toUserId: transferToUserId, amount: parseFloat(transferToAmount), note: transferToNote }),
+            });
+            const data = await res.json();
+            if (data.success) {
+              setToast({ message: data.message, type: 'success' });
+              setShowBalanceTransfer(false);
+              setTransferToUserId('');
+              setTransferToAmount('');
+              setTransferToNote('');
+              setTransferTargets([]);
+              fetchEnergy();
+            } else {
+              setToast({ message: data.error || '转账失败', type: 'error' });
+            }
+          } catch { setToast({ message: '网络错误', type: 'error' }); }
+          finally { setTransferring(false); }
+        };
+        return (
+          <div className="space-y-6">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">智算金互转</h1>
+              <p className="text-gray-500 text-sm mt-1">向其他用户互转智算金，5%自动转为积分，95%到账对方</p>
+            </div>
+            <Card>
+              <CardContent className="p-6 space-y-4">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <p className="text-sm text-amber-700"><strong>说明：</strong>互转时5%自动转化为积分（归您），95%到账对方智算金。最低转账金额为100。</p>
+                </div>
+                <div className="bg-slate-100 rounded-lg p-3">
+                  <p className="text-xs text-gray-500">您的智算金余额</p>
+                  <p className="text-xl font-bold text-green-600">¥{balanceInfo.balance.toLocaleString()}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">搜索转账对象</label>
+                  <div className="flex gap-2">
+                    <Input placeholder="输入用户名/手机号/专属ID" value={transferSearchKeyword} onChange={(e) => setTransferSearchKeyword(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') searchTransferTargets(); }} />
+                    <Button variant="outline" onClick={searchTransferTargets}><Search className="w-4 h-4 mr-1" />搜索</Button>
+                  </div>
+                </div>
+                {transferTargets.length > 0 && (
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">选择转账对象</label>
+                    <select className="w-full p-2 border rounded-md bg-white" value={transferToUserId} onChange={(e) => setTransferToUserId(e.target.value)}>
+                      <option value="">请选择</option>
+                      {transferTargets.map((t: any) => (
+                        <option key={t.id} value={t.id}>{t.username} {t.uniqueId ? `[${t.uniqueId}]` : ''} {t.phone ? `(${t.phone})` : ''} - {t.roleLabel || t.role}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {transferToUserId && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <p className="text-sm text-green-700">已选择：{transferTargets.find((t: any) => t.id === transferToUserId)?.username} {transferTargets.find((t: any) => t.id === transferToUserId)?.uniqueId ? `[${transferTargets.find((t: any) => t.id === transferToUserId)?.uniqueId}]` : ''}</p>
+                  </div>
+                )}
+                <div>
+                  <label className="text-sm font-medium mb-2 block">转账金额</label>
+                  <Input type="number" placeholder="请输入转账金额（最低100）" value={transferToAmount} onChange={(e) => setTransferToAmount(e.target.value)} min="100" />
+                  <p className="text-xs text-gray-500 mt-1">{transferToAmount && parseFloat(transferToAmount) > 0 ? `到账: ${(parseFloat(transferToAmount) * 0.95).toFixed(2)} | 积分: ${(parseFloat(transferToAmount) * 0.05).toFixed(2)}` : '互转时5%转化为积分，95%到账对方'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">备注（可选）</label>
+                  <Input placeholder="如: 业务转账" value={transferToNote} onChange={(e) => setTransferToNote(e.target.value)} />
+                </div>
+                <Button className="w-full bg-amber-600 hover:bg-amber-700" disabled={transferring || !transferToUserId || !transferToAmount || parseFloat(transferToAmount) < 100} onClick={handleBalanceTransfer}>
+                  {transferring ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ArrowLeftRight className="w-4 h-4 mr-2" />}确认转账
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      }
 
       case 'product-showcase': {
         const getProductTier = (price: number) => {
