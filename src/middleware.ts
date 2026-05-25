@@ -115,6 +115,7 @@ const PUBLIC_PATHS = [
   '/api/admin/withdraw-review',
   '/api/admin/transfer-balance',
   '/api/balance/transfer',
+  '/api/balance/convert',
   '/api/balance/convert-to-points',
   '/api/admin/dashboard',
   '/api/branch/withdraw',

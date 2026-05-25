@@ -1371,7 +1371,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                 <TrendingUp className="w-5 h-5 mobile-icon" />
                                 <span className="opacity-80 text-sm mobile-label">智算金</span>
                             </div>
-                            <p className="text-2xl font-bold mt-2 mobile-num">¥{stats.total_profit?.toLocaleString() || 0}</p>
+                            <p className="text-2xl font-bold mt-2 mobile-num">¥{user?.balance?.toLocaleString() || 0}</p>
                         </CardContent>
                     </Card>
                 </div>
@@ -2692,7 +2692,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             <span className="text-sm opacity-80">预期收益</span>
                                         </div>
                                         <p className="text-2xl font-bold">¥{profitStats.holdingExpectedProfit?.toLocaleString() || 0}</p>
-                                        <p className="text-xs opacity-70 mt-1">智算金: ¥{profitStats.totalProfit?.toLocaleString() || 0}</p>
+                                        <p className="text-xs opacity-70 mt-1">可用智算金: ¥{user?.balance?.toLocaleString() || 0}</p>
                                     </CardContent>
                                 </Card>
                                 <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
@@ -3276,7 +3276,16 @@ const [copySuccess, setCopySuccess] = useState(false);
                                         authFetch(`/api/balance/transfer?userId=${userId}&keyword=${encodeURIComponent(transferSearchKeyword.trim())}`)
                                             .then(r => r.json())
                                             .then(data => {
-                                                if (data.success) setTransferTargets(data.data || []);
+                                                if (data.success) {
+                                                    const targets = data.data || [];
+                                                    setTransferTargets(targets);
+                                                    // 只有一个结果时自动选中
+                                                    if (targets.length === 1) {
+                                                        setTransferToUserId(targets[0].id);
+                                                    } else {
+                                                        setTransferToUserId('');
+                                                    }
+                                                }
                                                 else { setTransferTargets([]); showMessage("error", data.error || "搜索失败"); }
                                             })
                                             .catch(() => { setTransferTargets([]); showMessage("error", "搜索失败"); });
@@ -3286,21 +3295,30 @@ const [copySuccess, setCopySuccess] = useState(false);
                                 }}>搜索</Button>
                             </div>
                         </div>
-                        {transferTargets.length > 0 && (
-                            <div>
-                                <label className="text-sm font-medium mb-2 block">选择转账对象</label>
-                                <select
-                                    className="w-full p-2 border rounded-md bg-white"
-                                    value={transferToUserId}
-                                    onChange={(e) => setTransferToUserId(e.target.value)}
-                                >
-                                    <option value="">请选择</option>
-                                    {transferTargets.map((t: any) => (
-                                        <option key={t.id} value={t.id}>
-                                            {t.username} {t.uniqueId ? `[${t.uniqueId}]` : ''} {t.phone ? `(${t.phone})` : ''} - {t.roleLabel || t.role}
-                                        </option>
-                                    ))}
-                                </select>
+                        {transferTargets.length === 1 && (
+                            <div className="bg-green-50 border border-green-200 rounded-lg p-3 cursor-pointer hover:bg-green-100 transition-colors" onClick={() => setTransferToUserId(transferTargets[0].id)}>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="font-medium text-green-800">{transferTargets[0].username} {transferTargets[0].uniqueId ? `[${transferTargets[0].uniqueId}]` : ''}</p>
+                                        <p className="text-xs text-green-600">{transferTargets[0].phone || ''} · {transferTargets[0].roleLabel || transferTargets[0].role}</p>
+                                    </div>
+                                    {transferToUserId === transferTargets[0].id ? (
+                                        <Badge className="bg-green-600 text-white">已选择</Badge>
+                                    ) : (
+                                        <span className="text-xs text-green-500">点击选择</span>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                        {transferTargets.length > 1 && (
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium mb-1 block">搜索到多个用户，请选择</label>
+                                {transferTargets.map((t: any) => (
+                                    <div key={t.id} className={`rounded-lg p-3 cursor-pointer transition-colors border ${transferToUserId === t.id ? 'bg-green-50 border-green-400' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`} onClick={() => setTransferToUserId(t.id)}>
+                                        <p className="font-medium text-sm">{t.username} {t.uniqueId ? `[${t.uniqueId}]` : ''}</p>
+                                        <p className="text-xs text-gray-500">{t.phone || ''} · {t.roleLabel || t.role}</p>
+                                    </div>
+                                ))}
                             </div>
                         )}
                         {transferToUserId && (

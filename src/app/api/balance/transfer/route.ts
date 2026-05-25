@@ -107,12 +107,10 @@ export async function POST(request: NextRequest) {
       })]
     );
 
-    // 7. 记录积分流水
+    // 7. 更新积分（5%转为积分）
     await query(
-      `INSERT INTO points_records (id, user_id, type, amount, balance_after, description, created_at)
-       VALUES (gen_random_uuid(), $1, 'transfer_fee', $2, 
-        (SELECT points FROM users WHERE id::text = $1), $3, NOW())`,
-      [fromUserId, pointsFee, `互转${transferAmount}智算金，获得5%积分`]
+      'UPDATE users SET points = COALESCE(points, 0) + $1 WHERE id::text = $2',
+      [pointsFee, fromUserId]
     );
 
     // 查询更新后的余额

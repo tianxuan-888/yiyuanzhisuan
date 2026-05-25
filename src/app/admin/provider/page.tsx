@@ -158,6 +158,8 @@ export default function ProviderDashboard() {
   const [transferToAmount, setTransferToAmount] = useState('');
   const [transferToNote, setTransferToNote] = useState('');
   const [transferring, setTransferring] = useState(false);
+  const [convertAmount, setConvertAmount] = useState('');
+  const [converting, setConverting] = useState(false);
 
   // Toast
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
@@ -1913,8 +1915,15 @@ export default function ProviderDashboard() {
           })
             .then(r => r.json())
             .then(data => {
-              if (data.success) setTransferTargets(data.data || []);
-              else { setTransferTargets([]); setToast({ message: data.error || '搜索失败', type: 'error' }); }
+              if (data.success) {
+                const targets = data.data || [];
+                setTransferTargets(targets);
+                if (targets.length === 1) {
+                  setTransferToUserId(targets[0].id);
+                } else {
+                  setTransferToUserId('');
+                }
+              } else { setTransferTargets([]); setToast({ message: data.error || '搜索失败', type: 'error' }); }
             })
             .catch(() => { setTransferTargets([]); setToast({ message: '搜索失败', type: 'error' }); });
         };
@@ -1994,6 +2003,48 @@ export default function ProviderDashboard() {
                 </div>
                 <Button className="w-full bg-amber-600 hover:bg-amber-700" disabled={transferring || !transferToUserId || !transferToAmount || parseFloat(transferToAmount) < 100} onClick={handleBalanceTransfer}>
                   {transferring ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ArrowLeftRight className="w-4 h-4 mr-2" />}确认转账
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* 智算金转积分 */}
+            <Card>
+              <CardContent className="p-6 space-y-4">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">智算金转积分</h2>
+                  <p className="text-xs text-gray-500 mt-1">将智算金按1:1比例转换为积分，转换后不可撤回</p>
+                </div>
+                <div className="bg-slate-100 rounded-lg p-3">
+                  <p className="text-xs text-gray-500">您的智算金余额</p>
+                  <p className="text-xl font-bold text-green-600">¥{balanceInfo.balance.toLocaleString()}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">转换金额</label>
+                  <Input type="number" placeholder="请输入转换金额（最低50）" value={convertAmount} onChange={(e) => setConvertAmount(e.target.value)} min="50" />
+                  <p className="text-xs text-gray-500 mt-1">转换后获得等额积分：{convertAmount && parseFloat(convertAmount) > 0 ? parseFloat(convertAmount).toFixed(0) + ' 积分' : '-'}</p>
+                </div>
+                <Button className="w-full bg-violet-600 hover:bg-violet-700" disabled={converting || !convertAmount || parseFloat(convertAmount) < 50 || parseFloat(convertAmount) > balanceInfo.balance} onClick={async () => {
+                  if (!convertAmount || parseFloat(convertAmount) < 50) { setToast({ message: '最低转换金额为50', type: 'error' }); return; }
+                  if (parseFloat(convertAmount) > balanceInfo.balance) { setToast({ message: '余额不足', type: 'error' }); return; }
+                  setConverting(true);
+                  try {
+                    const res = await fetch('/api/balance/convert', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                      body: JSON.stringify({ userId: providerUserId, amount: parseFloat(convertAmount), type: 'to_points' }),
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                      setToast({ message: data.message || '转换成功', type: 'success' });
+                      setConvertAmount('');
+                      fetchEnergy();
+                    } else {
+                      setToast({ message: data.error || '转换失败', type: 'error' });
+                    }
+                  } catch { setToast({ message: '网络错误', type: 'error' }); }
+                  finally { setConverting(false); }
+                }}>
+                  {converting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Coins className="w-4 h-4 mr-2" />}确认转换为积分
                 </Button>
               </CardContent>
             </Card>
