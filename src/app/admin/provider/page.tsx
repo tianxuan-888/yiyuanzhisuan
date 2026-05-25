@@ -894,7 +894,40 @@ export default function ProviderDashboard() {
               <h1 className="text-2xl font-bold text-gray-900">数据总览</h1>
               <p className="text-gray-500 text-sm mt-1">欢迎回来，{user?.username || '服务商'}</p>
             </div>
-            <div className="grid grid-cols-4 gap-6">
+            {/* 智算金大卡片 */}
+            <Card className="bg-gradient-to-br from-purple-600 to-indigo-700 text-white border-0">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+                        <DollarSign className="w-5 h-5 text-white" />
+                      </div>
+                      <span className="text-purple-200 text-sm font-medium">智算金</span>
+                    </div>
+                    <p className="text-3xl font-bold mt-2">¥{(user?.balance || 0).toLocaleString()}</p>
+                    <div className="flex gap-2 mt-4">
+                      <Button size="sm" className="h-8 text-xs bg-white/20 hover:bg-white/30 text-white border-0"
+                        onClick={() => setActiveMenu('balance-transfer')}>
+                        <ArrowLeftRight className="w-3.5 h-3.5 mr-1" />互转
+                      </Button>
+                      <Button size="sm" className="h-8 text-xs bg-white/20 hover:bg-white/30 text-white border-0"
+                        onClick={() => setShowBalanceConvertDialog(true)}>
+                        <Repeat className="w-3.5 h-3.5 mr-1" />转积分
+                      </Button>
+                      <Button size="sm" className="h-8 text-xs bg-white/20 hover:bg-white/30 text-white border-0"
+                        onClick={() => setShowWithdrawDialog(true)}>
+                        <Wallet className="w-3.5 h-3.5 mr-1" />提现
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center">
+                    <Coins className="w-8 h-8 text-white/80" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <div className="grid grid-cols-3 gap-6">
               <Card>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
@@ -904,33 +937,6 @@ export default function ProviderDashboard() {
                     </div>
                     <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white">
                       <Users className="w-6 h-6" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-500">收益余额</p>
-                      <p className="text-3xl font-bold mt-1">{user?.balance || 0}</p>
-                      <div className="flex gap-2 mt-3">
-                        <Button size="sm" variant="outline" className="h-7 text-xs"
-                          onClick={() => setActiveMenu('balance-transfer')}>
-                          <ArrowLeftRight className="w-3 h-3 mr-1" />互转
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-7 text-xs"
-                          onClick={() => setShowBalanceConvertDialog(true)}>
-                          <Repeat className="w-3 h-3 mr-1" />转积分
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-7 text-xs"
-                          onClick={() => setShowWithdrawDialog(true)}>
-                          <Wallet className="w-3 h-3 mr-1" />提现
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white">
-                      <Coins className="w-6 h-6" />
                     </div>
                   </div>
                 </CardContent>
