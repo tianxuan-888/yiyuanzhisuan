@@ -1,78 +1,166 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/storage/database/pg-client';
+import { query, queryOne } from '@/storage/database/pg-client';
 
-// 获取智算总台数据总览统计
+// 获取智算总台数据总览统计 - 优化版：使用SQL聚合替代全表查询
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'all';
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
+
+    const promises: Record<string, any> = {};
 
     // ============ 产品数据统计 ============
-    const productStats = {
-      totalSold: 0,
-      idleCount: 0,
-      totalSalesAmount: 0,
-      todaySold: 0,
-      todaySalesAmount: 0,
-      productsByPeriod: [] as { period: number; count: number; amount: number }[],
-      salesTrend: [] as { date: string; count: number; amount: number }[],
-    };
-
     if (type === 'all' || type === 'product') {
-      const products = await query<{
-        id: string; status: string; price: number; period: number; updated_at: string; created_at: string;
-      }>(`SELECT id, status, price, period, updated_at, created_at FROM products`);
+      // 用SQL聚合一次查询获取所有产品统计
+      promises.productBase = queryOne<{
+        total_sold: string; idle_count: string; total_sales: string;
+        today_sold: string; today_sales: string;
+      }>(`
+        SELECT
+          COALESCE(SUM(CASE WHEN status = 'sold' THEN 1 ELSE 0 END), 0)::text as total_sold,
+          COALESCE(SUM(CASE WHEN status IN ('available','unlisted') THEN 1 ELSE 0 END), 0)::text as idle_count,
+          COALESCE(SUM(CASE WHEN status = 'sold' THEN price ELSE 0 END), 0)::text as total_sales,
+          COALESCE(SUM(CASE WHEN status = 'sold' AND updated_at::date = CURRENT_DATE THEN 1 ELSE 0 END), 0)::text as today_sold,
+          COALESCE(SUM(CASE WHEN status = 'sold' AND updated_at::date = CURRENT_DATE THEN price ELSE 0 END), 0)::text as today_sales
+        FROM products
+      `);
 
-      productStats.totalSold = products.filter(p => p.status === 'sold').length;
-      productStats.idleCount = products.filter(p => p.status === 'available' || p.status === 'unlisted').length;
-      productStats.totalSalesAmount = products
-        .filter(p => p.status === 'sold')
-        .reduce((sum, p) => sum + (p.price || 0), 0);
+      // 按周期分布（仅已售出）
+      promises.productsByPeriod = query<{ period: number; count: string; amount: string }>(`
+        SELECT period,
+          COUNT(*)::text as count,
+          COALESCE(SUM(price), 0)::text as amount
+        FROM products WHERE status = 'sold'
+        GROUP BY period ORDER BY period
+      `);
 
-      const today = new Date().toISOString().split('T')[0];
-      const todayProducts = products.filter(p => p.status === 'sold' && p.updated_at && p.updated_at.startsWith(today));
-      productStats.todaySold = todayProducts.length;
-      productStats.todaySalesAmount = todayProducts.reduce((sum, p) => sum + (p.price || 0), 0);
-
-      const periodMap = new Map<number, { count: number; amount: number }>();
-      products.filter(p => p.status === 'sold').forEach(p => {
-        const existing = periodMap.get(p.period) || { count: 0, amount: 0 };
-        periodMap.set(p.period, { count: existing.count + 1, amount: existing.amount + (p.price || 0) });
-      });
-      productStats.productsByPeriod = Array.from(periodMap.entries())
-        .map(([period, data]) => ({ period, ...data }))
-        .sort((a, b) => a.period - b.period);
-
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const recentOrders = await query<{ created_at: string; amount: number }>(
-        `SELECT created_at, amount FROM orders WHERE order_type = 'buy' AND status = 'completed' AND created_at >= $1`,
-        [sevenDaysAgo.toISOString()]
-      );
-
-      const orderMap = new Map<string, { count: number; amount: number }>();
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        orderMap.set(date.toISOString().split('T')[0], { count: 0, amount: 0 });
-      }
-      recentOrders.forEach(order => {
-        const dateStr = order.created_at.split('T')[0];
-        const existing = orderMap.get(dateStr);
-        if (existing) { existing.count += 1; existing.amount += order.amount || 0; }
-      });
-      productStats.salesTrend = Array.from(orderMap.entries()).map(([date, data]) => ({ date, ...data }));
+      // 近7天销售趋势
+      promises.salesTrend = query<{ date: string; count: string; amount: string }>(`
+        SELECT d.date::text,
+          COALESCE(COUNT(o.id), 0)::text as count,
+          COALESCE(SUM(o.amount), 0)::text as amount
+        FROM generate_series(CURRENT_DATE - INTERVAL '6 days', CURRENT_DATE, '1 day') AS d(date)
+        LEFT JOIN orders o ON o.order_type = 'buy' AND o.status = 'completed' AND o.created_at::date = d.date
+        GROUP BY d.date ORDER BY d.date
+      `);
     }
 
     // ============ 用户数据统计 ============
+    if (type === 'all' || type === 'user') {
+      // 用户基础统计 + 按角色分布
+      promises.userBase = queryOne<{
+        total_users: string; total_members: string;
+        today_new_users: string; today_new_members: string;
+      }>(`
+        SELECT
+          COUNT(*)::text as total_users,
+          COALESCE(SUM(CASE WHEN role = 'member' THEN 1 ELSE 0 END), 0)::text as total_members,
+          COALESCE(SUM(CASE WHEN created_at::date = CURRENT_DATE THEN 1 ELSE 0 END), 0)::text as today_new_users,
+          COALESCE(SUM(CASE WHEN role = 'member' AND created_at::date = CURRENT_DATE THEN 1 ELSE 0 END), 0)::text as today_new_members
+        FROM users
+      `);
+
+      // 角色分布
+      promises.userByRole = query<{ role: string; count: string }>(`
+        SELECT role, COUNT(*)::text as count FROM users GROUP BY role
+      `);
+
+      // 分公司分布
+      promises.userByBranch = query<{ branch_id: string; count: string }>(`
+        SELECT branch_id, COUNT(*)::text as count FROM users WHERE branch_id IS NOT NULL GROUP BY branch_id
+      `);
+
+      // 近7天新增用户趋势
+      promises.newUsersTrend = query<{ date: string; count: string }>(`
+        SELECT d.date::text,
+          COALESCE(COUNT(u.id), 0)::text as count
+        FROM generate_series(CURRENT_DATE - INTERVAL '6 days', CURRENT_DATE, '1 day') AS d(date)
+        LEFT JOIN users u ON u.created_at::date = d.date
+        GROUP BY d.date ORDER BY d.date
+      `);
+
+      // 今日购买金额 + 近7天购买趋势
+      promises.purchaseTrend = query<{ date: string; amount: string }>(`
+        SELECT d.date::text,
+          COALESCE(SUM(o.amount), 0)::text as amount
+        FROM generate_series(CURRENT_DATE - INTERVAL '6 days', CURRENT_DATE, '1 day') AS d(date)
+        LEFT JOIN orders o ON o.order_type = 'buy' AND o.status = 'completed' AND o.created_at::date = d.date
+        GROUP BY d.date ORDER BY d.date
+      `);
+    }
+
+    // ============ 收益数据统计 ============
+    if (type === 'all' || type === 'energy') {
+      // 按角色聚合balance
+      promises.balanceByRole = query<{ role: string; total: string }>(`
+        SELECT role, COALESCE(SUM(balance), 0)::text as total FROM users GROUP BY role
+      `);
+
+      // Top 10 收益用户
+      promises.topBalanceUsers = query<{ user_id: string; username: string; balance: string }>(`
+        SELECT id as user_id, username, COALESCE(balance, 0)::text as balance
+        FROM users WHERE balance > 0
+        ORDER BY balance DESC LIMIT 10
+      `);
+
+      // 近7天收益趋势（从release_records获取）
+      promises.balanceTrend = (async () => {
+        try {
+          return await query<{ date: string; change: string }>(`
+            SELECT d.date::text,
+              COALESCE(SUM(rr.release_amount), 0)::text as change
+            FROM generate_series(CURRENT_DATE - INTERVAL '6 days', CURRENT_DATE, '1 day') AS d(date)
+            LEFT JOIN release_records rr ON rr.created_at::date = d.date
+            GROUP BY d.date ORDER BY d.date
+          `);
+        } catch {
+          return [];
+        }
+      })();
+    }
+
+    // 并行执行所有查询
+    const results = await Promise.all(
+      Object.entries(promises).map(([key, promise]) =>
+        Promise.resolve(promise).then(value => ({ key, value }))
+      )
+    );
+
+    // 汇总结果
+    const data: Record<string, any> = {};
+    for (const { key, value } of results) {
+      data[key] = value;
+    }
+
+    // 构建产品统计
+    const productStats = {
+      totalSold: 0, idleCount: 0, totalSalesAmount: 0,
+      todaySold: 0, todaySalesAmount: 0,
+      productsByPeriod: [] as { period: number; count: number; amount: number }[],
+      salesTrend: [] as { date: string; count: number; amount: number }[],
+    };
+    if (data.productBase) {
+      productStats.totalSold = parseInt(data.productBase.total_sold) || 0;
+      productStats.idleCount = parseInt(data.productBase.idle_count) || 0;
+      productStats.totalSalesAmount = parseFloat(data.productBase.total_sales) || 0;
+      productStats.todaySold = parseInt(data.productBase.today_sold) || 0;
+      productStats.todaySalesAmount = parseFloat(data.productBase.today_sales) || 0;
+    }
+    if (data.productsByPeriod) {
+      productStats.productsByPeriod = data.productsByPeriod.map((p: any) => ({
+        period: p.period, count: parseInt(p.count), amount: parseFloat(p.amount),
+      }));
+    }
+    if (data.salesTrend) {
+      productStats.salesTrend = data.salesTrend.map((s: any) => ({
+        date: s.date, count: parseInt(s.count), amount: parseFloat(s.amount),
+      }));
+    }
+
+    // 构建用户统计
     const userStats = {
-      totalUsers: 0,
-      totalMembers: 0,
-      todayNewUsers: 0,
-      todayNewMembers: 0,
-      todayPurchaseAmount: 0,
+      totalUsers: 0, totalMembers: 0,
+      todayNewUsers: 0, todayNewMembers: 0, todayPurchaseAmount: 0,
       newUsersTrend: [] as { date: string; count: number }[],
       purchaseTrend: [] as { date: string; amount: number }[],
       userDistribution: {
@@ -80,61 +168,38 @@ export async function GET(request: NextRequest) {
         byBranch: {} as Record<string, number>,
       },
     };
-
-    if (type === 'all' || type === 'user') {
-      const users = await query<{
-        id: string; role: string; created_at: any; branch_id: string | null;
-      }>(`SELECT id, role, created_at::text as created_at, branch_id FROM users`);
-
-      userStats.totalUsers = users.length;
-      userStats.totalMembers = users.filter(u => u.role === 'member').length;
-
+    if (data.userBase) {
+      userStats.totalUsers = parseInt(data.userBase.total_users) || 0;
+      userStats.totalMembers = parseInt(data.userBase.total_members) || 0;
+      userStats.todayNewUsers = parseInt(data.userBase.today_new_users) || 0;
+      userStats.todayNewMembers = parseInt(data.userBase.today_new_members) || 0;
+    }
+    if (data.userByRole) {
+      data.userByRole.forEach((r: any) => {
+        userStats.userDistribution.byRole[r.role] = parseInt(r.count);
+      });
+    }
+    if (data.userByBranch) {
+      data.userByBranch.forEach((b: any) => {
+        userStats.userDistribution.byBranch[b.branch_id] = parseInt(b.count);
+      });
+    }
+    if (data.newUsersTrend) {
+      userStats.newUsersTrend = data.newUsersTrend.map((u: any) => ({
+        date: u.date, count: parseInt(u.count),
+      }));
+    }
+    if (data.purchaseTrend) {
+      userStats.purchaseTrend = data.purchaseTrend.map((p: any) => ({
+        date: p.date, amount: parseFloat(p.amount),
+      }));
+      // 今日购买金额
       const today = new Date().toISOString().split('T')[0];
-      userStats.todayNewUsers = users.filter(u => String(u.created_at || '').startsWith(today)).length;
-      userStats.todayNewMembers = users.filter(u => u.role === 'member' && String(u.created_at || '').startsWith(today)).length;
-
-      const roleMap = new Map<string, number>();
-      users.forEach(u => { roleMap.set(u.role, (roleMap.get(u.role) || 0) + 1); });
-      userStats.userDistribution.byRole = Object.fromEntries(roleMap);
-
-      const branchMap = new Map<string, number>();
-      users.forEach(u => { if (u.branch_id) branchMap.set(u.branch_id, (branchMap.get(u.branch_id) || 0) + 1); });
-      userStats.userDistribution.byBranch = Object.fromEntries(branchMap);
-
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const recentUsers = users.filter(u => u.created_at && new Date(String(u.created_at)) >= sevenDaysAgo);
-      const newUserMap = new Map<string, number>();
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        newUserMap.set(date.toISOString().split('T')[0], 0);
-      }
-      recentUsers.forEach(u => {
-        const dateStr = String(u.created_at || '').split('T')[0];
-        if (newUserMap.has(dateStr)) newUserMap.set(dateStr, (newUserMap.get(dateStr) || 0) + 1);
-      });
-      userStats.newUsersTrend = Array.from(newUserMap.entries()).map(([date, count]) => ({ date, count }));
-
-      const recentOrders = await query<{ created_at: string; amount: number }>(
-        `SELECT created_at, amount FROM orders WHERE order_type = 'buy' AND status = 'completed' AND created_at >= $1`,
-        [sevenDaysAgo.toISOString()]
-      );
-      const purchaseMap = new Map<string, number>();
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        purchaseMap.set(date.toISOString().split('T')[0], 0);
-      }
-      recentOrders.forEach(order => {
-        const dateStr = order.created_at.split('T')[0];
-        if (purchaseMap.has(dateStr)) purchaseMap.set(dateStr, (purchaseMap.get(dateStr) || 0) + (order.amount || 0));
-      });
-      userStats.todayPurchaseAmount = purchaseMap.get(today) || 0;
-      userStats.purchaseTrend = Array.from(purchaseMap.entries()).map(([date, amount]) => ({ date, amount }));
+      const todayData = data.purchaseTrend.find((p: any) => p.date === today);
+      userStats.todayPurchaseAmount = todayData ? parseFloat(todayData.amount) : 0;
     }
 
-    // ============ 收益数据统计（原能量值，改为基于balance） ============
+    // 构建收益统计
     const balanceStats = {
       totalBalance: 0,
       todayBalanceChange: 0,
@@ -143,79 +208,42 @@ export async function GET(request: NextRequest) {
         byProvider: {} as Record<string, number>,
         byMember: {} as Record<string, number>,
         byBranch: {} as Record<string, number>,
-        admin: 0,
-        branch: 0,
-        provider: 0,
-        member: 0,
+        admin: 0, branch: 0, provider: 0, member: 0,
       },
       topBalanceUsers: [] as { userId: string; username: string; balance: number }[],
     };
-
-    if (type === 'all' || type === 'energy') {
-      // 直接从users表获取balance
-      const usersWithBalance = await query<{
-        id: string; username: string; role: string; balance: any;
-      }>(`SELECT id, username, role, balance FROM users`);
-
-      const balanceMap = new Map<string, number>();
-      let branchBalance = 0, providerBalance = 0, memberBalance = 0, adminBalance = 0;
-
-      usersWithBalance.forEach(u => {
-        const bal = parseFloat(String(u.balance || '0')) || 0;
-        balanceMap.set(u.id, bal);
-        switch (u.role) {
-          case 'admin': adminBalance += bal; break;
-          case 'branch': branchBalance += bal; break;
-          case 'provider': providerBalance += bal; break;
-          case 'member': memberBalance += bal; break;
+    if (data.balanceByRole) {
+      let totalBalance = 0;
+      data.balanceByRole.forEach((r: any) => {
+        const val = parseFloat(r.total) || 0;
+        totalBalance += val;
+        switch (r.role) {
+          case 'admin': balanceStats.balanceDistribution.admin = val; break;
+          case 'branch': balanceStats.balanceDistribution.branch = val; break;
+          case 'provider': balanceStats.balanceDistribution.provider = val; break;
+          case 'member': balanceStats.balanceDistribution.member = val; break;
         }
       });
-
-      balanceStats.totalBalance = adminBalance + branchBalance + providerBalance + memberBalance;
-      balanceStats.balanceDistribution = {
-        admin: adminBalance, branch: branchBalance, provider: providerBalance, member: memberBalance,
-        byProvider: { total: providerBalance }, byMember: { total: memberBalance }, byBranch: { total: branchBalance },
-      };
-
-      // Top 10 收益用户
-      balanceStats.topBalanceUsers = usersWithBalance
-        .filter(u => (balanceMap.get(u.id) || 0) > 0)
-        .map(u => ({ userId: u.id, username: u.username, balance: balanceMap.get(u.id) || 0 }))
-        .sort((a, b) => b.balance - a.balance)
-        .slice(0, 10);
-
-      // 近7天收益趋势（从release_records获取5%释放记录）
-      const trendMap = new Map<string, number>();
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        trendMap.set(date.toISOString().split('T')[0], 0);
-      }
-
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-      try {
-        const releaseRecords = await query<{ created_at: any; release_amount: number }>(
-          `SELECT created_at::text as created_at, release_amount FROM release_records WHERE created_at >= $1`,
-          [sevenDaysAgo.toISOString()]
-        );
-        if (releaseRecords && releaseRecords.length > 0) {
-          releaseRecords.forEach(rr => {
-            const dateStr = String(rr.created_at || '').split('T')[0];
-            if (trendMap.has(dateStr)) trendMap.set(dateStr, (trendMap.get(dateStr) || 0) + (parseFloat(String(rr.release_amount)) || 0));
-          });
-        }
-      } catch {
-        // release_records表可能不存在
-      }
-
+      balanceStats.totalBalance = totalBalance;
+      balanceStats.balanceDistribution.byProvider = { total: balanceStats.balanceDistribution.provider };
+      balanceStats.balanceDistribution.byMember = { total: balanceStats.balanceDistribution.member };
+      balanceStats.balanceDistribution.byBranch = { total: balanceStats.balanceDistribution.branch };
+    }
+    if (data.topBalanceUsers) {
+      balanceStats.topBalanceUsers = data.topBalanceUsers.map((u: any) => ({
+        userId: u.user_id, username: u.username, balance: parseFloat(u.balance),
+      }));
+    }
+    if (data.balanceTrend && data.balanceTrend.length > 0) {
       const today = new Date().toISOString().split('T')[0];
-      balanceStats.todayBalanceChange = trendMap.get(today) || 0;
+      const todayTrend = data.balanceTrend.find((t: any) => t.date === today);
+      balanceStats.todayBalanceChange = todayTrend ? parseFloat(todayTrend.change) : 0;
 
-      balanceStats.balanceTrend = Array.from(trendMap.entries())
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([date, change]) => ({ date, totalBalance: balanceStats.totalBalance, change }));
+      balanceStats.balanceTrend = data.balanceTrend.map((t: any) => ({
+        date: t.date,
+        totalBalance: balanceStats.totalBalance,
+        change: parseFloat(t.change),
+      }));
     }
 
     return NextResponse.json({
@@ -223,7 +251,7 @@ export async function GET(request: NextRequest) {
       data: {
         product: productStats,
         user: userStats,
-        energy: balanceStats, // 保持字段名兼容前端
+        energy: balanceStats,
       },
     });
   } catch (error) {

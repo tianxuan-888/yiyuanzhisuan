@@ -646,17 +646,29 @@ export default function AdminPage() {
   // 加载数据
   const loadData = useCallback(async () => {
     try {
-      const [membersRes, ordersRes, templatesRes] = await Promise.all([
-        authFetch('/api/admin/members'),
-        authFetch('/api/admin/orders'),
-        authFetch('/api/product-templates'),
+      // 第一批：核心数据并行加载
+      const [membersRes, ordersRes, templatesRes, providersRes, branchesRes, quotaRes, withdrawRes] = await Promise.all([
+        authFetch('/api/admin/members').catch(e => { console.error('获取会员失败:', e); return null; }),
+        authFetch('/api/admin/orders').catch(e => { console.error('获取订单失败:', e); return null; }),
+        authFetch('/api/product-templates').catch(e => { console.error('获取模板失败:', e); return null; }),
+        authFetch('/api/admin/provider-management').catch(e => { console.error('获取服务商列表失败:', e); return null; }),
+        authFetch('/api/admin/users?role=branch').catch(e => { console.error('获取服务网点列表失败:', e); return null; }),
+        authFetch('/api/quota-requests?status=pending&requesterType=branch').catch(e => { console.error('获取额度申请失败:', e); return null; }),
+        authFetch('/api/admin/branch-withdraw-list').catch(e => { console.error('获取服务网点变现申请失败:', e); return null; }),
       ]);
 
-      const membersData = await membersRes.json();
-      const ordersData = await ordersRes.json();
-      const templatesData = await templatesRes.json();
+      // 并行解析JSON
+      const [membersData, ordersData, templatesData, providersData, branchesData, quotaData, withdrawData] = await Promise.all([
+        membersRes?.json().catch(() => null),
+        ordersRes?.json().catch(() => null),
+        templatesRes?.json().catch(() => null),
+        providersRes?.json().catch(() => null),
+        branchesRes?.json().catch(() => null),
+        quotaRes?.json().catch(() => null),
+        withdrawRes?.json().catch(() => null),
+      ]);
 
-      if (membersData.success) {
+      if (membersData?.success) {
         setMembers(membersData.data || []);
         const providerCount = new Set(membersData.data?.filter((m: Member) => m.provider_id).map((m: Member) => m.provider_id)).size;
         setStats(prev => ({
@@ -668,7 +680,7 @@ export default function AdminPage() {
         }));
       }
 
-      if (ordersData.success) {
+      if (ordersData?.success) {
         setOrders(ordersData.data || []);
         const completedOrders = ordersData.data?.filter((o: Order) => o.status === 'completed') || [];
         setStats(prev => ({
@@ -679,8 +691,24 @@ export default function AdminPage() {
         }));
       }
 
-      if (templatesData.success) {
+      if (templatesData?.success) {
         setTemplates(templatesData.data || []);
+      }
+
+      if (providersData?.success) {
+        setProviders(providersData.data?.providers || []);
+      }
+
+      if (branchesData?.success) {
+        setBranches(branchesData.data || []);
+      }
+
+      if (quotaData?.success) {
+        setQuotaRequests(quotaData.data || []);
+      }
+
+      if (withdrawData?.success) {
+        setBranchWithdrawals(withdrawData.data?.records || []);
       }
 
       // 模拟提现数据
@@ -689,86 +717,30 @@ export default function AdminPage() {
         { id: '2', user_id: 'u2', username: 'member001', amount: 10000, alipay_account: 'member@alipay.com', status: 'pending', created_at: '2026-04-02 09:30:00' },
       ]);
 
-      // 获取服务商列表
-      try {
-        const providersRes = await authFetch('/api/admin/provider-management');
-        const providersData = await providersRes.json();
-        if (providersData.success) {
-          setProviders(providersData.data?.providers || []);
-        }
-      } catch (e) {
-        console.error('获取服务商列表失败:', e);
-      }
+      // 第二批：额度相关数据并行加载
+      const adminId = localStorage.getItem('userId');
+      const ts = Date.now();
+      const secondBatch = await Promise.all([
+        adminId ? authFetch(`/api/quota?userId=${adminId}`).catch(e => { console.error('获取管理员额度失败:', e); return null; }) : Promise.resolve(null),
+        authFetch(`/api/quota-accounts?_=${ts}`).catch(e => { console.error('获取额度账户失败:', e); return null; }),
+        authFetch(`/api/quota-records?_=${ts}`).catch(e => { console.error('获取额度记录失败:', e); return null; }),
+      ]);
 
-      // 获取服务网点列表
-      try {
-        const branchesRes = await authFetch('/api/admin/users?role=branch');
-        const branchesData = await branchesRes.json();
-        if (branchesData.success) {
-          setBranches(branchesData.data || []);
-        }
-      } catch (e) {
-        console.error('获取服务网点列表失败:', e);
-      }
+      const [adminDataRes, accountsRes, recordsRes] = await Promise.all([
+        secondBatch[0]?.json().catch(() => null),
+        secondBatch[1]?.json().catch(() => null),
+        secondBatch[2]?.json().catch(() => null),
+      ]);
 
-      // 获取额度申请
-      try {
-        const quotaRes = await authFetch('/api/quota-requests?status=pending&requesterType=branch');
-        const quotaData = await quotaRes.json();
-        if (quotaData.success) {
-          setQuotaRequests(quotaData.data || []);
-        }
-      } catch (e) {
-        console.error('获取额度申请失败:', e);
+      if (adminDataRes?.success) {
+        setAdminData(adminDataRes.data);
       }
-
-      // 获取服务网点变现申请（智算总台审核）
-      try {
-        const withdrawRes = await authFetch('/api/admin/branch-withdraw-list');
-        const withdrawData = await withdrawRes.json();
-        if (withdrawData.success) {
-          // API返回格式: { records: [...], stats: {...} }
-          setBranchWithdrawals(withdrawData.data?.records || []);
-        }
-      } catch (e) {
-        console.error('获取服务网点变现申请失败:', e);
+      if (accountsRes?.success) {
+        setQuotaAccounts(accountsRes.data || []);
       }
-
-      // 获取管理员额度信息
-      try {
-        const adminId = localStorage.getItem('userId');
-        if (adminId) {
-          const adminRes = await authFetch(`/api/quota?userId=${adminId}`);
-          const adminDataRes = await adminRes.json();
-          if (adminDataRes.success) {
-            setAdminData(adminDataRes.data);
-          }
-        }
-      } catch (e) {
-        console.error('获取管理员额度失败:', e);
-      }
-
-      // 获取算力额度数据（添加时间戳防止缓存）
-      try {
-        const ts = Date.now();
-        const [accountsRes, recordsRes] = await Promise.all([
-          authFetch(`/api/quota-accounts?_=${ts}`),
-          authFetch(`/api/quota-records?_=${ts}`),
-        ]);
-        const accountsData = await accountsRes.json();
-        const recordsData = await recordsRes.json();
-        
-        if (accountsData.success) {
-          setQuotaAccounts(accountsData.data || []);
-        } else {
-          console.error('获取额度账户失败:', accountsData.error);
-        }
-        if (recordsData.success) {
-          setQuotaRecords(recordsData.data || []);
-          setQuotaStats(recordsData.stats || { totalIssued: 0, totalIdle: 0, totalUsed: 0 });
-        }
-      } catch (e) {
-        console.error('获取算力额度数据失败:', e);
+      if (recordsRes?.success) {
+        setQuotaRecords(recordsRes.data || []);
+        setQuotaStats(recordsRes.stats || { totalIssued: 0, totalIdle: 0, totalUsed: 0 });
       }
 
       // 生成图表数据
