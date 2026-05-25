@@ -51,6 +51,7 @@ import {
     Phone,
     XCircle,
     Timer,
+    Repeat,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -79,6 +80,7 @@ interface UserProduct {
     status: string;
     purchase_date: string;
     expire_date: string;
+    revenue_released?: boolean;
     products?: {
         name: string;
         code: string;
@@ -244,6 +246,7 @@ const [copySuccess, setCopySuccess] = useState(false);
     const [pointsRecords, setPointsRecords] = useState<any[]>([]);
     const [rechargeRequests, setRechargeRequests] = useState<any[]>([]);
     const [pendingRechargeCount, setPendingRechargeCount] = useState(0);
+    const [releasingRevenue, setReleasingRevenue] = useState<string | null>(null);
     
     // 收益明细相关状态
     const [profitDetails, setProfitDetails] = useState<any[]>([]);
@@ -1372,6 +1375,20 @@ const [copySuccess, setCopySuccess] = useState(false);
                                 <span className="opacity-80 text-sm mobile-label">智算金</span>
                             </div>
                             <p className="text-2xl font-bold mt-2 mobile-num">¥{user?.balance?.toLocaleString() || 0}</p>
+                            <div className="flex gap-2 mt-3">
+                                <Button size="sm" variant="secondary" className="h-7 text-xs bg-white/20 hover:bg-white/30 text-white border-0"
+                                    onClick={() => setShowBalanceTransferDialog(true)}>
+                                    <ArrowLeftRight className="w-3 h-3 mr-1" />互转
+                                </Button>
+                                <Button size="sm" variant="secondary" className="h-7 text-xs bg-white/20 hover:bg-white/30 text-white border-0"
+                                    onClick={() => setShowBalanceConvertDialog(true)}>
+                                    <Repeat className="w-3 h-3 mr-1" />转积分
+                                </Button>
+                                <Button size="sm" variant="secondary" className="h-7 text-xs bg-white/20 hover:bg-white/30 text-white border-0"
+                                    onClick={() => setShowWithdrawDialog(true)}>
+                                    <Wallet className="w-3 h-3 mr-1" />提现
+                                </Button>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>
@@ -2485,11 +2502,11 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                     <tbody>
                                                         {groupedProducts[period].map(up => {
                                                             const purchaseDate = new Date(up.purchase_date);
+                                                            const expireDate = new Date(up.expire_date);
                                                             const now = new Date();
-                                                            const holdHours = (now.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60);
-                                                            const minHoldHours = period * 24;
-                                                            const canSell = holdHours >= minHoldHours;
-                                                            const remainingHours = Math.max(0, minHoldHours - holdHours);
+                                                            const canSell = now >= expireDate;
+                                                            const isExpired = now >= expireDate;
+                                                            const revenueReleased = up.revenue_released === true;
                                                             
                                                             const formatPurchaseTime = (date: Date) => {
                                                                 const year = date.getFullYear();
@@ -2498,6 +2515,13 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                 const hours = String(date.getHours()).padStart(2, '0');
                                                                 const minutes = String(date.getMinutes()).padStart(2, '0');
                                                                 return `${year}-${month}-${day} ${hours}:${minutes}`;
+                                                            };
+
+                                                            const formatExpireDate = (date: Date) => {
+                                                                const year = date.getFullYear();
+                                                                const month = String(date.getMonth() + 1).padStart(2, '0');
+                                                                const day = String(date.getDate()).padStart(2, '0');
+                                                                return `${month}月${day}日12:00`;
                                                             };
                                                             
                                                             return <tr key={up.id} className="border-b hover:bg-gray-50">
@@ -2512,7 +2536,14 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                             </td>
                                                             <td className="py-3 px-4 text-green-600 font-medium">¥{up.purchase_price.toLocaleString()}
                                                             </td>
-                                                            <td className="py-3 px-4 text-blue-600">+¥{up.expected_profit.toLocaleString()}
+                                                            <td className="py-3 px-4">
+                                                                <div className="text-blue-600">+¥{up.expected_profit.toLocaleString()}</div>
+                                                                {isExpired && !revenueReleased && (
+                                                                    <div className="text-xs text-orange-500 mt-1">待释放</div>
+                                                                )}
+                                                                {revenueReleased && (
+                                                                    <div className="text-xs text-green-500 mt-1">已到账</div>
+                                                                )}
                                                             </td>
                                                             <td className="py-3 px-4">
                                                                 {up.status === "pending_confirm" ? (
@@ -2530,7 +2561,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                     ) : (
                                                                         <Badge className="bg-red-100 text-red-700">
                                                                             <Lock className="w-3 h-3 mr-1" />
-                                                                            {Math.floor(remainingHours)}小时{Math.floor((remainingHours % 1) * 60)}分
+                                                                            {formatExpireDate(expireDate)}解锁
                                                                         </Badge>
                                                                     )
                                                                 )}
@@ -2559,20 +2590,53 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                 {up.status === "pending_confirm" && (
                                                                     <span className="text-sm text-amber-600">等待服务商确认</span>
                                                                 )}
-                                                                {up.status === "holding" && canSell && <Button
+                                                                {up.status === "holding" && !isExpired && <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    disabled
+                                                                    className="opacity-50"
+                                                                >锁定中
+                                                                </Button>}
+                                                                {up.status === "holding" && isExpired && !revenueReleased && <Button
+                                                                    size="sm"
+                                                                    className="bg-orange-500 hover:bg-orange-600 text-white"
+                                                                    disabled={releasingRevenue === up.id}
+                                                                    onClick={async () => {
+                                                                        setReleasingRevenue(up.id);
+                                                                        try {
+                                                                            const token = localStorage.getItem('token');
+                                                                            const res = await fetch('/api/products/release-revenue', {
+                                                                                method: 'POST',
+                                                                                headers: {
+                                                                                    'Content-Type': 'application/json',
+                                                                                    'Authorization': `Bearer ${token}`
+                                                                                },
+                                                                                body: JSON.stringify({ userProductId: up.id })
+                                                                            });
+                                                                            const data = await res.json();
+                                                                            if (data.success) {
+                                                                                alert(`收益已释放！会员收益¥${data.data?.memberProfit?.toFixed(2) || '0'}已到账智算金`);
+                                                                                loadData();
+                                                                            } else {
+                                                                                alert(data.message || '释放收益失败');
+                                                                            }
+                                                                        } catch (err) {
+                                                                            alert('释放收益失败，请稍后重试');
+                                                                        } finally {
+                                                                            setReleasingRevenue(null);
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    {releasingRevenue === up.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <TrendingUp className="w-3 h-3 mr-1" />}
+                                                                    领取收益
+                                                                </Button>}
+                                                                {up.status === "holding" && isExpired && revenueReleased && <Button
                                                                     size="sm"
                                                                     variant="outline"
                                                                     onClick={() => {
                                                                         setSelectedUserProduct(up);
                                                                         setShowSellDialog(true);
                                                                     }}>卖出
-                                                                </Button>}
-                                                                {up.status === "holding" && !canSell && <Button
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    disabled
-                                                                    className="opacity-50"
-                                                                >锁定中
                                                                 </Button>}
                                                                 {up.status === "pending_sell" && <span className="text-sm text-orange-500">售卖中</span>}
                                                                 {up.status === "transferred" && <span className="text-sm text-green-600">已转出</span>}

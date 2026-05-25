@@ -13,7 +13,8 @@ import {
   Shield, Award, Users, ArrowRightLeft, Plus, LogOut, 
   ChevronRight, ChevronLeft, Gift, Copy, Check, Lock, TrendingUp,
   Search, X, Eye, EyeOff, TrendingDown, ArrowUpRight, ArrowDownRight,
-  DollarSign, CreditCard, ArrowUp, ArrowDown, RefreshCw, Filter, Edit, Menu, ArrowLeftRight
+  DollarSign, CreditCard, ArrowUp, ArrowDown, RefreshCw, Filter, Edit, Menu, ArrowLeftRight,
+  Repeat, Wallet
 } from 'lucide-react';
 import { ChangePasswordDialog } from '@/components/admin/ChangePasswordDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -137,7 +138,6 @@ export default function ProviderDashboard() {
   const [selectedMatchMember, setSelectedMatchMember] = useState('');
   const [matchTargetProduct, setMatchTargetProduct] = useState<any>(null);
   const [assigningMatch, setAssigningMatch] = useState(false);
-  const [batchConfirming, setBatchConfirming] = useState(false);
   const [matchMembers, setMatchMembers] = useState<any[]>([]);
   const [matchAssigning, setMatchAssigning] = useState<string | null>(null);
   const [selectedMatchIds, setSelectedMatchIds] = useState<string[]>([]);
@@ -161,6 +161,8 @@ export default function ProviderDashboard() {
   const [transferring, setTransferring] = useState(false);
   const [convertAmount, setConvertAmount] = useState('');
   const [converting, setConverting] = useState(false);
+  const [showBalanceConvertDialog, setShowBalanceConvertDialog] = useState(false);
+  const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
 
   // Toast
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
@@ -426,7 +428,9 @@ export default function ProviderDashboard() {
   };
 
   const handleMatchConfirm = async (productIds: string[]) => {
-    setMatchConfirming('confirming');
+    // 单个确认时用第一个productId作为loading标识
+    const confirmKey = productIds.length === 1 ? productIds[0] : 'batch';
+    setMatchConfirming(confirmKey);
     try {
       const res = await fetch('/api/products/match/confirm', {
         method: 'POST',
@@ -449,7 +453,7 @@ export default function ProviderDashboard() {
     } catch {
       setToast({ message: '匹配操作失败，请稍后重试', type: 'error' });
     } finally {
-      setMatchConfirming('');
+      setMatchConfirming(null);
     }
   };
 
@@ -474,35 +478,13 @@ export default function ProviderDashboard() {
   };
 
   const handleBatchConfirm = async () => {
-    setBatchConfirming(true);
-    try {
-      const assignedProducts = matchProducts.filter((p: Record<string, unknown>) => p.pending_match_user_id);
-      const productIds = assignedProducts.map((p: Record<string, unknown>) => p.id);
-      const res = await fetch('/api/products/match/confirm', {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({ productIds })
-      });
-      const data = await res.json();
-      if (data.success) {
-        const result = data.data;
-        const failCount = result?.failCount || 0;
-        const successCount = result?.successCount || 0;
-        if (failCount > 0) {
-          setToast({ message: `成功匹配${successCount}个，${failCount}个匹配失败`, type: 'error' });
-        } else {
-          setToast({ message: `成功匹配${successCount}个产品`, type: 'success' });
-        }
-        fetchMatchProducts();
-        setSelectedMatchIds([]);
-      } else {
-        setToast({ message: data.message || '批量匹配失败', type: 'error' });
-      }
-    } catch {
-      setToast({ message: '批量匹配失败', type: 'error' });
-    } finally {
-      setBatchConfirming(false);
+    const assignedProducts = matchProducts.filter((p: Record<string, unknown>) => p.pending_match_user_id);
+    const productIds = assignedProducts.map((p: Record<string, unknown>) => p.id);
+    if (productIds.length === 0) {
+      setToast({ message: '没有待确认的产品', type: 'error' });
+      return;
     }
+    await handleMatchConfirm(productIds as string[]);
   };
 
   const fetchChainMembers = async () => {
@@ -923,6 +905,20 @@ export default function ProviderDashboard() {
                     <div>
                       <p className="text-sm text-gray-500">收益余额</p>
                       <p className="text-3xl font-bold mt-1">{user?.balance || 0}</p>
+                      <div className="flex gap-2 mt-3">
+                        <Button size="sm" variant="outline" className="h-7 text-xs"
+                          onClick={() => setActiveMenu('balance-transfer')}>
+                          <ArrowLeftRight className="w-3 h-3 mr-1" />互转
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-7 text-xs"
+                          onClick={() => setShowBalanceConvertDialog(true)}>
+                          <Repeat className="w-3 h-3 mr-1" />转积分
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-7 text-xs"
+                          onClick={() => setShowWithdrawDialog(true)}>
+                          <Wallet className="w-3 h-3 mr-1" />提现
+                        </Button>
+                      </div>
                     </div>
                     <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white">
                       <Coins className="w-6 h-6" />
@@ -1756,8 +1752,8 @@ export default function ProviderDashboard() {
               </div>
               <div className="flex gap-2">
                 {matchProducts.some(p => p.pending_match_user_id) && (
-                  <Button variant="default" size="sm" className="bg-green-600 hover:bg-green-700" onClick={handleBatchConfirm} disabled={batchConfirming}>
-                    {batchConfirming ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CheckCircle className="w-4 h-4 mr-1" />}
+                  <Button variant="default" size="sm" className="bg-green-600 hover:bg-green-700" onClick={handleBatchConfirm} disabled={matchConfirming === 'batch'}>
+                    {matchConfirming === 'batch' ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CheckCircle className="w-4 h-4 mr-1" />}
                     一键匹配成功
                   </Button>
                 )}
@@ -2455,6 +2451,111 @@ export default function ProviderDashboard() {
           onOpenChange={setShowPasswordDialog}
           userId={user?.id || ''}
         />
+
+        {/* 智算金转积分对话框 */}
+        <Dialog open={showBalanceConvertDialog} onOpenChange={setShowBalanceConvertDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>智算金转积分</DialogTitle>
+              <DialogDescription>将智算金转换为积分，转换比例 1:1</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-sm text-amber-700">当前智算金余额: ¥{user?.balance || 0}</p>
+              </div>
+              <div>
+                <Label>转换金额</Label>
+                <Input type="number" placeholder="输入转换金额" value={convertAmount} onChange={e => setConvertAmount(e.target.value)} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowBalanceConvertDialog(false)}>取消</Button>
+              <Button disabled={converting || !convertAmount} onClick={async () => {
+                setConverting(true);
+                try {
+                  const token = localStorage.getItem('token');
+                  const res = await fetch('/api/balance/convert', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ userId: user?.id, amount: parseFloat(convertAmount) })
+                  });
+                  const data = await res.json();
+                  if (data.success) {
+                    alert('转换成功！');
+                    setShowBalanceConvertDialog(false);
+                    setConvertAmount('');
+                    fetchOverview();
+                    // 更新本地用户余额
+                    const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+                    if (userData.balance !== undefined) {
+                      userData.balance = (parseFloat(userData.balance) || 0) - parseFloat(convertAmount);
+                      localStorage.setItem('userData', JSON.stringify(userData));
+                      setUser(userData);
+                    }
+                  } else {
+                    alert(data.message || '转换失败');
+                  }
+                } catch (err) {
+                  alert('转换失败');
+                } finally {
+                  setConverting(false);
+                }
+              }}>
+                {converting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                确认转换
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* 提现对话框 */}
+        <Dialog open={showWithdrawDialog} onOpenChange={setShowWithdrawDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>智算金提现</DialogTitle>
+              <DialogDescription>申请提现智算金到支付宝，手续费5%，最低提现¥100</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-sm text-amber-700">当前智算金余额: ¥{user?.balance || 0}</p>
+              </div>
+              <div>
+                <Label>提现金额</Label>
+                <Input type="number" placeholder="输入提现金额（最低¥100）" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowWithdrawDialog(false)}>取消</Button>
+              <Button disabled={withdrawing || !withdrawAmount || parseFloat(withdrawAmount) < 100} onClick={async () => {
+                setWithdrawing(true);
+                try {
+                  const token = localStorage.getItem('token');
+                  const res = await fetch('/api/provider/withdraw-request', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ userId: user?.id, amount: parseFloat(withdrawAmount) })
+                  });
+                  const data = await res.json();
+                  if (data.success) {
+                    alert('提现申请已提交！');
+                    setShowWithdrawDialog(false);
+                    setWithdrawAmount('');
+                    fetchOverview();
+                  } else {
+                    alert(data.message || '提现申请失败');
+                  }
+                } catch (err) {
+                  alert('提现申请失败');
+                } finally {
+                  setWithdrawing(false);
+                }
+              }}>
+                {withdrawing && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                确认提现
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );

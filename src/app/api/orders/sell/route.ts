@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, queryOne, execute } from '@/storage/database/pg-client';
+import { query, queryOne, execute } from '@/lib/supabase-client';
+import { authenticateRequest } from '@/lib/auth';
 
-// 会员出售产品 - 收益立即到账，产品回到服务商待匹配
+// 会员出售产品 - 到期后可卖，收益在卖出前先释放
 export async function POST(request: NextRequest) {
   try {
+    const user = authenticateRequest(request);
+    if (!user) {
+      return NextResponse.json({ success: false, message: '无效token' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { userId, userProductId } = body;
 
@@ -11,12 +17,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
     }
 
+    // 验证操作权限
+    if (user.role !== 'admin' && user.userId !== userId) {
+      return NextResponse.json({ error: '无权操作' }, { status: 403 });
+    }
+
     // 查询用户信息
-    const user = await queryOne<any>(
+    const dbUser = await queryOne<any>(
       'SELECT id, username, provider_id, phone, real_name FROM users WHERE id = $1',
       [userId]
     );
-    if (!user) {
+    if (!dbUser) {
       return NextResponse.json({ error: '用户不存在' }, { status: 404 });
     }
 
@@ -45,91 +56,163 @@ export async function POST(request: NextRequest) {
       [userProduct.product_id]
     );
 
-    // 持仓时间锁检查
-    const period = product?.period || 7;
-    const minHoldHours = period * 24;
-    const purchaseTime = new Date(userProduct.purchase_date);
+    // 持仓时间锁检查 - 按天数计算，到期当天中午12点解锁
+    const expireDate = new Date(userProduct.expire_date);
     const now = new Date();
-    const holdHours = (now.getTime() - purchaseTime.getTime()) / (1000 * 60 * 60);
 
-    if (holdHours < minHoldHours) {
-      const remainingHours = Math.ceil(minHoldHours - holdHours);
+    if (now < expireDate) {
+      const remainingMs = expireDate.getTime() - now.getTime();
+      const remainingHours = Math.ceil(remainingMs / (1000 * 60 * 60));
+      const remainingDays = Math.floor(remainingHours / 24);
+      const hoursLeft = remainingHours % 24;
       return NextResponse.json({
         success: false,
         error: '持仓时间不足',
         data: {
           code: 'HOLD_TIME_LOCK',
-          message: `${period}天产品需持仓满${minHoldHours}小时才能出售，还需等待 ${remainingHours} 小时`,
+          message: `${product?.period || 7}天产品需到期后才能出售，还需等待${remainingDays > 0 ? remainingDays + '天' : ''}${hoursLeft}小时（到期日中午12:00解锁）`,
           canSell: false,
+          expireDate: userProduct.expire_date,
         },
       }, { status: 400 });
     }
 
-    // 计算收益
+    // 如果收益未释放，先释放收益
+    if (!userProduct.revenue_released) {
+      // 调用释放收益API的逻辑
+      const profitRate = parseFloat(product?.profit_rate || userProduct.profit_rate || 0);
+      const memberProfit = parseFloat(userProduct.purchase_price) * (profitRate / 100);
+      const marketRate = parseFloat(product?.market_rate || 0);
+      const marketPool = parseFloat(userProduct.purchase_price) * (marketRate / 100);
+
+      // 会员收益到账
+      const memberBefore = await queryOne<any>('SELECT balance FROM users WHERE id = $1', [userId]);
+      const memberBalanceBefore = parseFloat(memberBefore?.balance || 0);
+      await execute(
+        `UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
+        [memberProfit, userId]
+      );
+      await execute(
+        `INSERT INTO transactions (user_id, type, amount, description, balance_before, balance_after)
+         VALUES ($1, 'profit_release', $2, $3, $4, $5)`,
+        [userId, memberProfit,
+         `产品「${product?.name || '未知产品'}」到期释放收益${profitRate}%`,
+         memberBalanceBefore, memberBalanceBefore + memberProfit]
+      );
+
+      // 服务商收益
+      const providerShare = marketPool * 0.70;
+      if (product?.provider_id && providerShare > 0) {
+        await execute(
+          `UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
+          [providerShare, product.provider_id]
+        );
+        await execute(
+          `INSERT INTO transactions (user_id, type, amount, description, balance_before, balance_after)
+           VALUES ($1, 'provider_revenue', $2, '会员产品到期，服务商分成70%', 0, $2)`,
+          [product.provider_id, providerShare]
+        );
+      }
+
+      // 直推人收益
+      const directShare = marketPool * 0.10;
+      const memberData = await queryOne<any>('SELECT inviter_id FROM users WHERE id = $1', [userId]);
+      if (memberData?.inviter_id && directShare > 0) {
+        await execute(
+          `UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
+          [directShare, memberData.inviter_id]
+        );
+      }
+
+      // 上级服务商收益
+      const parentProviderShare = marketPool * 0.10;
+      if (dbUser.provider_id && dbUser.provider_id !== product?.provider_id && parentProviderShare > 0) {
+        await execute(
+          `UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
+          [parentProviderShare, dbUser.provider_id]
+        );
+      }
+
+      // 网点收益
+      const branchShare = marketPool * 0.05;
+      if (product?.provider_id) {
+        const providerData = await queryOne<any>('SELECT branch_id FROM providers WHERE user_id = $1', [product.provider_id]);
+        if (providerData?.branch_id && branchShare > 0) {
+          await execute(
+            `UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
+            [branchShare, providerData.branch_id]
+          );
+        }
+      }
+
+      // 总台收益
+      const companyShare = marketPool * 0.05;
+      const adminUser = await queryOne<any>('SELECT id FROM users WHERE role = $1 LIMIT 1', ['admin']);
+      if (adminUser && companyShare > 0) {
+        await execute(
+          `UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
+          [companyShare, adminUser.id]
+        );
+      }
+
+      // 记录member_revenue
+      const holdingHours = (now.getTime() - new Date(userProduct.purchase_date).getTime()) / (1000 * 60 * 60);
+      const holdingDays = Math.max(1, Math.floor(holdingHours / 24));
+      const totalRate = parseFloat(product?.total_rate || 0);
+      await execute(
+        `INSERT INTO member_revenue 
+         (user_id, user_product_id, principal, profit, total_amount, converted_to_energy, status, product_name, product_code, product_period, total_rate, profit_rate, market_rate, holding_days)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+        [userId, userProductId, parseFloat(userProduct.purchase_price), memberProfit,
+         parseFloat(userProduct.purchase_price) + memberProfit, 0, 'available',
+         product?.name || '未知产品', product?.code || '', product?.period || 1,
+         totalRate, profitRate, marketRate, holdingDays]
+      );
+
+      // 标记收益已释放
+      await execute(
+        `UPDATE user_products SET revenue_released = true, updated_at = NOW() WHERE id = $1`,
+        [userProductId]
+      );
+    }
+
     const purchasePrice = parseFloat(userProduct.purchase_price);
     const expectedProfit = parseFloat(userProduct.expected_profit || 0);
-    const marketFee = purchasePrice * (parseFloat(product?.market_rate || 5) / 100);
 
-    // 1. 收益立即到账（写入balance/智算金）
-    await execute(
-      `UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
-      [expectedProfit, userId]
-    );
-
-    // 2. 创建卖出订单（Token值随产品流转，线下交易处理）
+    // 创建卖出订单
     const orderResult = await query(
       `INSERT INTO orders 
        (user_id, user_product_id, product_id, order_type, amount, status, review_note)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
       [userId, userProductId, userProduct.product_id, 'sell', purchasePrice, 'pending', 
-       `出售产品: ${product?.name || '未知产品'}，收益¥${expectedProfit}已到账智算金，Token值¥${purchasePrice}待匹配成功后由新持有人线下支付`]
+       `出售产品: ${product?.name || '未知产品'}，Token值¥${purchasePrice}待匹配成功后由新持有人线下支付`]
     );
 
-    // 3. 写入 member_revenue 收益记录（前端"已到账收益"从此表读取）
-    const profitRate = parseFloat(product?.profit_rate || userProduct.profit_rate || 0);
-    const totalRate = parseFloat(product?.total_rate || userProduct.total_rate || 0);
-    const marketRate = parseFloat(product?.market_rate || userProduct.market_rate || 0);
-    const holdingDays = Math.max(1, Math.floor(holdHours / 24));
-    const orderId = orderResult?.[0]?.id || '';
-    await execute(
-      `INSERT INTO member_revenue 
-       (user_id, order_id, user_product_id, principal, profit, total_amount, converted_to_energy, status, product_name, product_code, product_period, total_rate, profit_rate, market_rate, holding_days)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
-      [
-        userId, orderId, userProductId,
-        purchasePrice, expectedProfit, purchasePrice + expectedProfit,
-        0, 'available',
-        product?.name || '未知产品', product?.code || '', product?.period || 1,
-        totalRate, profitRate, marketRate, holdingDays
-      ]
-    );
-
-    // 4. 更新用户产品状态为"售卖中"
+    // 更新用户产品状态为"售卖中"
     await execute(
       `UPDATE user_products SET status = 'pending_sell', updated_at = NOW() WHERE id = $1`,
       [userProductId]
     );
 
-    // 5. 产品回到服务商 - 状态改为 pending_match（待匹配）
+    // 产品回到服务商 - 状态改为 pending_match（待匹配）
     await execute(
       `UPDATE products SET status = 'pending_match', previous_holder_id = $1, updated_at = NOW() WHERE id = $2`,
       [userId, userProduct.product_id]
     );
 
-    // 6. 通知服务商
-    if (user.provider_id) {
-      await query(
-        `INSERT INTO notifications 
-         (receiver_id, receiver_role, sender_id, sender_name, type, title, content, amount, related_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        [
-          user.provider_id, 'provider', userId, user.username, 'sell_request',
-          '会员出售产品待匹配',
-          `${user.username} 出售产品 ${product?.name}，Token值¥${purchasePrice}，收益¥${expectedProfit}已发放到智算金，请匹配给新会员`,
-          purchasePrice, userProductId
-        ]
-      );
+    // 通知服务商
+    if (dbUser.provider_id) {
+      const { getSupabase } = await import('@/lib/supabase-client');
+      const supabase = getSupabase();
+      await supabase.from('notifications').insert({
+        receiver_id: dbUser.provider_id,
+        receiver_role: 'provider',
+        type: 'sell_request',
+        title: '会员出售产品待匹配',
+        content: `${dbUser.username} 出售产品 ${product?.name}，Token值¥${purchasePrice}，请匹配给新会员`,
+        is_read: false
+      });
     }
 
     return NextResponse.json({
