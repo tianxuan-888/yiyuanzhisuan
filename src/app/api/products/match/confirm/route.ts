@@ -121,25 +121,17 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // 8. 创建释放收益记录（会员2%标记为延迟到账）
-      await supabase.from('release_records').insert({
-        product_id: product.id,
-        product_name: product.name,
-        product_price: product.price,
-        release_amount: totalReleased,
-        release_rate: releaseRate,
-        member_id: targetUser.id,
-        member_name: targetUser.username,
-        member_share: memberShare, // 记录会员应得2%，但延迟到卖出时到账
-        direct_referral_id: targetUser.inviter_id || null,
-        direct_referral_share: directShare,
-        provider_id: user.userId,
-        provider_share: providerShare,
-        parent_provider_id: targetUser.provider_id || null,
-        parent_provider_share: parentProviderShare,
-        branch_id: providerData?.branch_id || null,
-        branch_share: branchShare,
-        company_share: companyShare
+      // 8. 记录释放收益到transactions表
+      const { data: targetUserAfter } = await supabase
+        .from('users')
+        .select('balance')
+        .eq('id', targetUser.id)
+        .single();
+      await supabase.rpc('rpc_execute', {
+        sql_query: `INSERT INTO transactions (user_id, order_id, type, amount, description, balance_before, balance_after)
+          VALUES ('${targetUser.id}', NULL, 'release', ${totalReleased}, '产品${product.name}释放收益5%，会员2%延迟到账',
+            ${targetUserAfter ? targetUserAfter.balance || 0 : 0},
+            ${targetUserAfter ? targetUserAfter.balance || 0 : 0})`
       });
 
       // 9. 更新原持有人的user_product状态为transferred

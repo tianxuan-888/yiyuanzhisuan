@@ -1740,7 +1740,7 @@ export default function ProviderPage() {
                 if (result?.success) {
                     showMessage("success", "匹配成功: 产品已成功匹配给会员");
                 } else {
-                    showMessage("error", "匹配失败: " + (result?.error || "目标会员余额不足"));
+                    showMessage("error", "匹配失败: " + (result?.error || "操作失败，请稍后重试"));
                 }
                 loadTransferData();
                 loadTransferRecords();
