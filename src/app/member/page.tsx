@@ -402,6 +402,44 @@ const [copySuccess, setCopySuccess] = useState(false);
             if (purchaseLimitsData.success && purchaseLimitsData.data) {
                 setPurchaseLimits(purchaseLimitsData.data);
             }
+            // 自动释放到期收益：检查所有已到期但未释放收益的产品
+            if (productsData.success && Array.isArray(productsData.data)) {
+                const now = new Date();
+                const expiredUnreleased = productsData.data.filter((up: any) => {
+                    if (up.status !== 'holding' || up.revenue_released) return false;
+                    if (!up.expire_date) return false;
+                    const expireDate = new Date(up.expire_date);
+                    // 到期当天中午12点后
+                    const unlockTime = new Date(expireDate);
+                    unlockTime.setHours(12, 0, 0, 0);
+                    return now >= unlockTime;
+                });
+
+                if (expiredUnreleased.length > 0) {
+                    console.log(`[member] 发现 ${expiredUnreleased.length} 个到期未释放收益的产品，自动释放`);
+                    try {
+                        const token = localStorage.getItem('token');
+                        const releaseRes = await fetch('/api/products/release-revenue', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({ userId: user?.id })
+                        });
+                        const releaseData = await releaseRes.json();
+                        if (releaseData.success) {
+                            console.log('[member] 到期收益已自动释放');
+                            // 更新用户余额（从返回数据中获取）
+                            if (releaseData.data?.userBalance !== undefined) {
+                                setUser((prev: any) => prev ? { ...prev, balance: releaseData.data.userBalance } : prev);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('[member] 自动释放收益失败:', e);
+                    }
+                }
+            }
         } catch (error) {
             console.error("加载数据失败:", error);
         } finally {

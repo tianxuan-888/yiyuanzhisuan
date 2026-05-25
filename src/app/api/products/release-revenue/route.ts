@@ -233,6 +233,9 @@ export async function POST(request: NextRequest) {
       is_read: false
     });
 
+    // 获取会员最新余额
+    const memberAfter = await queryOne<any>('SELECT balance FROM users WHERE id = $1', [userProduct.user_id]);
+
     return NextResponse.json({
       success: true,
       message: `收益已释放！会员收益¥${memberProfit.toFixed(2)}已到账`,
@@ -243,7 +246,8 @@ export async function POST(request: NextRequest) {
         branchShare,
         companyShare,
         totalReleased: totalReleaseAmount,
-        revenueReleased: true
+        revenueReleased: true,
+        userBalance: parseFloat(memberAfter?.balance || 0)
       }
     });
   } catch (error: unknown) {
