@@ -440,15 +440,20 @@ export default function ProviderDashboard() {
       const data = await res.json();
       if (data.success) {
         const results = data.data?.results || [];
-        const successCount = results.filter((r: { success: boolean }) => r.success).length;
-        const failCount = results.filter((r: { success: boolean }) => !r.success).length;
-        let msg = `${successCount}个产品匹配成功`;
-        if (failCount > 0) msg += `，${failCount}个匹配失败`;
-        setToast({ message: msg, type: successCount > 0 ? 'success' : 'error' });
+        const successItems = results.filter((r: { success: boolean }) => r.success);
+        const failItems = results.filter((r: { success: boolean }) => !r.success);
+        let msg = `${successItems.length}个产品匹配成功`;
+        if (failItems.length > 0) {
+          const failMsgs = failItems.map((r: { message: string }) => r.message).join('；');
+          msg += `，${failItems.length}个失败：${failMsgs}`;
+        }
+        setToast({ message: msg, type: successItems.length > 0 ? 'success' : 'error' });
         fetchMatchProducts();
         setSelectedMatchIds([]);
       } else {
-        setToast({ message: data.message || '匹配失败', type: 'error' });
+        // 显示更详细的错误信息
+        const detailMsg = data.data?.results?.map((r: { message: string }) => r.message).join('；') || data.message || '匹配失败';
+        setToast({ message: detailMsg, type: 'error' });
       }
     } catch {
       setToast({ message: '匹配操作失败，请稍后重试', type: 'error' });
@@ -1336,6 +1341,20 @@ export default function ProviderDashboard() {
                 <CardContent className="p-6">
                   <p className="text-sm text-gray-500">收益余额</p>
                   <p className="text-3xl font-bold mt-1 text-amber-600">{balanceInfo.balance}</p>
+                  <div className="flex gap-2 mt-3">
+                    <Button size="sm" variant="outline" className="text-xs h-7 border-amber-300 text-amber-700 hover:bg-amber-50" onClick={() => setActiveMenu('balance-transfer')}>
+                      <ArrowLeftRight className="w-3 h-3 mr-1" />互转
+                    </Button>
+                    <Button size="sm" variant="outline" className="text-xs h-7 border-purple-300 text-purple-700 hover:bg-purple-50" onClick={() => setShowBalanceConvertDialog(true)}>
+                      <Repeat className="w-3 h-3 mr-1" />转积分
+                    </Button>
+                    <Button size="sm" variant="outline" className="text-xs h-7 border-red-300 text-red-700 hover:bg-red-50" onClick={() => {
+                      const el = document.getElementById('withdraw-section');
+                      el?.scrollIntoView({ behavior: 'smooth' });
+                    }}>
+                      <TrendingDown className="w-3 h-3 mr-1" />提现
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
               <Card className="border-green-200">
@@ -1512,7 +1531,7 @@ export default function ProviderDashboard() {
             </Card>
 
             {/* 收益提现 */}
-            <Card className="border-red-200">
+            <Card id="withdraw-section" className="border-red-200">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingDown className="w-5 h-5 text-red-500" />
