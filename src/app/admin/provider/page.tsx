@@ -149,6 +149,7 @@ export default function ProviderDashboard() {
   const [repurchasingId, setRepurchasingId] = useState<string | null>(null);
 
   const [matchConfirming, setMatchConfirming] = useState<string | null>(null);
+  const [recycling, setRecycling] = useState<string | null>(null);
 
   // 智算金互转状态
   const [showBalanceTransfer, setShowBalanceTransfer] = useState(false);
@@ -401,6 +402,29 @@ export default function ProviderDashboard() {
   };
 
   // 服务商确认匹配（单个或批量）
+  const handleRecycle = async (productId: string) => {
+    if (!confirm('确认回收该产品？产品将回到在售列表，会员端将显示"已回收"。')) return;
+    setRecycling(productId);
+    try {
+      const res = await fetch('/api/products/match/recycle', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ productId, providerId: user?.id })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setToast({ message: '产品已回收，回到在售列表', type: 'success' });
+        fetchMatchProducts();
+      } else {
+        setToast({ message: data.error || '回收失败', type: 'error' });
+      }
+    } catch {
+      setToast({ message: '回收操作失败', type: 'error' });
+    } finally {
+      setRecycling(null);
+    }
+  };
+
   const handleMatchConfirm = async (productIds: string[]) => {
     setMatchConfirming('confirming');
     try {
@@ -1821,9 +1845,20 @@ export default function ProviderDashboard() {
 
                           <div className="flex gap-2 ml-4">
                             {!isAssigned ? (
-                              <Button size="sm" variant="default" onClick={() => handleOpenMatchDialog(product)}>
-                                匹配
-                              </Button>
+                              <>
+                                <Button size="sm" variant="default" onClick={() => handleOpenMatchDialog(product)}>
+                                  匹配
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-red-300 text-red-600 hover:bg-red-50"
+                                  disabled={recycling === product.id}
+                                  onClick={() => handleRecycle(product.id)}
+                                >
+                                  {recycling === product.id ? <Loader2 className="w-4 h-4 animate-spin" /> : '回收'}
+                                </Button>
+                              </>
                             ) : (
                               <>
                                 <Button

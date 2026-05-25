@@ -106,6 +106,7 @@ const PUBLIC_PATHS = [
   '/api/admin/accounts',
   '/api/admin/financial-report',
   '/api/products/match/confirm',
+  '/api/products/match/recycle',
   '/api/products/match/cancel',
   '/api/member/confirm-sell',
   '/api/member/energy-recharge-requests',
