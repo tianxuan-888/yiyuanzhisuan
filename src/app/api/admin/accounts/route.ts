@@ -177,10 +177,19 @@ export async function GET(request: NextRequest) {
       holdingTokenMap[uid] = (holdingTokenMap[uid] || 0) + (Number(h.purchase_price) || 0);
     });
 
-    // 给每个用户附加 holding_token 值
+    // 构建用户ID到用户名的映射，用于解析隶属关系
+    const userIdMap = new Map<string, string>();
+    (allUsers || []).forEach((u: any) => {
+      userIdMap.set(u.id, u.username || u.real_name || '-');
+    });
+
+    // 给每个用户附加 holding_token 值和隶属关系名称
     const usersWithHolding = (allUsers || []).map((u: any) => ({
       ...u,
       holding_token: holdingTokenMap[u.id] || 0,
+      provider_name: u.provider_id ? (userIdMap.get(u.provider_id) || '-') : '-',
+      inviter_name: u.inviter_id ? (userIdMap.get(u.inviter_id) || '-') : '-',
+      branch_name: u.branch_id ? (userIdMap.get(u.branch_id) || '-') : '-',
     }));
 
     // 统计

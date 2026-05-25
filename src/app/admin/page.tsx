@@ -5294,6 +5294,7 @@ export default function AdminPage() {
                         <th className="text-left py-3 px-4">角色</th>
                         <th className="text-left py-3 px-4">手机号</th>
                         <th className="text-left py-3 px-4">专属ID</th>
+                        <th className="text-left py-3 px-4">隶属关系</th>
                         <th className="text-left py-3 px-4">智算金</th>
                         <th className="text-left py-3 px-4">持有Token值</th>
                         <th className="text-left py-3 px-4">状态</th>
@@ -5301,13 +5302,13 @@ export default function AdminPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {accountsData.users?.filter((u: { id: string; username: string; role: string; phone: string; unique_id: string; balance: number; holding_token: number; is_active: boolean }) => {
+                      {accountsData.users?.filter((u: { id: string; username: string; role: string; phone: string; unique_id: string; balance: number; holding_token: number; is_active: boolean; provider_name?: string; inviter_name?: string; branch_name?: string }) => {
                         if (!accountSearch.trim()) return true;
                         const q = accountSearch.trim().toLowerCase();
                         return (u.username || '').toLowerCase().includes(q)
                           || (u.phone || '').includes(q)
                           || (u.unique_id || '').toLowerCase().includes(q);
-                      }).map((u: { id: string; username: string; role: string; phone: string; unique_id: string; balance: number; holding_token: number; is_active: boolean }) => (
+                      }).map((u: { id: string; username: string; role: string; phone: string; unique_id: string; balance: number; holding_token: number; is_active: boolean; provider_name?: string; inviter_name?: string; branch_name?: string }) => (
                         <tr key={u.id} className="border-b hover:bg-muted/30">
                           <td className="py-3 px-4 font-medium">{u.username}</td>
                           <td className="py-3 px-4">
@@ -5322,6 +5323,24 @@ export default function AdminPage() {
                           </td>
                           <td className="py-3 px-4">{u.phone || '-'}</td>
                           <td className="py-3 px-4 font-mono text-xs">{u.unique_id || '-'}</td>
+                          <td className="py-3 px-4 text-xs">
+                            {u.role === 'member' && (
+                              <div className="space-y-0.5">
+                                {u.provider_name && u.provider_name !== '-' && <div><span className="text-muted-foreground">服务商:</span> {u.provider_name}</div>}
+                                {u.inviter_name && u.inviter_name !== '-' && <div><span className="text-muted-foreground">直推:</span> {u.inviter_name}</div>}
+                                {(!u.provider_name || u.provider_name === '-') && (!u.inviter_name || u.inviter_name === '-') && <span className="text-muted-foreground">-</span>}
+                              </div>
+                            )}
+                            {u.role === 'provider' && (
+                              <div>
+                                {u.branch_name && u.branch_name !== '-'
+                                  ? <><span className="text-muted-foreground">网点:</span> {u.branch_name}</>
+                                  : <span className="text-muted-foreground">-</span>}
+                              </div>
+                            )}
+                            {u.role === 'branch' && <span className="text-muted-foreground">隶属总台</span>}
+                            {u.role === 'admin' && <span className="text-muted-foreground">-</span>}
+                          </td>
                           <td className="py-3 px-4 text-green-600 font-medium">¥{(u.balance || 0).toLocaleString()}</td>
                           <td className="py-3 px-4 text-blue-600 font-medium">¥{(u.holding_token || 0).toLocaleString()}</td>
                           <td className="py-3 px-4">
