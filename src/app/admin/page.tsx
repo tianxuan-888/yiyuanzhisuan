@@ -5327,7 +5327,7 @@ export default function AdminPage() {
                             {u.role === 'member' && (
                               <div className="space-y-0.5">
                                 {u.provider_name && u.provider_name !== '-' && <div><span className="text-muted-foreground">服务商:</span> {u.provider_name}</div>}
-                                {u.inviter_name && u.inviter_name !== '-' && <div><span className="text-muted-foreground">直推:</span> {u.inviter_name}</div>}
+                                {u.inviter_name && u.inviter_name !== '-' && <div><span className="text-muted-foreground">推荐人:</span> {u.inviter_name}</div>}
                                 {(!u.provider_name || u.provider_name === '-') && (!u.inviter_name || u.inviter_name === '-') && <span className="text-muted-foreground">-</span>}
                               </div>
                             )}
