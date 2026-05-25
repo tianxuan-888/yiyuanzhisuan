@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseUrl, getSupabaseServiceRoleKey } from '@/lib/env';
 
-// 智算总台收益管理 - 使用用户自己的 Supabase 数据库（service role key 绕过 RLS）
+// 智算中心收益管理 - 使用用户自己的 Supabase 数据库（service role key 绕过 RLS）
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);

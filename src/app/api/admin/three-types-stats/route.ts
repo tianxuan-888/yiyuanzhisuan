@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
       },
       // 额度分配
       allocations: {
-        toBranches: 0,        // 智算总台分配给服务网点
+        toBranches: 0,        // 智算中心分配给服务网点
         toProviders: 0,       // 服务网点分配给服务商
         totalAllocated: 0,
       },
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
     };
 
     if (type === 'all' || type === 'quota') {
-      // 智算总台额度
+      // 智算中心额度
       const companyQuotaData = await query(
         `SELECT total_quota, used_quota FROM company_quota LIMIT 1`
       );
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
           quotaStats.companyQuota.totalQuota - quotaStats.companyQuota.usedQuota;
       }
 
-      // 额度分配统计（区分智算总台→服务网点 和 服务网点→服务商）
+      // 额度分配统计（区分智算中心→服务网点 和 服务网点→服务商）
       const allocationStats = await query<{ 
         branch_id: string; 
         provider_id: string; 
@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
       
       allocationStats.forEach(a => {
         if (a.provider_id === null || a.provider_id === '') {
-          // 智算总台分配给服务网点
+          // 智算中心分配给服务网点
           quotaStats.allocations.toBranches += parseFloat(a.quota_amount || '0');
         } else {
           // 服务网点分配给服务商
@@ -174,7 +174,7 @@ export async function GET(request: NextRequest) {
       },
       // 收益来源统计
       sources: {
-        create: 0,        // 智算总台创建
+        create: 0,        // 智算中心创建
         quotaMatch: 0,   // 额度匹配下发
         purchase: 0,     // 服务网点购买
         transferIn: 0,  // 市场转入

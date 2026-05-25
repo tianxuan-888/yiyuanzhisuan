@@ -213,7 +213,7 @@ export function MyProfile() {
   }
 
   const roleLabels: Record<string, string> = {
-    admin: '智算总台管理员',
+    admin: '智算中心管理员',
     branch: '服务网点管理员',
     provider: '服务商',
     member: '会员',

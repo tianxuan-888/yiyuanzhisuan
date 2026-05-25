@@ -110,7 +110,7 @@ export async function distributeRevenue(params: {
     parentProviderUserId = parentProvider?.user_id || null;
   }
 
-  // 智算总台ID（固定为admin角色的用户）
+  // 智算中心ID（固定为admin角色的用户）
   const admin = await queryOne(
     `SELECT id FROM users WHERE role = 'admin' LIMIT 1`,
     []
@@ -138,7 +138,7 @@ export async function distributeRevenue(params: {
   if (parentProviderUserId && amounts.parentProviderShare > 0) {
     distributionResults.push({ role: 'parent_provider', userId: parentProviderUserId, amount: amounts.parentProviderShare });
   } else if (amounts.parentProviderShare > 0) {
-    // 无上级服务商，归智算总台
+    // 无上级服务商，归智算中心
     distributionResults.push({ role: 'company', userId: adminId, amount: amounts.parentProviderShare });
   }
 
@@ -146,7 +146,7 @@ export async function distributeRevenue(params: {
   if (inviterId && amounts.inviterShare > 0) {
     distributionResults.push({ role: 'inviter', userId: inviterId, amount: amounts.inviterShare });
   } else if (amounts.inviterShare > 0) {
-    // 无直推人，归智算总台
+    // 无直推人，归智算中心
     distributionResults.push({ role: 'company', userId: adminId, amount: amounts.inviterShare });
   }
 
@@ -157,7 +157,7 @@ export async function distributeRevenue(params: {
     distributionResults.push({ role: 'company', userId: adminId, amount: amounts.branchShare });
   }
 
-  // 6. 智算总台收益（基础 + 归属部分）
+  // 6. 智算中心收益（基础 + 归属部分）
   const companyTotal = distributionResults
     .filter(r => r.role === 'company')
     .reduce((sum, r) => sum + r.amount, 0) + amounts.companyShare;

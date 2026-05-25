@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, execute } from '@/lib/pg-client';
 
-// 智算总台创建服务网点
+// 智算中心创建服务网点
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
       name,             // 服务网点名称
       code,             // 服务网点代码
       region,           // 所属区域
-      creator_id        // 创建人ID（智算总台管理员）
+      creator_id        // 创建人ID（智算中心管理员）
     } = body;
 
     // 参数验证

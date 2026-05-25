@@ -2653,14 +2653,14 @@ export default function ProviderPage() {
                                     <CardContent>
                                         {/* 关系说明 */}
                                         <div className="space-y-4">
-                                            {/* 服务商关系链：智算总台 → 服务网点 → 服务商 */}
+                                            {/* 服务商关系链：智算中心 → 服务网点 → 服务商 */}
                                             <div className="p-4 bg-slate-800/50 rounded-xl border border-slate-700">
                                                 <h4 className="text-purple-400 font-medium mb-3 flex items-center gap-2">
                                                     <Badge className="bg-purple-600 text-white text-xs">服务商</Badge>
                                                     关系链说明
                                                 </h4>
                                                 <div className="flex flex-wrap items-center gap-2 text-slate-300 text-sm">
-                                                    <span>智算总台</span>
+                                                    <span>智算中心</span>
                                                     <ArrowRight className="w-4 h-4 text-slate-500" />
                                                     <span>{chainData.branch?.username ? chainData.branch.username.replace('服务网点', '服务网点') : '服务网点'}</span>
                                                     <ArrowRight className="w-4 h-4 text-slate-500" />
@@ -2680,7 +2680,7 @@ export default function ProviderPage() {
                                                         </div>
                                                         <div className="flex-1">
                                                             <p className="text-blue-400 font-medium">{chainData.branch.username?.replace('服务网点', '服务网点') || '服务网点'}</p>
-                                                            <p className="text-slate-400 text-sm">上级：智算总台</p>
+                                                            <p className="text-slate-400 text-sm">上级：智算中心</p>
                                                         </div>
                                                         <Badge className="bg-blue-600 text-white">服务网点</Badge>
                                                     </div>
@@ -5172,7 +5172,7 @@ export default function ProviderPage() {
                                     ) : (
                                         <div className="text-center py-6 text-muted-foreground">
                                             <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                            <p>暂无可用模板，请联系智算总台创建</p>
+                                            <p>暂无可用模板，请联系智算中心创建</p>
                                         </div>
                                     )}
                                 </div>

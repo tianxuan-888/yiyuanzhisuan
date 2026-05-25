@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne } from '@/storage/database/pg-client';
 
-// 获取智算总台数据总览统计 - 优化版：使用SQL聚合替代全表查询
+// 获取智算中心数据总览统计 - 优化版：使用SQL聚合替代全表查询
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

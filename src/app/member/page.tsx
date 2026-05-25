@@ -1962,14 +1962,14 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             <CardContent>
                                                 {/* 关系说明 */}
                                                 <div className="space-y-4">
-                                                    {/* 会员关系链：智算总台 → 服务网点 → 服务商 → 会员 */}
+                                                    {/* 会员关系链：智算中心 → 服务网点 → 服务商 → 会员 */}
                                                     <div className="p-4 bg-slate-800/50 rounded-xl border border-slate-700">
                                                         <h4 className="text-emerald-400 font-medium mb-3 flex items-center gap-2">
                                                             <Badge className="bg-emerald-600 text-white text-xs">会员</Badge>
                                                             关系链说明
                                                         </h4>
                                                         <div className="flex flex-wrap items-center gap-2 text-slate-300 text-sm">
-                                                            <span>智算总台</span>
+                                                            <span>智算中心</span>
                                                             <ArrowRight className="w-4 h-4 text-slate-500" />
                                                             <span>服务网点</span>
                                                             <ArrowRight className="w-4 h-4 text-slate-500" />
@@ -1989,7 +1989,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                 </div>
                                                                 <div className="flex-1">
                                                                     <p className="text-blue-400 font-medium">{chainData.branch.username}</p>
-                                                                    <p className="text-slate-400 text-sm">上级：智算总台</p>
+                                                                    <p className="text-slate-400 text-sm">上级：智算中心</p>
                                                                 </div>
                                                                 <Badge className="bg-blue-600 text-white">服务网点</Badge>
                                                             </div>
@@ -2004,7 +2004,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                 <div className="flex-1">
                                                                     <p className="text-purple-400 font-medium">{chainData.provider.username}</p>
                                                                     <p className="text-slate-400 text-sm">
-                                                                        上级：{chainData.branch ? chainData.branch.username : '智算总台'}
+                                                                        上级：{chainData.branch ? chainData.branch.username : '智算中心'}
                                                                     </p>
                                                                 </div>
                                                                 <Badge className="bg-purple-600 text-white">服务商</Badge>

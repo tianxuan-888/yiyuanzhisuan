@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
-// GET - 获取按服务网点分组的用户数据（智算总台专用）
+// GET - 获取按服务网点分组的用户数据（智算中心专用）
 export async function GET(request: NextRequest) {
   try {
     const supabase = getSupabaseClient();

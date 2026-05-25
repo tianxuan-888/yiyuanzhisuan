@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
 
 function getRoleName(role: string): string {
   const roleMap: Record<string, string> = {
-    admin: '智算总台',
+    admin: '智算中心',
     branch: '服务网点',
     provider: '服务商',
     member: '会员'

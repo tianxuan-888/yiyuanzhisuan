@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, execute } from '@/storage/database/pg-client';
 
-// 智算总台向服务网点分配额度（1:1，无赠送）
+// 智算中心向服务网点分配额度（1:1，无赠送）
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
     }
 
-    // 验证是智算总台操作
+    // 验证是智算中心操作
     const admin = await query<{ id: string; username: string; role: string }>(
       'SELECT id, username, role FROM users WHERE id = $1', [adminId]
     );
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '用户不存在' }, { status: 404 });
     }
     if (admin[0].role !== 'admin') {
-      return NextResponse.json({ error: '只有智算总台管理员可以执行此操作' }, { status: 403 });
+      return NextResponse.json({ error: '只有智算中心管理员可以执行此操作' }, { status: 403 });
     }
 
     // 验证服务网点存在
@@ -40,23 +40,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '分配额度必须大于0' }, { status: 400 });
     }
 
-    // 验证智算总台可用额度
+    // 验证智算中心可用额度
     const companyQuota = await query<{ id: string; total_quota: number; used_quota: number; available_quota: number }>(
       'SELECT id, total_quota, used_quota, available_quota FROM company_quota LIMIT 1'
     );
 
     if (!companyQuota || companyQuota.length === 0) {
-      return NextResponse.json({ error: '智算总台额度记录不存在' }, { status: 500 });
+      return NextResponse.json({ error: '智算中心额度记录不存在' }, { status: 500 });
     }
 
     const availableQuota = Number(companyQuota[0].available_quota || 0);
     if (allocateAmount > availableQuota) {
-      return NextResponse.json({ error: `智算总台可用额度不足，当前可用 ${availableQuota.toLocaleString()} 元` }, { status: 400 });
+      return NextResponse.json({ error: `智算中心可用额度不足，当前可用 ${availableQuota.toLocaleString()} 元` }, { status: 400 });
     }
 
     // ========== 1:1 分配 ==========
 
-    // 1. 扣减智算总台额度
+    // 1. 扣减智算中心额度
     await execute(
       `UPDATE company_quota SET used_quota = used_quota + $1, available_quota = available_quota - $1 WHERE id = $2`,
       [allocateAmount, companyQuota[0].id || '1']
@@ -77,14 +77,14 @@ export async function POST(request: NextRequest) {
     await execute(
       `INSERT INTO quota_records (id, from_user_id, to_user_id, amount, type, note, created_at)
        VALUES ($1, $2, $3, $4, 'allocate', $5, NOW())`,
-      [crypto.randomUUID(), adminId, branchId, allocateAmount, note || `智算总台分配额度给服务网点 ${branch[0].username}`]
+      [crypto.randomUUID(), adminId, branchId, allocateAmount, note || `智算中心分配额度给服务网点 ${branch[0].username}`]
     );
 
     // 4. 发送通知
     await execute(
       `INSERT INTO notifications (id, receiver_id, receiver_role, sender_id, type, title, content, created_at)
        VALUES ($1, $2, 'branch', $3, 'quota_allocated', '额度已到账', $4, NOW())`,
-      [crypto.randomUUID(), branchId, adminId, `智算总台已分配额度 ${allocateAmount.toLocaleString()} 元到您的账户。`]
+      [crypto.randomUUID(), branchId, adminId, `智算中心已分配额度 ${allocateAmount.toLocaleString()} 元到您的账户。`]
     );
 
     return NextResponse.json({

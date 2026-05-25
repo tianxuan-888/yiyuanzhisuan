@@ -104,7 +104,7 @@ export default function TestLoginPage() {
                 className="w-full border-slate-600 text-gray-300 hover:bg-slate-700"
                 onClick={() => { setUsername('admin'); setPassword('admin123'); }}
               >
-                智算总台：admin / admin123
+                智算中心：admin / admin123
               </Button>
               <Button
                 variant="outline"

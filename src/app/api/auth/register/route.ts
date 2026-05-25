@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
     inviterInfo = { id: inviter.id, username: inviter.username };
 
     if (inviteCodeType === 'admin') {
-      // 智算总台邀请码：注册为服务网点
+      // 智算中心邀请码：注册为服务网点
       assignedRole = 'branch';
       branchId = null; // 注册后由系统分配 branch_id
       inviterId = inviter.id;
@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
     const { password: _, ...userWithoutPassword } = newUser;
 
     const inviteCodeTypeLabels: Record<string, string> = {
-      admin: '智算总台邀请（注册为服务网点）',
+      admin: '智算中心邀请（注册为服务网点）',
       branch: '服务网点邀请（注册为服务商）',
       provider: '服务商邀请',
       member: '会员邀请',

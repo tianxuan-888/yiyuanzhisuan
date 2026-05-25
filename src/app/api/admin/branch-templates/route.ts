@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const branchId = searchParams.get('branchId');
 
-    // 智算总台可以查看所有分配记录
+    // 智算中心可以查看所有分配记录
     // 服务网点只能查看自己的分配记录
     let sql = `
       SELECT qa.*, pt.name as template_name, pt.code as template_code, 
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     const allocations = await query(sql, params);
 
-    // 同时返回模板列表（智算总台创建的所有模板）
+    // 同时返回模板列表（智算中心创建的所有模板）
     const templates = await query(
       'SELECT * FROM product_templates WHERE status = $1 ORDER BY created_at DESC',
       ['active']
@@ -71,12 +71,12 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 授权算力模板给服务网点（智算总台操作，纯授权不涉及额度）
+// 授权算力模板给服务网点（智算中心操作，纯授权不涉及额度）
 export async function POST(request: NextRequest) {
   try {
     const user = authenticateRequest(request);
     if (!user || !authorizeRole(user, ['admin'])) {
-      return NextResponse.json({ error: '只有智算总台可以授权模板' }, { status: 403 });
+      return NextResponse.json({ error: '只有智算中心可以授权模板' }, { status: 403 });
     }
 
     const body = await request.json();

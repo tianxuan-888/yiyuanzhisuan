@@ -396,7 +396,7 @@ export function BranchDetailView({ branchId, branchName, onBack }: Props) {
                   <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
                     <div>
                       <div className="font-medium">总额度</div>
-                      <div className="text-sm text-gray-500">智算总台分配给该服务网点</div>
+                      <div className="text-sm text-gray-500">智算中心分配给该服务网点</div>
                     </div>
                     <div className="text-2xl font-bold text-blue-600">
                       {formatEnergy(branchData.stats.quotaTotal)}

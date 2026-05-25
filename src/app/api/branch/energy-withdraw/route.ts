@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `变现申请已提交，等待智算总台审核`,
+      message: `变现申请已提交，等待智算中心审核`,
       data: {
         requestId: id,
         amount: withdrawAmount,

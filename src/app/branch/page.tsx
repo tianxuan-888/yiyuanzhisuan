@@ -262,7 +262,7 @@ export default function BranchPage() {
   // 收益管理子Tab
   const [energySubTab, setEnergySubTab] = useState<string>('records'); // records, review, transfer
   
-  // 服务网点向智算总台申请收益相关状态
+  // 服务网点向智算中心申请收益相关状态
   const [myEnergyRequests, setMyEnergyRequests] = useState<any[]>([]);
   const [myEnergyApplyPendingCount, setMyEnergyApplyPendingCount] = useState(0);
   
@@ -572,7 +572,7 @@ export default function BranchPage() {
 
     setSubmitting(true);
     try {
-      // 智算总台管理员ID
+      // 智算中心管理员ID
       const ADMIN_ID = '00000000-0000-0000-0000-000000000001';
 
       const response = await authFetch('/api/quota-requests', {
@@ -589,7 +589,7 @@ export default function BranchPage() {
       const data = await response.json();
 
       if (data.success) {
-        showMessage('success', data.message || '额度申请已提交，请等待智算总台审核');
+        showMessage('success', data.message || '额度申请已提交，请等待智算中心审核');
         setShowQuotaApplyDialog(false);
         setApplyQuotaAmount('');
         loadData();
@@ -869,7 +869,7 @@ export default function BranchPage() {
     }
   };
 
-  // 服务网点向智算总台申请收益
+  // 服务网点向智算中心申请收益
   const handleBranchApplyEnergy = async () => {
     const amount = parseFloat(branchApplyAmount);
     if (!amount || amount <= 0) {
@@ -899,7 +899,7 @@ export default function BranchPage() {
 
       const data = await response.json();
       if (data.success) {
-        showMessage('success', '申请已提交，等待智算总台审核');
+        showMessage('success', '申请已提交，等待智算中心审核');
         setBranchApplyAmount('');
         loadEnergyRequests(); // 刷新申请记录
       } else {
@@ -1043,7 +1043,7 @@ export default function BranchPage() {
     }
   };
 
-  // 服务网点提现到智算总台
+  // 服务网点提现到智算中心
   const handleBranchWithdrawToCompany = async () => {
     const amount = parseFloat(branchWithdrawAmount);
     if (!amount || amount < 100) {
@@ -1073,7 +1073,7 @@ export default function BranchPage() {
       });
       const data = await response.json();
       if (data.success) {
-        showMessage('success', `提现申请已提交！手续费${data.data?.fee || 0}元，实际到账${data.data?.actualAmount || 0}元，等待智算总台审核`);
+        showMessage('success', `提现申请已提交！手续费${data.data?.fee || 0}元，实际到账${data.data?.actualAmount || 0}元，等待智算中心审核`);
         setShowBranchWithdrawDialog(false);
         setBranchWithdrawAmount('');
         setBranchWithdrawAlipay('');
@@ -1250,7 +1250,7 @@ export default function BranchPage() {
     }
   };
 
-  // 向智算总台申请收益
+  // 向智算中心申请收益
   const handleApplyEnergy = async () => {
     const branchId = localStorage.getItem('userId');
     if (!branchId || !energyApplyAmount) {
@@ -1325,7 +1325,7 @@ export default function BranchPage() {
     }
   };
 
-  // 加载服务网点向智算总台申请收益的记录
+  // 加载服务网点向智算中心申请收益的记录
   const loadMyEnergyRequests = async () => {
     const branchId = localStorage.getItem('userId');
     if (!branchId) return;
@@ -1512,7 +1512,7 @@ export default function BranchPage() {
               {/* 说明 */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
                 <p className="font-medium mb-1">操作说明</p>
-                <p>选择服务商并输入分配的额度金额，服务商获得额度后可直接选择智算总台设定的产品模板生成Token存储包。</p>
+                <p>选择服务商并输入分配的额度金额，服务商获得额度后可直接选择智算中心设定的产品模板生成Token存储包。</p>
               </div>
               {/* 服务网点额度信息 */}
               <div className="bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 rounded-lg p-3">
@@ -2122,7 +2122,7 @@ export default function BranchPage() {
                       <CardTitle className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Send className="w-5 h-5 text-purple-600" />
-                          向智算总台申请额度
+                          向智算中心申请额度
                         </div>
                         <Button size="sm" onClick={() => setShowQuotaApplyDialog(true)} className="bg-purple-600 hover:bg-purple-700">
                           申请额度
@@ -2719,7 +2719,7 @@ export default function BranchPage() {
                         className="bg-green-600 hover:bg-green-700"
                         onClick={() => setShowBranchWithdrawDialog(true)}
                       >
-                        <Banknote className="w-4 h-4 mr-1" /> 提现到智算总台
+                        <Banknote className="w-4 h-4 mr-1" /> 提现到智算中心
                       </Button>
                     </div>
                   </div>
@@ -2958,7 +2958,7 @@ export default function BranchPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="w-[500px]">
             <CardHeader>
-              <CardTitle>向智算总台申请额度</CardTitle>
+              <CardTitle>向智算中心申请额度</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -3103,14 +3103,14 @@ export default function BranchPage() {
         </div>
       )}
 
-      {/* 服务网点提现到智算总台对话框 */}
+      {/* 服务网点提现到智算中心对话框 */}
       {showBranchWithdrawDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="w-full max-w-lg">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Banknote className="w-5 h-5 text-green-500" />
-                收益提现到智算总台
+                收益提现到智算中心
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -3150,8 +3150,8 @@ export default function BranchPage() {
               </div>
               <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-600">
                 <p>• 最低提现金额: ¥100</p>
-                <p>• 提现手续费: 5%（沉淀到智算总台）</p>
-                <p>• 提交后等待智算总台审核打款</p>
+                <p>• 提现手续费: 5%（沉淀到智算中心）</p>
+                <p>• 提交后等待智算中心审核打款</p>
               </div>
               <div className="flex justify-end gap-2 pt-4">
                 <Button variant="outline" onClick={() => setShowBranchWithdrawDialog(false)}>取消</Button>

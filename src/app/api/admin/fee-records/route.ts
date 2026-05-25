@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/pg-client';
 import { authenticateRequest } from '@/lib/auth';
 
-// 获取智算总台手续费沉淀记录
+// 获取智算中心手续费沉淀记录
 export async function GET(request: NextRequest) {
   try {
     const authUser = authenticateRequest(request);
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (authUser.role !== 'admin') {
-      return NextResponse.json({ error: '仅智算总台可查看' }, { status: 403 });
+      return NextResponse.json({ error: '仅智算中心可查看' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);

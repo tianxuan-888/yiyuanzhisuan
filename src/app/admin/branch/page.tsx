@@ -105,7 +105,7 @@ export default function BranchPage() {
   const [paymentMethod, setPaymentMethod] = useState<'alipay' | 'wechat'>('alipay');
   const [paymentAccount, setPaymentAccount] = useState('');
   
-  // 服务网点向智算总台申请收益相关状态
+  // 服务网点向智算中心申请收益相关状态
   const [branchEnergyRequests, setBranchEnergyRequests] = useState<any[]>([]);
   const [branchEnergyRequestsLoading, setBranchEnergyRequestsLoading] = useState(true);
   const [showApplyEnergyDialog, setShowApplyEnergyDialog] = useState(false);
@@ -198,7 +198,7 @@ export default function BranchPage() {
         console.error('加载服务网点信息失败:', error);
       }
       
-      // 加载服务网点向智算总台申请收益记录
+      // 加载服务网点向智算中心申请收益记录
       setBranchEnergyRequestsLoading(true);
       try {
         const response = await fetch(`/api/energy/branch-request?branchId=${userId}`);
@@ -225,7 +225,7 @@ export default function BranchPage() {
       }
       setWithdrawLoading(false);
       
-      // 加载服务网点向智算总台变现申请
+      // 加载服务网点向智算中心变现申请
       setBranchWithdrawLoading(true);
       try {
         const response = await fetch(`/api/branch/energy-withdraw?branchId=${userId}`);
@@ -464,7 +464,7 @@ export default function BranchPage() {
     }
   };
 
-  // 服务网点向智算总台申请收益
+  // 服务网点向智算中心申请收益
   const handleApplyEnergy = async () => {
     if (!applyEnergyAmount || parseFloat(applyEnergyAmount) < 100) {
       alert('申请金额最低为100收益');
@@ -489,7 +489,7 @@ export default function BranchPage() {
       });
       const result = await response.json();
       if (result.success) {
-        alert('收益申请已提交，等待智算总台审核！');
+        alert('收益申请已提交，等待智算中心审核！');
         setShowApplyEnergyDialog(false);
         setApplyEnergyAmount('');
         setApplyEnergyNote('');
@@ -681,7 +681,7 @@ export default function BranchPage() {
       });
       const result = await response.json();
       if (result.success) {
-        alert('变现申请已提交，等待智算总台审核！');
+        alert('变现申请已提交，等待智算中心审核！');
         setShowWithdrawDialog(false);
         setWithdrawAmount('');
         setPaymentAccount('');
@@ -990,7 +990,7 @@ export default function BranchPage() {
                 <CardHeader>
                   <CardTitle className="text-white flex items-center gap-2">
                     <Server className="w-5 h-5 text-yellow-400" />
-                    向智算总台申请额度
+                    向智算中心申请额度
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -1010,7 +1010,7 @@ export default function BranchPage() {
                   </div>
                   
                   <div className="text-center text-gray-500 py-8">
-                    额度申请功能开发中，请联系智算总台申请额度...
+                    额度申请功能开发中，请联系智算中心申请额度...
                   </div>
                 </CardContent>
               </Card>
@@ -1286,14 +1286,14 @@ export default function BranchPage() {
               </TabsTrigger>
             </TabsList>
 
-          {/* 申请收益 - 服务网点向智算总台申请 */}
+          {/* 申请收益 - 服务网点向智算中心申请 */}
           <TabsContent value="apply-energy">
             <Card className="bg-slate-800 border-slate-700">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-white flex items-center gap-2">
                     <Zap className="w-5 h-5 text-yellow-400" />
-                    向智算总台申请收益
+                    向智算中心申请收益
                   </CardTitle>
                   <Button 
                     className="bg-green-500 hover:bg-green-600"
@@ -1865,9 +1865,9 @@ export default function BranchPage() {
       <Dialog open={showApplyEnergyDialog} onOpenChange={setShowApplyEnergyDialog}>
         <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md">
           <DialogHeader>
-            <DialogTitle>向智算总台申请收益</DialogTitle>
+            <DialogTitle>向智算中心申请收益</DialogTitle>
             <DialogDescription className="text-gray-400">
-              提交申请后等待智算总台审核，通过后收益将直接到账
+              提交申请后等待智算中心审核，通过后收益将直接到账
             </DialogDescription>
           </DialogHeader>
 
@@ -1917,7 +1917,7 @@ export default function BranchPage() {
           <DialogHeader>
             <DialogTitle>收益变现</DialogTitle>
             <DialogDescription className="text-gray-400">
-              将收益变现，等待智算总台转账
+              将收益变现，等待智算中心转账
             </DialogDescription>
           </DialogHeader>
 

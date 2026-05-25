@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/pg-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 
-// 智算总台查询释放收益记录
+// 智算中心查询释放收益记录
 // 包含：释放总览统计 + 按服务网点/服务商/会员的明细
 export async function GET(request: NextRequest) {
   try {
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!authorizeRole(authUser, ['admin'])) {
-      return NextResponse.json({ error: '只有智算总台管理员可以查看' }, { status: 403 });
+      return NextResponse.json({ error: '只有智算中心管理员可以查看' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);

@@ -8,7 +8,7 @@
 // 收益按比例分配给服务商、运营、上级、服务网点、直推
 // 
 // 【角色层级】
-// 智算总台 → 服务网点 → 服务商 → 会员
+// 智算中心 → 服务网点 → 服务商 → 会员
 //
 // 【核心机制】
 // - 收益：卖出时支付市场费，可找服务商充值
@@ -73,7 +73,7 @@ export interface Provider extends BaseUser {
   directReferrals: number; // 直推人数
   systemPurchase: number; // 体系购买额
   holdingMembers: number; // 持仓会员数
-  branchId?: string; // 归属服务网点ID（无则归智算总台）
+  branchId?: string; // 归属服务网点ID（无则归智算中心）
   parentProviderId?: string; // 上级服务商ID（拆分出来的来源）
   childProviderIds?: string[]; // 下级服务商ID列表（拆分出去的）
   status: 'active' | 'suspended' | 'bankrupt' | 'pending_split'; // 状态

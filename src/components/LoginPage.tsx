@@ -35,7 +35,7 @@ const SplashScreen = ({ onComplete }: { onComplete: () => void }) => {
 
 // 角色图标和颜色
 const roleConfig = {
-  admin: { icon: Shield, color: 'text-red-500', bg: 'bg-red-500', label: '智算总台', redirect: '/admin' },
+  admin: { icon: Shield, color: 'text-red-500', bg: 'bg-red-500', label: '智算中心', redirect: '/admin' },
   branch: { icon: Building2, color: 'text-blue-500', bg: 'bg-blue-500', label: '服务网点', redirect: '/branch' },
   provider: { icon: Users, color: 'text-purple-500', bg: 'bg-purple-500', label: '服务商', redirect: '/provider' },
   member: { icon: User, color: 'text-green-500', bg: 'bg-green-500', label: '会员', redirect: '/member' },

@@ -91,10 +91,10 @@ async function getBranchEnergyRecords(branchId: string, type: string = 'all') {
         const fromUser = bytesToUuid(record.from_user_id);
         switch (record.type) {
           case 'quota_match':
-            description = '智算总台下发算力额度，同步配套收益';
+            description = '智算中心下发算力额度，同步配套收益';
             break;
           case 'transfer_in':
-            description = '智算总台分配额度，获得赠送收益';
+            description = '智算中心分配额度，获得赠送收益';
             break;
           case 'transfer_out':
             description = toUser ? '审核通过服务商收益申请，发放收益' : '收益转出';

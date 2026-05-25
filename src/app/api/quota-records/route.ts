@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
       // 只有下发对象是服务网点时才同步发放20%收益，服务商只给算力额度
       const energyBonus = toUserRole === 'branch' ? Math.floor(Number(amount) * 0.2) : 0;
       if (energyBonus > 0 && fromUserId) {
-        // 1. 扣除智算总台收益
+        // 1. 扣除智算中心收益
         await query(
           `INSERT INTO energy_accounts (user_id, balance, total_in, total_out, created_at, updated_at)
            VALUES ($1, 0, 0, $2, NOW(), NOW())
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
         await query(
           `INSERT INTO energy_transactions (user_id, from_user_id, to_user_id, amount, type, note, created_at)
            VALUES ($1, $2, $3, $4, 'quota_match', $5, NOW())`,
-          [toUserId, fromUserId, toUserId, energyBonus, `智算总台下发算力额度 ${amount} 元，同步配套20%收益 ${energyBonus}`]
+          [toUserId, fromUserId, toUserId, energyBonus, `智算中心下发算力额度 ${amount} 元，同步配套20%收益 ${energyBonus}`]
         );
       }
     }

@@ -159,7 +159,7 @@ function Sidebar({
             <Building2 className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-white font-bold">智算总台后台</h1>
+            <h1 className="text-white font-bold">智算中心后台</h1>
             <p className="text-gray-500 text-xs">艺元智算管理</p>
           </div>
         </div>
@@ -1783,7 +1783,7 @@ function SettingsPage() {
           <div className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg">
             <div>
               <p className="text-white">额度赠送比例</p>
-              <p className="text-gray-400 text-sm">智算总台分配额度时的收益赠送比例</p>
+              <p className="text-gray-400 text-sm">智算中心分配额度时的收益赠送比例</p>
             </div>
             <div className="flex items-center gap-2">
               <Input className="w-24 bg-slate-900 border-slate-700 text-white text-right" defaultValue="30" />

@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       .eq('id', quotaRequest.requester_id)
       .single();
 
-    // 如果是服务网点申请，检查智算总台额度
+    // 如果是服务网点申请，检查智算中心额度
     if (quotaRequest.requester_type === 'branch') {
       const { data: companyQuota, error: quotaError } = await client
         .from('company_quota')
@@ -83,16 +83,16 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       if (quotaError) {
-        console.error('获取智算总台额度失败:', quotaError.message);
+        console.error('获取智算中心额度失败:', quotaError.message);
       }
 
       if (companyQuota && companyQuota.available_quota < finalAmount) {
         return NextResponse.json({
-          error: `智算总台额度不足，当前可用额度: ¥${companyQuota.available_quota.toLocaleString()}`
+          error: `智算中心额度不足，当前可用额度: ¥${companyQuota.available_quota.toLocaleString()}`
         }, { status: 400 });
       }
 
-      // 扣除智算总台额度
+      // 扣除智算中心额度
       if (companyQuota) {
         await client.from('company_quota').update({
           available_quota: companyQuota.available_quota - finalAmount,

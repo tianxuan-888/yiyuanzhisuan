@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne, execute } from '@/lib/supabase-client';
 
-// 智算总台审核提现申请（仅审核服务网点的提现，会员/服务商提现由服务网点审核）
+// 智算中心审核提现申请（仅审核服务网点的提现，会员/服务商提现由服务网点审核）
 // 申请时已冻结余额，审核通过：100%到总台balance（总台线下付款给网点），审核拒绝：退还冻结余额
 
 export async function POST(request: NextRequest) {

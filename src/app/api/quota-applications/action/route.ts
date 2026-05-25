@@ -38,11 +38,11 @@ export async function PUT(request: NextRequest) {
 
     if (action === 'approve') {
       // 同意申请 - 下发额度
-      // 智算总台管理员ID
+      // 智算中心管理员ID
       const ADMIN_ID = '00000000-0000-0000-0000-000000000001';
       const amount = application.amount;
 
-      // 检查智算总台余额
+      // 检查智算中心余额
       const adminAccount = await query(
         `SELECT balance FROM quota_accounts WHERE user_id = $1`,
         [ADMIN_ID]
@@ -50,12 +50,12 @@ export async function PUT(request: NextRequest) {
 
       if (adminAccount.length === 0 || Number(adminAccount[0].balance) < Number(amount)) {
         return NextResponse.json(
-          { success: false, error: '智算总台额度不足' },
+          { success: false, error: '智算中心额度不足' },
           { status: 400 }
         );
       }
 
-      // 扣除智算总台余额
+      // 扣除智算中心余额
       await query(
         `UPDATE quota_accounts SET 
           balance = balance - $1, 

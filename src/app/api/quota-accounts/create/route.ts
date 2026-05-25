@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 import { authenticateRequest, authorizeRole } from '@/lib/auth';
 
-// 智算总台增加额度
+// 智算中心增加额度
 export async function POST(request: NextRequest) {
   try {
     // 鉴权：仅管理员可操作
@@ -21,10 +21,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 智算总台管理员ID (正确的UUID)
+    // 智算中心管理员ID (正确的UUID)
     const ADMIN_ID = '00000000-0000-0000-0000-000000000001';
 
-    // 增加智算总台余额
+    // 增加智算中心余额
     await query(
       `INSERT INTO quota_accounts (user_id, balance, total_in, total_out, created_at, updated_at)
        VALUES ($1, $2, $3, 0, NOW(), NOW())
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     await query(
       `INSERT INTO quota_records (from_user_id, to_user_id, amount, type, note)
        VALUES (NULL, $1, $2, 'create', $3)`,
-      [ADMIN_ID, amount, note || '智算总台创建额度']
+      [ADMIN_ID, amount, note || '智算中心创建额度']
     );
 
     return NextResponse.json({

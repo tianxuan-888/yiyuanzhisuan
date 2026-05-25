@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 
-// 获取服务网点提现申请列表（智算总台审核用）
+// 获取服务网点提现申请列表（智算中心审核用）
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
