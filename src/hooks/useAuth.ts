@@ -40,6 +40,7 @@ interface UserInfo {
   alipay_account?: string | null;
   username?: string;
   is_active?: boolean;
+  buy_locked?: boolean;
   created_at?: string;
   updated_at?: string | null;
 }

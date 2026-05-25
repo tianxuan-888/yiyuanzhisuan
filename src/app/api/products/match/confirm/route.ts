@@ -60,12 +60,18 @@ export async function POST(request: NextRequest) {
 
         // 检查目标会员
         const targetUser = await queryOne(
-          `SELECT id, username, balance, provider_id, inviter_id FROM users WHERE id = $1`,
+          `SELECT id, username, balance, provider_id, inviter_id, buy_locked FROM users WHERE id = $1`,
           [product.pending_match_user_id]
         );
 
         if (!targetUser) {
           results.push({ productId: product.id, success: false, message: '目标会员不存在' });
+          continue;
+        }
+
+        // 检查目标会员是否被锁定
+        if (targetUser.buy_locked) {
+          results.push({ productId: product.id, success: false, message: '目标会员已被锁定，无法购买产品' });
           continue;
         }
 

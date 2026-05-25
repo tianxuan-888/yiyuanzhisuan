@@ -104,6 +104,7 @@ export async function GET(request: NextRequest) {
       uniqueId: m.unique_id || '',
       
       balance: parseFloat(m.balance || '0'),
+      buyLocked: m.buy_locked || false,
       providerId: m.provider_id,
       providerName: providerNames[m.provider_id] || '未知',
       inviterId: m.inviter_id,

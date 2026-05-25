@@ -2875,10 +2875,15 @@ export default function BranchPage() {
                         {/* 会员行 */}
                         <div className="space-y-1">
                           {filteredMembers.map((m: any) => (
-                            <div key={m.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 py-3 border-b last:border-b-0 items-center hover:bg-gray-50 rounded px-1">
+                            <div key={m.id} className={`grid grid-cols-1 md:grid-cols-12 gap-2 py-3 border-b last:border-b-0 items-center hover:bg-gray-50 rounded px-1 ${m.buyLocked ? 'bg-red-50' : ''}`}>
                               {/* 姓名 */}
                               <div className="col-span-2">
-                                <p className="font-medium">{m.realName || m.username || '-'}</p>
+                                <div className="flex items-center gap-1.5">
+                                  <p className="font-medium">{m.realName || m.username || '-'}</p>
+                                  {m.buyLocked && (
+                                    <Badge className="bg-red-100 text-red-600 text-[10px] px-1.5 py-0">已锁定</Badge>
+                                  )}
+                                </div>
                                 <p className="text-xs text-gray-400 md:hidden">手机: {m.phone || '-'}</p>
                               </div>
                               {/* 专属ID */}
@@ -2905,7 +2910,7 @@ export default function BranchPage() {
                                 </div>
                               </div>
                               {/* 操作 */}
-                              <div className="col-span-1">
+                              <div className="col-span-2 flex items-center gap-1">
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -2913,6 +2918,31 @@ export default function BranchPage() {
                                   onClick={() => openMemberTransfer(m)}
                                 >
                                   <ArrowRightLeft className="w-3 h-3 mr-0.5" />转移
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant={m.buyLocked ? "outline" : "destructive"}
+                                  className="text-xs h-7"
+                                  onClick={async () => {
+                                    try {
+                                      const res = await fetch('/api/member/buy-lock', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ userId: m.id, locked: !m.buyLocked })
+                                      });
+                                      const data = await res.json();
+                                      if (data.success) {
+                                        // 更新本地状态
+                                        setMemberList((prev: any[]) => prev.map((item: any) => item.id === m.id ? { ...item, buyLocked: !item.buyLocked } : item));
+                                      } else {
+                                        alert(data.message || '操作失败');
+                                      }
+                                    } catch {
+                                      alert('操作失败');
+                                    }
+                                  }}
+                                >
+                                  {m.buyLocked ? '解锁' : '锁定'}
                                 </Button>
                               </div>
                             </div>

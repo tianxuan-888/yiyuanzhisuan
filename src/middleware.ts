@@ -137,6 +137,7 @@ const PUBLIC_PATHS = [
 const SKIP_PREFIXES = [
   '/_next',
   '/favicon.ico',
+  '/api/member/buy-lock',
   '/public',
 ];
 

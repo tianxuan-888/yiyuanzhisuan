@@ -52,6 +52,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '用户不存在' }, { status: 404 });
     }
 
+    // 检查账号是否被锁定购买
+    if (user.buy_locked) {
+      return NextResponse.json({
+        success: false,
+        error: '账号已被锁定',
+        data: {
+          code: 'BUY_LOCKED',
+          message: '您的账号已被锁定，无法购买产品，请联系您的服务商或网点解锁',
+          canBuy: false,
+        },
+      }, { status: 400 });
+    }
+
     const productPrice = parseNumeric(product.price);
 
     // ========== 持仓金额检查（上限2万） ==========

@@ -2289,6 +2289,15 @@ const [copySuccess, setCopySuccess] = useState(false);
                             </Card>
                         </div>
 
+                            {user?.buy_locked && (
+                                <div className="mb-4 p-3 rounded-lg bg-red-900/30 border border-red-700/50 flex items-center gap-2">
+                                    <Lock className="w-5 h-5 text-red-400" />
+                                    <div>
+                                        <p className="text-red-400 font-medium text-sm">购买权限已被锁定</p>
+                                        <p className="text-red-400/70 text-xs">您的账号购买功能已被网点锁定，请联系所属网点解锁。变现和其他功能不受影响。</p>
+                                    </div>
+                                </div>
+                            )}
                                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
 
                             {/* 服务商直售产品：available 状态 */}
