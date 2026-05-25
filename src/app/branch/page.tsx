@@ -11,7 +11,8 @@ import {
   RefreshCw, Plus, Bell, ChevronDown, ChevronUp,
   Eye, DollarSign, ClipboardList, CheckCircle, XCircle, Database,
   FileCheck, ClipboardCheck, User, History, Banknote, Gift, TrendingUp,
-  AlertCircle, Cpu, Share2, FileText, PlusCircle, ArrowRightLeft, Search
+  AlertCircle, Cpu, Share2, FileText, PlusCircle, ArrowRightLeft, Search,
+  ArrowLeftRight, Repeat, Wallet
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -2659,6 +2660,32 @@ export default function BranchPage() {
           {/* 收益管理 Tab */}
           {activeTab === 'revenue' && (
             <div className="space-y-3 md:space-y-6">
+              {/* 智算金卡片 - 与会员端一致 */}
+              <Card className="bg-gradient-to-br from-purple-500 to-purple-700 text-white">
+                <CardContent className="pt-5 pb-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <TrendingUp className="w-5 h-5" />
+                    <span className="opacity-80 text-sm">智算金</span>
+                  </div>
+                  <p className="text-3xl font-bold">¥{Number(user?.balance || branchEnergyBalance || 0).toLocaleString()}</p>
+                  <p className="text-xs opacity-70 mt-1">可提现/互转/转积分</p>
+                  <div className="flex gap-2 mt-3">
+                    <Button size="sm" variant="secondary" className="h-8 text-xs bg-white/20 hover:bg-white/30 text-white border-0"
+                      onClick={() => setShowTransferDialog(true)}>
+                      <ArrowLeftRight className="w-3.5 h-3.5 mr-1" />互转
+                    </Button>
+                    <Button size="sm" variant="secondary" className="h-8 text-xs bg-white/20 hover:bg-white/30 text-white border-0"
+                      onClick={() => setShowConvertToEnergyDialog(true)}>
+                      <Repeat className="w-3.5 h-3.5 mr-1" />转积分
+                    </Button>
+                    <Button size="sm" variant="secondary" className="h-8 text-xs bg-white/20 hover:bg-white/30 text-white border-0"
+                      onClick={() => setShowBranchWithdrawDialog(true)}>
+                      <Wallet className="w-3.5 h-3.5 mr-1" />提现
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* 收益统计卡片 */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
@@ -3199,20 +3226,20 @@ export default function BranchPage() {
         </div>
       )}
 
-      {/* 收益转收益对话框 - 已禁用 */}
-      {false && showConvertToEnergyDialog && (
+      {/* 收益转积分对话框 */}
+      {showConvertToEnergyDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="w-full max-w-lg">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Zap className="w-5 h-5 text-blue-500" />
-                收益转收益
+                <Repeat className="w-5 h-5 text-purple-500" />
+                智算金转积分
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600">当前收益余额</p>
-                <p className="text-2xl font-bold text-blue-600">¥{Number(branchRevenueStats.totalRevenue || 0).toLocaleString()}</p>
+              <div className="bg-purple-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">当前智算金余额</p>
+                <p className="text-2xl font-bold text-purple-600">¥{Number(user?.balance || branchEnergyBalance || 0).toLocaleString()}</p>
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">转换金额</label>
@@ -3230,8 +3257,8 @@ export default function BranchPage() {
               </div>
               <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-600">
                 <p>• 最低转换金额: ¥10</p>
-                <p>• 转换比例: 95%转为收益，5%转为积分</p>
-                <p>• 转换后收益可用于支付市场费</p>
+                <p>• 转换比例: 95%转为智算金，5%转为积分</p>
+                <p>• 转换后积分不可逆转回智算金</p>
               </div>
               <div className="flex justify-end gap-2 pt-4">
                 <Button variant="outline" onClick={() => { setShowConvertToEnergyDialog(false); setConvertToEnergyAmount(''); }}>取消</Button>

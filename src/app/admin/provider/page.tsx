@@ -1335,28 +1335,37 @@ export default function ProviderDashboard() {
               <p className="text-gray-500 text-sm mt-1">管理您的收益，为会员充值</p>
             </div>
             
-            {/* 收益统计卡片 */}
-            <div className="grid grid-cols-4 gap-6">
-              <Card className="border-amber-200">
-                <CardContent className="p-6">
-                  <p className="text-sm text-gray-500">收益余额</p>
-                  <p className="text-3xl font-bold mt-1 text-amber-600">{balanceInfo.balance}</p>
-                  <div className="flex gap-2 mt-3">
-                    <Button size="sm" variant="outline" className="text-xs h-7 border-amber-300 text-amber-700 hover:bg-amber-50" onClick={() => setActiveMenu('balance-transfer')}>
-                      <ArrowLeftRight className="w-3 h-3 mr-1" />互转
-                    </Button>
-                    <Button size="sm" variant="outline" className="text-xs h-7 border-purple-300 text-purple-700 hover:bg-purple-50" onClick={() => setShowBalanceConvertDialog(true)}>
-                      <Repeat className="w-3 h-3 mr-1" />转积分
-                    </Button>
-                    <Button size="sm" variant="outline" className="text-xs h-7 border-red-300 text-red-700 hover:bg-red-50" onClick={() => {
+            {/* 智算金大卡片 - 与会员端一致 */}
+            <Card className="bg-gradient-to-br from-purple-500 to-purple-700 text-white">
+              <CardContent className="pt-5 pb-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Coins className="w-5 h-5" />
+                  <span className="opacity-80 text-sm">智算金</span>
+                </div>
+                <p className="text-3xl font-bold">¥{balanceInfo.balance.toLocaleString()}</p>
+                <p className="text-xs opacity-70 mt-1">可提现/互转/转积分</p>
+                <div className="flex gap-2 mt-3">
+                  <Button size="sm" variant="secondary" className="h-8 text-xs bg-white/20 hover:bg-white/30 text-white border-0"
+                    onClick={() => setActiveMenu('balance-transfer')}>
+                    <ArrowLeftRight className="w-3.5 h-3.5 mr-1" />互转
+                  </Button>
+                  <Button size="sm" variant="secondary" className="h-8 text-xs bg-white/20 hover:bg-white/30 text-white border-0"
+                    onClick={() => setShowBalanceConvertDialog(true)}>
+                    <Repeat className="w-3.5 h-3.5 mr-1" />转积分
+                  </Button>
+                  <Button size="sm" variant="secondary" className="h-8 text-xs bg-white/20 hover:bg-white/30 text-white border-0"
+                    onClick={() => {
                       const el = document.getElementById('withdraw-section');
                       el?.scrollIntoView({ behavior: 'smooth' });
                     }}>
-                      <TrendingDown className="w-3 h-3 mr-1" />提现
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+                    <Wallet className="w-3.5 h-3.5 mr-1" />提现
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 收益统计卡片 */}
+            <div className="grid grid-cols-3 gap-6">
               <Card className="border-green-200">
                 <CardContent className="p-6">
                   <p className="text-sm text-gray-500">累计充值</p>
