@@ -1,18 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne, execute } from '@/lib/supabase-client';
+import { authenticateRequest } from '@/lib/auth';
 
 // 获取服务商智算金提现记录
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const providerId = searchParams.get('providerId');
+    let providerId = searchParams.get('providerId');
 
+    // 如果没传providerId，从JWT中获取
     if (!providerId) {
-      return NextResponse.json({ success: false, error: '缺少providerId参数' }, { status: 400 });
+      const auth = await authenticateRequest(request);
+      if (!auth) {
+        return NextResponse.json({ success: false, error: '未授权' }, { status: 401 });
+      }
+      providerId = auth.userId;
     }
 
     const data = await query(
-      `SELECT id, user_id, amount, fee, actual_amount, alipay_account, real_name, status, note, created_at, updated_at
+      `SELECT id, user_id, amount, fee, actual_amount, alipay_account, real_name, status, reject_reason, note, created_at, updated_at
        FROM withdrawals 
        WHERE user_id = $1 AND user_role = 'provider'
        ORDER BY created_at DESC`,
@@ -63,7 +69,7 @@ export async function POST(request: NextRequest) {
     const fee = Math.round(withdrawAmount * 0.05 * 100) / 100;
     const actualAmount = withdrawAmount - fee;
 
-    // 扣除智算金（余额）
+    // 扣除智算金
     await execute(
       'UPDATE users SET energy_value = energy_value - $1, updated_at = NOW() WHERE id = $2',
       [withdrawAmount.toFixed(2), providerId]
