@@ -59,6 +59,7 @@ const PUBLIC_PATHS = [
   '/api/provider/generate-products',
   '/api/provider/revenue',
   '/api/provider/energy',
+  '/api/provider/energy-withdraw',
   '/api/admin/stats',
   '/api/admin/three-types-stats',
   '/api/admin/orders',
