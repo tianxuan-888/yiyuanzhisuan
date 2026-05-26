@@ -960,7 +960,7 @@ export default function ProviderPage() {
         
         // 加载可用模板
         try {
-            const response = await authFetch("/api/product-templates");
+            const response = await authFetch("/api/product-templates?status=active");
             const data = await response.json();
             if (data.success) {
                 // 只显示3天周期的模板

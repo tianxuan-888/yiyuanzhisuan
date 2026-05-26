@@ -64,6 +64,7 @@ import {
   Activity,
   Coins,
   ArrowRight,
+  LayoutGrid,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -100,6 +101,7 @@ const menuItems: MenuItem[] = [
   { id: 'quota', name: 'Token额度管理', icon: <Database className="w-5 h-5" /> },
   { id: 'withdraw', name: '提现审核', icon: <Wallet className="w-5 h-5" /> },
   { id: 'accounts', name: '账户管理', icon: <Users className="w-5 h-5" /> },
+  { id: 'templates', name: '模板管理', icon: <LayoutGrid className="w-5 h-5" /> },
 ];
 
 // 统计数据类型
@@ -337,6 +339,10 @@ export default function AdminPage() {
   // 消息提示
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // 模板管理相关状态
+  const [templateList, setTemplateList] = useState<any[]>([]);
+  const [templateLoading, setTemplateLoading] = useState(false);
 
   // 会员管理相关状态
   const [memberTab, setMemberTab] = useState<'upgrade' | 'energy' | 'stats' | 'users'>('upgrade');
@@ -862,6 +868,10 @@ export default function AdminPage() {
     // 如果选择数据总览，加载数据
     if (menuId === 'overview' || menuId.startsWith('overview-')) {
       loadOverviewData();
+    }
+    // 如果选择模板管理，加载模板数据
+    if (menuId === 'templates') {
+      loadTemplates();
     }
   };
   
@@ -9444,6 +9454,135 @@ export default function AdminPage() {
     );
   };
 
+  // 模板管理
+  const loadTemplates = async () => {
+    setTemplateLoading(true);
+    try {
+      const res = await fetch('/api/product-templates');
+      const data = await res.json();
+      if (data.success) {
+        setTemplateList(data.data);
+      }
+    } catch (e) {
+      console.error('加载模板失败', e);
+    } finally {
+      setTemplateLoading(false);
+    }
+  };
+
+  const toggleTemplateStatus = async (templateId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    try {
+      const res = await fetch('/api/product-templates', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ templateId, status: newStatus }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMessage({ type: 'success', text: data.message });
+        loadTemplates();
+      } else {
+        setMessage({ type: 'error', text: data.error || '操作失败' });
+      }
+    } catch (e) {
+      setMessage({ type: 'error', text: '操作失败' });
+    }
+  };
+
+  const renderTemplateManagement = () => {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-gray-800">模板管理</h2>
+            <p className="text-sm text-gray-500 mt-1">控制服务商端可用的产品模板，禁用后服务商将无法看到该模板</p>
+          </div>
+          <button
+            onClick={loadTemplates}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium"
+          >
+            刷新
+          </button>
+        </div>
+
+        {templateLoading ? (
+          <div className="text-center py-12 text-gray-400">加载中...</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {templateList.map((tpl: any) => {
+              const isActive = tpl.status === 'active';
+              return (
+                <div
+                  key={tpl.id}
+                  className={`rounded-xl border-2 p-5 transition-all ${
+                    isActive
+                      ? 'border-green-300 bg-green-50/50 shadow-md'
+                      : 'border-gray-200 bg-gray-50 opacity-70'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-3 h-3 rounded-full ${isActive ? 'bg-green-500' : 'bg-gray-400'}`} />
+                      <span className="font-bold text-gray-800">{tpl.name}</span>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                      isActive ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'
+                    }`}>
+                      {isActive ? '已启用' : '已禁用'}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 text-sm text-gray-600 mb-4">
+                    <div className="flex justify-between">
+                      <span>产品编号</span>
+                      <span className="font-mono">{tpl.code}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>周期</span>
+                      <span className="font-medium">{tpl.period}天</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>总收益率</span>
+                      <span className="font-medium text-orange-600">{tpl.total_rate}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>会员到手</span>
+                      <span className="font-medium text-green-600">{tpl.profit_rate}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>能量值支付</span>
+                      <span className="font-medium text-blue-600">{tpl.market_rate}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>最低额度</span>
+                      <span className="font-medium">¥{(tpl.min_quota || 10000).toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => toggleTemplateStatus(tpl.id, tpl.status)}
+                    className={`w-full py-2 rounded-lg text-sm font-medium transition-all ${
+                      isActive
+                        ? 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'
+                        : 'bg-green-500 text-white hover:bg-green-600'
+                    }`}
+                  >
+                    {isActive ? '禁用模板' : '启用模板'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {!templateLoading && templateList.length === 0 && (
+          <div className="text-center py-12 text-gray-400">暂无模板数据</div>
+        )}
+      </div>
+    );
+  };
+
   // 根据当前菜单渲染内容
   const renderContent = () => {
     switch (activeMenu) {
@@ -9459,6 +9598,8 @@ export default function AdminPage() {
         return renderWithdrawAudit();
       case 'accounts':
         return renderAccountsManagement();
+      case 'templates':
+        return renderTemplateManagement();
       default:
         return renderDashboard();
     }
