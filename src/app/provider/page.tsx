@@ -964,7 +964,7 @@ export default function ProviderPage() {
             const data = await response.json();
             if (data.success) {
                 // 只显示3天周期的模板
-                setAvailableTemplates((data.data || []).filter((t: any) => t.period === 3));
+                setAvailableTemplates((data.data || []).filter((t: any) => t.status === 'active'));
             }
         } catch {
             // 静默失败
@@ -987,7 +987,7 @@ export default function ProviderPage() {
 
         setLoadingPreview(true);
         try {
-            const response = await authFetch(`/api/provider/generate-products?totalAmount=${generateQuotaAmount}&period=${template.period}`);
+            const response = await authFetch(`/api/provider/generate-products?totalAmount=${generateQuotaAmount}&period=${template.period}&templateId=${selectedTemplateId}`);
             const data = await response.json();
             if (data.success) {
                 setGeneratePreview(data.data);
