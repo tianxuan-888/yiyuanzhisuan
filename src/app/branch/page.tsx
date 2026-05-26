@@ -274,7 +274,6 @@ export default function BranchPage() {
   const [providerEnergyRequests, setProviderEnergyRequests] = useState<any[]>([]);
   
   // 提现审核弹窗
-  const [reviewWithdrawDialog, setReviewWithdrawDialog] = useState<{open: boolean, withdrawal: any, action: 'approve' | 'reject'}>({open: false, withdrawal: null, action: 'approve'});
   const [rejectReason, setRejectReason] = useState('');
   
   // 分配额度表单
@@ -2623,10 +2622,10 @@ export default function BranchPage() {
                             <div className="text-gray-600"><span className="font-medium">姓名:</span> {w.real_name || '-'}</div>
                           </div>
                           <div className="flex gap-2">
-                            <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => setReviewWithdrawDialog({open: true, withdrawal: w, action: 'approve'})} disabled={submitting}>
+                            <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => setReviewingWithdraw(w)} disabled={submitting}>
                               <CheckCircle className="w-4 h-4 mr-1" /> 审核通过
                             </Button>
-                            <Button size="sm" variant="destructive" onClick={() => setReviewWithdrawDialog({open: true, withdrawal: w, action: 'reject'})} disabled={submitting}>
+                            <Button size="sm" variant="destructive" onClick={() => handleReviewWithdrawal(w.id, 'reject')} disabled={submitting}>
                               <XCircle className="w-4 h-4 mr-1" /> 拒绝
                             </Button>
                           </div>
