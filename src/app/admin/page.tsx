@@ -5259,7 +5259,7 @@ export default function AdminPage() {
             <Receipt className="w-5 h-5" />
             手续费沉淀记录
           </CardTitle>
-          <CardDescription>提现手续费5%沉淀记录，包含提现手续费和能量值提现手续费</CardDescription>
+          <CardDescription>提现手续费5%沉淀记录，包含提现手续费和智算金提现手续费</CardDescription>
         </CardHeader>
         <CardContent>
           {feeRecordsLoading ? (
@@ -5291,7 +5291,7 @@ export default function AdminPage() {
                 </Card>
                 <Card className="bg-amber-50 dark:bg-amber-950/30 border-amber-200">
                   <CardContent className="p-4">
-                    <div className="text-sm text-muted-foreground">能量值提现手续费</div>
+                    <div className="text-sm text-muted-foreground">智算金提现手续费</div>
                     <div className="text-lg font-bold text-amber-600">¥{Number(feeStats?.energy_withdrawal_fee_total || 0).toLocaleString()}</div>
                     <div className="text-xs text-muted-foreground">{feeStats?.energy_withdrawal_fee_count || 0}笔</div>
                   </CardContent>
@@ -5320,7 +5320,7 @@ export default function AdminPage() {
                         </TableCell>
                         <TableCell>
                           <Badge variant={r.fee_type === 'withdrawal_fee' ? 'default' : 'secondary'}>
-                            {r.fee_type === 'withdrawal_fee' ? '提现手续费' : '能量值提现手续费'}
+                            {r.fee_type === 'withdrawal_fee' ? '提现手续费' : '智算金提现手续费'}
                           </Badge>
                         </TableCell>
                         <TableCell>¥{Number(r.original_amount).toLocaleString()}</TableCell>
@@ -9687,7 +9687,7 @@ export default function AdminPage() {
                       <span className="font-medium text-green-600">{tpl.profit_rate}%</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>能量值支付</span>
+                      <span>智算金支付</span>
                       <span className="font-medium text-blue-600">{tpl.market_rate}%</span>
                     </div>
                     <div className="flex justify-between">
@@ -9926,6 +9926,7 @@ export default function AdminPage() {
       { value: 'transfer_in', label: '转入' },
       { value: 'withdraw', label: '提现' },
       { value: 'energy_to_points', label: '转积分' },
+      { value: 'withdraw_income', label: '提现收入' },
     ];
 
     const flowTypeLabels: Record<string, string> = {
@@ -9933,6 +9934,7 @@ export default function AdminPage() {
       transfer_in: '转入',
       energy_to_points: '转积分',
       withdraw: '提现',
+      withdraw_income: '提现收入',
       withdraw_fee: '提现手续费',
     };
 
@@ -9941,6 +9943,7 @@ export default function AdminPage() {
       transfer_in: 'text-green-600 bg-green-50',
       energy_to_points: 'text-purple-600 bg-purple-50',
       withdraw: 'text-orange-600 bg-orange-50',
+      withdraw_income: 'text-emerald-600 bg-emerald-50',
       recharge: 'text-blue-600 bg-blue-50',
       sell_profit: 'text-emerald-600 bg-emerald-50',
     };
@@ -9961,7 +9964,7 @@ export default function AdminPage() {
         </div>
 
         {/* 统计卡片 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
           <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
               <ArrowUpRight className="w-4 h-4 text-red-500" />
@@ -9989,6 +9992,13 @@ export default function AdminPage() {
               <span className="text-xs text-gray-500">提现总额</span>
             </div>
             <div className="text-lg font-bold text-orange-600">{Number(stats.total_withdraw || 0).toLocaleString()}</div>
+          </div>
+          <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <DollarSign className="w-4 h-4 text-emerald-500" />
+              <span className="text-xs text-gray-500">提现收入</span>
+            </div>
+            <div className="text-lg font-bold text-emerald-600">{Number(stats.total_withdraw_income || 0).toLocaleString()}</div>
           </div>
           <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
             <div className="flex items-center gap-2 mb-2">

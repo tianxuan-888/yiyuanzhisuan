@@ -175,6 +175,16 @@ export default function BranchPage() {
   const [capitalFlowLoading, setCapitalFlowLoading] = useState(false);
   const [capitalFlowTab, setCapitalFlowTab] = useState('all');
   const [capitalFlowPage, setCapitalFlowPage] = useState(1);
+
+  // 智算金互转相关状态
+  const [showTransferDialog, setShowTransferDialog] = useState(false);
+  const [transferSearchQuery, setTransferSearchQuery] = useState("");
+  const [transferSearchResults, setTransferSearchResults] = useState<any[]>([]);
+  const [transferSearching, setTransferSearching] = useState(false);
+  const [transferSelectedUser, setTransferSelectedUser] = useState<any>(null);
+  const [transferUserId, setTransferUserId] = useState("");
+  const [transferAmount, setTransferAmount] = useState("");
+  const [transferNote, setTransferNote] = useState("");
   const [profileBankName, setProfileBankName] = useState("");
   const [profileBankAccount, setProfileBankAccount] = useState("");
   const [profileBankHolder, setProfileBankHolder] = useState("");
@@ -1194,6 +1204,86 @@ export default function BranchPage() {
   }, [capitalFlowTab]);
 
   useEffect(() => { if (activeTab === 'capitalFlow') loadCapitalFlow(capitalFlowPage); }, [activeTab, capitalFlowTab, capitalFlowPage, loadCapitalFlow]);
+
+  // 智算金互转 - 搜索用户
+  const handleTransferSearch = async () => {
+    if (!transferSearchQuery.trim()) {
+      showMessage('error', '请输入搜索关键词');
+      return;
+    }
+    setTransferSearching(true);
+    try {
+      const response = await fetch(`/api/balance/transfer?keyword=${encodeURIComponent(transferSearchQuery.trim())}&userId=${localStorage.getItem('userId')}`);
+      const data = await response.json();
+      if (data.success) {
+        setTransferSearchResults(data.data || []);
+        if (data.data?.length === 0) {
+          showMessage('error', '未找到匹配的用户');
+        }
+      } else {
+        showMessage('error', data.error || '搜索失败');
+      }
+    } catch {
+      showMessage('error', '搜索失败，请重试');
+    } finally {
+      setTransferSearching(false);
+    }
+  };
+
+  // 智算金互转 - 选择用户
+  const handleSelectTransferUser = (u: any) => {
+    setTransferSelectedUser(u);
+    setTransferUserId(u.id);
+  };
+
+  // 智算金互转 - 执行转账
+  const handleTransferBalance = async () => {
+    const branchId = localStorage.getItem('userId');
+    if (!branchId || !transferUserId || !transferAmount) {
+      showMessage('error', '请填写完整信息');
+      return;
+    }
+    const amount = parseFloat(transferAmount);
+    if (amount <= 0) {
+      showMessage('error', '转账金额必须大于0');
+      return;
+    }
+    if (amount < 50) {
+      showMessage('error', '转账金额不能少于50');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const response = await authFetch('/api/balance/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fromUserId: branchId,
+          toUserId: transferUserId,
+          amount: amount,
+          note: transferNote,
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        showMessage('success', data.message);
+        setShowTransferDialog(false);
+        setTransferUserId('');
+        setTransferAmount('');
+        setTransferNote('');
+        setTransferSearchQuery('');
+        setTransferSearchResults([]);
+        setTransferSelectedUser(null);
+        loadData();
+      } else {
+        showMessage('error', data.error || '转账失败');
+      }
+    } catch (error) {
+      showMessage('error', '网络错误');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   // 向智算中心申请收益
   const handleApplyEnergy = async () => {
@@ -2603,6 +2693,10 @@ export default function BranchPage() {
                       <Repeat className="w-3.5 h-3.5 mr-1" />转积分
                     </Button>
                     <Button size="sm" className="h-8 text-xs bg-white text-purple-700 hover:bg-purple-50 border-0 font-bold shadow-sm"
+                      onClick={() => setShowTransferDialog(true)}>
+                      <ArrowRightLeft className="w-3.5 h-3.5 mr-1" />互转
+                    </Button>
+                    <Button size="sm" className="h-8 text-xs bg-white text-purple-700 hover:bg-purple-50 border-0 font-bold shadow-sm"
                       onClick={() => setShowBranchWithdrawDialog(true)}>
                       <Wallet className="w-3.5 h-3.5 mr-1" />提现
                     </Button>
@@ -2962,7 +3056,7 @@ export default function BranchPage() {
           {activeTab === 'capitalFlow' && (
             <div className="space-y-4">
               {/* 统计卡片 */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <div className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
                   <div className="text-xs text-gray-500">转出总额</div>
                   <div className="text-lg font-bold text-orange-600">{Number(capitalFlowData?.stats?.total_transfer_out || 0).toLocaleString()}</div>
@@ -2979,6 +3073,10 @@ export default function BranchPage() {
                   <div className="text-xs text-gray-500">提现总额</div>
                   <div className="text-lg font-bold text-red-600">{Number(capitalFlowData?.stats?.total_withdraw || 0).toLocaleString()}</div>
                 </div>
+                <div className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
+                  <div className="text-xs text-gray-500">提现收入</div>
+                  <div className="text-lg font-bold text-green-600">{Number(capitalFlowData?.stats?.total_withdraw_income || 0).toLocaleString()}</div>
+                </div>
               </div>
 
               {/* 筛选 */}
@@ -2989,6 +3087,7 @@ export default function BranchPage() {
                   { key: 'transfer_in', label: '转入' },
                   { key: 'energy_to_points', label: '转积分' },
                   { key: 'withdraw', label: '提现' },
+                  { key: 'withdraw_income', label: '提现收入' },
                 ].map(ft => (
                   <button key={ft.key}
                     className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${capitalFlowTab === ft.key ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
@@ -3009,9 +3108,10 @@ export default function BranchPage() {
                           r.flowType === 'transfer_out' ? 'bg-orange-500' :
                           r.flowType === 'transfer_in' ? 'bg-green-500' :
                           r.flowType === 'energy_to_points' ? 'bg-purple-500' :
-                          r.flowType === 'withdraw' ? 'bg-red-500' : 'bg-gray-500'
+                          r.flowType === 'withdraw' ? 'bg-red-500' :
+                          r.flowType === 'withdraw_income' ? 'bg-emerald-500' : 'bg-gray-500'
                         }`}>
-                          {r.flowType === 'transfer_out' ? '出' : r.flowType === 'transfer_in' ? '入' : r.flowType === 'energy_to_points' ? '积' : '提'}
+                          {r.flowType === 'transfer_out' ? '出' : r.flowType === 'transfer_in' ? '入' : r.flowType === 'energy_to_points' ? '积' : r.flowType === 'withdraw_income' ? '收' : '提'}
                         </div>
                         <div>
                           <div className="text-sm font-medium text-gray-900">{r.flowTypeLabel}</div>
@@ -3024,9 +3124,9 @@ export default function BranchPage() {
                       </div>
                       <div className="text-right">
                         <div className={`text-sm font-bold ${
-                          r.flowType === 'transfer_in' ? 'text-green-600' : 'text-red-500'
+                          (r.flowType === 'transfer_in' || r.flowType === 'withdraw_income') ? 'text-green-600' : 'text-red-500'
                         }`}>
-                          {r.flowType === 'transfer_in' ? '+' : '-'}{Number(r.amount).toLocaleString()}
+                          {(r.flowType === 'transfer_in' || r.flowType === 'withdraw_income') ? '+' : '-'}{Number(r.amount).toLocaleString()}
                         </div>
                         {Number(r.feeAmount) > 0 && (
                           <div className="text-xs text-gray-400">手续费: {Number(r.feeAmount).toLocaleString()}</div>
@@ -3057,6 +3157,139 @@ export default function BranchPage() {
           )}
         </div>
       </main>
+
+      {/* 智算金互转对话框 */}
+      <Dialog open={showTransferDialog} onOpenChange={(open) => {
+        setShowTransferDialog(open);
+        if (!open) {
+          setTransferSearchQuery("");
+          setTransferSearchResults([]);
+          setTransferSelectedUser(null);
+          setTransferUserId("");
+          setTransferAmount("");
+          setTransferNote("");
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowRightLeft className="w-5 h-5 text-purple-600" />
+              智算金互转
+            </DialogTitle>
+            <DialogDescription>
+              可向任意用户转账智算金，互转时5%自动转化为积分（归您），95%到账对方。最低50。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* 搜索区域 */}
+            <div>
+              <label className="text-sm font-medium mb-2 block">搜索转账对象</label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="输入用户名/手机号/专属ID"
+                  value={transferSearchQuery}
+                  onChange={(e) => setTransferSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleTransferSearch()}
+                />
+                <Button
+                  className="bg-purple-600 hover:bg-purple-700 shrink-0"
+                  onClick={handleTransferSearch}
+                  disabled={transferSearching}
+                >
+                  {transferSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                </Button>
+              </div>
+            </div>
+
+            {/* 搜索结果 */}
+            {transferSearchResults.length > 0 && (
+              <div className="border rounded-lg max-h-48 overflow-y-auto">
+                {transferSearchResults.map((u: any) => (
+                  <div
+                    key={u.id}
+                    className={`flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-purple-50 border-b last:border-b-0 ${transferSelectedUser?.id === u.id ? 'bg-purple-50 border-l-4 border-l-purple-600' : ''}`}
+                    onClick={() => handleSelectTransferUser(u)}
+                  >
+                    <div>
+                      <span className="font-medium">{u.username}</span>
+                      <span className="text-xs text-gray-500 ml-2">
+                        {u.uniqueId ? `[${u.uniqueId}]` : ''}
+                      </span>
+                      <span className="text-xs text-gray-400 ml-2">
+                        {u.phone ? `(${u.phone})` : ''}
+                      </span>
+                    </div>
+                    <Badge variant="outline" className={`text-xs ${
+                      u.role === 'admin' ? 'border-blue-400 text-blue-600' :
+                      u.role === 'branch' ? 'border-indigo-400 text-indigo-600' :
+                      u.role === 'provider' ? 'border-purple-400 text-purple-600' :
+                      'border-green-400 text-green-600'
+                    }`}>
+                      {u.role === 'admin' ? '总台' : u.role === 'branch' ? '服务网点' : u.role === 'provider' ? '服务商' : '会员'}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 已选对象 */}
+            {transferSelectedUser && (
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                <p className="text-sm text-purple-700">
+                  <strong>转账给：</strong>{transferSelectedUser.username}
+                  {transferSelectedUser.uniqueId ? ` [${transferSelectedUser.uniqueId}]` : ''}
+                  {transferSelectedUser.phone ? ` (${transferSelectedUser.phone})` : ''}
+                </p>
+              </div>
+            )}
+
+            {/* 转账金额 */}
+            <div>
+              <label className="text-sm font-medium mb-2 block">转账金额</label>
+              <Input
+                type="number"
+                placeholder="请输入转账金额（最低50）"
+                value={transferAmount}
+                onChange={(e) => setTransferAmount(e.target.value)}
+                min="50"
+              />
+              <div className="flex justify-between mt-1">
+                <p className="text-xs text-gray-500">
+                  您当前智算金: ¥{user?.energy_value?.toLocaleString() || 0}
+                </p>
+                {transferAmount && Number(transferAmount) >= 50 && (
+                  <p className="text-xs text-purple-600">
+                    对方到账: ¥{(Number(transferAmount) * 0.95).toFixed(2)} | 您获积分: {(Number(transferAmount) * 0.05).toFixed(2)}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* 备注 */}
+            <div>
+              <label className="text-sm font-medium mb-2 block">备注（可选）</label>
+              <Input
+                placeholder="如: 业务合作转账"
+                value={transferNote}
+                onChange={(e) => setTransferNote(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTransferDialog(false)}>
+              取消
+            </Button>
+            <Button
+              className="bg-purple-600"
+              onClick={handleTransferBalance}
+              disabled={submitting || !transferUserId || !transferAmount || Number(transferAmount) < 50}
+            >
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ArrowRightLeft className="w-4 h-4 mr-2" />}
+              确认转账
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* 申请额度对话框 */}
       {showQuotaApplyDialog && (

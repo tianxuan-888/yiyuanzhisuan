@@ -7,7 +7,7 @@ import { query, queryOne } from '@/lib/pg-client';
  * 
  * 查询参数：
  * - userId: 用户ID（可选，不传则查全局）
- * - flowType: 流水类型过滤（可选）：transfer_out, transfer_in, energy_to_points, withdraw
+ * - flowType: 流水类型过滤（可选）：transfer_out, transfer_in, energy_to_points, withdraw, withdraw_income
  * - page: 页码（默认1）
  * - pageSize: 每页数量（默认20）
  * - startDate: 开始日期（可选）
@@ -67,7 +67,8 @@ export async function GET(request: NextRequest) {
         COALESCE(SUM(CASE WHEN flow_type = 'transfer_in' THEN actual_amount ELSE 0 END), 0) as total_transfer_in,
         COALESCE(SUM(CASE WHEN flow_type = 'energy_to_points' THEN amount ELSE 0 END), 0) as total_to_points,
         COALESCE(SUM(CASE WHEN flow_type = 'withdraw' THEN amount ELSE 0 END), 0) as total_withdraw,
-        COALESCE(SUM(CASE WHEN flow_type = 'withdraw' THEN fee_amount ELSE 0 END), 0) as total_withdraw_fee
+        COALESCE(SUM(CASE WHEN flow_type = 'withdraw' THEN fee_amount ELSE 0 END), 0) as total_withdraw_fee,
+        COALESCE(SUM(CASE WHEN flow_type = 'withdraw_income' THEN actual_amount ELSE 0 END), 0) as total_withdraw_income
       FROM capital_flow_records cfr
       ${whereClause}
     `;
@@ -139,6 +140,7 @@ export async function GET(request: NextRequest) {
       transfer_in: '智算金转入',
       energy_to_points: '转积分',
       withdraw: '提现',
+      withdraw_income: '提现收入',
     };
 
     return NextResponse.json({

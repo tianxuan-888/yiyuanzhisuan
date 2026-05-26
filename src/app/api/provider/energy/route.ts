@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
 
     const userId = authUser.userId;
 
-    // 查询用户的能量值和余额
+    // 查询用户的智算金和余额
     const user: any = await queryOne(
       'SELECT id, energy_value, balance, points FROM users WHERE id::text = $1',
       [userId]

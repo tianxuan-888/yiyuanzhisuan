@@ -108,31 +108,52 @@ export async function POST(request: NextRequest) {
       const applicantName = withdrawal.username || '未知';
 
       if (reviewer.role === 'branch') {
-        // 网点审核通过：会员/服务商提现的是智算金(energy_value)，到账网点的智算金
+        // 网点审核通过：会员/服务商提现智算金
+        // 网点得到95%智算金到账，总公司得到5%手续费沉淀
+        const feeRate = 0.05;
+        const feeAmount = Math.round(withdrawal.amount * feeRate * 100) / 100;
+        const branchAmount = withdrawal.amount - feeAmount;
+
+        // 网点到账95%智算金
         await execute(
           `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
-          [withdrawal.amount, auth.userId]
+          [branchAmount, auth.userId]
         );
 
-        // 写入能量值流水 - 网点收到提现金额
+        // 总公司得到5%手续费沉淀（加到balance）
+        const adminUser = await queryOne(`SELECT id FROM users WHERE role = 'admin' LIMIT 1`);
+        if (adminUser) {
+          await execute(
+            `UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
+            [feeAmount, adminUser.id]
+          );
+        }
+
+        // 网点资金流水：提现收入
         await execute(
-          `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, created_at)
-           VALUES ($1, 'withdraw_receive', $2, $3, $1, $4, NOW())`,
-          [auth.userId, withdrawal.amount, withdrawal.user_id, `收到${applicantName}提现¥${withdrawal.amount}`]
+          `INSERT INTO capital_flow_records (user_id, flow_type, amount, fee_amount, actual_amount, related_user_id, note, status, created_at)
+           VALUES ($1, 'withdraw_income', $2, $3, $4, $5, $6, 'completed', NOW())`,
+          [auth.userId, withdrawal.amount, feeAmount, branchAmount, withdrawal.user_id, `审核${applicantName}提现，到账95%智算金`]
         );
 
       } else if (reviewer.role === 'admin') {
-        // 总台审核通过：网点提现的是智算金(energy_value)，到账总台的智算金
+        // 总台审核通过：网点提现智算金，到账总台
+        // 同样5%手续费沉淀
+        const feeRate = 0.05;
+        const feeAmount = Math.round(withdrawal.amount * feeRate * 100) / 100;
+        const adminReceiveAmount = withdrawal.amount - feeAmount;
+
+        // 总台到账95%智算金
         await execute(
           `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
-          [withdrawal.amount, auth.userId]
+          [adminReceiveAmount, auth.userId]
         );
 
-        // 写入能量值流水
+        // 总公司资金流水：提现收入
         await execute(
-          `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, created_at)
-           VALUES ($1, 'withdraw_receive', $2, $3, $1, $4, NOW())`,
-          [auth.userId, withdrawal.amount, withdrawal.user_id, `收到${applicantName}提现¥${withdrawal.amount}`]
+          `INSERT INTO capital_flow_records (user_id, flow_type, amount, fee_amount, actual_amount, related_user_id, note, status, created_at)
+           VALUES ($1, 'withdraw_income', $2, $3, $4, $5, $6, 'completed', NOW())`,
+          [auth.userId, withdrawal.amount, feeAmount, adminReceiveAmount, withdrawal.user_id, `审核${applicantName}提现，到账95%智算金`]
         );
       }
 
@@ -145,7 +166,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 写入资金流水记录 - 提现
+      // 写入资金流水记录 - 提现（申请人）
       await execute(
         `INSERT INTO capital_flow_records (user_id, flow_type, amount, fee_amount, actual_amount, related_order_id, note, status, created_at)
          VALUES ($1, 'withdraw', $2, $3, $4, $5, $6, 'completed', NOW())`,
