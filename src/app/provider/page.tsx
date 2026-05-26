@@ -401,6 +401,7 @@ export default function ProviderPage() {
     // 提现相关状态
     const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
     const [showConvertDialog, setShowConvertDialog] = useState(false);
+    const [showEnergyActionDialog, setShowEnergyActionDialog] = useState(false);
     const [withdrawAmount, setWithdrawAmount] = useState("");
     const [withdrawAlipay, setWithdrawAlipay] = useState("");
     const [withdrawAlipayName, setWithdrawAlipayName] = useState("");
@@ -4014,31 +4015,32 @@ export default function ProviderPage() {
                     {/* 收益管理 Tab */}
                     {activeTab === "revenue" && (
                         <div className="space-y-3 md:space-y-6">
-                            {/* 收益概览卡片 */}
-                            <Card className="bg-gradient-to-br from-green-600 to-emerald-600 text-white">
-                                <CardContent className="pt-4">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <Wallet className="w-5 h-5" />
-                                        <span className="text-sm opacity-80">智算金</span>
+                            {/* 收益概览卡片 - 点击弹窗选择操作 */}
+                            <div 
+                                className="bg-gradient-to-br from-green-600 to-emerald-600 text-white rounded-lg shadow-lg cursor-pointer hover:shadow-xl transition-shadow p-4"
+                                onClick={() => setShowEnergyActionDialog(true)}
+                            >
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Wallet className="w-5 h-5" />
+                                    <span className="text-sm opacity-80">智算金</span>
+                                    <span className="text-xs opacity-60 ml-auto">点击操作 ›</span>
+                                </div>
+                                <p className="text-3xl font-bold">¥{revenueStats.balance?.toLocaleString() || 0}</p>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+                                    <div className="bg-white/10 rounded-lg p-2">
+                                        <p className="text-xs opacity-70">业务奖励</p>
+                                        <p className="text-sm font-bold">¥{revenueStats.totalRevenue?.toLocaleString() || 0}</p>
                                     </div>
-                                    <p className="text-3xl font-bold">¥{revenueStats.balance?.toLocaleString() || 0}</p>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-                                        <div className="bg-white/10 rounded-lg p-2">
-                                            <p className="text-xs opacity-70">业务奖励</p>
-                                            <p className="text-sm font-bold">¥{revenueStats.totalRevenue?.toLocaleString() || 0}</p>
-                                        </div>
-                                        <div className="bg-white/10 rounded-lg p-2">
-                                            <p className="text-xs opacity-70">直推奖励</p>
-                                            <p className="text-sm font-bold">¥{revenueStats.distDirectReward?.toLocaleString() || 0}</p>
-                                        </div>
-                                        <div className="bg-white/10 rounded-lg p-2">
-                                            <p className="text-xs opacity-70">培育奖励</p>
-                                            <p className="text-sm font-bold">¥{revenueStats.distParentShare?.toLocaleString() || 0}</p>
-                                        </div>
-
+                                    <div className="bg-white/10 rounded-lg p-2">
+                                        <p className="text-xs opacity-70">直推奖励</p>
+                                        <p className="text-sm font-bold">¥{revenueStats.distDirectReward?.toLocaleString() || 0}</p>
                                     </div>
-                                </CardContent>
-                            </Card>
+                                    <div className="bg-white/10 rounded-lg p-2">
+                                        <p className="text-xs opacity-70">培育奖励</p>
+                                        <p className="text-sm font-bold">¥{revenueStats.distParentShare?.toLocaleString() || 0}</p>
+                                    </div>
+                                </div>
+                            </div>
 
                             {/* 子Tab */}
                             <div className="flex items-center gap-2">
@@ -4623,6 +4625,36 @@ export default function ProviderPage() {
                                     确认充值
                                 </Button>
                             </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* 智算金操作弹窗 */}
+                    <Dialog open={showEnergyActionDialog} onOpenChange={setShowEnergyActionDialog}>
+                        <DialogContent className="max-w-sm">
+                            <DialogHeader>
+                                <DialogTitle className="text-center text-xl">智算金操作</DialogTitle>
+                                <DialogDescription className="text-center">当前余额：¥{revenueStats.balance?.toLocaleString() || 0}</DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-3 py-2">
+                                <Button
+                                    className="w-full h-14 text-lg font-bold bg-purple-600 hover:bg-purple-700 text-white"
+                                    onClick={() => { setShowEnergyActionDialog(false); setShowTransferDialog(true); }}
+                                >
+                                    <ArrowLeftRight className="w-5 h-5 mr-2" /> 智算金互转
+                                </Button>
+                                <Button
+                                    className="w-full h-14 text-lg font-bold bg-blue-600 hover:bg-blue-700 text-white"
+                                    onClick={() => { setShowEnergyActionDialog(false); setShowConvertDialog(true); }}
+                                >
+                                    <RefreshCw className="w-5 h-5 mr-2" /> 转积分
+                                </Button>
+                                <Button
+                                    className="w-full h-14 text-lg font-bold bg-green-600 hover:bg-green-700 text-white"
+                                    onClick={() => { setShowEnergyActionDialog(false); setWithdrawAmount(''); setShowWithdrawDialog(true); }}
+                                >
+                                    <Wallet className="w-5 h-5 mr-2" /> 提现
+                                </Button>
+                            </div>
                         </DialogContent>
                     </Dialog>
 
