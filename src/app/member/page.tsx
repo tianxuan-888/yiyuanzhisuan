@@ -2623,6 +2623,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                         up.status === "pending_sell" ? "bg-yellow-100 text-yellow-700" : 
                                                                         up.status === "transferring" ? "bg-orange-100 text-orange-700" :
                                                                         up.status === "repurchase_pending" ? "bg-purple-100 text-purple-700" :
+                                                                        up.status === "repurchased" ? "bg-red-100 text-red-700" :
                                                                         up.status === "recycled" ? "bg-gray-200 text-gray-500" :
                                                                         "bg-gray-100 text-gray-700"
                                                                     }>
@@ -2631,6 +2632,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                      up.status === "pending_sell" ? "待审核" : 
                                                                      up.status === "transferring" ? "流转中" :
                                                                      up.status === "repurchase_pending" ? "待确认回购" :
+                                                                     up.status === "repurchased" ? "已回购" :
                                                                      up.status === "recycled" ? "已回收" :
                                                                      up.status}
                                                                 </Badge>

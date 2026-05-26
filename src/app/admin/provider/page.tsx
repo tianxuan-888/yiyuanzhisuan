@@ -92,7 +92,7 @@ export default function ProviderDashboard() {
   const [memberPagination, setMemberPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
   const [energyRecords, setEnergyRecords] = useState<EnergyRecord[]>([]);
   const [energyStats, setEnergyStats] = useState({ totalRecharge: 0, totalTransferIn: 0, totalTransferOut: 0 });
-  const [balanceInfo, setBalanceInfo] = useState({ balance: 0, revenue: 0, quota: 0, usedQuota: 0, totalSales: 0 });
+  const [balanceInfo, setBalanceInfo] = useState({ balance: 0, energyValue: 0, revenue: 0, quota: 0, usedQuota: 0, totalSales: 0 });
   
   // 充值状态
   const [rechargeMember, setRechargeMember] = useState<Member | null>(null);
@@ -288,6 +288,7 @@ export default function ProviderDashboard() {
       if (data.success) {
         setBalanceInfo({
           balance: data.data.balance,
+          energyValue: data.data.energyValue || 0,
           revenue: data.data.revenue || 0,
           quota: data.data.quota,
           usedQuota: data.data.usedQuota,
@@ -911,7 +912,7 @@ export default function ProviderDashboard() {
                       </div>
                       <span className="text-purple-200 text-sm font-medium">智算金</span>
                     </div>
-                    <p className="text-3xl font-bold mt-2">¥{(user?.balance || 0).toLocaleString()}</p>
+                    <p className="text-3xl font-bold mt-2">¥{(balanceInfo.energyValue || user?.energy_value || 0).toLocaleString()}</p>
                     <div className="flex gap-2 mt-4">
                       <Button size="sm" className="h-8 text-xs bg-white/20 hover:bg-white/30 text-white border-0"
                         onClick={() => setActiveMenu('balance-transfer')}>
@@ -1337,30 +1338,36 @@ export default function ProviderDashboard() {
             </div>
             
             {/* 智算金大卡片 - 与会员端一致 */}
-            <Card className="bg-gradient-to-br from-purple-500 to-purple-700 text-white">
-              <CardContent className="pt-5 pb-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <Coins className="w-5 h-5" />
-                  <span className="opacity-80 text-sm">智算金</span>
-                </div>
-                <p className="text-3xl font-bold">¥{balanceInfo.balance.toLocaleString()}</p>
-                <p className="text-xs opacity-70 mt-1">可提现/互转/转积分</p>
-                <div className="flex gap-2 mt-3">
-                  <Button size="sm" variant="secondary" className="h-8 text-xs bg-white/20 hover:bg-white/30 text-white border-0"
-                    onClick={() => setActiveMenu('balance-transfer')}>
-                    <ArrowLeftRight className="w-3.5 h-3.5 mr-1" />互转
-                  </Button>
-                  <Button size="sm" variant="secondary" className="h-8 text-xs bg-white/20 hover:bg-white/30 text-white border-0"
-                    onClick={() => setShowBalanceConvertDialog(true)}>
-                    <Repeat className="w-3.5 h-3.5 mr-1" />转积分
-                  </Button>
-                  <Button size="sm" variant="secondary" className="h-8 text-xs bg-white/20 hover:bg-white/30 text-white border-0"
-                    onClick={() => {
-                      const el = document.getElementById('withdraw-section');
-                      el?.scrollIntoView({ behavior: 'smooth' });
-                    }}>
-                    <Wallet className="w-3.5 h-3.5 mr-1" />提现
-                  </Button>
+            <Card className="bg-gradient-to-br from-purple-600 to-purple-800 text-white border-0 shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+                        <Coins className="w-5 h-5 text-white" />
+                      </div>
+                      <span className="text-purple-200 text-sm font-medium">智算金</span>
+                    </div>
+                    <p className="text-3xl font-bold mt-2">¥{(balanceInfo.energyValue || 0).toLocaleString()}</p>
+                    <p className="text-xs opacity-70 mt-1">可提现/互转/转积分</p>
+                    <div className="flex gap-3 mt-4">
+                      <Button size="sm" className="h-9 px-4 text-xs bg-white/20 hover:bg-white/30 text-white border-0 font-medium"
+                        onClick={() => setActiveMenu('balance-transfer')}>
+                        <ArrowLeftRight className="w-4 h-4 mr-1.5" />互转
+                      </Button>
+                      <Button size="sm" className="h-9 px-4 text-xs bg-white/20 hover:bg-white/30 text-white border-0 font-medium"
+                        onClick={() => setShowBalanceConvertDialog(true)}>
+                        <Repeat className="w-4 h-4 mr-1.5" />转积分
+                      </Button>
+                      <Button size="sm" className="h-9 px-4 text-xs bg-white/20 hover:bg-white/30 text-white border-0 font-medium"
+                        onClick={() => setShowWithdrawDialog(true)}>
+                        <Wallet className="w-4 h-4 mr-1.5" />提现
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center ml-4">
+                    <DollarSign className="w-8 h-8 text-white/80" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
