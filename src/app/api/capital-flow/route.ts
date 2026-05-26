@@ -68,8 +68,7 @@ export async function GET(request: NextRequest) {
         COALESCE(SUM(CASE WHEN flow_type = 'energy_to_points' THEN amount ELSE 0 END), 0) as total_to_points,
         COALESCE(SUM(CASE WHEN flow_type = 'withdraw' THEN amount ELSE 0 END), 0) as total_withdraw,
         COALESCE(SUM(CASE WHEN flow_type = 'withdraw' THEN fee_amount ELSE 0 END), 0) as total_withdraw_fee,
-        COALESCE(SUM(CASE WHEN flow_type = 'recharge' THEN amount ELSE 0 END), 0) as total_recharge,
-        COALESCE(SUM(CASE WHEN flow_type = 'sell_profit' THEN amount ELSE 0 END), 0) as total_sell_profit
+        COALESCE(SUM(CASE WHEN flow_type = 'recharge' THEN amount ELSE 0 END), 0) as total_recharge
       FROM capital_flow_records cfr
       ${whereClause}
     `;
@@ -142,8 +141,6 @@ export async function GET(request: NextRequest) {
       energy_to_points: '转积分',
       withdraw: '提现',
       recharge: '充值',
-      sell_profit: '卖出收益',
-      withdraw_fee: '提现手续费',
     };
 
     return NextResponse.json({
