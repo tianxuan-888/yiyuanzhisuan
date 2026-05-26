@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     // 查询用户余额
     const user: any = await queryOne(
-      'SELECT id, username, balance, points, role FROM users WHERE id::text = $1',
+      'SELECT id, username, energy_value, points, role FROM users WHERE id::text = $1',
       [userId]
     );
 
@@ -43,15 +43,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: '用户不存在' }, { status: 404 });
     }
 
-    const currentBalance = parseFloat(String(user.balance)) || 0;
+    const currentBalance = parseFloat(String(user.energy_value)) || 0;
     if (currentBalance < convertAmount) {
       return NextResponse.json({ success: false, error: `智算金余额不足，当前余额: ${currentBalance}` }, { status: 400 });
     }
 
-    // 执行转换：1:1，balance → points
+    // 执行转换：1:1，energy_value → points
     // 1. 扣除智算金
     await query(
-      'UPDATE users SET balance = (balance::float - $1)::numeric WHERE id::text = $2',
+      'UPDATE users SET energy_value = energy_value - $1 WHERE id::text = $2',
       [convertAmount, userId]
     );
 
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
 
     // 查询更新后的数据
     const updatedUser: any = await queryOne(
-      'SELECT balance, points FROM users WHERE id::text = $1',
+      'SELECT energy_value, points FROM users WHERE id::text = $1',
       [userId]
     );
 
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: `成功将 ${convertAmount} 智算金转换为积分`,
       data: {
-        balance: parseFloat(String(updatedUser?.balance)) || 0,
+        energyValue: parseFloat(String(updatedUser?.energy_value)) || 0,
         points: parseFloat(String(updatedUser?.points)) || 0,
         convertedAmount: convertAmount,
       },
