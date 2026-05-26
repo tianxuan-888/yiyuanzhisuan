@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     const client = getAdminSupabase();
 
-    // ========== 1. 获取收益记录（使用 rpc_query 关联查询）==========
+    // ========== 1. 获取收益记录（关联流转记录获取买卖双方信息）==========
     const { data: revenueRecords } = await client
       .rpc('rpc_query', {
         sql_query: `
@@ -43,10 +43,16 @@ export async function GET(request: NextRequest) {
             COALESCE(mr.product_period, p.period) as product_period,
             COALESCE(mr.total_rate, p.total_rate) as total_rate, 
             COALESCE(mr.profit_rate, p.profit_rate) as profit_rate, 
-            COALESCE(mr.market_rate, p.market_rate) as market_rate
+            COALESCE(mr.market_rate, p.market_rate) as market_rate,
+            pfr.seller_name,
+            pfr.seller_unique_id,
+            pfr.buyer_name,
+            pfr.buyer_unique_id,
+            pfr.flow_type
           FROM member_revenue mr
           LEFT JOIN user_products up ON mr.user_product_id = up.id
           LEFT JOIN products p ON up.product_id = p.id
+          LEFT JOIN product_flow_records pfr ON pfr.user_product_id = up.id
           WHERE mr.user_id = '${userId}'
           ORDER BY mr.created_at DESC
           LIMIT 50
@@ -71,6 +77,12 @@ export async function GET(request: NextRequest) {
       profit_rate: record.profit_rate || 0,
       market_rate: record.market_rate || 0,
       holding_days: record.holding_days || 0,
+      // 流转信息
+      seller_name: record.seller_name || '',
+      seller_unique_id: record.seller_unique_id || '',
+      buyer_name: record.buyer_name || '',
+      buyer_unique_id: record.buyer_unique_id || '',
+      flow_type: record.flow_type || '',
       created_at: record.created_at,
       updated_at: record.updated_at,
     }));

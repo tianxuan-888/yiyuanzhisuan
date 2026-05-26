@@ -153,6 +153,53 @@ export async function POST(request: NextRequest) {
           });
         }
 
+        // 7. 写入产品流转记录
+        try {
+          // 获取买卖双方信息
+          const sellerId = product.previous_holder_id || user.userId;
+          const sellerInfo = await queryOne(
+            `SELECT id, username, unique_id, phone FROM users WHERE id = $1`,
+            [sellerId]
+          );
+          const buyerInfo = await queryOne(
+            `SELECT id, username, unique_id, phone FROM users WHERE id = $1`,
+            [targetUser.id]
+          );
+          const providerInfo = await queryOne(
+            `SELECT id, username FROM users WHERE id = $1`,
+            [product.provider_id]
+          );
+          const flowType = product.previous_holder_id ? 'member_transfer' : 'provider_match';
+          const sellerProfit = product.previous_holder_id
+            ? product.price * (profitRate / 100)
+            : 0;
+
+          await supabase.from('product_flow_records').insert({
+            product_id: product.id,
+            product_code: product.code,
+            product_name: product.name,
+            product_price: product.price,
+            period: product.period,
+            profit_rate: product.profit_rate,
+            market_rate: product.market_rate,
+            flow_type: flowType,
+            seller_id: sellerId,
+            seller_name: sellerInfo?.username || '',
+            seller_unique_id: sellerInfo?.unique_id || '',
+            seller_phone: sellerInfo?.phone || '',
+            buyer_id: targetUser.id,
+            buyer_name: buyerInfo?.username || '',
+            buyer_unique_id: buyerInfo?.unique_id || '',
+            buyer_phone: buyerInfo?.phone || '',
+            transfer_amount: product.price,
+            seller_profit: sellerProfit,
+            provider_id: product.provider_id,
+            provider_name: providerInfo?.username || '',
+          });
+        } catch (flowErr) {
+          console.error('[MATCH CONFIRM] 写入流转记录失败:', flowErr);
+        }
+
         console.log('[MATCH CONFIRM] 匹配成功，收益待到期释放:', {
           productId: product.id,
           targetUser: targetUser.username,

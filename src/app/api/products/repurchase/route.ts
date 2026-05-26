@@ -92,6 +92,36 @@ export async function POST(request: NextRequest) {
       previousHolderId: product.previous_holder_id
     });
 
+    // 5. 写入产品流转记录
+    try {
+      const supabase = getSupabase();
+      const sellerInfo = product.previous_holder_id
+        ? await queryOne('SELECT id, username, unique_id, phone FROM users WHERE id = $1', [product.previous_holder_id])
+        : null;
+      const providerInfo = await queryOne('SELECT id, username FROM users WHERE id = $1', [product.provider_id]);
+
+      await supabase.from('product_flow_records').insert({
+        product_id: product.id,
+        product_code: product.code,
+        product_name: product.name,
+        product_price: product.price,
+        period: product.period,
+        flow_type: 'repurchase',
+        seller_id: product.previous_holder_id || product.provider_id,
+        seller_name: sellerInfo?.username || providerInfo?.username || '',
+        seller_unique_id: sellerInfo?.unique_id || '',
+        seller_phone: sellerInfo?.phone || '',
+        buyer_id: product.provider_id,
+        buyer_name: providerInfo?.username || '',
+        transfer_amount: product.price,
+        seller_profit: 0,
+        provider_id: product.provider_id,
+        provider_name: providerInfo?.username || '',
+      });
+    } catch (flowErr) {
+      console.error('[REPURCHASE] 写入流转记录失败:', flowErr);
+    }
+
     return NextResponse.json({
       success: true,
       message: '回购成功，产品已回到在售列表，会员端显示已完成'

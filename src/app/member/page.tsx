@@ -2840,6 +2840,21 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                 <span>收益: <span className="text-green-600 font-medium">¥{Number(record.profit || 0).toLocaleString()}</span></span>
                                                                 <span>到账: ¥{Number(record.total_amount || 0).toLocaleString()}</span>
                                                             </div>
+                                                            {/* 流转信息：卖方和买方 */}
+                                                            {(record.seller_name || record.buyer_name) && (
+                                                                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm">
+                                                                    {record.seller_name && (
+                                                                        <span className="text-orange-600">
+                                                                            卖方: {record.seller_name}{record.seller_unique_id ? ` [${record.seller_unique_id}]` : ''}
+                                                                        </span>
+                                                                    )}
+                                                                    {record.buyer_name && (
+                                                                        <span className="text-blue-600">
+                                                                            买方: {record.buyer_name}{record.buyer_unique_id ? ` [${record.buyer_unique_id}]` : ''}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            )}
                                                             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-gray-400">
                                                                 {record.productPeriod && <span>{record.productPeriod}天周期</span>}
                                                                 {record.profitRate && <span>收益率{record.profitRate}%</span>}
@@ -2847,8 +2862,8 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                 <span>{new Date(record.createdAt || record.created_at).toLocaleString('zh-CN')}</span>
                                                             </div>
                                                         </div>
-                                                        <Badge variant={record.status === 'pending' ? 'secondary' : 'default'}>
-                                                            {record.status === 'pending' ? '待处理' : record.status === 'converted' ? '已转入收益' : record.status === 'withdrawn' ? '已提现' : record.status}
+                                                        <Badge variant={record.status === 'pending' ? 'secondary' : record.status === 'converted' ? 'outline' : record.status === 'available' ? 'secondary' : 'default'}>
+                                                            {record.status === 'pending' ? '待处理' : record.status === 'converted' ? '已转入' : record.status === 'withdrawn' ? '已提现' : record.status === 'available' ? '已到账' : record.status}
                                                         </Badge>
                                                     </div>
                                                     {Number(record.converted_to_energy) > 0 && (
