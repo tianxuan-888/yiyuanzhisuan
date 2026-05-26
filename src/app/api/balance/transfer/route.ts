@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne } from '@/storage/database/pg-client';
 
-// 智算金（balance）互转 - 5%转化为积分，95%到账对方智算金
+// 智算金互转 - 从 energy_value 扣除
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -17,8 +17,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 最低转账金额
-    if (transferAmount < 100) {
-      return NextResponse.json({ success: false, error: '最低转账金额为100' }, { status: 400 });
+    if (transferAmount < 50) {
+      return NextResponse.json({ success: false, error: '最低转账金额为50' }, { status: 400 });
     }
 
     // 不能转给自己
@@ -26,9 +26,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: '不能转给自己' }, { status: 400 });
     }
 
-    // 查询转出方余额
+    // 查询转出方
     const fromUser: any = await queryOne(
-      'SELECT id, username, balance, points, role FROM users WHERE id::text = $1',
+      'SELECT id, username, energy_value, points, role FROM users WHERE id::text = $1',
       [fromUserId]
     );
 
@@ -36,14 +36,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: '转出方用户不存在' }, { status: 404 });
     }
 
-    const fromBalance = parseFloat(String(fromUser.balance)) || 0;
-    if (fromBalance < transferAmount) {
-      return NextResponse.json({ success: false, error: `余额不足，当前余额: ${fromBalance}` }, { status: 400 });
+    const fromEnergy = parseFloat(String(fromUser.energy_value)) || 0;
+    if (fromEnergy < transferAmount) {
+      return NextResponse.json({ success: false, error: `智算金余额不足，当前余额: ${fromEnergy}` }, { status: 400 });
     }
 
     // 查询转入方
     const toUser: any = await queryOne(
-      'SELECT id, username, balance, points, role FROM users WHERE id::text = $1',
+      'SELECT id, username, energy_value, points, role FROM users WHERE id::text = $1',
       [toUserId]
     );
 
@@ -51,88 +51,71 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: '转入方用户不存在' }, { status: 404 });
     }
 
-    // 计算互转分配：5%→积分，95%→对方智算金
-    const pointsFee = Math.round(transferAmount * 0.05 * 100) / 100;
-    const actualReceive = Math.round((transferAmount - pointsFee) * 100) / 100;
-
-    // 1. 扣除转出方全部转账金额
+    // 1. 扣除转出方智算金
     await query(
-      'UPDATE users SET balance = (balance::float - $1)::numeric WHERE id::text = $2',
+      'UPDATE users SET energy_value = energy_value - $1 WHERE id::text = $2',
       [transferAmount, fromUserId]
     );
 
-    // 2. 转出方获得5%积分
+    // 2. 转入方获得全部智算金
     await query(
-      'UPDATE users SET points = (COALESCE(points::float, 0) + $1)::numeric WHERE id::text = $2',
-      [pointsFee, fromUserId]
+      'UPDATE users SET energy_value = energy_value + $1 WHERE id::text = $2',
+      [transferAmount, toUserId]
     );
 
-    // 3. 转入方获得95%智算金
-    await query(
-      'UPDATE users SET balance = (balance::float + $1)::numeric WHERE id::text = $2',
-      [actualReceive, toUserId]
-    );
-
-    // 4. 记录交易 - 转出方
+    // 3. 记录 transactions 明细 - 转出方
     await query(
       `INSERT INTO transactions (id, user_id, order_id, type, amount, status, description, created_at)
-       VALUES (gen_random_uuid(), $1, NULL, 'balance_transfer_out', $2, 'completed', $3, NOW())`,
-      [fromUserId, transferAmount, JSON.stringify({ 
-        toUser: toUser.username, toUserId, 
-        actualReceive, pointsFee,
-        note: note || '智算金转出' 
+       VALUES (gen_random_uuid(), $1, NULL, 'transfer_out', $2, 'completed', $3, NOW())`,
+      [fromUserId, transferAmount, JSON.stringify({
+        toUser: toUser.username,
+        toUserId,
+        note: note || '智算金转出'
       })]
     );
 
-    // 5. 记录交易 - 转出方获得积分
+    // 4. 记录 transactions 明细 - 转入方
     await query(
       `INSERT INTO transactions (id, user_id, order_id, type, amount, status, description, created_at)
-       VALUES (gen_random_uuid(), $1, NULL, 'points_from_transfer', $2, 'completed', $3, NOW())`,
-      [fromUserId, pointsFee, JSON.stringify({ 
-        fromTransfer: true, 
-        originalAmount: transferAmount,
-        note: '互转获得5%积分' 
+       VALUES (gen_random_uuid(), $1, NULL, 'transfer_in', $2, 'completed', $3, NOW())`,
+      [toUserId, transferAmount, JSON.stringify({
+        fromUser: fromUser.username,
+        fromUserId,
+        note: note || '智算金转入'
       })]
     );
 
-    // 6. 记录交易 - 转入方
+    // 5. 记录 energy_transactions 明细 - 转出方
     await query(
-      `INSERT INTO transactions (id, user_id, order_id, type, amount, status, description, created_at)
-       VALUES (gen_random_uuid(), $1, NULL, 'balance_transfer_in', $2, 'completed', $3, NOW())`,
-      [toUserId, actualReceive, JSON.stringify({ 
-        fromUser: fromUser.username, fromUserId, 
-        originalAmount: transferAmount,
-        pointsFee,
-        note: note || '智算金转入' 
-      })]
+      `INSERT INTO energy_transactions (id, type, amount, from_user_id, to_user_id, created_at)
+       VALUES (gen_random_uuid(), 'transfer_out', $1, $2, $3, NOW())`,
+      [transferAmount, fromUserId, toUserId]
     );
 
-    // 7. 更新积分（5%转为积分）
+    // 6. 记录 energy_transactions 明细 - 转入方
     await query(
-      'UPDATE users SET points = COALESCE(points, 0) + $1 WHERE id::text = $2',
-      [pointsFee, fromUserId]
+      `INSERT INTO energy_transactions (id, type, amount, from_user_id, to_user_id, created_at)
+       VALUES (gen_random_uuid(), 'transfer_in', $1, $2, $3, NOW())`,
+      [transferAmount, fromUserId, toUserId]
     );
 
     // 查询更新后的余额
     const updatedFromUser: any = await queryOne(
-      'SELECT balance, points FROM users WHERE id::text = $1',
+      'SELECT energy_value FROM users WHERE id::text = $1',
       [fromUserId]
     );
     const updatedToUser: any = await queryOne(
-      'SELECT balance FROM users WHERE id::text = $1',
+      'SELECT energy_value FROM users WHERE id::text = $1',
       [toUserId]
     );
 
     return NextResponse.json({
       success: true,
-      message: `成功转账 ${transferAmount} 智算金给 ${toUser.username}（对方到账 ${actualReceive}，您获得 ${pointsFee} 积分）`,
+      message: `成功转账 ${transferAmount} 智算金给 ${toUser.username}`,
       data: {
-        fromBalance: parseFloat(String(updatedFromUser?.balance)) || 0,
-        fromPoints: parseFloat(String(updatedFromUser?.points)) || 0,
-        toBalance: parseFloat(String(updatedToUser?.balance)) || 0,
+        fromEnergyValue: parseFloat(String(updatedFromUser?.energy_value)) || 0,
+        toEnergyValue: parseFloat(String(updatedToUser?.energy_value)) || 0,
         amount: transferAmount,
-        actualReceive,
-        pointsFee,
       },
     });
   } catch (error) {
@@ -157,7 +140,7 @@ export async function GET(request: NextRequest) {
 
     // 搜索所有用户（排除自己），按用户名/手机号/专属ID模糊匹配
     const users: any = await query(
-      `SELECT id, username, role, balance, unique_id, phone, real_name 
+      `SELECT id, username, role, energy_value, unique_id, phone, real_name 
        FROM users 
        WHERE is_active = true 
          AND id::text != $1
@@ -189,7 +172,7 @@ export async function GET(request: NextRequest) {
         realName: u.real_name,
         role: u.role,
         roleLabel: roleLabels[u.role] || u.role,
-        balance: parseFloat(String(u.balance)) || 0,
+        energyValue: parseFloat(String(u.energy_value)) || 0,
         uniqueId: u.unique_id,
         phone: u.phone ? u.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') : '',
       })),

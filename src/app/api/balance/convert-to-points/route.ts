@@ -61,15 +61,22 @@ export async function POST(request: NextRequest) {
       [convertAmount, userId]
     );
 
-    // 3. 记录交易 - 扣减智算金
+    // 3. 记录 transactions 明细 - 扣减智算金
     await query(
       `INSERT INTO transactions (id, user_id, order_id, type, amount, status, description, created_at)
        VALUES (gen_random_uuid(), $1, NULL, 'balance_to_points', $2, 'completed', $3, NOW())`,
       [userId, convertAmount, JSON.stringify({ 
-        type: '收益转积分',
+        type: '智算金转积分',
         convertAmount,
         note: `将${convertAmount}智算金转换为积分` 
       })]
+    );
+
+    // 4. 记录 energy_transactions 明细 - 智算金扣减
+    await query(
+      `INSERT INTO energy_transactions (id, type, amount, from_user_id, to_user_id, created_at)
+       VALUES (gen_random_uuid(), 'burn', $1, $2, NULL, NOW())`,
+      [convertAmount, userId]
     );
 
     // 4. 记录积分流水
