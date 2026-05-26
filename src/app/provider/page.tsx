@@ -2002,35 +2002,7 @@ export default function ProviderPage() {
         }
     };
 
-    // 回购处理
-    const handleRepurchase = async (transferId: string) => {
-        const providerId = localStorage.getItem("userId");
-        if (!providerId) return;
-
-        setSubmitting(true);
-        try {
-            const response = await authFetch("/api/products/transfer/repurchase", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    transferId,
-                    providerId,
-                }),
-            });
-            const data = await response.json();
-            if (data.success) {
-                showMessage("success", data.message);
-                loadTransferData();
-            } else {
-                showMessage("error", data.error || "回购失败");
-            }
-        } catch (error) {
-            showMessage("error", "网络错误");
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
+    // 回购处理（旧版，保留兼容）
     // 提现确认处理
     const handleWithdrawalConfirm = async (withdrawalId: string, action: 'approve' | 'reject') => {
         const providerId = localStorage.getItem("userId");
@@ -4691,7 +4663,7 @@ export default function ProviderPage() {
                                                 method: 'POST',
                                                 headers: { 'Content-Type': 'application/json' },
                                                 body: JSON.stringify({
-                                                    userId,
+                                                    userId: user?.id,
                                                     productId: exchangeProduct.id,
                                                     receiverName: exchangeForm.name,
                                                     receiverPhone: exchangeForm.phone,
@@ -4704,7 +4676,7 @@ export default function ProviderPage() {
                                                 setShowExchangeForm(false);
                                                 setShowPointsShop(false);
                                                 // 刷新用户数据
-                                                if (refreshUserData) refreshUserData();
+                                                refreshUser();
                                             } else {
                                                 showMessage('error', data.message || '兑换失败');
                                             }

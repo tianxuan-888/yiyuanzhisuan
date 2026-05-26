@@ -66,10 +66,6 @@ import {
   ArrowRight,
   LayoutGrid,
   Gift,
-  Package,
-  Truck,
-  Plus,
-  Image as ImageIcon,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -107,7 +103,7 @@ const menuItems: MenuItem[] = [
   { id: 'withdraw', name: '提现审核', icon: <Wallet className="w-5 h-5" /> },
   { id: 'accounts', name: '账户管理', icon: <Users className="w-5 h-5" /> },
   { id: 'templates', name: '模板管理', icon: <LayoutGrid className="w-5 h-5" /> },
-  { id: 'points-shop', name: '积分兑换管理', icon: <Gift className="w-5 h-5" /> },
+  { id: 'pointsShop', name: '积分兑换管理', icon: <Gift className="w-5 h-5" /> },
 ];
 
 // 统计数据类型
@@ -319,7 +315,7 @@ export default function AdminPage() {
   const [incomeLoading, setIncomeLoading] = useState(false);
   const [incomeTypeFilter, setIncomeTypeFilter] = useState('all');
   const [withdrawStats, setWithdrawStats] = useState<any>({
-    pendingCount: 0, pendingAmount: 0, approvedAmount: 0, actualPaid: 0, todayAmount: 0, totalRequests: 0, totalFee: 0,
+    pendingCount: 0, pendingAmount: 0, approvedAmount: 0, actualPaid: 0, todayAmount: 0, totalRequests: 0,
   });
   const [withdrawList, setWithdrawList] = useState<any[]>([]);
 
@@ -350,13 +346,13 @@ export default function AdminPage() {
   const [templateList, setTemplateList] = useState<any[]>([]);
   const [templateLoading, setTemplateLoading] = useState(false);
 
-  // 积分兑换管理相关状态
+  // 积分商城相关状态
   const [pointsProducts, setPointsProducts] = useState<any[]>([]);
-  const [pointsOrders, setPointsOrders] = useState<any[]>([]);
   const [pointsLoading, setPointsLoading] = useState(false);
-  const [showAddProduct, setShowAddProduct] = useState(false);
-  const [newProduct, setNewProduct] = useState({ name: '', description: '', imageUrl: '', pointsPrice: 0, stock: -1 });
-  const [pointsShopTab, setPointsShopTab] = useState<'products' | 'orders'>('products');
+  const [showAddProductDialog, setShowAddProductDialog] = useState(false);
+  const [newProduct, setNewProduct] = useState({ name: '', description: '', image_url: '', points_price: 0 });
+  const [exchangeOrders, setExchangeOrders] = useState<any[]>([]);
+  const [showOrdersDialog, setShowOrdersDialog] = useState(false);
 
   // 会员管理相关状态
   const [memberTab, setMemberTab] = useState<'upgrade' | 'energy' | 'stats' | 'users'>('upgrade');
@@ -781,30 +777,6 @@ export default function AdminPage() {
 
   // 加载市场费分配数据
   const loadIncomeData = useCallback(async (subType: string = 'overview') => {
-
-  // 加载积分兑换数据
-  const loadPointsShopData = useCallback(async () => {
-    try {
-      setPointsLoading(true);
-      const [productsRes, ordersRes] = await Promise.all([
-        fetch('/api/points-products').catch(e => { console.error('获取积分商品失败:', e); return null; }),
-        fetch('/api/points-exchange/orders').catch(e => { console.error('获取兑换订单失败:', e); return null; }),
-      ]);
-      const [productsData, ordersData] = await Promise.all([
-        productsRes?.json().catch(() => null),
-        ordersRes?.json().catch(() => null),
-      ]);
-      if (productsData?.success) setPointsProducts(productsData.data || []);
-      if (ordersData?.success) setPointsOrders(ordersData.data || []);
-    } catch (error) {
-      console.error('加载积分兑换数据失败:', error);
-    } finally {
-      setPointsLoading(false);
-    }
-  }, []);
-
-  // 加载市场费分配数据
-  const loadIncomeData = useCallback(async (subType: string = 'overview') => {
     try {
       setIncomeLoading(true);
       const res = await authFetch(`/api/admin/income-stats?subType=${subType}`);
@@ -881,6 +853,12 @@ export default function AdminPage() {
     if (activeMenu === 'dashboard') {
       loadDashboardData();
     }
+    if (activeMenu === 'templates') {
+      loadTemplates();
+    }
+    if (activeMenu === 'pointsShop') {
+      loadPointsProducts();
+    }
   }, [activeMenu, accountsTab, user]);
 
   // 系统设置 tab 切换时加载配置
@@ -910,10 +888,6 @@ export default function AdminPage() {
     // 如果选择模板管理，加载模板数据
     if (menuId === 'templates') {
       loadTemplates();
-    }
-    // 如果选择积分兑换管理，加载数据
-    if (menuId === 'points-shop') {
-      loadPointsShopData();
     }
   };
   
@@ -3749,12 +3723,6 @@ export default function AdminPage() {
           <CardContent className="p-4">
             <div className="text-sm opacity-80 mobile-label">本月总额</div>
             <div className="text-3xl font-bold mt-1 mobile-num">¥{(withdrawStats.todayAmount || 0).toLocaleString()}</div>
-          </CardContent>
-        </Card>
-        <Card className="mobile-compact-card bg-gradient-to-br from-amber-500 to-amber-700 text-white">
-          <CardContent className="p-4">
-            <div className="text-sm opacity-80 mobile-label">手续费收入</div>
-            <div className="text-3xl font-bold mt-1 mobile-num">¥{(withdrawStats.totalFee || 0).toLocaleString()}</div>
           </CardContent>
         </Card>
       </div>
@@ -9632,349 +9600,171 @@ export default function AdminPage() {
   };
 
   // 积分兑换管理
+  const loadPointsProducts = async () => {
+    setPointsLoading(true);
+    try {
+      const res = await fetch('/api/points-products');
+      const data = await res.json();
+      if (data.success) {
+        setPointsProducts(data.data || []);
+      }
+    } catch (e) {
+      console.error('加载积分商品失败', e);
+    } finally {
+      setPointsLoading(false);
+    }
+  };
+
+  const loadExchangeOrders = async () => {
+    try {
+      const res = await fetch('/api/points-exchange/orders');
+      const data = await res.json();
+      if (data.success) {
+        setExchangeOrders(data.data || []);
+      }
+    } catch (e) {
+      console.error('加载兑换订单失败', e);
+    }
+  };
+
+  const handleAddProduct = async () => {
+    if (!newProduct.name || !newProduct.points_price) {
+      setMessage({ type: 'error', text: '请填写商品名称和兑换积分' });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/points-products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newProduct.name,
+          description: newProduct.description,
+          imageUrl: newProduct.image_url,
+          pointsPrice: newProduct.points_price,
+          stock: -1,
+          createdBy: user?.id,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMessage({ type: 'success', text: '商品添加成功' });
+        setShowAddProductDialog(false);
+        setNewProduct({ name: '', description: '', image_url: '', points_price: 0 });
+        loadPointsProducts();
+      } else {
+        setMessage({ type: 'error', text: data.error || '添加失败' });
+      }
+    } catch (e) {
+      setMessage({ type: 'error', text: '添加失败' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteProduct = async (productId: string) => {
+    if (!confirm('确定删除该商品？')) return;
+    try {
+      const res = await fetch(`/api/points-products/${productId}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMessage({ type: 'success', text: '商品已删除' });
+        loadPointsProducts();
+      } else {
+        setMessage({ type: 'error', text: data.error || '删除失败' });
+      }
+    } catch (e) {
+      setMessage({ type: 'error', text: '删除失败' });
+    }
+  };
+
   const renderPointsShopManagement = () => {
-    const handleAddProduct = async () => {
-      try {
-        const res = await fetch('/api/points-products', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: newProduct.name,
-            description: newProduct.description,
-            imageUrl: newProduct.imageUrl,
-            pointsPrice: newProduct.pointsPrice,
-            stock: newProduct.stock,
-            createdBy: user?.id,
-          }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          setShowAddProduct(false);
-          setNewProduct({ name: '', description: '', imageUrl: '', pointsPrice: 0, stock: -1 });
-          loadPointsShopData();
-          setMessage({ type: 'success', text: '商品添加成功' });
-        } else {
-          setMessage({ type: 'error', text: data.error || '添加失败' });
-        }
-      } catch (e: any) {
-        setMessage({ type: 'error', text: e.message });
-      }
-    };
-
-    const handleToggleProduct = async (id: string, currentStatus: string) => {
-      try {
-        const res = await fetch('/api/points-products', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, status: currentStatus === 'active' ? 'inactive' : 'active' }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          loadPointsShopData();
-          setMessage({ type: 'success', text: currentStatus === 'active' ? '商品已下架' : '商品已上架' });
-        }
-      } catch (e: any) {
-        setMessage({ type: 'error', text: e.message });
-      }
-    };
-
-    const handleDeleteProduct = async (id: string) => {
-      if (!confirm('确定删除该商品？')) return;
-      try {
-        const res = await fetch(`/api/points-products/${id}`, { method: 'DELETE' });
-        const data = await res.json();
-        if (data.success) {
-          loadPointsShopData();
-          setMessage({ type: 'success', text: '商品已删除' });
-        }
-      } catch (e: any) {
-        setMessage({ type: 'error', text: e.message });
-      }
-    };
-
-    const handleUpdateOrderStatus = async (orderId: string, status: string) => {
-      try {
-        const res = await fetch('/api/points-exchange/orders', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId, status }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          loadPointsShopData();
-          setMessage({ type: 'success', text: '订单状态已更新' });
-        }
-      } catch (e: any) {
-        setMessage({ type: 'error', text: e.message });
-      }
-    };
-
-    const statusMap: Record<string, string> = {
-      pending: '待发货',
-      shipped: '已发货',
-      completed: '已完成',
-      cancelled: '已取消',
-    };
-    const statusColorMap: Record<string, string> = {
-      pending: 'bg-orange-100 text-orange-700',
-      shipped: 'bg-blue-100 text-blue-700',
-      completed: 'bg-green-100 text-green-700',
-      cancelled: 'bg-gray-100 text-gray-500',
-    };
-
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <Gift className="w-6 h-6 text-purple-500" />
-            积分兑换管理
-          </h2>
+          <div>
+            <h2 className="text-xl font-bold text-gray-800">积分兑换管理</h2>
+            <p className="text-sm text-gray-500 mt-1">添加和管理积分兑换商品，三端（会员/服务商/网点）均可浏览兑换</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => { loadExchangeOrders(); setShowOrdersDialog(true); }}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+            >
+              兑换记录
+            </button>
+            <button
+              onClick={loadPointsProducts}
+              className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 text-sm font-medium"
+            >
+              刷新
+            </button>
+            <button
+              onClick={() => setShowAddProductDialog(true)}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium flex items-center gap-1"
+            >
+              <Plus className="w-4 h-4" /> 添加商品
+            </button>
+          </div>
         </div>
 
-        {/* Tab 切换 */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => setPointsShopTab('products')}
-            className={`px-4 py-2 rounded-lg font-medium transition-all ${
-              pointsShopTab === 'products'
-                ? 'bg-purple-500 text-white shadow-md'
-                : 'bg-white text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            <Package className="w-4 h-4 inline mr-1" />
-            商品管理 ({pointsProducts.length})
-          </button>
-          <button
-            onClick={() => setPointsShopTab('orders')}
-            className={`px-4 py-2 rounded-lg font-medium transition-all ${
-              pointsShopTab === 'orders'
-                ? 'bg-purple-500 text-white shadow-md'
-                : 'bg-white text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            <Truck className="w-4 h-4 inline mr-1" />
-            兑换订单 ({pointsOrders.length})
-          </button>
-        </div>
-
-        {/* 商品管理 Tab */}
-        {pointsShopTab === 'products' && (
-          <div className="space-y-4">
-            <div className="flex justify-end">
-              <button
-                onClick={() => setShowAddProduct(true)}
-                className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 flex items-center gap-1"
-              >
-                <Plus className="w-4 h-4" />
-                添加商品
-              </button>
-            </div>
-
-            {pointsLoading ? (
-              <div className="text-center py-8 text-gray-400">加载中...</div>
-            ) : pointsProducts.length === 0 ? (
-              <div className="text-center py-12 text-gray-400">暂无商品，点击上方按钮添加</div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {pointsProducts.map((product: any) => (
-                  <div key={product.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow">
-                    {product.image_url && (
-                      <div className="h-48 bg-gray-100 overflow-hidden">
-                        <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
-                      </div>
-                    )}
-                    <div className="p-4 space-y-3">
-                      <div className="flex items-start justify-between">
-                        <h3 className="font-semibold text-gray-800 text-lg">{product.name}</h3>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          product.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                        }`}>
-                          {product.status === 'active' ? '上架中' : '已下架'}
-                        </span>
-                      </div>
-                      {product.description && (
-                        <p className="text-sm text-gray-500 line-clamp-2">{product.description}</p>
-                      )}
-                      <div className="flex items-center justify-between">
-                        <span className="text-purple-600 font-bold text-lg">{product.points_price} 积分</span>
-                        <span className="text-xs text-gray-400">
-                          库存: {product.stock === -1 ? '不限' : product.stock}
-                        </span>
-                      </div>
-                      <div className="flex gap-2 pt-2 border-t">
-                        <button
-                          onClick={() => handleToggleProduct(product.id, product.status)}
-                          className={`flex-1 py-1.5 rounded-lg text-sm font-medium ${
-                            product.status === 'active'
-                              ? 'bg-orange-50 text-orange-600 hover:bg-orange-100'
-                              : 'bg-green-50 text-green-600 hover:bg-green-100'
-                          }`}
-                        >
-                          {product.status === 'active' ? '下架' : '上架'}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteProduct(product.id)}
-                          className="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 text-red-600 hover:bg-red-100"
-                        >
-                          删除
-                        </button>
-                      </div>
+        {pointsLoading ? (
+          <div className="text-center py-12 text-gray-400">加载中...</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {pointsProducts.map((product: any) => (
+              <div key={product.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                {product.image_url ? (
+                  <div className="h-40 bg-gray-100 overflow-hidden">
+                    <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="h-40 bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
+                    <Gift className="w-12 h-12 text-purple-300" />
+                  </div>
+                )}
+                <div className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-bold text-gray-800 truncate">{product.name}</h3>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                      product.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'
+                    }`}>
+                      {product.status === 'active' ? '上架' : '下架'}
+                    </span>
+                  </div>
+                  {product.description && (
+                    <p className="text-sm text-gray-500 mb-3 line-clamp-2">{product.description}</p>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1 text-orange-600 font-bold">
+                      <Coins className="w-4 h-4" />
+                      <span>{product.points_price} 积分</span>
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => handleDeleteProduct(product.id)}
+                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title="删除"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-                ))}
+                  {product.stock !== -1 && (
+                    <div className="text-xs text-gray-400 mt-2">库存: {product.stock}</div>
+                  )}
+                </div>
               </div>
-            )}
+            ))}
           </div>
         )}
 
-        {/* 兑换订单 Tab */}
-        {pointsShopTab === 'orders' && (
-          <div className="space-y-4">
-            {pointsLoading ? (
-              <div className="text-center py-8 text-gray-400">加载中...</div>
-            ) : pointsOrders.length === 0 ? (
-              <div className="text-center py-12 text-gray-400">暂无兑换订单</div>
-            ) : (
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">商品</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">兑换用户</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">积分</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">收货人</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">电话</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">地址</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">状态</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">操作</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {pointsOrders.map((order: any) => (
-                        <tr key={order.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              {order.image_url && <img src={order.image_url} className="w-8 h-8 rounded object-cover" />}
-                              <span className="text-sm font-medium">{order.product_name || '-'}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-sm">{order.username || '-'} {order.unique_id ? `[${order.unique_id}]` : ''}</td>
-                          <td className="px-4 py-3 text-sm font-medium text-purple-600">{order.points_cost}</td>
-                          <td className="px-4 py-3 text-sm">{order.receiver_name}</td>
-                          <td className="px-4 py-3 text-sm">{order.receiver_phone}</td>
-                          <td className="px-4 py-3 text-sm max-w-[200px] truncate" title={order.receiver_address}>{order.receiver_address}</td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColorMap[order.status] || 'bg-gray-100 text-gray-500'}`}>
-                              {statusMap[order.status] || order.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            {order.status === 'pending' && (
-                              <button
-                                onClick={() => handleUpdateOrderStatus(order.id, 'shipped')}
-                                className="px-3 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-600 hover:bg-blue-100"
-                              >
-                                发货
-                              </button>
-                            )}
-                            {order.status === 'shipped' && (
-                              <button
-                                onClick={() => handleUpdateOrderStatus(order.id, 'completed')}
-                                className="px-3 py-1 rounded-lg text-xs font-medium bg-green-50 text-green-600 hover:bg-green-100"
-                              >
-                                完成
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* 添加商品弹窗 */}
-        {showAddProduct && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl p-6 w-full max-w-lg mx-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold">添加积分兑换商品</h3>
-                <button onClick={() => setShowAddProduct(false)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
-              </div>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">商品名称 *</label>
-                  <input
-                    type="text"
-                    value={newProduct.name}
-                    onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300"
-                    placeholder="请输入商品名称"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">商品说明</label>
-                  <textarea
-                    value={newProduct.description}
-                    onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300"
-                    placeholder="请输入商品说明"
-                    rows={3}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">商品图片URL</label>
-                  <input
-                    type="text"
-                    value={newProduct.imageUrl}
-                    onChange={(e) => setNewProduct({ ...newProduct, imageUrl: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300"
-                    placeholder="图片链接地址"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-1">兑换积分 *</label>
-                    <input
-                      type="number"
-                      value={newProduct.pointsPrice || ''}
-                      onChange={(e) => setNewProduct({ ...newProduct, pointsPrice: parseInt(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300"
-                      placeholder="需要多少积分"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-1">库存数量</label>
-                    <input
-                      type="number"
-                      value={newProduct.stock === -1 ? '' : newProduct.stock}
-                      onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value ? parseInt(e.target.value) : -1 })}
-                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300"
-                      placeholder="留空不限"
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => setShowAddProduct(false)}
-                  className="flex-1 py-2.5 border rounded-lg text-gray-600 hover:bg-gray-50 font-medium"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={handleAddProduct}
-                  disabled={!newProduct.name || !newProduct.pointsPrice}
-                  className="flex-1 py-2.5 bg-purple-500 text-white rounded-lg hover:bg-purple-600 font-medium disabled:opacity-50"
-                >
-                  确认添加
-                </button>
-              </div>
-            </div>
+        {!pointsLoading && pointsProducts.length === 0 && (
+          <div className="text-center py-16">
+            <Gift className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-400">暂无积分商品，点击"添加商品"创建</p>
           </div>
         )}
       </div>
@@ -9998,7 +9788,7 @@ export default function AdminPage() {
         return renderAccountsManagement();
       case 'templates':
         return renderTemplateManagement();
-      case 'points-shop':
+      case 'pointsShop':
         return renderPointsShopManagement();
       default:
         return renderDashboard();
@@ -10091,6 +9881,101 @@ export default function AdminPage() {
                   创建
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* 添加积分商品弹窗 */}
+      {showAddProductDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-[500px]">
+            <CardHeader>
+              <CardTitle>添加积分商品</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>商品名称 *</Label>
+                <Input
+                  value={newProduct.name}
+                  onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                  placeholder="请输入商品名称"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label>商品说明</Label>
+                <textarea
+                  value={newProduct.description}
+                  onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+                  placeholder="请输入商品说明"
+                  className="mt-1 w-full p-2 border rounded-lg min-h-[80px] resize-none"
+                />
+              </div>
+              <div>
+                <Label>商品图片URL</Label>
+                <Input
+                  value={newProduct.image_url}
+                  onChange={(e) => setNewProduct({ ...newProduct, image_url: e.target.value })}
+                  placeholder="请输入图片URL地址"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label>兑换积分 *</Label>
+                <Input
+                  type="number"
+                  value={newProduct.points_price || ''}
+                  onChange={(e) => setNewProduct({ ...newProduct, points_price: parseInt(e.target.value) || 0 })}
+                  placeholder="请输入兑换所需积分"
+                  className="mt-1"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => setShowAddProductDialog(false)}>取消</Button>
+                <Button
+                  className="bg-purple-600"
+                  onClick={handleAddProduct}
+                  disabled={submitting}
+                >
+                  {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  添加
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* 兑换记录弹窗 */}
+      {showOrdersDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-[700px] max-h-[80vh] overflow-auto">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>兑换记录</CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => setShowOrdersDialog(false)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {exchangeOrders.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">暂无兑换记录</div>
+              ) : (
+                <div className="space-y-3">
+                  {exchangeOrders.map((order: any) => (
+                    <div key={order.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div>
+                        <p className="font-medium text-gray-800">{order.product_name || '商品'}</p>
+                        <p className="text-sm text-gray-500">{order.username || order.user_id} | {order.receiver_name} {order.receiver_phone}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-orange-600 font-bold">{order.points_cost} 积分</p>
+                        <p className="text-xs text-gray-400">{new Date(order.created_at).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
