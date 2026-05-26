@@ -136,6 +136,15 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // 写入手续费沉淀记录（5%手续费）
+      if (withdrawal.fee && parseFloat(withdrawal.fee) > 0) {
+        await execute(
+          `INSERT INTO fee_sedimentation_records (user_id, fee_type, amount, original_amount, fee_rate, related_order_id, related_type, note, status, created_at)
+           VALUES ($1, 'withdrawal_fee', $2, $3, 5.00, $4, 'withdrawal', $5, 'completed', NOW())`,
+          [withdrawal.user_id, withdrawal.fee, withdrawal.amount, withdrawalId, `提现手续费5%，提现金额¥${withdrawal.amount}`]
+        );
+      }
+
       return NextResponse.json({
         success: true,
         message: '审核通过，提现金额已到账'

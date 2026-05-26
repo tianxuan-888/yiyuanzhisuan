@@ -66,6 +66,7 @@ import {
   ArrowRight,
   LayoutGrid,
   Gift,
+  Receipt,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -236,6 +237,11 @@ export default function AdminPage() {
   const [releaseLoading, setReleaseLoading] = useState(false);
   const [releaseDateRange, setReleaseDateRange] = useState<{start: string; end: string}>({start: '', end: ''});
   const [releaseStats, setReleaseStats] = useState<any>(null);
+
+  // 手续费沉淀记录相关state
+  const [feeRecords, setFeeRecords] = useState<any[]>([]);
+  const [feeRecordsLoading, setFeeRecordsLoading] = useState(false);
+  const [feeStats, setFeeStats] = useState<any>(null);
 
   // 账户管理相关state
   const [accountsData, setAccountsData] = useState<any>(null);
@@ -849,6 +855,7 @@ export default function AdminPage() {
     }
     if (activeMenu === 'release') {
       loadReleaseRecords();
+      loadFeeRecords();
     }
     if (activeMenu === 'dashboard') {
       loadDashboardData();
@@ -4705,6 +4712,22 @@ export default function AdminPage() {
     }
   };
 
+  const loadFeeRecords = async () => {
+    setFeeRecordsLoading(true);
+    try {
+      const res = await fetch('/api/admin/fee-records');
+      const data = await res.json();
+      if (data.success) {
+        setFeeRecords(data.data?.records || []);
+        setFeeStats(data.data?.stats || null);
+      }
+    } catch (e) {
+      console.error('加载手续费沉淀记录失败', e);
+    } finally {
+      setFeeRecordsLoading(false);
+    }
+  };
+
   const loadDashboardData = async () => {
     setDashboardLoading(true);
     try {
@@ -5214,6 +5237,91 @@ export default function AdminPage() {
                 </TableBody>
               </Table>
             </div>
+          )}
+        </CardContent>
+      </Card>
+      {/* 手续费沉淀记录 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Receipt className="w-5 h-5" />
+            手续费沉淀记录
+          </CardTitle>
+          <CardDescription>提现手续费5%沉淀记录，包含提现手续费和能量值提现手续费</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {feeRecordsLoading ? (
+            <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></div>
+          ) : feeRecords.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">暂无手续费沉淀记录</div>
+          ) : (
+            <>
+              {/* 汇总统计 */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <Card className="bg-amber-50 dark:bg-amber-950/30 border-amber-200">
+                  <CardContent className="p-4">
+                    <div className="text-sm text-muted-foreground">手续费总计</div>
+                    <div className="text-2xl font-bold text-amber-600">¥{Number(feeStats?.total_amount || 0).toLocaleString()}</div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-amber-50 dark:bg-amber-950/30 border-amber-200">
+                  <CardContent className="p-4">
+                    <div className="text-sm text-muted-foreground">沉淀笔数</div>
+                    <div className="text-2xl font-bold text-amber-600">{feeStats?.total_count || 0}</div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-amber-50 dark:bg-amber-950/30 border-amber-200">
+                  <CardContent className="p-4">
+                    <div className="text-sm text-muted-foreground">提现手续费</div>
+                    <div className="text-lg font-bold text-amber-600">¥{Number(feeStats?.withdrawal_fee_total || 0).toLocaleString()}</div>
+                    <div className="text-xs text-muted-foreground">{feeStats?.withdrawal_fee_count || 0}笔</div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-amber-50 dark:bg-amber-950/30 border-amber-200">
+                  <CardContent className="p-4">
+                    <div className="text-sm text-muted-foreground">能量值提现手续费</div>
+                    <div className="text-lg font-bold text-amber-600">¥{Number(feeStats?.energy_withdrawal_fee_total || 0).toLocaleString()}</div>
+                    <div className="text-xs text-muted-foreground">{feeStats?.energy_withdrawal_fee_count || 0}笔</div>
+                  </CardContent>
+                </Card>
+              </div>
+              {/* 明细列表 */}
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>用户</TableHead>
+                      <TableHead>手续费类型</TableHead>
+                      <TableHead>原始金额</TableHead>
+                      <TableHead>手续费率</TableHead>
+                      <TableHead>手续费金额</TableHead>
+                      <TableHead>备注</TableHead>
+                      <TableHead>时间</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {feeRecords.map((r: any) => (
+                      <TableRow key={r.id}>
+                        <TableCell>
+                          <div className="font-medium">{r.real_name || r.username || '-'}</div>
+                          <div className="text-xs text-muted-foreground">{r.unique_id || ''} {r.phone ? `(${r.phone?.slice(0,3)}****${r.phone?.slice(-4)})` : ''}</div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={r.fee_type === 'withdrawal_fee' ? 'default' : 'secondary'}>
+                            {r.fee_type === 'withdrawal_fee' ? '提现手续费' : '能量值提现手续费'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>¥{Number(r.original_amount).toLocaleString()}</TableCell>
+                        <TableCell>{r.fee_rate}%</TableCell>
+                        <TableCell className="font-bold text-amber-600">¥{Number(r.amount).toLocaleString()}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{r.note || '-'}</TableCell>
+                        <TableCell className="text-xs">{new Date(r.created_at).toLocaleString('zh-CN')}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

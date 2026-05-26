@@ -1,66 +1,76 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/pg-client';
+import { query, queryOne } from '@/lib/supabase-client';
 import { authenticateRequest } from '@/lib/auth';
 
-// 获取智算中心手续费沉淀记录
+/**
+ * 手续费沉淀记录 API
+ * GET /api/admin/fee-records?type=withdrawal_fee&startDate=xxx&endDate=xxx
+ */
 export async function GET(request: NextRequest) {
   try {
-    const authUser = authenticateRequest(request);
-    if (!authUser) {
-      return NextResponse.json({ error: '未登录' }, { status: 401 });
-    }
-
-    if (authUser.role !== 'admin') {
-      return NextResponse.json({ error: '仅智算中心可查看' }, { status: 403 });
+    const user = authenticateRequest(request);
+    if (!user || user.role !== 'admin') {
+      return NextResponse.json({ success: false, message: '无权限' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type');
-    const sourceRole = searchParams.get('sourceRole');
+    const feeType = searchParams.get('type') || '';
+    const startDate = searchParams.get('startDate') || '';
+    const endDate = searchParams.get('endDate') || '';
 
-    let sql = 'SELECT * FROM company_fee_records WHERE 1=1';
-    const params: any[] = [];
-    let paramIdx = 1;
+    let whereConditions: string[] = [];
+    let params: any[] = [];
+    let paramIndex = 1;
 
-    if (type) {
-      sql += ` AND type = $${paramIdx}`;
-      params.push(type);
-      paramIdx++;
+    if (feeType) {
+      whereConditions.push(`fsr.fee_type = $${paramIndex++}`);
+      params.push(feeType);
+    }
+    if (startDate) {
+      whereConditions.push(`fsr.created_at >= $${paramIndex++}`);
+      params.push(startDate);
+    }
+    if (endDate) {
+      whereConditions.push(`fsr.created_at <= $${paramIndex++}::timestamptz`);
+      params.push(endDate + 'T23:59:59');
     }
 
-    if (sourceRole) {
-      sql += ` AND source_role = $${paramIdx}`;
-      params.push(sourceRole);
-    }
+    const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : '';
 
-    sql += ' ORDER BY created_at DESC';
+    // 获取汇总统计
+    const statsSql = `
+      SELECT 
+        COUNT(*) as total_count,
+        COALESCE(SUM(amount), 0) as total_amount,
+        COALESCE(SUM(CASE WHEN fee_type = 'withdrawal_fee' THEN amount ELSE 0 END), 0) as withdrawal_fee_total,
+        COALESCE(SUM(CASE WHEN fee_type = 'energy_withdrawal_fee' THEN amount ELSE 0 END), 0) as energy_withdrawal_fee_total,
+        COUNT(CASE WHEN fee_type = 'withdrawal_fee' THEN 1 END) as withdrawal_fee_count,
+        COUNT(CASE WHEN fee_type = 'energy_withdrawal_fee' THEN 1 END) as energy_withdrawal_fee_count
+      FROM fee_sedimentation_records fsr ${whereClause}
+    `;
+    const stats = await queryOne<any>(statsSql, params);
 
-    const data = await query(sql, params);
-
-    // 统计
-    const stats = await query(
-      `SELECT 
-        COALESCE(SUM(CASE WHEN type = 'withdrawal_fee' THEN amount ELSE 0 END), 0) as total_withdrawal_fee,
-        COALESCE(SUM(CASE WHEN type = 'market_fee_ops' THEN amount ELSE 0 END), 0) as total_market_fee_ops,
-        COALESCE(SUM(CASE WHEN source_role = 'member' THEN amount ELSE 0 END), 0) as from_member,
-        COALESCE(SUM(CASE WHEN source_role = 'provider' THEN amount ELSE 0 END), 0) as from_provider,
-        COALESCE(SUM(CASE WHEN source_role = 'branch' THEN amount ELSE 0 END), 0) as from_branch,
-        COALESCE(SUM(amount), 0) as total_fee
-      FROM company_fee_records`
-    );
+    // 获取明细列表
+    const listSql = `
+      SELECT fsr.*, u.username, u.real_name, u.unique_id, u.phone, u.role as user_role
+      FROM fee_sedimentation_records fsr
+      LEFT JOIN users u ON fsr.user_id::uuid = u.id::uuid
+      ${whereClause}
+      ORDER BY fsr.created_at DESC
+      LIMIT 200
+    `;
+    const records = await query<any>(listSql, params);
 
     return NextResponse.json({
       success: true,
       data: {
-        records: data,
-        stats: stats[0] || {},
-      },
+        stats: stats || { total_count: 0, total_amount: 0, withdrawal_fee_total: 0, energy_withdrawal_fee_total: 0, withdrawal_fee_count: 0, energy_withdrawal_fee_count: 0 },
+        records: records || []
+      }
     });
-  } catch (error) {
-    console.error('获取手续费记录失败:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : '获取手续费记录失败' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : '查询失败';
+    console.error('[FEE RECORDS] Error:', error);
+    return NextResponse.json({ success: false, message }, { status: 500 });
   }
 }
