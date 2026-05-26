@@ -5109,7 +5109,7 @@ export default function AdminPage() {
             <TrendingUp className="w-5 h-5" />
             释放收益总统计
           </CardTitle>
-          <CardDescription>产品购买时总台释放5%收益，按7项比例分配到各方</CardDescription>
+          <CardDescription>产品到期释放市场费收益，按5项比例分配到各方</CardDescription>
         </CardHeader>
         <CardContent>
           {/* 核心汇总 */}
@@ -5134,43 +5134,38 @@ export default function AdminPage() {
             </Card>
             <Card className="bg-primary/5 border-primary/20">
               <CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">分配比例</div>
-                <div className="text-2xl font-bold text-primary">5%</div>
+                <div className="text-sm text-muted-foreground">市场费比例</div>
+                <div className="text-2xl font-bold text-primary">市场费率</div>
               </CardContent>
             </Card>
           </div>
 
-          {/* 7项分配明细统计 */}
+          {/* 市场费分配明细统计 */}
           <div className="border rounded-lg p-4">
-            <h4 className="font-semibold mb-3 text-sm">5%分配去向明细</h4>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              <div className="text-center p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
-                <div className="text-xs text-muted-foreground mb-1">会员 (2%)</div>
-                <div className="text-lg font-bold text-blue-600">¥{totalMember.toLocaleString()}</div>
-                <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalMember / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
-              </div>
+            <h4 className="font-semibold mb-3 text-sm">市场费分配去向明细</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
               <div className="text-center p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
-                <div className="text-xs text-muted-foreground mb-1">服务商 (2%)</div>
+                <div className="text-xs text-muted-foreground mb-1">服务商 (70%)</div>
                 <div className="text-lg font-bold text-purple-600">¥{totalProvider.toLocaleString()}</div>
                 <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalProvider / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
               </div>
               <div className="text-center p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
-                <div className="text-xs text-muted-foreground mb-1">直推 (0.25%)</div>
+                <div className="text-xs text-muted-foreground mb-1">直推人 (10%)</div>
                 <div className="text-lg font-bold text-green-600">¥{totalDirect.toLocaleString()}</div>
                 <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalDirect / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
               </div>
               <div className="text-center p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
-                <div className="text-xs text-muted-foreground mb-1">上级服务商 (0.25%)</div>
+                <div className="text-xs text-muted-foreground mb-1">上级服务商 (10%)</div>
                 <div className="text-lg font-bold text-orange-600">¥{totalParentProvider.toLocaleString()}</div>
                 <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalParentProvider / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
               </div>
               <div className="text-center p-3 bg-teal-50 dark:bg-teal-950/30 rounded-lg">
-                <div className="text-xs text-muted-foreground mb-1">服务网点 (0.1%)</div>
+                <div className="text-xs text-muted-foreground mb-1">服务网点 (5%)</div>
                 <div className="text-lg font-bold text-teal-600">¥{totalBranch.toLocaleString()}</div>
                 <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalBranch / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
               </div>
               <div className="text-center p-3 bg-slate-50 dark:bg-slate-950/30 rounded-lg">
-                <div className="text-xs text-muted-foreground mb-1">总台运营 (0.4%)</div>
+                <div className="text-xs text-muted-foreground mb-1">总台运营 (5%)</div>
                 <div className="text-lg font-bold text-slate-600">¥{totalCompany.toLocaleString()}</div>
                 <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalCompany / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
               </div>
@@ -5183,7 +5178,7 @@ export default function AdminPage() {
       <Card>
         <CardHeader>
           <CardTitle>释放收益明细记录</CardTitle>
-          <CardDescription>每笔产品购买释放的5%收益完整分配明细</CardDescription>
+          <CardDescription>产品到期释放市场费，按比例分配到各方（服务商70% / 直推10% / 上级10% / 网点5% / 总台5%）</CardDescription>
         </CardHeader>
         <CardContent>
           {/* 筛选区 */}
@@ -5207,13 +5202,13 @@ export default function AdminPage() {
                     <TableHead>产品</TableHead>
                     <TableHead>释放时间</TableHead>
                     <TableHead>产品价格</TableHead>
-                    <TableHead>释放总额(5%)</TableHead>
-                    <TableHead>会员(2%)</TableHead>
-                    <TableHead>服务商(2%)</TableHead>
-                    <TableHead>直推(0.25%)</TableHead>
-                    <TableHead>上级(0.25%)</TableHead>
-                    <TableHead>网点(0.1%)</TableHead>
-                    <TableHead>运营(0.4%)</TableHead>
+                    <TableHead>市场费总额</TableHead>
+                    <TableHead>会员收益</TableHead>
+                    <TableHead>服务商(70%)</TableHead>
+                    <TableHead>直推(10%)</TableHead>
+                    <TableHead>上级(10%)</TableHead>
+                    <TableHead>网点(5%)</TableHead>
+                    <TableHead>总台(5%)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

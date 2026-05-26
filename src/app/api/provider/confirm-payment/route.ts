@@ -96,7 +96,9 @@ export async function POST(request: NextRequest) {
         expireDate.setDate(expireDate.getDate() + product.period);
 
         const totalRate = parseFloat(product.total_rate) / 100;
+        const marketRate = parseFloat(product.market_rate) / 100;
         const expectedProfit = price * totalRate;
+        const marketFee = Math.ceil(price * marketRate);
 
         const { data: newUserProduct, error: createUserProductError } = await client
           .from('user_products')
@@ -107,6 +109,7 @@ export async function POST(request: NextRequest) {
             purchase_date: purchaseDate.toISOString(),
             expire_date: expireDate.toISOString(),
             expected_profit: expectedProfit.toFixed(2),
+            market_fee: marketFee,
             status: 'holding',
             seller_id: providerId,
             transfer_type: 'provider_match',
