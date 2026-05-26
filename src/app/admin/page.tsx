@@ -319,7 +319,7 @@ export default function AdminPage() {
   const [incomeLoading, setIncomeLoading] = useState(false);
   const [incomeTypeFilter, setIncomeTypeFilter] = useState('all');
   const [withdrawStats, setWithdrawStats] = useState<any>({
-    pendingCount: 0, pendingAmount: 0, approvedAmount: 0, actualPaid: 0, todayAmount: 0, totalRequests: 0,
+    pendingCount: 0, pendingAmount: 0, approvedAmount: 0, actualPaid: 0, todayAmount: 0, totalRequests: 0, totalFee: 0,
   });
   const [withdrawList, setWithdrawList] = useState<any[]>([]);
 
@@ -3749,6 +3749,12 @@ export default function AdminPage() {
           <CardContent className="p-4">
             <div className="text-sm opacity-80 mobile-label">本月总额</div>
             <div className="text-3xl font-bold mt-1 mobile-num">¥{(withdrawStats.todayAmount || 0).toLocaleString()}</div>
+          </CardContent>
+        </Card>
+        <Card className="mobile-compact-card bg-gradient-to-br from-amber-500 to-amber-700 text-white">
+          <CardContent className="p-4">
+            <div className="text-sm opacity-80 mobile-label">手续费收入</div>
+            <div className="text-3xl font-bold mt-1 mobile-num">¥{(withdrawStats.totalFee || 0).toLocaleString()}</div>
           </CardContent>
         </Card>
       </div>

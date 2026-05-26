@@ -86,6 +86,15 @@ export async function POST(request: NextRequest) {
       const totalRate = parseFloat(userProduct.total_rate || 0);
       const marketRate = parseFloat(userProduct.market_rate || 0);
 
+      // 查找服务商和网点信息
+      const providerId = userProduct.product_provider_id;
+      let providerData: any = null;
+      let branchId: string | null = null;
+      if (providerId) {
+        providerData = await queryOne<any>('SELECT branch_id FROM providers WHERE user_id = $1', [providerId]);
+        branchId = providerData?.branch_id || null;
+      }
+
       const memberProfit = purchasePrice * (profitRate / 100);
       const marketPool = purchasePrice * (marketRate / 100);
 
@@ -121,7 +130,6 @@ export async function POST(request: NextRequest) {
       );
 
       // 2. 服务商收益到账（写入energy_value智算金）
-      const providerId = userProduct.product_provider_id;
       if (providerId && providerShare > 0) {
         await execute(
           `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
@@ -135,7 +143,7 @@ export async function POST(request: NextRequest) {
       }
 
       // 3. 直推人收益到账（写入energy_value智算金）
-      const memberUser = await queryOne<any>('SELECT inviter_id FROM users WHERE id = $1', [userProduct.user_id]);
+      const memberUser = await queryOne<any>('SELECT inviter_id, username, real_name FROM users WHERE id = $1', [userProduct.user_id]);
       if (memberUser?.inviter_id && directShare > 0) {
         await execute(
           `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
@@ -163,19 +171,16 @@ export async function POST(request: NextRequest) {
       }
 
       // 5. 网点收益到账（写入energy_value智算金）
-      if (providerId) {
-        const providerData = await queryOne<any>('SELECT branch_id FROM providers WHERE user_id = $1', [providerId]);
-        if (providerData?.branch_id && branchShare > 0) {
+      if (branchId && branchShare > 0) {
           await execute(
             `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
-            [branchShare, providerData.branch_id]
+            [branchShare, branchId]
           );
           await execute(
             `INSERT INTO energy_transactions (user_id, type, amount, note, created_at)
              VALUES ($1, 'branch_revenue', $2, $3, NOW())`,
-            [providerData.branch_id, branchShare, '服务商会员产品到期，网点分成5%']
+            [branchId, branchShare, '服务商会员产品到期，网点分成5%']
           );
-        }
       }
 
       // 6. 总台运营收益到账（写入energy_value智算金）
@@ -204,7 +209,61 @@ export async function POST(request: NextRequest) {
          totalRate, profitRate, marketRate, holdingDays]
       );
 
-      // 8. 标记收益已释放
+      // 8. 写入 release_records 表（总公司收益记录）
+      await execute(
+        `INSERT INTO release_records 
+         (product_id, product_name, product_price, release_amount, release_rate,
+          member_id, member_name, member_share, direct_referral_id, direct_referral_share,
+          provider_id, provider_share, parent_provider_id, parent_provider_share,
+          branch_id, branch_share, company_share, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW())`,
+        [
+          userProduct.product_id,
+          userProduct.product_name,
+          purchasePrice,
+          marketPool,
+          marketRate,
+          userProduct.user_id,
+          memberUser?.username || memberUser?.real_name || '',
+          memberProfit,
+          memberUser?.inviter_id || null,
+          directShare,
+          providerId || null,
+          providerShare,
+          null,
+          parentProviderShare,
+          branchId,
+          branchShare,
+          companyShare
+        ]
+      );
+
+      // 9. 写入 provider_revenue_distribution 表（总公司财务报表数据来源）
+      await execute(
+        `INSERT INTO provider_revenue_distribution 
+         (provider_id, member_id, product_id, product_name, product_price, purchase_price, 
+          market_rate, market_fee, provider_share, direct_referral_share, parent_provider_share, 
+          branch_share, company_share, member_profit, status, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'completed', NOW())`,
+        [
+          providerId || null,
+          userProduct.user_id,
+          userProduct.product_id,
+          userProduct.product_name,
+          purchasePrice,
+          purchasePrice,
+          marketRate,
+          marketPool,
+          providerShare,
+          directShare,
+          parentProviderShare,
+          branchShare,
+          companyShare,
+          memberProfit
+        ]
+      );
+
+      // 10. 标记收益已释放
       await execute(
         `UPDATE user_products SET revenue_released = true, updated_at = NOW() WHERE id = $1`,
         [userProduct.id]

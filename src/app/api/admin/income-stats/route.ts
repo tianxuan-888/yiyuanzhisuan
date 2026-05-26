@@ -309,20 +309,25 @@ async function getWithdrawManagement(supabase: any) {
     approvedAmount: 0,
     actualPaid: 0,
     todayAmount: 0,
+    totalFee: 0,
+    todayFee: 0,
   };
 
   const today = new Date().toISOString().split('T')[0];
   (allWithdrawals || []).forEach((w: any) => {
     const amount = parseFloat(w.amount) || 0;
     const actual = parseFloat(w.actual_amount) || 0;
+    const fee = parseFloat(w.fee_amount) || 0;
     if (w.status === 'pending') {
       ws.pendingCount++;
       ws.pendingAmount += amount;
     } else if (w.status === 'approved') {
       ws.approvedAmount += amount;
       ws.actualPaid += actual;
+      ws.totalFee += fee;
       if (w.reviewed_at?.startsWith(today)) {
         ws.todayAmount += amount;
+        ws.todayFee += fee;
       }
     }
   });
