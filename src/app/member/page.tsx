@@ -1144,14 +1144,16 @@ const [copySuccess, setCopySuccess] = useState(false);
     // 加载资金流水
     const loadCapitalFlow = async () => {
         const userId = localStorage.getItem("userId");
+        console.log('[DEBUG] loadCapitalFlow called, userId:', userId, 'tab:', capitalFlowTab, 'page:', capitalFlowPage);
         if (!userId) return;
         setCapitalFlowLoading(true);
         try {
             const flowType = capitalFlowTab === 'all' ? '' : capitalFlowTab;
             const params = new URLSearchParams({ userId, page: String(capitalFlowPage), pageSize: '20' });
             if (flowType) params.set('flowType', flowType);
-            const res = await authFetch(`/api/capital-flow?${params}`);
+            const res = await fetch(`/api/capital-flow?${params}`);
             const data = await res.json();
+            console.log('[DEBUG] capital-flow response:', data.success, 'records:', data.data?.records?.length, 'stats:', data.data?.stats);
             if (data.success) {
                 setCapitalFlowData(data.data);
             }

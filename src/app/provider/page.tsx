@@ -539,7 +539,7 @@ export default function ProviderPage() {
         if (!user?.id) return;
         setCapitalFlowLoading(true);
         try {
-            const response = await authFetch(`/api/capital-flow?userId=${user.id}&flowType=${capitalFlowTab}&page=${capitalFlowPage}&pageSize=20`);
+            const response = await fetch(`/api/capital-flow?userId=${user.id}&flowType=${capitalFlowTab}&page=${capitalFlowPage}&pageSize=20`);
             const data = await response.json();
             if (data.success) setCapitalFlowData(data.data);
         } catch (e) { console.error("loadCapitalFlow error:", e); }
