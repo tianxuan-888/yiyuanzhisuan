@@ -12,7 +12,7 @@ import { queryOne, execute } from '@/lib/supabase-client';
  *   服务商提现 → 网点审核
  *   网点提现   → 总台审核
  * 
- * 审核通过：状态 pending → completed（线下打款确认）
+ * 审核通过：状态 pending → approved（线下打款确认），金额到账审核人
  * 审核拒绝：状态 pending → rejected（退还扣除的金额）
  */
 
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
 
     // 查询审核人信息
     const reviewer = await queryOne(
-      `SELECT id, role, branch_id FROM users WHERE id = $1`,
+      `SELECT id, username, role, branch_id FROM users WHERE id = $1`,
       [auth.userId]
     );
 
@@ -60,8 +60,6 @@ export async function POST(request: NextRequest) {
     }
 
     // 验证审核权限
-    // 总台只能审核 reviewer_type = admin 的提现（网点提现）
-    // 网点只能审核 reviewer_type = branch 的提现（会员/服务商提现）
     if (reviewer.role === 'admin') {
       if (withdrawal.reviewer_type !== 'admin') {
         return NextResponse.json({ success: false, message: '您只能审核网点的提现申请' });
@@ -73,7 +71,6 @@ export async function POST(request: NextRequest) {
       // 进一步验证：该提现申请人是否属于本网点
       const applicantRole = withdrawal.applicant_role || withdrawal.user_role;
       if (applicantRole === 'provider') {
-        // 验证服务商是否属于该网点
         const providerUser = await queryOne(
           `SELECT branch_id FROM users WHERE id = $1`,
           [withdrawal.user_id]
@@ -82,7 +79,6 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ success: false, message: '该服务商不属于您的网点' });
         }
       } else if (applicantRole === 'member') {
-        // 验证会员是否属于该网点下的服务商
         const memberUser = await queryOne(
           `SELECT provider_id FROM users WHERE id = $1`,
           [withdrawal.user_id]
@@ -108,20 +104,35 @@ export async function POST(request: NextRequest) {
         [auth.userId, withdrawalId]
       );
 
-      // 审核通过后，提现金额到账审核人账户
-      // 会员/服务商提现（从energy_value扣）→ 网点收到balance
-      // 网点提现（从balance扣）→ 总台收到balance
+      const applicantRole = withdrawal.applicant_role || withdrawal.user_role;
+      const applicantName = withdrawal.username || '未知';
+
       if (reviewer.role === 'branch') {
-        // 网点审核通过：提现金额加到网点的balance
+        // 网点审核通过：会员/服务商提现的是智算金(energy_value)，到账网点的智算金
+        await execute(
+          `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
+          [withdrawal.amount, auth.userId]
+        );
+
+        // 写入能量值流水 - 网点收到提现金额
+        await execute(
+          `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, created_at)
+           VALUES ($1, 'withdraw_receive', $2, $3, $1, $4, NOW())`,
+          [auth.userId, withdrawal.amount, withdrawal.user_id, `收到${applicantName}提现¥${withdrawal.amount}`]
+        );
+
+      } else if (reviewer.role === 'admin') {
+        // 总台审核通过：网点提现的是收益(balance)，到账总台的收益
         await execute(
           `UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
           [withdrawal.amount, auth.userId]
         );
-      } else if (reviewer.role === 'admin') {
-        // 总台审核通过：提现金额加到总台的balance
+
+        // 写入交易记录
         await execute(
-          `UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
-          [withdrawal.amount, auth.userId]
+          `INSERT INTO transactions (user_id, type, amount, status, description, created_at)
+           VALUES ($1, 'withdraw_receive', $2, 'completed', $3, NOW())`,
+          [auth.userId, withdrawal.amount, `收到${applicantName}提现¥${withdrawal.amount}`]
         );
       }
 
@@ -147,6 +158,15 @@ export async function POST(request: NextRequest) {
         `UPDATE withdrawals SET status = 'rejected', reviewer_id = $1, reject_reason = $2, reviewed_at = NOW(), updated_at = NOW() WHERE id = $3`,
         [auth.userId, rejectReason || '审核拒绝', withdrawalId]
       );
+
+      // 写入退还流水
+      if (isEnergyWithdraw) {
+        await execute(
+          `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, created_at)
+           VALUES ($1, 'withdraw_refund', $2, $1, $1, $3, NOW())`,
+          [withdrawal.user_id, withdrawal.amount, '提现被拒绝，金额退还']
+        );
+      }
 
       return NextResponse.json({
         success: true,
