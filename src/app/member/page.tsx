@@ -3654,7 +3654,8 @@ const [copySuccess, setCopySuccess] = useState(false);
                                         setTransferToUserId("");
                                         setTransferToAmount("");
                                         setTransferToNote("");
-                                        refreshAll();
+                                        await refreshAll();
+                                        setTimeout(() => refreshAll(), 1500);
                                     } else {
                                         showMessage("error", data.error || "转账失败");
                                     }

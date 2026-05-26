@@ -1461,7 +1461,8 @@ export default function ProviderPage() {
                 setTransferUserId("");
                 setTransferAmount("");
                 setTransferNote("");
-                refreshAll();
+                await refreshAll(500);
+                setTimeout(() => refreshAll(300), 1500);
             } else {
                 showMessage("error", data.error || "转账失败");
             }

@@ -111,7 +111,7 @@ interface QuotaRequest {
 }
 
 export default function BranchPage() {
-  const { user, loading: authLoading, logout } = useAuth('branch');
+  const { user, setUser, loading: authLoading, logout, refreshUser } = useAuth('branch');
   
   // 统一的 API 请求方法（带认证）
   const authFetch = async (url: string, options: RequestInit = {}) => {
@@ -540,7 +540,9 @@ export default function BranchPage() {
         setShowAllocateDialog(false);
         setSelectedProvider('');
         setQuotaAmount('50000');
-        loadData();
+        await refreshUser();
+        await loadData();
+        setTimeout(() => { refreshUser(); loadData(); }, 1500);
       } else {
         showMessage('error', data.error || '分配失败');
       }
