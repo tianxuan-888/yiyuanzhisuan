@@ -74,16 +74,8 @@ export async function POST(request: NextRequest) {
 
     // 4. 记录 energy_transactions 明细 - 智算金扣减
     await query(
-      `INSERT INTO energy_transactions (id, type, amount, from_user_id, to_user_id, created_at)
-       VALUES (gen_random_uuid(), 'burn', $1, $2, NULL, NOW())`,
-      [convertAmount, userId]
-    );
-
-    // 4. 记录积分流水
-    await query(
-      `INSERT INTO points_records (id, user_id, type, amount, balance_after, description, created_at)
-       VALUES (gen_random_uuid(), $1, 'convert', $2, 
-        (SELECT points FROM users WHERE id::text = $1), $3, NOW())`,
+      `INSERT INTO energy_transactions (id, user_id, type, amount, from_user_id, to_user_id, note, created_at)
+       VALUES (gen_random_uuid(), $1, 'burn', $2, $1, NULL, $3, NOW())`,
       [userId, convertAmount, `将${convertAmount}智算金转换为积分`]
     );
 

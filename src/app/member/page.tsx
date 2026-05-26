@@ -1387,7 +1387,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                 <TrendingUp className="w-5 h-5 mobile-icon" />
                                 <span className="opacity-80 text-sm mobile-label">智算金</span>
                             </div>
-                            <p className="text-2xl font-bold mt-2 mobile-num">¥{user?.balance?.toLocaleString() || 0}</p>
+                            <p className="text-2xl font-bold mt-2 mobile-num">¥{user?.energy_value?.toLocaleString() || 0}</p>
                             <div className="flex gap-2 mt-3">
                                 <Button size="sm" variant="secondary" className="h-7 text-xs bg-white/20 hover:bg-white/30 text-white border-0"
                                     onClick={() => setShowBalanceTransferDialog(true)}>
@@ -1600,7 +1600,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                 <div className="space-y-3">
                                                     <div className="flex items-center justify-between py-2 border-b">
                                                         <span className="text-gray-500">账户余额</span>
-                                                        <span className="font-medium">¥{(user?.balance || 0).toLocaleString()}</span>
+                                                        <span className="font-medium">¥{(user?.energy_value || 0).toLocaleString()}</span>
                                                     </div>
                                                     <div className="flex items-center justify-between py-2 border-b">
                                                         <span className="text-gray-500">专属ID</span>
@@ -2735,7 +2735,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             <Wallet className="w-5 h-5" />
                                             <span className="text-sm opacity-80">智算金</span>
                                         </div>
-                                        <p className="text-2xl font-bold">¥{user?.balance?.toLocaleString() || '0'}</p>
+                                        <p className="text-2xl font-bold">¥{user?.energy_value?.toLocaleString() || '0'}</p>
                                         <p className="text-xs opacity-70 mt-1">可提现/互转/转积分</p>
                                         <div className="flex gap-1 mt-2">
                                             <Button
@@ -2784,7 +2784,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             <span className="text-sm opacity-80">预期收益</span>
                                         </div>
                                         <p className="text-2xl font-bold">¥{profitStats.holdingExpectedProfit?.toLocaleString() || 0}</p>
-                                        <p className="text-xs opacity-70 mt-1">可用智算金: ¥{user?.balance?.toLocaleString() || 0}</p>
+                                        <p className="text-xs opacity-70 mt-1">可用智算金: ¥{user?.energy_value?.toLocaleString() || 0}</p>
                                     </CardContent>
                                 </Card>
                                 <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
@@ -2991,7 +2991,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                         </CardTitle>
                                         <div className="flex items-center gap-3">
                                             <span className="text-xs text-muted-foreground">
-                                                可提现: ¥{Number(user?.balance || 0).toLocaleString()}
+                                                可提现: ¥{Number(user?.energy_value || 0).toLocaleString()}
                                             </span>
                                             <Button
                                                 size="sm"
@@ -3315,7 +3315,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                         </div>
                         <div className="bg-slate-100 rounded-lg p-3">
                             <p className="text-xs text-gray-500">您的智算金余额</p>
-                            <p className="text-xl font-bold text-green-600">¥{user?.balance?.toLocaleString() || 0}</p>
+                            <p className="text-xl font-bold text-green-600">¥{user?.energy_value?.toLocaleString() || 0}</p>
                         </div>
                         <div>
                             <label className="text-sm font-medium mb-2 block">搜索转账对象</label>
@@ -3483,7 +3483,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-slate-100 rounded-lg p-3">
                                 <p className="text-xs text-gray-500">智算金余额</p>
-                                <p className="text-xl font-bold text-green-600">¥{user?.balance?.toLocaleString() || 0}</p>
+                                <p className="text-xl font-bold text-green-600">¥{user?.energy_value?.toLocaleString() || 0}</p>
                             </div>
                             <div className="bg-slate-100 rounded-lg p-3">
                                 <p className="text-xs text-gray-500">当前积分</p>

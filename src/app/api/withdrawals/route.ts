@@ -77,6 +77,13 @@ export async function POST(request: NextRequest) {
       [user.id, user.role, amount, fee, actualAmount, alipayAccount || null, realName || null, reviewerType, note || `${roleLabel}${sourceLabel}提现`]
     );
 
+    // 写入energy_transactions明细（提现冻结）
+    await execute(
+      `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, created_at)
+       VALUES ($1, 'withdraw_freeze', $2, $1, NULL, $3, NOW())`,
+      [user.id, amount, `${roleLabel}提现¥${amount}`]
+    );
+
     // 查询更新后的余额
     const updatedUser = await queryOne(
       `SELECT ${sourceField} FROM users WHERE id = $1`,

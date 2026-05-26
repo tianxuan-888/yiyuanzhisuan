@@ -87,16 +87,16 @@ export async function POST(request: NextRequest) {
 
     // 5. 记录 energy_transactions 明细 - 转出方
     await query(
-      `INSERT INTO energy_transactions (id, type, amount, from_user_id, to_user_id, created_at)
-       VALUES (gen_random_uuid(), 'transfer_out', $1, $2, $3, NOW())`,
-      [transferAmount, fromUserId, toUserId]
+      `INSERT INTO energy_transactions (id, user_id, type, amount, from_user_id, to_user_id, note, created_at)
+       VALUES (gen_random_uuid(), $1, 'transfer_out', $2, $1, $3, $4, NOW())`,
+      [fromUserId, transferAmount, toUserId, `转出给${toUser.username}`]
     );
 
     // 6. 记录 energy_transactions 明细 - 转入方
     await query(
-      `INSERT INTO energy_transactions (id, type, amount, from_user_id, to_user_id, created_at)
-       VALUES (gen_random_uuid(), 'transfer_in', $1, $2, $3, NOW())`,
-      [transferAmount, fromUserId, toUserId]
+      `INSERT INTO energy_transactions (id, user_id, type, amount, from_user_id, to_user_id, note, created_at)
+       VALUES (gen_random_uuid(), $1, 'transfer_in', $2, $3, $1, $4, NOW())`,
+      [toUserId, transferAmount, fromUserId, `来自${fromUser.username}转入`]
     );
 
     // 查询更新后的余额

@@ -2273,7 +2273,7 @@ export default function ProviderPage() {
                                 </div>
                                 <span className="text-[10px] md:text-xs font-medium text-purple-200 bg-white/10 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full backdrop-blur">收益</span>
                             </div>
-                            <p className="text-lg md:text-2xl font-bold mt-1 md:mt-2 text-white">¥{(user?.balance || 0).toLocaleString()}</p>
+                            <p className="text-lg md:text-2xl font-bold mt-1 md:mt-2 text-white">¥{(user?.energy_value || 0).toLocaleString()}</p>
                             <p className="text-[10px] md:text-xs text-purple-200 mt-0.5 md:mt-1">累计智算金</p>
                         </CardContent>
                     </Card>
@@ -4525,7 +4525,7 @@ export default function ProviderPage() {
                                         min="1"
                                     />
                                     <p className="text-xs text-gray-500 mt-1">
-                                        您当前智算金: {user?.balance?.toLocaleString() || 0} | 转出后5%转化为积分，95%到账对方
+                                        您当前智算金: {user?.energy_value?.toLocaleString() || 0} | 转出后5%转化为积分，95%到账对方
                                     </p>
                                 </div>
                                 <div>
@@ -4600,7 +4600,7 @@ export default function ProviderPage() {
                                     </div>
                                     <div>
                                         <label className="text-sm font-medium mb-2 block">您的当前收益</label>
-                                        <p className="text-lg font-bold text-purple-600">{user?.balance?.toLocaleString() || 0} 收益</p>
+                                        <p className="text-lg font-bold text-purple-600">{user?.energy_value?.toLocaleString() || 0} 收益</p>
                                         {user && user.balance < selectedRechargeRequest.amount && (
                                             <p className="text-sm text-red-500 mt-1">余额不足，无法完成充值</p>
                                         )}
@@ -4754,7 +4754,7 @@ export default function ProviderPage() {
                                     />
                                     <div className="flex justify-between mt-1">
                                         <p className="text-xs text-gray-500">
-                                            您当前智算金: ¥{user?.balance?.toLocaleString() || 0}
+                                            您当前智算金: ¥{user?.energy_value?.toLocaleString() || 0}
                                         </p>
                                         {transferAmount && Number(transferAmount) >= 100 && (
                                             <p className="text-xs text-purple-600">
@@ -4808,7 +4808,7 @@ export default function ProviderPage() {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="bg-slate-100 rounded-lg p-3">
                                         <p className="text-xs text-gray-500">智算金余额</p>
-                                        <p className="text-xl font-bold text-green-600">{user?.balance?.toLocaleString() || 0}</p>
+                                        <p className="text-xl font-bold text-green-600">{user?.energy_value?.toLocaleString() || 0}</p>
                                     </div>
                                     <div className="bg-slate-100 rounded-lg p-3">
                                         <p className="text-xs text-gray-500">当前积分</p>
