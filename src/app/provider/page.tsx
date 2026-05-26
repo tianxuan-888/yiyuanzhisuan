@@ -4327,19 +4327,19 @@ export default function ProviderPage() {
                                         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                                             <div className="bg-blue-50 rounded-lg p-3 text-center">
                                                 <p className="text-xs text-blue-600">转出总额</p>
-                                                <p className="text-lg font-bold text-blue-700">{(capitalFlowData.stats?.transferOutTotal || 0).toLocaleString()}</p>
+                                                <p className="text-lg font-bold text-blue-700">{Number(capitalFlowData.stats?.total_transfer_out || 0).toLocaleString()}</p>
                                             </div>
                                             <div className="bg-green-50 rounded-lg p-3 text-center">
                                                 <p className="text-xs text-green-600">转入总额</p>
-                                                <p className="text-lg font-bold text-green-700">{(capitalFlowData.stats?.transferInTotal || 0).toLocaleString()}</p>
+                                                <p className="text-lg font-bold text-green-700">{Number(capitalFlowData.stats?.total_transfer_in || 0).toLocaleString()}</p>
                                             </div>
                                             <div className="bg-amber-50 rounded-lg p-3 text-center">
                                                 <p className="text-xs text-amber-600">转积分</p>
-                                                <p className="text-lg font-bold text-amber-700">{(capitalFlowData.stats?.pointsTotal || 0).toLocaleString()}</p>
+                                                <p className="text-lg font-bold text-amber-700">{Number(capitalFlowData.stats?.total_to_points || 0).toLocaleString()}</p>
                                             </div>
                                             <div className="bg-red-50 rounded-lg p-3 text-center">
                                                 <p className="text-xs text-red-600">提现总额</p>
-                                                <p className="text-lg font-bold text-red-700">{(capitalFlowData.stats?.withdrawTotal || 0).toLocaleString()}</p>
+                                                <p className="text-lg font-bold text-red-700">{Number(capitalFlowData.stats?.total_withdraw || 0).toLocaleString()}</p>
                                             </div>
 
                                         </div>
@@ -4362,14 +4362,15 @@ export default function ProviderPage() {
                                             {(capitalFlowData.records || []).map((r: any) => (
                                                 <div key={r.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                                                     <div>
-                                                        <p className="text-sm font-medium">{r.note || r.flow_type}</p>
-                                                        <p className="text-xs text-gray-400">{new Date(r.created_at).toLocaleString("zh-CN")}</p>
+                                                        <p className="text-sm font-medium">{r.flowTypeLabel || r.note || r.flowType}</p>
+                                                        {r.relatedUserName && <p className="text-xs text-gray-400">关联: {r.relatedUserName}</p>}
+                                                        <p className="text-xs text-gray-400">{new Date(r.createdAt).toLocaleString("zh-CN")}</p>
                                                     </div>
                                                     <div className="text-right">
-                                                        <p className={`text-sm font-bold ${["transfer_in"].includes(r.flow_type) ? "text-green-600" : "text-red-500"}`}>
-                                                            {["transfer_in"].includes(r.flow_type) ? "+" : "-"}{Number(r.amount).toLocaleString()}
+                                                        <p className={`text-sm font-bold ${["transfer_in"].includes(r.flowType) ? "text-green-600" : "text-red-500"}`}>
+                                                            {["transfer_in"].includes(r.flowType) ? "+" : "-"}{Number(r.amount).toLocaleString()}
                                                         </p>
-                                                        {Number(r.fee_amount) > 0 && <p className="text-xs text-gray-400">手续费: {Number(r.fee_amount).toLocaleString()}</p>}
+                                                        {Number(r.feeAmount) > 0 && <p className="text-xs text-gray-400">手续费: {Number(r.feeAmount).toLocaleString()}</p>}
                                                     </div>
                                                 </div>
                                             ))}

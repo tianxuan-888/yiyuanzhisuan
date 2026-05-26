@@ -2958,6 +2958,103 @@ export default function BranchPage() {
               </Card>
             </div>
           )}
+
+          {activeTab === 'capitalFlow' && (
+            <div className="space-y-4">
+              {/* 统计卡片 */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
+                  <div className="text-xs text-gray-500">转出总额</div>
+                  <div className="text-lg font-bold text-orange-600">{Number(capitalFlowData?.stats?.total_transfer_out || 0).toLocaleString()}</div>
+                </div>
+                <div className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
+                  <div className="text-xs text-gray-500">转入总额</div>
+                  <div className="text-lg font-bold text-green-600">{Number(capitalFlowData?.stats?.total_transfer_in || 0).toLocaleString()}</div>
+                </div>
+                <div className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
+                  <div className="text-xs text-gray-500">转积分总额</div>
+                  <div className="text-lg font-bold text-purple-600">{Number(capitalFlowData?.stats?.total_to_points || 0).toLocaleString()}</div>
+                </div>
+                <div className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
+                  <div className="text-xs text-gray-500">提现总额</div>
+                  <div className="text-lg font-bold text-red-600">{Number(capitalFlowData?.stats?.total_withdraw || 0).toLocaleString()}</div>
+                </div>
+              </div>
+
+              {/* 筛选 */}
+              <div className="flex gap-2 flex-wrap">
+                {[
+                  { key: 'all', label: '全部' },
+                  { key: 'transfer_out', label: '转出' },
+                  { key: 'transfer_in', label: '转入' },
+                  { key: 'energy_to_points', label: '转积分' },
+                  { key: 'withdraw', label: '提现' },
+                ].map(ft => (
+                  <button key={ft.key}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${capitalFlowTab === ft.key ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                    onClick={() => setCapitalFlowTab(ft.key)}
+                  >{ft.label}</button>
+                ))}
+              </div>
+
+              {/* 流水列表 */}
+              {capitalFlowLoading ? (
+                <div className="text-center py-8 text-gray-400">加载中...</div>
+              ) : capitalFlowData?.records?.length > 0 ? (
+                <div className="space-y-2">
+                  {capitalFlowData.records.map((r: any) => (
+                    <div key={r.id} className="bg-white rounded-lg p-3 border border-gray-100 shadow-sm flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${
+                          r.flowType === 'transfer_out' ? 'bg-orange-500' :
+                          r.flowType === 'transfer_in' ? 'bg-green-500' :
+                          r.flowType === 'energy_to_points' ? 'bg-purple-500' :
+                          r.flowType === 'withdraw' ? 'bg-red-500' : 'bg-gray-500'
+                        }`}>
+                          {r.flowType === 'transfer_out' ? '出' : r.flowType === 'transfer_in' ? '入' : r.flowType === 'energy_to_points' ? '积' : '提'}
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{r.flowTypeLabel}</div>
+                          <div className="text-xs text-gray-400">
+                            {r.createdAt?.substring(0, 16)?.replace('T', ' ')}
+                            {r.relatedUserName && ` · ${r.relatedUserName}`}
+                            {r.note && ` · ${r.note}`}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className={`text-sm font-bold ${
+                          r.flowType === 'transfer_in' ? 'text-green-600' : 'text-red-500'
+                        }`}>
+                          {r.flowType === 'transfer_in' ? '+' : '-'}{Number(r.amount).toLocaleString()}
+                        </div>
+                        {Number(r.feeAmount) > 0 && (
+                          <div className="text-xs text-gray-400">手续费: {Number(r.feeAmount).toLocaleString()}</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-400">暂无资金流水记录</div>
+              )}
+
+              {/* 分页 */}
+              {capitalFlowData?.pagination && capitalFlowData.pagination.totalPages > 1 && (
+                <div className="flex justify-center gap-2">
+                  <button className="px-3 py-1 rounded text-sm bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
+                    disabled={capitalFlowPage <= 1}
+                    onClick={() => setCapitalFlowPage(p => p - 1)}>上一页</button>
+                  <span className="px-3 py-1 text-sm text-gray-600">
+                    {capitalFlowPage} / {capitalFlowData.pagination.totalPages}
+                  </span>
+                  <button className="px-3 py-1 rounded text-sm bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
+                    disabled={capitalFlowPage >= capitalFlowData.pagination.totalPages}
+                    onClick={() => setCapitalFlowPage(p => p + 1)}>下一页</button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </main>
 
