@@ -14,7 +14,7 @@ import {
   ChevronRight, ChevronLeft, Gift, Copy, Check, Lock, TrendingUp,
   Search, X, Eye, EyeOff, TrendingDown, ArrowUpRight, ArrowDownRight,
   DollarSign, CreditCard, ArrowUp, ArrowDown, RefreshCw, Filter, Edit, Menu, ArrowLeftRight,
-  Repeat, Wallet
+  Repeat, Wallet, Banknote
 } from 'lucide-react';
 import { ChangePasswordDialog } from '@/components/admin/ChangePasswordDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -1544,6 +1544,39 @@ export default function ProviderDashboard() {
                     </div>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* 智算金操作按钮 - 醒目显示 */}
+            <Card className="border-2 border-purple-300 shadow-lg">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="w-5 h-5 text-purple-600" />
+                    <span className="font-bold text-purple-700 text-lg">智算金余额</span>
+                  </div>
+                  <span className="text-2xl font-black text-purple-700">¥{(balanceInfo?.energyValue || user?.energy_value || 0).toLocaleString()}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <Button 
+                    onClick={() => setActiveMenu('balance-transfer')}
+                    className="bg-purple-600 hover:bg-purple-700 text-white h-11 text-base font-bold"
+                  >
+                    <ArrowLeftRight className="w-4 h-4 mr-1" /> 互转
+                  </Button>
+                  <Button 
+                    onClick={() => setShowBalanceConvertDialog(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white h-11 text-base font-bold"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-1" /> 转积分
+                  </Button>
+                  <Button 
+                    onClick={() => setShowWithdrawDialog(true)}
+                    className="bg-green-600 hover:bg-green-700 text-white h-11 text-base font-bold"
+                  >
+                    <Banknote className="w-4 h-4 mr-1" /> 提现
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 
