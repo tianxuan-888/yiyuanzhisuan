@@ -4066,7 +4066,7 @@ export default function ProviderPage() {
                                     <span className="text-sm opacity-80">智算金</span>
                                     <span className="text-xs opacity-60 ml-auto">点击操作 ›</span>
                                 </div>
-                                <p className="text-3xl font-bold">¥{revenueStats.balance?.toLocaleString() || 0}</p>
+                                <p className="text-3xl font-bold">¥{user?.energy_value?.toLocaleString() || 0}</p>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
                                     <div className="bg-white/10 rounded-lg p-2">
                                         <p className="text-xs opacity-70">业务奖励</p>
