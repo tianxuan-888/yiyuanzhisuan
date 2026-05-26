@@ -108,9 +108,26 @@ export async function POST(request: NextRequest) {
         [auth.userId, withdrawalId]
       );
 
+      // 审核通过后，提现金额到账审核人账户
+      // 会员/服务商提现（从energy_value扣）→ 网点收到balance
+      // 网点提现（从balance扣）→ 总台收到balance
+      if (reviewer.role === 'branch') {
+        // 网点审核通过：提现金额加到网点的balance
+        await execute(
+          `UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
+          [withdrawal.amount, auth.userId]
+        );
+      } else if (reviewer.role === 'admin') {
+        // 总台审核通过：提现金额加到总台的balance
+        await execute(
+          `UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
+          [withdrawal.amount, auth.userId]
+        );
+      }
+
       return NextResponse.json({
         success: true,
-        message: '审核通过，提现已完成'
+        message: '审核通过，提现金额已到账'
       });
 
     } else {

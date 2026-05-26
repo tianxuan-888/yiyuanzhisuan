@@ -263,12 +263,19 @@ export default function BranchPage() {
   // 收益管理子Tab
   const [energySubTab, setEnergySubTab] = useState<string>('records'); // records, review, transfer
   
+  // 提现审核弹窗
+  const [reviewingWithdraw, setReviewingWithdraw] = useState<any>(null);
+  
   // 服务网点向智算中心申请收益相关状态
   const [myEnergyRequests, setMyEnergyRequests] = useState<any[]>([]);
   const [myEnergyApplyPendingCount, setMyEnergyApplyPendingCount] = useState(0);
   
   // 服务商向本服务网点申请收益相关状态
   const [providerEnergyRequests, setProviderEnergyRequests] = useState<any[]>([]);
+  
+  // 提现审核弹窗
+  const [reviewWithdrawDialog, setReviewWithdrawDialog] = useState<{open: boolean, withdrawal: any, action: 'approve' | 'reject'}>({open: false, withdrawal: null, action: 'approve'});
+  const [rejectReason, setRejectReason] = useState('');
   
   // 分配额度表单
   const [showAllocateDialog, setShowAllocateDialog] = useState(false);
@@ -2616,10 +2623,10 @@ export default function BranchPage() {
                             <div className="text-gray-600"><span className="font-medium">姓名:</span> {w.real_name || '-'}</div>
                           </div>
                           <div className="flex gap-2">
-                            <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleReviewWithdrawal(w.id, 'approve')} disabled={submitting}>
+                            <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => setReviewWithdrawDialog({open: true, withdrawal: w, action: 'approve'})} disabled={submitting}>
                               <CheckCircle className="w-4 h-4 mr-1" /> 审核通过
                             </Button>
-                            <Button size="sm" variant="destructive" onClick={() => handleReviewWithdrawal(w.id, 'reject')} disabled={submitting}>
+                            <Button size="sm" variant="destructive" onClick={() => setReviewWithdrawDialog({open: true, withdrawal: w, action: 'reject'})} disabled={submitting}>
                               <XCircle className="w-4 h-4 mr-1" /> 拒绝
                             </Button>
                           </div>
@@ -3382,6 +3389,68 @@ export default function BranchPage() {
                 >
                   {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                   确认转账
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* 审核提现确认弹窗 */}
+      {reviewingWithdraw && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md mx-4">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-green-500" />
+                审核提现确认
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 space-y-2">
+                <div className="flex items-center gap-2 text-orange-700 font-medium text-sm">
+                  <AlertCircle className="w-4 h-4" />
+                  请先线下付款，确认到账后再通过审核
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-muted-foreground">申请人</span>
+                  <span className="font-medium">{reviewingWithdraw.username || '-'}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-muted-foreground">角色</span>
+                  <span className="font-medium">{reviewingWithdraw.user_role === 'provider' ? '服务商' : '会员'}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-muted-foreground">提现金额</span>
+                  <span className="font-bold text-red-500 text-lg">¥{(reviewingWithdraw.amount || 0).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-muted-foreground">手续费(5%)</span>
+                  <span className="text-muted-foreground">¥{(reviewingWithdraw.fee || 0).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-muted-foreground">实际到账</span>
+                  <span className="font-medium text-green-600">¥{(reviewingWithdraw.actual_amount || 0).toLocaleString()}</span>
+                </div>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+                <div className="font-medium text-blue-800 text-sm">收款信息</div>
+                <div className="flex justify-between items-center">
+                  <span className="text-blue-600 text-sm">支付宝账号</span>
+                  <span className="font-medium text-blue-800">{reviewingWithdraw.alipay_account || '-'}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-blue-600 text-sm">收款姓名</span>
+                  <span className="font-medium text-blue-800">{reviewingWithdraw.real_name || '-'}</span>
+                </div>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Button variant="outline" className="flex-1" onClick={() => setReviewingWithdraw(null)}>取消</Button>
+                <Button className="flex-1 bg-green-600 hover:bg-green-700 text-white" onClick={() => { handleReviewWithdrawal(reviewingWithdraw.id, 'approve'); setReviewingWithdraw(null); }}>
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  确认已付款，通过审核
                 </Button>
               </div>
             </CardContent>
