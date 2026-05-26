@@ -280,6 +280,12 @@ export default function MemberPage() {
     // 保护期相关状态
     const [protectionInfo, setProtectionInfo] = useState<any>(null);
 
+    // 资金流水相关状态
+    const [capitalFlowData, setCapitalFlowData] = useState<any>(null);
+    const [capitalFlowLoading, setCapitalFlowLoading] = useState(false);
+    const [capitalFlowTab, setCapitalFlowTab] = useState('all');
+    const [capitalFlowPage, setCapitalFlowPage] = useState(1);
+
 const [copySuccess, setCopySuccess] = useState(false);
 
     // 收益记录相关状态
@@ -665,6 +671,13 @@ const [copySuccess, setCopySuccess] = useState(false);
 
         return () => clearInterval(interval);
     }, [userProducts, pendingOrders, pendingRechargeCount, loadData]);
+
+    // 资金流水tab/翻页切换时加载
+    useEffect(() => {
+        if (activeTab === "capitalFlow") {
+            loadCapitalFlow();
+        }
+    }, [capitalFlowTab, capitalFlowPage]);
 
     // 加载收款信息
     const loadPaymentInfo = async () => {
@@ -1128,6 +1141,27 @@ const [copySuccess, setCopySuccess] = useState(false);
         }
     };
 
+    // 加载资金流水
+    const loadCapitalFlow = async () => {
+        const userId = localStorage.getItem("userId");
+        if (!userId) return;
+        setCapitalFlowLoading(true);
+        try {
+            const flowType = capitalFlowTab === 'all' ? '' : capitalFlowTab;
+            const params = new URLSearchParams({ userId, page: String(capitalFlowPage), pageSize: '20' });
+            if (flowType) params.set('flowType', flowType);
+            const res = await authFetch(`/api/capital-flow?${params}`);
+            const data = await res.json();
+            if (data.success) {
+                setCapitalFlowData(data.data);
+            }
+        } catch (e) {
+            console.error('加载资金流水失败', e);
+        } finally {
+            setCapitalFlowLoading(false);
+        }
+    };
+
     // 复制邀请码
     const handleCopyInviteCode = async () => {
         if (!inviteCode) return;
@@ -1220,6 +1254,135 @@ const [copySuccess, setCopySuccess] = useState(false);
                             <p>💡 购买产品只需支付Token值，到期后获得收益进智算金</p>
                         </div>
                     </div>}
+
+                    {/* 资金流水 */}
+                    {activeTab === "capitalFlow" && (
+                        <div className="space-y-3 md:space-y-6">
+                            <Card className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
+                                <CardContent className="pt-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <ArrowRightLeft className="w-5 h-5" />
+                                        <span className="text-sm opacity-80">资金流水</span>
+                                    </div>
+                                    <p className="text-xs opacity-70 mt-1">转账、转积分、提现、充值记录</p>
+                                </CardContent>
+                            </Card>
+
+                            {/* 统计卡片 */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
+                                    <div className="text-xs text-gray-500">转出总额</div>
+                                    <div className="text-lg font-bold text-red-600">{Number(capitalFlowData?.stats?.total_transfer_out || 0).toLocaleString()}</div>
+                                </div>
+                                <div className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
+                                    <div className="text-xs text-gray-500">转入总额</div>
+                                    <div className="text-lg font-bold text-green-600">{Number(capitalFlowData?.stats?.total_transfer_in || 0).toLocaleString()}</div>
+                                </div>
+                                <div className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
+                                    <div className="text-xs text-gray-500">充值总额</div>
+                                    <div className="text-lg font-bold text-blue-600">{Number(capitalFlowData?.stats?.total_recharge || 0).toLocaleString()}</div>
+                                </div>
+                                <div className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
+                                    <div className="text-xs text-gray-500">提现总额</div>
+                                    <div className="text-lg font-bold text-orange-600">{Number(capitalFlowData?.stats?.total_withdraw || 0).toLocaleString()}</div>
+                                </div>
+                            </div>
+
+                            {/* 类型筛选 */}
+                            <div className="flex flex-wrap gap-2">
+                                {[
+                                    { value: 'all', label: '全部' },
+                                    { value: 'transfer_out', label: '转出' },
+                                    { value: 'transfer_in', label: '转入' },
+                                    { value: 'recharge', label: '充值' },
+                                    { value: 'withdraw', label: '提现' },
+                                    { value: 'energy_to_points', label: '转积分' },
+                                    { value: 'sell_profit', label: '收益' },
+                                ].map(opt => (
+                                    <button
+                                        key={opt.value}
+                                        onClick={() => { setCapitalFlowTab(opt.value); setCapitalFlowPage(1); }}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                            capitalFlowTab === opt.value
+                                                ? 'bg-purple-600 text-white'
+                                                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                                        }`}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* 流水列表 */}
+                            {capitalFlowLoading ? (
+                                <div className="text-center py-8 text-gray-400">
+                                    <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+                                    加载中...
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {(capitalFlowData?.records || []).map((r: any) => {
+                                        const flowTypeLabels: Record<string, string> = {
+                                            transfer_out: '转出', transfer_in: '转入',
+                                            energy_to_points: '转积分', withdraw: '提现',
+                                            recharge: '充值', sell_profit: '收益',
+                                        };
+                                        const flowTypeColors: Record<string, string> = {
+                                            transfer_out: 'bg-red-100 text-red-600',
+                                            transfer_in: 'bg-green-100 text-green-600',
+                                            energy_to_points: 'bg-purple-100 text-purple-600',
+                                            withdraw: 'bg-orange-100 text-orange-600',
+                                            recharge: 'bg-blue-100 text-blue-600',
+                                            sell_profit: 'bg-emerald-100 text-emerald-600',
+                                        };
+                                        return (
+                                            <div key={r.id} className="bg-white rounded-lg p-3 border border-gray-100 flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${flowTypeColors[r.flowType] || 'bg-gray-100 text-gray-600'}`}>
+                                                        {flowTypeLabels[r.flowType] || r.flowType}
+                                                    </span>
+                                                    <div>
+                                                        <div className="text-sm font-medium">{r.note || '-'}</div>
+                                                        {r.relatedUserName && <div className="text-xs text-gray-400">关联: {r.relatedUserName}</div>}
+                                                        <div className="text-xs text-gray-400">{new Date(r.createdAt).toLocaleString('zh-CN')}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className={`font-bold ${['transfer_out', 'withdraw', 'energy_to_points'].includes(r.flowType) ? 'text-red-600' : 'text-green-600'}`}>
+                                                        {['transfer_out', 'withdraw', 'energy_to_points'].includes(r.flowType) ? '-' : '+'}{Number(r.amount).toLocaleString()}
+                                                    </div>
+                                                    {r.feeAmount > 0 && <div className="text-xs text-gray-400">手续费: {r.feeAmount}</div>}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    {(!capitalFlowData?.records || capitalFlowData.records.length === 0) && (
+                                        <div className="text-center py-8 text-gray-400">暂无流水记录</div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* 分页 */}
+                            {capitalFlowData?.pagination?.totalPages > 1 && (
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-gray-500">共 {capitalFlowData.pagination.total} 条</span>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setCapitalFlowPage(p => Math.max(1, p - 1))}
+                                            disabled={capitalFlowData.pagination.page <= 1}
+                                            className="px-3 py-1 border rounded disabled:opacity-50"
+                                        >上一页</button>
+                                        <span className="py-1">{capitalFlowData.pagination.page}/{capitalFlowData.pagination.totalPages}</span>
+                                        <button
+                                            onClick={() => setCapitalFlowPage(p => Math.min(capitalFlowData.pagination.totalPages, p + 1))}
+                                            disabled={capitalFlowData.pagination.page >= capitalFlowData.pagination.totalPages}
+                                            className="px-3 py-1 border rounded disabled:opacity-50"
+                                        >下一页</button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                     <DialogFooter>
                         <Button variant="outline" onClick={() => {
                             setShowPurchaseDialog(false);
@@ -1543,6 +1706,14 @@ const [copySuccess, setCopySuccess] = useState(false);
                             }}
                             className={`px-4 py-2 border-b-2 transition-colors flex-shrink-0 ${activeTab === "points" ? "border-green-500 text-green-600" : "border-transparent text-gray-500"}`}>
                             <Gift className="w-4 h-4 inline mr-2" />我的积分
+                        </button>
+                        <button
+                            onClick={() => {
+                                setActiveTab("capitalFlow");
+                                loadCapitalFlow();
+                            }}
+                            className={`px-4 py-2 border-b-2 transition-colors flex-shrink-0 ${activeTab === "capitalFlow" ? "border-green-500 text-green-600" : "border-transparent text-gray-500"}`}>
+                            <ArrowRightLeft className="w-4 h-4 inline mr-2" />资金流水
                         </button>
                         <button
                             onClick={() => setShowApplyDialog(true)}

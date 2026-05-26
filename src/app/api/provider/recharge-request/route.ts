@@ -138,7 +138,14 @@ export async function POST(request: NextRequest) {
         [providerId, requestId]
       );
 
-      // 5. 查询更新后余额
+      // 5. 写入资金流水记录 - 会员充值收入
+      await execute(
+        `INSERT INTO capital_flow_records (user_id, flow_type, amount, fee_amount, actual_amount, related_user_id, note, status, created_at)
+         VALUES ($1, 'recharge', $2, 0, $2, $3, $4, 'completed', NOW())`,
+        [memberId, amount, providerId, `服务商充值${amount}智算金`]
+      );
+
+      // 6. 查询更新后余额
       const updatedProvider = await queryOne('SELECT balance FROM users WHERE id = $1', [providerId]);
       const updatedMember = await queryOne('SELECT balance FROM users WHERE id = $1', [memberId]);
 

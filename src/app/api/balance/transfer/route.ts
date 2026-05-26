@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, queryOne } from '@/storage/database/pg-client';
+import { query, queryOne, execute } from '@/lib/pg-client';
 
-// 智算金互转 - 从 energy_value 扣除
+// 智算金互转 - 从 energy_value 扣除，5%手续费转为积分
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -51,57 +51,99 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: '转入方用户不存在' }, { status: 404 });
     }
 
+    // 计算手续费：5%，转入方实际到账 = 转出金额 - 手续费
+    const feeRate = 0.05;
+    const feeAmount = Math.round(transferAmount * feeRate * 100) / 100; // 四舍五入到分
+    const actualArrival = transferAmount - feeAmount; // 转入方实际到账
+    const pointsEarned = feeAmount; // 手续费等额转为转出方积分
+
     // 1. 扣除转出方智算金
-    await query(
+    await execute(
       'UPDATE users SET energy_value = energy_value - $1 WHERE id::text = $2',
       [transferAmount, fromUserId]
     );
 
-    // 2. 转入方获得全部智算金
-    await query(
+    // 2. 转入方获得实际到账智算金（扣除手续费）
+    await execute(
       'UPDATE users SET energy_value = energy_value + $1 WHERE id::text = $2',
-      [transferAmount, toUserId]
+      [actualArrival, toUserId]
     );
 
-    // 3. 记录 transactions 明细 - 转出方
-    await query(
+    // 3. 手续费转为转出方积分
+    if (pointsEarned > 0) {
+      await execute(
+        'UPDATE users SET points = COALESCE(points, 0) + $1 WHERE id::text = $2',
+        [pointsEarned, fromUserId]
+      );
+    }
+
+    // 4. 记录 transactions 明细 - 转出方
+    await execute(
       `INSERT INTO transactions (id, user_id, order_id, type, amount, status, description, created_at)
-       VALUES (gen_random_uuid(), $1, NULL, 'transfer_out', $2, 'completed', $3, NOW())`,
+       VALUES (gen_random_uuid(), $1::uuid, NULL, 'transfer_out', $2, 'completed', $3, NOW())`,
       [fromUserId, transferAmount, JSON.stringify({
         toUser: toUser.username,
         toUserId,
+        feeAmount,
+        actualArrival,
+        pointsEarned,
         note: note || '智算金转出'
       })]
     );
 
-    // 4. 记录 transactions 明细 - 转入方
-    await query(
+    // 5. 记录 transactions 明细 - 转入方
+    await execute(
       `INSERT INTO transactions (id, user_id, order_id, type, amount, status, description, created_at)
-       VALUES (gen_random_uuid(), $1, NULL, 'transfer_in', $2, 'completed', $3, NOW())`,
-      [toUserId, transferAmount, JSON.stringify({
+       VALUES (gen_random_uuid(), $1::uuid, NULL, 'transfer_in', $2, 'completed', $3, NOW())`,
+      [toUserId, actualArrival, JSON.stringify({
         fromUser: fromUser.username,
         fromUserId,
+        originalAmount: transferAmount,
+        feeAmount,
         note: note || '智算金转入'
       })]
     );
 
-    // 5. 记录 energy_transactions 明细 - 转出方
-    await query(
+    // 6. 记录 energy_transactions 明细 - 转出方
+    await execute(
       `INSERT INTO energy_transactions (id, user_id, type, amount, from_user_id, to_user_id, note, created_at)
-       VALUES (gen_random_uuid(), $1, 'transfer_out', $2, $1, $3, $4, NOW())`,
-      [fromUserId, transferAmount, toUserId, `转出给${toUser.username}`]
+       VALUES (gen_random_uuid(), $1::uuid, 'transfer_out', $2, $1::uuid, $3::uuid, $4, NOW())`,
+      [fromUserId, transferAmount, toUserId, `转出给${toUser.username}，手续费${feeAmount}转为积分`]
     );
 
-    // 6. 记录 energy_transactions 明细 - 转入方
-    await query(
+    // 7. 记录 energy_transactions 明细 - 转入方
+    await execute(
       `INSERT INTO energy_transactions (id, user_id, type, amount, from_user_id, to_user_id, note, created_at)
-       VALUES (gen_random_uuid(), $1, 'transfer_in', $2, $3, $1, $4, NOW())`,
-      [toUserId, transferAmount, fromUserId, `来自${fromUser.username}转入`]
+       VALUES (gen_random_uuid(), $1::uuid, 'transfer_in', $2, $3::uuid, $1::uuid, $4, NOW())`,
+      [toUserId, actualArrival, fromUserId, `来自${fromUser.username}转入（原额${transferAmount}，扣手续费${feeAmount}）`]
+    );
+
+    // 8. 记录手续费到 fee_sedimentation_records
+    if (feeAmount > 0) {
+      await execute(
+        `INSERT INTO fee_sedimentation_records (id, user_id, fee_type, amount, original_amount, fee_rate, related_type, note, status, created_at)
+         VALUES (gen_random_uuid(), $1::uuid, 'transfer_fee', $2, $3, 5, 'transfer', $4, 'completed', NOW())`,
+        [fromUserId, feeAmount, transferAmount, `智算金互转手续费，${feeAmount}积分已返还转出方`]
+      );
+    }
+
+    // 9. 写入资金流水记录 - 转出方
+    await execute(
+      `INSERT INTO capital_flow_records (id, user_id, flow_type, amount, fee_amount, actual_amount, related_user_id, note, status, created_at)
+       VALUES (gen_random_uuid(), $1, 'transfer_out', $2, $3, $4, $5, $6, 'completed', NOW())`,
+      [fromUserId, transferAmount, feeAmount, transferAmount - feeAmount, toUserId, `转出给${toUser.username}`]
+    );
+
+    // 10. 写入资金流水记录 - 转入方
+    await execute(
+      `INSERT INTO capital_flow_records (id, user_id, flow_type, amount, fee_amount, actual_amount, related_user_id, note, status, created_at)
+       VALUES (gen_random_uuid(), $1, 'transfer_in', $2, 0, $2, $3, $4, 'completed', NOW())`,
+      [toUserId, actualArrival, fromUserId, `来自${fromUser.username}转入`]
     );
 
     // 查询更新后的余额
     const updatedFromUser: any = await queryOne(
-      'SELECT energy_value FROM users WHERE id::text = $1',
+      'SELECT energy_value, points FROM users WHERE id::text = $1',
       [fromUserId]
     );
     const updatedToUser: any = await queryOne(
@@ -111,11 +153,15 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `成功转账 ${transferAmount} 智算金给 ${toUser.username}`,
+      message: `成功转账 ${transferAmount} 智算金给 ${toUser.username}（手续费${feeAmount}已转为积分，对方实际到账${actualArrival}）`,
       data: {
         fromEnergyValue: parseFloat(String(updatedFromUser?.energy_value)) || 0,
+        fromPoints: parseFloat(String(updatedFromUser?.points)) || 0,
         toEnergyValue: parseFloat(String(updatedToUser?.energy_value)) || 0,
         amount: transferAmount,
+        feeAmount,
+        actualArrival,
+        pointsEarned,
       },
     });
   } catch (error) {

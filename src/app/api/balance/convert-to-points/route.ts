@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, queryOne } from '@/storage/database/pg-client';
+import { query, queryOne, execute } from '@/lib/pg-client';
 import { authenticateRequest } from '@/lib/auth';
 
 // 收益（智算金/balance）转积分（points）
@@ -50,19 +50,19 @@ export async function POST(request: NextRequest) {
 
     // 执行转换：1:1，energy_value → points
     // 1. 扣除智算金
-    await query(
+    await execute(
       'UPDATE users SET energy_value = energy_value - $1 WHERE id::text = $2',
       [convertAmount, userId]
     );
 
     // 2. 增加积分
-    await query(
+    await execute(
       'UPDATE users SET points = (COALESCE(points::float, 0) + $1)::numeric WHERE id::text = $2',
       [convertAmount, userId]
     );
 
     // 3. 记录 transactions 明细 - 扣减智算金
-    await query(
+    await execute(
       `INSERT INTO transactions (id, user_id, order_id, type, amount, status, description, created_at)
        VALUES (gen_random_uuid(), $1, NULL, 'balance_to_points', $2, 'completed', $3, NOW())`,
       [userId, convertAmount, JSON.stringify({ 
@@ -73,9 +73,16 @@ export async function POST(request: NextRequest) {
     );
 
     // 4. 记录 energy_transactions 明细 - 智算金扣减
-    await query(
+    await execute(
       `INSERT INTO energy_transactions (id, user_id, type, amount, from_user_id, to_user_id, note, created_at)
        VALUES (gen_random_uuid(), $1, 'burn', $2, $1, NULL, $3, NOW())`,
+      [userId, convertAmount, `将${convertAmount}智算金转换为积分`]
+    );
+
+    // 5. 写入资金流水记录
+    await execute(
+      `INSERT INTO capital_flow_records (user_id, flow_type, amount, fee_amount, actual_amount, note, status, created_at)
+       VALUES ($1, 'energy_to_points', $2, 0, $2, $3, 'completed', NOW())`,
       [userId, convertAmount, `将${convertAmount}智算金转换为积分`]
     );
 

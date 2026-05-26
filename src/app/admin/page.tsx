@@ -105,6 +105,7 @@ const menuItems: MenuItem[] = [
   { id: 'accounts', name: '账户管理', icon: <Users className="w-5 h-5" /> },
   { id: 'templates', name: '模板管理', icon: <LayoutGrid className="w-5 h-5" /> },
   { id: 'pointsShop', name: '积分兑换管理', icon: <Gift className="w-5 h-5" /> },
+  { id: 'capitalFlow', name: '资金流水', icon: <ArrowRightLeft className="w-5 h-5" /> },
 ];
 
 // 统计数据类型
@@ -328,6 +329,12 @@ export default function AdminPage() {
   const [transferAmount, setTransferAmount] = useState('');
   const [transferNote, setTransferNote] = useState('');
   
+  // 资金流水统计state
+  const [capitalFlowData, setCapitalFlowData] = useState<any>(null);
+  const [capitalFlowLoading, setCapitalFlowLoading] = useState(false);
+  const [capitalFlowTab, setCapitalFlowTab] = useState('all');
+  const [capitalFlowPage, setCapitalFlowPage] = useState(1);
+
   // 搜索和筛选
   const [searchKeyword, setSearchKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -866,6 +873,9 @@ export default function AdminPage() {
     if (activeMenu === 'pointsShop') {
       loadPointsProducts();
     }
+    if (activeMenu === 'capitalFlow') {
+      loadCapitalFlow();
+    }
   }, [activeMenu, accountsTab, user]);
 
   // 系统设置 tab 切换时加载配置
@@ -874,6 +884,13 @@ export default function AdminPage() {
       loadSystemConfig();
     }
   }, [activeMenu, loadSystemConfig]);
+
+  // 资金流水 tab/翻页切换时重新加载
+  useEffect(() => {
+    if (activeMenu === 'capitalFlow') {
+      loadCapitalFlow();
+    }
+  }, [capitalFlowTab, capitalFlowPage]);
 
   // 切换菜单展开
   const toggleMenu = (menuId: string) => {
@@ -9730,6 +9747,28 @@ export default function AdminPage() {
     }
   };
 
+  // 资金流水加载
+  const loadCapitalFlow = async () => {
+    setCapitalFlowLoading(true);
+    try {
+      const flowType = capitalFlowTab === 'all' ? '' : capitalFlowTab;
+      const params = new URLSearchParams({
+        page: String(capitalFlowPage),
+        pageSize: '20',
+      });
+      if (flowType) params.set('flowType', flowType);
+      const res = await fetch(`/api/capital-flow?${params}`);
+      const data = await res.json();
+      if (data.success) {
+        setCapitalFlowData(data.data);
+      }
+    } catch (e) {
+      console.error('加载资金流水失败', e);
+    } finally {
+      setCapitalFlowLoading(false);
+    }
+  };
+
   const handleAddProduct = async () => {
     if (!newProduct.name || !newProduct.points_price) {
       setMessage({ type: 'error', text: '请填写商品名称和兑换积分' });
@@ -9874,6 +9913,227 @@ export default function AdminPage() {
     );
   };
 
+  // 资金流水统计
+  const renderCapitalFlow = () => {
+    const stats = capitalFlowData?.stats || {};
+    const typeStats = capitalFlowData?.typeStats || [];
+    const records = capitalFlowData?.records || [];
+    const pagination = capitalFlowData?.pagination || { page: 1, pageSize: 20, total: 0, totalPages: 0 };
+
+    const flowTypeOptions = [
+      { value: 'all', label: '全部' },
+      { value: 'transfer_out', label: '转出' },
+      { value: 'transfer_in', label: '转入' },
+      { value: 'recharge', label: '充值' },
+      { value: 'withdraw', label: '提现' },
+      { value: 'energy_to_points', label: '转积分' },
+      { value: 'sell_profit', label: '卖出收益' },
+    ];
+
+    const flowTypeLabels: Record<string, string> = {
+      transfer_out: '转出',
+      transfer_in: '转入',
+      energy_to_points: '转积分',
+      withdraw: '提现',
+      recharge: '充值',
+      sell_profit: '卖出收益',
+      withdraw_fee: '提现手续费',
+    };
+
+    const flowTypeColors: Record<string, string> = {
+      transfer_out: 'text-red-600 bg-red-50',
+      transfer_in: 'text-green-600 bg-green-50',
+      energy_to_points: 'text-purple-600 bg-purple-50',
+      withdraw: 'text-orange-600 bg-orange-50',
+      recharge: 'text-blue-600 bg-blue-50',
+      sell_profit: 'text-emerald-600 bg-emerald-50',
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-gray-800">资金流水</h2>
+            <p className="text-sm text-gray-500 mt-1">全局资金流水记录：转账、转积分、提现、充值</p>
+          </div>
+          <button
+            onClick={loadCapitalFlow}
+            className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 text-sm font-medium flex items-center gap-1"
+          >
+            <RefreshCw className="w-4 h-4" /> 刷新
+          </button>
+        </div>
+
+        {/* 统计卡片 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <ArrowUpRight className="w-4 h-4 text-red-500" />
+              <span className="text-xs text-gray-500">转出总额</span>
+            </div>
+            <div className="text-lg font-bold text-red-600">{Number(stats.total_transfer_out || 0).toLocaleString()}</div>
+          </div>
+          <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <ArrowDownRight className="w-4 h-4 text-green-500" />
+              <span className="text-xs text-gray-500">转入总额</span>
+            </div>
+            <div className="text-lg font-bold text-green-600">{Number(stats.total_transfer_in || 0).toLocaleString()}</div>
+          </div>
+          <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <Coins className="w-4 h-4 text-purple-500" />
+              <span className="text-xs text-gray-500">转积分总额</span>
+            </div>
+            <div className="text-lg font-bold text-purple-600">{Number(stats.total_to_points || 0).toLocaleString()}</div>
+          </div>
+          <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <Wallet className="w-4 h-4 text-orange-500" />
+              <span className="text-xs text-gray-500">提现总额</span>
+            </div>
+            <div className="text-lg font-bold text-orange-600">{Number(stats.total_withdraw || 0).toLocaleString()}</div>
+          </div>
+          <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp className="w-4 h-4 text-blue-500" />
+              <span className="text-xs text-gray-500">充值总额</span>
+            </div>
+            <div className="text-lg font-bold text-blue-600">{Number(stats.total_recharge || 0).toLocaleString()}</div>
+          </div>
+          <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <DollarSign className="w-4 h-4 text-gray-500" />
+              <span className="text-xs text-gray-500">手续费合计</span>
+            </div>
+            <div className="text-lg font-bold text-gray-700">
+              {Number(stats.total_transfer_fee || 0 + stats.total_withdraw_fee || 0).toLocaleString()}
+            </div>
+          </div>
+        </div>
+
+        {/* 类型分布 */}
+        {typeStats.length > 0 && (
+          <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">流水类型分布</h3>
+            <div className="flex flex-wrap gap-3">
+              {typeStats.map((ts: any) => (
+                <div key={ts.flow_type} className={`px-4 py-2 rounded-lg ${flowTypeColors[ts.flow_type] || 'text-gray-600 bg-gray-50'}`}>
+                  <span className="text-xs font-medium">{flowTypeLabels[ts.flow_type] || ts.flow_type}</span>
+                  <div className="text-lg font-bold">{Number(ts.total_amount).toLocaleString()}</div>
+                  <span className="text-xs opacity-70">{ts.count}笔</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 类型筛选Tab */}
+        <div className="flex flex-wrap gap-2">
+          {flowTypeOptions.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => { setCapitalFlowTab(opt.value); setCapitalFlowPage(1); }}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                capitalFlowTab === opt.value
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        {/* 明细列表 */}
+        {capitalFlowLoading ? (
+          <div className="text-center py-12 text-gray-400">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
+            加载中...
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>时间</TableHead>
+                  <TableHead>类型</TableHead>
+                  <TableHead>用户</TableHead>
+                  <TableHead>金额</TableHead>
+                  <TableHead>手续费</TableHead>
+                  <TableHead>实际金额</TableHead>
+                  <TableHead>关联方</TableHead>
+                  <TableHead>备注</TableHead>
+                  <TableHead>状态</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {records.map((r: any) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="text-xs whitespace-nowrap">
+                      {new Date(r.createdAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${flowTypeColors[r.flowType] || 'text-gray-600 bg-gray-50'}`}>
+                        {flowTypeLabels[r.flowType] || r.flowType}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      <div className="font-medium">{r.userName || '-'}</div>
+                      {r.userPhone && <div className="text-xs text-gray-400">{r.userPhone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')}</div>}
+                    </TableCell>
+                    <TableCell className="font-semibold">{Number(r.amount).toLocaleString()}</TableCell>
+                    <TableCell className="text-red-500 text-sm">{r.feeAmount > 0 ? `-${r.feeAmount}` : '-'}</TableCell>
+                    <TableCell className="text-sm">{Number(r.actualAmount).toLocaleString()}</TableCell>
+                    <TableCell className="text-sm text-gray-500">{r.relatedUserName || '-'}</TableCell>
+                    <TableCell className="text-xs text-gray-400 max-w-32 truncate">{r.note || '-'}</TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-0.5 rounded-full text-xs ${
+                        r.status === 'completed' ? 'bg-green-100 text-green-700' :
+                        r.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-red-100 text-red-700'
+                      }`}>
+                        {r.status === 'completed' ? '已完成' : r.status === 'pending' ? '进行中' : r.status}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {records.length === 0 && (
+              <div className="text-center py-12 text-gray-400">暂无流水记录</div>
+            )}
+          </div>
+        )}
+
+        {/* 分页 */}
+        {pagination.totalPages > 1 && (
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-500">
+              共 {pagination.total} 条记录，第 {pagination.page}/{pagination.totalPages} 页
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setCapitalFlowPage(p => Math.max(1, p - 1)); }}
+                disabled={pagination.page <= 1}
+                className="px-3 py-1.5 border border-gray-300 rounded text-sm disabled:opacity-50"
+              >
+                上一页
+              </button>
+              <button
+                onClick={() => { setCapitalFlowPage(p => Math.min(pagination.totalPages, p + 1)); }}
+                disabled={pagination.page >= pagination.totalPages}
+                className="px-3 py-1.5 border border-gray-300 rounded text-sm disabled:opacity-50"
+              >
+                下一页
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // 根据当前菜单渲染内容
   const renderContent = () => {
     switch (activeMenu) {
@@ -9893,6 +10153,8 @@ export default function AdminPage() {
         return renderTemplateManagement();
       case 'pointsShop':
         return renderPointsShopManagement();
+      case 'capitalFlow':
+        return renderCapitalFlow();
       default:
         return renderDashboard();
     }

@@ -145,6 +145,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // 写入资金流水记录 - 提现
+      await execute(
+        `INSERT INTO capital_flow_records (user_id, flow_type, amount, fee_amount, actual_amount, related_order_id, note, status, created_at)
+         VALUES ($1, 'withdraw', $2, $3, $4, $5, $6, 'completed', NOW())`,
+        [withdrawal.user_id, withdrawal.amount, withdrawal.fee || 0, withdrawal.amount - (parseFloat(withdrawal.fee) || 0), withdrawalId, `智算金提现${reviewer.role === 'admin' ? '（总台审核）' : '（网点审核）'}`]
+      );
+
       return NextResponse.json({
         success: true,
         message: '审核通过，提现金额已到账'

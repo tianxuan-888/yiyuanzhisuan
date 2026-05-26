@@ -166,6 +166,10 @@ const PUBLIC_PATHS = [
   '/api/branch/provider-energy-requests',
   '/api/branch/approve-provider-energy',
   '/api/provider/convert-records',
+  '/api/capital-flow',
+  '/api/provider/points-records',
+  '/api/admin/points-products',
+  '/api/admin/points-exchange-orders',
 ];
 
 // 静态资源和页面路径不走 API 认证

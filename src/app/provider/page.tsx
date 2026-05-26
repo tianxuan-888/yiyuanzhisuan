@@ -302,6 +302,12 @@ export default function ProviderPage() {
     // 收益管理子Tab
     const [energyFilter, setEnergyFilter] = useState<string>("all");
     // 收益管理子Tab
+
+    // 资金流水状态
+    const [capitalFlowData, setCapitalFlowData] = useState<any>(null);
+    const [capitalFlowLoading, setCapitalFlowLoading] = useState(false);
+    const [capitalFlowTab, setCapitalFlowTab] = useState<string>("all");
+    const [capitalFlowPage, setCapitalFlowPage] = useState(1);
     const [revenueSubTab, setRevenueSubTab] = useState<string>("records");
 
     // 关系链状态
@@ -525,6 +531,17 @@ export default function ProviderPage() {
     };
 
     // 加载产品销售记录（包含持有人信息）
+    const loadCapitalFlow = async () => {
+        if (!user?.id) return;
+        setCapitalFlowLoading(true);
+        try {
+            const response = await authFetch(`/api/capital-flow?userId=${user.id}&flowType=${capitalFlowTab}&page=${capitalFlowPage}&pageSize=20`);
+            const data = await response.json();
+            if (data.success) setCapitalFlowData(data.data);
+        } catch (e) { console.error("loadCapitalFlow error:", e); }
+        finally { setCapitalFlowLoading(false); }
+    };
+
     const loadSalesRecords = async (status?: string) => {
         try {
             const filterStatus = status ?? salesFilter;
@@ -1892,6 +1909,13 @@ export default function ProviderPage() {
         return () => clearInterval(interval);
     }, [pendingBuyOrders, matchProducts, pendingWithdrawals, loadPendingBuyOrders, loadWithdrawalData]);
 
+    // 资金流水tab/翻页切换时加载
+    useEffect(() => {
+        if (activeTab === "capitalFlow") {
+            loadCapitalFlow();
+        }
+    }, [capitalFlowTab, capitalFlowPage]);
+
     // 加载积分记录
     const loadPointsRecords = useCallback(async () => {
         try {
@@ -2348,6 +2372,11 @@ export default function ProviderPage() {
                                 }}
                                 className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "points" ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-200" : "text-gray-600 hover:bg-amber-50"}`}>
                                 <Gift className="w-4 h-4" />我的积分
+                            </button>
+                            <button
+                                onClick={() => setActiveTab("capitalFlow")}
+                                className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "capitalFlow" ? "bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg shadow-teal-200" : "text-gray-600 hover:bg-teal-50"}`}>
+                                <ArrowRightLeft className="w-4 h-4" />资金流水
                             </button>
                             <button
                                 onClick={() => setActiveTab("product-showcase")}
@@ -4282,6 +4311,85 @@ export default function ProviderPage() {
                                 </CardContent>
                             </Card>
                         </div>
+                    )}
+
+                    {/* 资金流水 Tab */}
+                    {activeTab === "capitalFlow" && (
+                        <Card className="mobile-compact-card border-teal-200 shadow-xl">
+                            <CardHeader className="bg-gradient-to-r from-teal-600 to-emerald-600 rounded-t-lg">
+                                <CardTitle className="text-white flex items-center gap-2"><ArrowRightLeft className="w-5 h-5" />资金流水</CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-4 md:p-6 space-y-4">
+                                {capitalFlowLoading && <div className="text-center py-8 text-gray-500">加载中...</div>}
+                                {!capitalFlowLoading && capitalFlowData && (
+                                    <>
+                                        {/* 统计卡片 */}
+                                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                                            <div className="bg-blue-50 rounded-lg p-3 text-center">
+                                                <p className="text-xs text-blue-600">转出总额</p>
+                                                <p className="text-lg font-bold text-blue-700">{(capitalFlowData.stats?.transferOutTotal || 0).toLocaleString()}</p>
+                                            </div>
+                                            <div className="bg-green-50 rounded-lg p-3 text-center">
+                                                <p className="text-xs text-green-600">转入总额</p>
+                                                <p className="text-lg font-bold text-green-700">{(capitalFlowData.stats?.transferInTotal || 0).toLocaleString()}</p>
+                                            </div>
+                                            <div className="bg-amber-50 rounded-lg p-3 text-center">
+                                                <p className="text-xs text-amber-600">转积分</p>
+                                                <p className="text-lg font-bold text-amber-700">{(capitalFlowData.stats?.pointsTotal || 0).toLocaleString()}</p>
+                                            </div>
+                                            <div className="bg-red-50 rounded-lg p-3 text-center">
+                                                <p className="text-xs text-red-600">提现总额</p>
+                                                <p className="text-lg font-bold text-red-700">{(capitalFlowData.stats?.withdrawTotal || 0).toLocaleString()}</p>
+                                            </div>
+                                            <div className="bg-purple-50 rounded-lg p-3 text-center">
+                                                <p className="text-xs text-purple-600">充值总额</p>
+                                                <p className="text-lg font-bold text-purple-700">{(capitalFlowData.stats?.rechargeTotal || 0).toLocaleString()}</p>
+                                            </div>
+                                        </div>
+                                        {/* 类型筛选 */}
+                                        <div className="flex gap-2 flex-wrap">
+                                            {[
+                                                { key: "all", label: "全部" },
+                                                { key: "transfer_out", label: "转出" },
+                                                { key: "transfer_in", label: "转入" },
+                                                { key: "energy_to_points", label: "转积分" },
+                                                { key: "withdraw", label: "提现" },
+                                                { key: "recharge", label: "充值" },
+                                            ].map(ft => (
+                                                <button key={ft.key} onClick={() => { setCapitalFlowTab(ft.key); setCapitalFlowPage(1); }}
+                                                    className={`px-3 py-1 rounded-full text-xs ${capitalFlowTab === ft.key ? "bg-teal-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>{ft.label}</button>
+                                            ))}
+                                        </div>
+                                        {/* 记录列表 */}
+                                        <div className="space-y-2">
+                                            {(capitalFlowData.records || []).length === 0 && <div className="text-center py-8 text-gray-400">暂无记录</div>}
+                                            {(capitalFlowData.records || []).map((r: any) => (
+                                                <div key={r.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                                    <div>
+                                                        <p className="text-sm font-medium">{r.note || r.flow_type}</p>
+                                                        <p className="text-xs text-gray-400">{new Date(r.created_at).toLocaleString("zh-CN")}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className={`text-sm font-bold ${["transfer_in","recharge"].includes(r.flow_type) ? "text-green-600" : "text-red-500"}`}>
+                                                            {["transfer_in","recharge"].includes(r.flow_type) ? "+" : "-"}{Number(r.amount).toLocaleString()}
+                                                        </p>
+                                                        {Number(r.fee_amount) > 0 && <p className="text-xs text-gray-400">手续费: {Number(r.fee_amount).toLocaleString()}</p>}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        {/* 分页 */}
+                                        {capitalFlowData.pagination && capitalFlowData.pagination.totalPages > 1 && (
+                                            <div className="flex justify-center gap-2 mt-4">
+                                                <button onClick={() => setCapitalFlowPage(p => Math.max(1, p - 1))} disabled={capitalFlowPage <= 1} className="px-3 py-1 rounded bg-gray-100 text-sm disabled:opacity-50">上一页</button>
+                                                <span className="text-sm text-gray-500 py-1">{capitalFlowPage} / {capitalFlowData.pagination.totalPages}</span>
+                                                <button onClick={() => setCapitalFlowPage(p => Math.min(capitalFlowData.pagination.totalPages, p + 1))} disabled={capitalFlowPage >= capitalFlowData.pagination.totalPages} className="px-3 py-1 rounded bg-gray-100 text-sm disabled:opacity-50">下一页</button>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </CardContent>
+                        </Card>
                     )}
 
                     {/* 产品展示 Tab - 卡片样式 */}
