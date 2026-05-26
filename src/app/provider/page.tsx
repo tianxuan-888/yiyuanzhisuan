@@ -324,6 +324,13 @@ export default function ProviderPage() {
     const [pointsStats, setPointsStats] = useState({ total_convert: 0, total_exchange: 0, available_points: 0 });
     const [showPointsToEnergyDialog, setShowPointsToEnergyDialog] = useState(false);
     const [pointsConvertAmount, setPointsConvertAmount] = useState("");
+    const [showPointsShop, setShowPointsShop] = useState(false);
+    const [pointsShopProducts, setPointsShopProducts] = useState<any[]>([]);
+    const [pointsShopLoading, setPointsShopLoading] = useState(false);
+    const [showExchangeForm, setShowExchangeForm] = useState(false);
+    const [exchangeProduct, setExchangeProduct] = useState<any>(null);
+    const [exchangeForm, setExchangeForm] = useState({ name: '', phone: '', address: '' });
+
 
     // 收益记录相关状态
     const [revenueRecords, setRevenueRecords] = useState<any[]>([]);
@@ -4215,9 +4222,15 @@ export default function ProviderPage() {
                                         <Button
                                             size="sm"
                                             variant="secondary"
-                                            onClick={() => {
-                                                setPointsConvertAmount("");
-                                                setShowPointsToEnergyDialog(true);
+                                            onClick={async () => {
+                                                setShowPointsShop(true);
+                                                setPointsShopLoading(true);
+                                                try {
+                                                    const res = await authFetch('/api/points-products?status=active');
+                                                    const data = await res.json();
+                                                    if (data.success) setPointsShopProducts(data.data || []);
+                                                } catch (e) { console.error(e); }
+                                                setPointsShopLoading(false);
                                             }}
                                         >
                                             <Gift className="w-4 h-4 mr-1" />
@@ -4581,6 +4594,126 @@ export default function ProviderPage() {
                                 >
                                     {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
                                     确认充值
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* 积分兑换商城弹窗 */}
+                    <Dialog open={showPointsShop} onOpenChange={setShowPointsShop}>
+                        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                            <DialogHeader>
+                                <DialogTitle className="flex items-center gap-2">
+                                    <Gift className="w-5 h-5 text-amber-500" />
+                                    积分兑换商城
+                                </DialogTitle>
+                            </DialogHeader>
+                            {pointsShopLoading ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+                                </div>
+                            ) : pointsShopProducts.length === 0 ? (
+                                <div className="text-center py-12 text-muted-foreground">
+                                    <Gift className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                                    <p>暂无可兑换商品</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {pointsShopProducts.map((product: any) => (
+                                        <Card key={product.id} className="overflow-hidden hover:shadow-md transition-shadow">
+                                            {product.image_url && (
+                                                <div className="aspect-video bg-muted flex items-center justify-center">
+                                                    <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                                                </div>
+                                            )}
+                                            <CardContent className="pt-3">
+                                                <h3 className="font-semibold text-sm mb-1">{product.name}</h3>
+                                                {product.description && (
+                                                    <p className="text-xs text-muted-foreground mb-2 line-clamp-2">{product.description}</p>
+                                                )}
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-amber-600 font-bold text-sm">{product.points_price} 积分</span>
+                                                    <Button
+                                                        size="sm"
+                                                        className="bg-amber-500 hover:bg-amber-600 text-white"
+                                                        disabled={(Number(user?.points || 0)) < product.points_price}
+                                                        onClick={() => {
+                                                            setExchangeProduct(product);
+                                                            setExchangeForm({ name: '', phone: '', address: '' });
+                                                            setShowExchangeForm(true);
+                                                        }}
+                                                    >
+                                                        兑换
+                                                    </Button>
+                                                </div>
+                                                {(Number(user?.points || 0)) < product.points_price && (
+                                                    <p className="text-xs text-red-400 mt-1">积分不足</p>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </div>
+                            )}
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* 兑换表单弹窗 */}
+                    <Dialog open={showExchangeForm} onOpenChange={setShowExchangeForm}>
+                        <DialogContent className="max-w-md">
+                            <DialogHeader>
+                                <DialogTitle>确认兑换 - {exchangeProduct?.name}</DialogTitle>
+                                <DialogDescription>
+                                    消耗 {exchangeProduct?.points_price} 积分，当前积分：{Number(user?.points || 0).toLocaleString()}
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="text-sm font-medium mb-1 block">收货人姓名</label>
+                                    <Input placeholder="请输入姓名" value={exchangeForm.name} onChange={e => setExchangeForm({...exchangeForm, name: e.target.value})} />
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium mb-1 block">联系电话</label>
+                                    <Input placeholder="请输入手机号" value={exchangeForm.phone} onChange={e => setExchangeForm({...exchangeForm, phone: e.target.value})} />
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium mb-1 block">收货地址</label>
+                                    <Input placeholder="请输入详细地址" value={exchangeForm.address} onChange={e => setExchangeForm({...exchangeForm, address: e.target.value})} />
+                                </div>
+                            </div>
+                            <DialogFooter className="gap-2 mt-4">
+                                <Button variant="outline" onClick={() => setShowExchangeForm(false)}>取消</Button>
+                                <Button
+                                    className="bg-amber-500 hover:bg-amber-600 text-white"
+                                    disabled={!exchangeForm.name || !exchangeForm.phone || !exchangeForm.address}
+                                    onClick={async () => {
+                                        try {
+                                            const res = await authFetch('/api/points-exchange', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                    userId,
+                                                    productId: exchangeProduct.id,
+                                                    receiverName: exchangeForm.name,
+                                                    receiverPhone: exchangeForm.phone,
+                                                    receiverAddress: exchangeForm.address,
+                                                }),
+                                            });
+                                            const data = await res.json();
+                                            if (data.success) {
+                                                showMessage('success', '兑换成功！积分已扣除');
+                                                setShowExchangeForm(false);
+                                                setShowPointsShop(false);
+                                                // 刷新用户数据
+                                                if (refreshUserData) refreshUserData();
+                                            } else {
+                                                showMessage('error', data.message || '兑换失败');
+                                            }
+                                        } catch (e: any) {
+                                            showMessage('error', '兑换失败：' + e.message);
+                                        }
+                                    }}
+                                >
+                                    确认兑换
                                 </Button>
                             </DialogFooter>
                         </DialogContent>

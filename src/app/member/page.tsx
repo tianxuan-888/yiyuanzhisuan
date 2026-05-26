@@ -209,6 +209,64 @@ export default function MemberPage() {
     const [confirmingTransferId, setConfirmingTransferId] = useState<string | null>(null);
     const [buyingTransferId, setBuyingTransferId] = useState<string | null>(null);
 
+    // 积分兑换相关状态
+    const [showPointsShop, setShowPointsShop] = useState(false);
+    const [shopProducts, setShopProducts] = useState<any[]>([]);
+    const [shopLoading, setShopLoading] = useState(false);
+    const [exchangeProduct, setExchangeProduct] = useState<any>(null);
+    const [exchangeForm, setExchangeForm] = useState({ receiverName: '', receiverPhone: '', receiverAddress: '' });
+    const [exchangeSubmitting, setExchangeSubmitting] = useState(false);
+
+    // 加载积分商城商品
+    const loadShopProducts = useCallback(async () => {
+        try {
+            setShopLoading(true);
+            const res = await fetch('/api/points-products?status=active');
+            const data = await res.json();
+            if (data.success) setShopProducts(data.data || []);
+        } catch (e) { console.error('加载积分商城失败:', e); }
+        finally { setShopLoading(false); }
+    }, []);
+
+    // 打开积分商城时加载商品
+    useEffect(() => {
+        if (showPointsShop) loadShopProducts();
+    }, [showPointsShop, loadShopProducts]);
+
+    // 兑换商品
+    const handleExchange = async () => {
+        if (!exchangeProduct || !exchangeForm.receiverName || !exchangeForm.receiverPhone || !exchangeForm.receiverAddress) {
+            setMessage({ type: 'error', text: '请填写完整的收货信息' });
+            return;
+        }
+        try {
+            setExchangeSubmitting(true);
+            const res = await fetch('/api/points-exchange', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: user?.id,
+                    productId: exchangeProduct.id,
+                    ...exchangeForm,
+                }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setUser((prev: any) => ({ ...prev, points: data.data.remainingPoints }));
+                setExchangeProduct(null);
+                setExchangeForm({ receiverName: '', receiverPhone: '', receiverAddress: '' });
+                setMessage({ type: 'success', text: '兑换成功！' });
+                loadShopProducts();
+            } else {
+                setMessage({ type: 'error', text: data.error || '兑换失败' });
+            }
+        } catch (e: any) {
+            setMessage({ type: 'error', text: e.message });
+        } finally {
+            setExchangeSubmitting(false);
+        }
+    };
+
     // 邀请新用户相关状态
     const [inviteCode, setInviteCode] = useState("");
     const [referralStats, setReferralStats] = useState({
@@ -2803,7 +2861,12 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             <span className="text-sm opacity-80">积分余额</span>
                                         </div>
                                         <p className="text-2xl font-bold">{user?.points?.toLocaleString() || '0'}</p>
-                                        <p className="text-xs opacity-70 mt-1">可用于购买产品</p>
+                                        <button
+                                            onClick={() => setShowPointsShop(true)}
+                                            className="mt-2 px-3 py-1 bg-white/20 rounded-full text-xs font-medium hover:bg-white/30 transition-colors"
+                                        >
+                                            积分兑换
+                                        </button>
                                     </CardContent>
                                 </Card>
                             </div>
@@ -3499,6 +3562,117 @@ const [copySuccess, setCopySuccess] = useState(false);
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* 积分兑换商城弹窗 */}
+            {showPointsShop && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-2xl w-full max-w-2xl mx-4 max-h-[85vh] overflow-hidden flex flex-col">
+                        <div className="flex items-center justify-between p-4 border-b">
+                            <h3 className="text-lg font-bold flex items-center gap-2">
+                                <Gift className="w-5 h-5 text-purple-500" />
+                                积分兑换商城
+                            </h3>
+                            <div className="flex items-center gap-3">
+                                <span className="text-sm text-gray-500">当前积分: <span className="font-bold text-purple-600">{user?.points?.toLocaleString() || 0}</span></span>
+                                <button onClick={() => { setShowPointsShop(false); setExchangeProduct(null); }} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+                            </div>
+                        </div>
+                        <div className="overflow-y-auto p-4 flex-1">
+                            {shopLoading ? (
+                                <div className="text-center py-8 text-gray-400">加载中...</div>
+                            ) : shopProducts.length === 0 ? (
+                                <div className="text-center py-12 text-gray-400">暂无可兑换商品</div>
+                            ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {shopProducts.map((product: any) => (
+                                        <div key={product.id} className="border rounded-xl overflow-hidden hover:shadow-md transition-shadow">
+                                            {product.image_url && (
+                                                <div className="h-36 bg-gray-100">
+                                                    <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                                                </div>
+                                            )}
+                                            <div className="p-3 space-y-2">
+                                                <h4 className="font-semibold text-gray-800">{product.name}</h4>
+                                                {product.description && <p className="text-xs text-gray-500 line-clamp-2">{product.description}</p>}
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-purple-600 font-bold">{product.points_price} 积分</span>
+                                                    <button
+                                                        onClick={() => setExchangeProduct(product)}
+                                                        disabled={(user?.points || 0) < product.points_price}
+                                                        className="px-3 py-1.5 bg-purple-500 text-white rounded-lg text-sm font-medium hover:bg-purple-600 disabled:opacity-40 disabled:cursor-not-allowed"
+                                                    >
+                                                        兑换
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 兑换收货信息弹窗 */}
+            {exchangeProduct && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+                    <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 space-y-4">
+                        <h3 className="text-lg font-bold">确认兑换</h3>
+                        <div className="bg-purple-50 rounded-lg p-3">
+                            <p className="font-semibold text-purple-800">{exchangeProduct.name}</p>
+                            <p className="text-sm text-purple-600 mt-1">消耗积分: {exchangeProduct.points_price}</p>
+                        </div>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-600 mb-1">收货人姓名 *</label>
+                                <input
+                                    type="text"
+                                    value={exchangeForm.receiverName}
+                                    onChange={(e) => setExchangeForm({ ...exchangeForm, receiverName: e.target.value })}
+                                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300"
+                                    placeholder="请输入收货人姓名"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-600 mb-1">联系电话 *</label>
+                                <input
+                                    type="tel"
+                                    value={exchangeForm.receiverPhone}
+                                    onChange={(e) => setExchangeForm({ ...exchangeForm, receiverPhone: e.target.value })}
+                                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300"
+                                    placeholder="请输入联系电话"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-600 mb-1">收货地址 *</label>
+                                <textarea
+                                    value={exchangeForm.receiverAddress}
+                                    onChange={(e) => setExchangeForm({ ...exchangeForm, receiverAddress: e.target.value })}
+                                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300"
+                                    placeholder="请输入详细收货地址"
+                                    rows={3}
+                                />
+                            </div>
+                        </div>
+                        <div className="flex gap-3 pt-2">
+                            <button
+                                onClick={() => { setExchangeProduct(null); setExchangeForm({ receiverName: '', receiverPhone: '', receiverAddress: '' }); }}
+                                className="flex-1 py-2.5 border rounded-lg text-gray-600 hover:bg-gray-50 font-medium"
+                            >
+                                取消
+                            </button>
+                            <button
+                                onClick={handleExchange}
+                                disabled={exchangeSubmitting || !exchangeForm.receiverName || !exchangeForm.receiverPhone || !exchangeForm.receiverAddress}
+                                className="flex-1 py-2.5 bg-purple-500 text-white rounded-lg hover:bg-purple-600 font-medium disabled:opacity-50"
+                            >
+                                {exchangeSubmitting ? '兑换中...' : `确认兑换 (${exchangeProduct.points_price}积分)`}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
