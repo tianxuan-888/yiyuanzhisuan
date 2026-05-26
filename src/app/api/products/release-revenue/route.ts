@@ -108,18 +108,9 @@ export async function POST(request: NextRequest) {
       });
 
       // 1. 会员收益到账（写入energy_value智算金）
-      const memberBefore = await queryOne<any>('SELECT energy_value FROM users WHERE id = $1', [userProduct.user_id]);
-      const memberEnergyBefore = parseFloat(memberBefore?.energy_value || 0);
       await execute(
         `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
         [memberProfit, userProduct.user_id]
-      );
-      await execute(
-        `INSERT INTO transactions (user_id, type, amount, description, balance_before, balance_after)
-         VALUES ($1, 'profit_release', $2, $3, $4, $5)`,
-        [userProduct.user_id, memberProfit,
-         `产品「${userProduct.product_name}」到期释放收益${profitRate}%`,
-         memberEnergyBefore, memberEnergyBefore + memberProfit]
       );
       // 写入energy_transactions明细
       await execute(
@@ -129,95 +120,75 @@ export async function POST(request: NextRequest) {
          `产品「${userProduct.product_name}」到期释放收益${profitRate}%`]
       );
 
-      // 2. 服务商收益到账
+      // 2. 服务商收益到账（写入energy_value智算金）
       const providerId = userProduct.product_provider_id;
       if (providerId && providerShare > 0) {
-        const providerBefore = await queryOne<any>('SELECT energy_value FROM users WHERE id = $1', [providerId]);
-        const providerEnergyBefore = parseFloat(providerBefore?.energy_value || 0);
         await execute(
           `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
           [providerShare, providerId]
         );
         await execute(
-          `INSERT INTO transactions (user_id, type, amount, description, balance_before, balance_after)
-           VALUES ($1, 'provider_revenue', $2, $3, $4, $5)`,
-          [providerId, providerShare,
-           `会员产品到期，服务商分成70%`,
-           providerEnergyBefore, providerEnergyBefore + providerShare]
+          `INSERT INTO energy_transactions (user_id, type, amount, note, created_at)
+           VALUES ($1, 'provider_revenue', $2, $3, NOW())`,
+          [providerId, providerShare, '会员产品到期，服务商分成70%']
         );
       }
 
-      // 3. 直推人收益到账
+      // 3. 直推人收益到账（写入energy_value智算金）
       const memberUser = await queryOne<any>('SELECT inviter_id FROM users WHERE id = $1', [userProduct.user_id]);
       if (memberUser?.inviter_id && directShare > 0) {
-        const directBefore = await queryOne<any>('SELECT energy_value FROM users WHERE id = $1', [memberUser.inviter_id]);
-        const directEnergyBefore = parseFloat(directBefore?.balance || 0);
         await execute(
           `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
           [directShare, memberUser.inviter_id]
         );
         await execute(
-          `INSERT INTO transactions (user_id, type, amount, description, balance_before, balance_after)
-           VALUES ($1, 'direct_referral_revenue', $2, $3, $4, $5)`,
-          [memberUser.inviter_id, directShare,
-           `直推会员产品到期，直推分成10%`,
-           directEnergyBefore, directEnergyBefore + directShare]
+          `INSERT INTO energy_transactions (user_id, type, amount, note, created_at)
+           VALUES ($1, 'direct_referral_revenue', $2, $3, NOW())`,
+          [memberUser.inviter_id, directShare, '直推会员产品到期，直推分成10%']
         );
       }
 
-      // 4. 上级服务商收益到账
+      // 4. 上级服务商收益到账（写入energy_value智算金）
       const memberData = await queryOne<any>('SELECT provider_id FROM users WHERE id = $1', [userProduct.user_id]);
       if (memberData?.provider_id && memberData.provider_id !== providerId && parentProviderShare > 0) {
-        const parentBefore = await queryOne<any>('SELECT energy_value FROM users WHERE id = $1', [memberData.provider_id]);
-        const parentEnergyBefore = parseFloat(parentBefore?.balance || 0);
         await execute(
           `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
           [parentProviderShare, memberData.provider_id]
         );
         await execute(
-          `INSERT INTO transactions (user_id, type, amount, description, balance_before, balance_after)
-           VALUES ($1, 'parent_provider_revenue', $2, $3, $4, $5)`,
-          [memberData.provider_id, parentProviderShare,
-           `下级会员产品到期，上级服务商分成10%`,
-           parentEnergyBefore, parentEnergyBefore + parentProviderShare]
+          `INSERT INTO energy_transactions (user_id, type, amount, note, created_at)
+           VALUES ($1, 'parent_provider_revenue', $2, $3, NOW())`,
+          [memberData.provider_id, parentProviderShare, '下级会员产品到期，上级服务商分成10%']
         );
       }
 
-      // 5. 网点收益到账
+      // 5. 网点收益到账（写入energy_value智算金）
       if (providerId) {
         const providerData = await queryOne<any>('SELECT branch_id FROM providers WHERE user_id = $1', [providerId]);
         if (providerData?.branch_id && branchShare > 0) {
-          const branchBefore = await queryOne<any>('SELECT energy_value FROM users WHERE id = $1', [providerData.branch_id]);
-          const branchEnergyBefore = parseFloat(branchBefore?.balance || 0);
           await execute(
             `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
             [branchShare, providerData.branch_id]
           );
           await execute(
-            `INSERT INTO transactions (user_id, type, amount, description, balance_before, balance_after)
-             VALUES ($1, 'branch_revenue', $2, $3, $4, $5)`,
-            [providerData.branch_id, branchShare,
-             `服务商会员产品到期，网点分成5%`,
-             branchEnergyBefore, branchEnergyBefore + branchShare]
+            `INSERT INTO energy_transactions (user_id, type, amount, note, created_at)
+             VALUES ($1, 'branch_revenue', $2, $3, NOW())`,
+            [providerData.branch_id, branchShare, '服务商会员产品到期，网点分成5%']
           );
         }
       }
 
-      // 6. 总台运营收益到账
+      // 6. 总台运营收益到账（写入energy_value智算金）
       const adminUser = await queryOne<any>('SELECT id FROM users WHERE role = $1 LIMIT 1', ['admin']);
       if (adminUser && companyShare > 0) {
-        const adminBefore = await queryOne<any>('SELECT energy_value FROM users WHERE id = $1', [adminUser.id]);
-        const adminEnergyBefore = parseFloat(adminBefore?.balance || 0);
         await execute(
           `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
           [companyShare, adminUser.id]
         );
         await execute(
-          `INSERT INTO transactions (user_id, type, amount, description, balance_before, balance_after)
-           VALUES ($1, 'company_revenue', $2, $3, $4, $5)`,
-          [adminUser.id, companyShare,
-           '会员产品到期，总台运营分成5%',
-           adminEnergyBefore, adminEnergyBefore + companyShare]
+          `INSERT INTO energy_transactions (user_id, type, amount, note, created_at)
+           VALUES ($1, 'company_revenue', $2, $3, NOW())`,
+          [adminUser.id, companyShare, '会员产品到期，总台运营分成5%']
         );
       }
 

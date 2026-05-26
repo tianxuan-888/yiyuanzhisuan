@@ -49,8 +49,6 @@ export async function GET(request: NextRequest) {
       revenue_id: detail.revenue_id,
       type: detail.type,
       amount: parseFloat(detail.amount || 0),
-      balance_before: parseFloat(detail.balance_before || 0),
-      balance_after: parseFloat(detail.balance_after || 0),
       description: detail.description,
       product_name: detail.product_name || null,
       product_period: detail.product_period || null,

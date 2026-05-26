@@ -86,74 +86,69 @@ export async function POST(request: NextRequest) {
       const marketRate = parseFloat(product?.market_rate || 0);
       const marketPool = parseFloat(userProduct.purchase_price) * (marketRate / 100);
 
-      // 会员收益到账
-      const memberBefore = await queryOne<any>('SELECT balance FROM users WHERE id = $1', [userId]);
-      const memberBalanceBefore = parseFloat(memberBefore?.balance || 0);
+      // 会员收益到账（写入energy_value智算金）
       await execute(
-        `UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
+        `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
         [memberProfit, userId]
       );
       await execute(
-        `INSERT INTO transactions (user_id, type, amount, description, balance_before, balance_after)
-         VALUES ($1, 'profit_release', $2, $3, $4, $5)`,
+        `INSERT INTO energy_transactions (user_id, type, amount, note, created_at)
+         VALUES ($1, 'profit_release', $2, $3, NOW())`,
         [userId, memberProfit,
-         `产品「${product?.name || '未知产品'}」到期释放收益${profitRate}%`,
-         memberBalanceBefore, memberBalanceBefore + memberProfit]
+         `产品「${product?.name || '未知产品'}」到期释放收益${profitRate}%`]
       );
 
-      // 服务商收益 70%
+      // 服务商收益 70%（写入energy_value智算金）
       const providerShare = marketPool * 0.70;
       if (product?.provider_id && providerShare > 0) {
-        const providerBefore = await queryOne<any>('SELECT balance FROM users WHERE id = $1', [product.provider_id]);
-        const providerBalanceBefore = parseFloat(providerBefore?.balance || 0);
         await execute(
-          `UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
+          `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
           [providerShare, product.provider_id]
         );
         await execute(
-          `INSERT INTO transactions (user_id, type, amount, description, balance_before, balance_after)
-           VALUES ($1, 'provider_revenue', $2, '会员产品到期，服务商分成70%', $3, $4)`,
-          [product.provider_id, providerShare, providerBalanceBefore, providerBalanceBefore + providerShare]
+          `INSERT INTO energy_transactions (user_id, type, amount, note, created_at)
+           VALUES ($1, 'provider_revenue', $2, $3, NOW())`,
+          [product.provider_id, providerShare, '会员产品到期，服务商分成70%']
         );
       }
 
-      // 直推人收益 10%
+      // 直推人收益 10%（写入energy_value智算金）
       const directShare = marketPool * 0.10;
       const memberData = await queryOne<any>('SELECT inviter_id FROM users WHERE id = $1', [userId]);
       if (memberData?.inviter_id && directShare > 0) {
         await execute(
-          `UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
+          `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
           [directShare, memberData.inviter_id]
         );
       }
 
-      // 上级服务商收益 10%
+      // 上级服务商收益 10%（写入energy_value智算金）
       const parentProviderShare = marketPool * 0.10;
       if (dbUser.provider_id && dbUser.provider_id !== product?.provider_id && parentProviderShare > 0) {
         await execute(
-          `UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
+          `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
           [parentProviderShare, dbUser.provider_id]
         );
       }
 
-      // 网点收益 5%
+      // 网点收益 5%（写入energy_value智算金）
       const branchShare = marketPool * 0.05;
       if (product?.provider_id) {
         const providerData = await queryOne<any>('SELECT branch_id FROM providers WHERE user_id = $1', [product.provider_id]);
         if (providerData?.branch_id && branchShare > 0) {
           await execute(
-            `UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
+            `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
             [branchShare, providerData.branch_id]
           );
         }
       }
 
-      // 总台收益 5%
+      // 总台收益 5%（写入energy_value智算金）
       const companyShare = marketPool * 0.05;
       const adminUser = await queryOne<any>('SELECT id FROM users WHERE role = $1 LIMIT 1', ['admin']);
       if (adminUser && companyShare > 0) {
         await execute(
-          `UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
+          `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
           [companyShare, adminUser.id]
         );
       }

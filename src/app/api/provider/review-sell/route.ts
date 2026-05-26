@@ -79,10 +79,11 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', userProductId);
 
-      // 会员收益：只有收益部分 → balance（智算金），Token值随产品流转
-      const currentBalance = parseFloat(productUser.balance || '0');
-      const newBalance = Math.round((currentBalance + expectedProfit) * 100) / 100;
-      await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newBalance, userProduct.user_id]);
+      // 会员收益：只有收益部分 → energy_value（智算金），Token值随产品流转
+      const currentEnergy = await queryOne('SELECT energy_value FROM users WHERE id = $1', [userProduct.user_id]);
+      const currentEnergyVal = parseFloat(String(currentEnergy?.energy_value || 0));
+      const newEnergyVal = Math.round((currentEnergyVal + expectedProfit) * 100) / 100;
+      await execute('UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2', [newEnergyVal, userProduct.user_id]);
 
       // ========== 卖出时：会员获得延迟2%收益（其他3%已在购买时到账） ==========
       const productPrice = purchasePrice;
@@ -90,14 +91,14 @@ export async function POST(request: NextRequest) {
 
       // 会员2%延迟收益到账
       if (deferredMemberShare > 0) {
-        const mRow = await queryOne('SELECT balance FROM users WHERE id = $1', [userProduct.user_id]);
+        const mRow = await queryOne('SELECT energy_value FROM users WHERE id = $1', [userProduct.user_id]);
         if (mRow) {
-          const newMBal = Math.round((parseFloat(String(mRow.balance)) + deferredMemberShare) * 100) / 100;
-          await execute('UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2', [newMBal, userProduct.user_id]);
+          const newMEnergy = Math.round((parseFloat(String(mRow.energy_value)) + deferredMemberShare) * 100) / 100;
+          await execute('UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2', [newMEnergy, userProduct.user_id]);
         }
       }
 
-      // 记录会员延迟2%收益到账
+      // 记录释放收益
       const releaseAmount = productPrice * 0.05;
       try {
         await execute(
@@ -112,28 +113,23 @@ export async function POST(request: NextRequest) {
           [
             userProduct.product_id, productName, productPrice, releaseAmount,
             userProduct.user_id, productUser.username || userProduct.user_id, deferredMemberShare,
-            null, 0, // 直推已在购买时到账
-            null, 0, // 服务商已在购买时到账
-            null, 0, // 下级服务商已在购买时到账
-            null, 0, // 网点已在购买时到账
-            0  // 总台已在购买时到账
+            null, 0,
+            null, 0,
+            null, 0,
+            null, 0,
+            0
           ]
         );
       } catch (e) {
         console.error('记录释放收益失败:', e);
       }
 
-      // 记录会员交易流水
-      await client.from('transactions').insert({
-        id: crypto.randomUUID(),
-        user_id: userProduct.user_id,
-        type: 'profit',
-        amount: expectedProfit,
-        balance_before: currentBalance,
-        balance_after: newBalance,
-        description: `卖出产品收益¥${expectedProfit}到账智算金，Token值¥${purchasePrice}线下交易`,
-        created_at: new Date().toISOString(),
-      });
+      // 记录会员智算金流水
+      await execute(
+        `INSERT INTO energy_transactions (user_id, type, amount, note, created_at)
+         VALUES ($1, 'profit_release', $2, $3, NOW())`,
+        [userProduct.user_id, expectedProfit, `卖出产品收益¥${expectedProfit}到账智算金，Token值¥${purchasePrice}线下交易`]
+      );
 
       return NextResponse.json({
         success: true,

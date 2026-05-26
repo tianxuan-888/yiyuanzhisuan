@@ -130,44 +130,26 @@ export async function POST(request: NextRequest) {
 
     // 记录收益明细（收益转出）
     await query(
-      `INSERT INTO revenue_details (id, user_id, revenue_id, type, amount, balance_before, balance_after, description, created_at)
-       VALUES ($1, $2, $3, 'convert_to_energy', $4, $5, $6, $7, NOW())`,
+      `INSERT INTO revenue_details (id, user_id, revenue_id, type, amount, description, created_at)
+       VALUES ($1, $2, $3, 'convert_to_energy', $4, $5, NOW())`,
       [
         randomUUID(),
         userId,
         updateRevenueId,
         convertAmount,
-        afterTotalProfit + convertAmount,
-        afterTotalProfit,
         `收益转为收益`
       ]
     );
 
-    // 记录收益交易（写入 transactions 表）
+    // 记录收益交易（写入 energy_transactions 表）
     await query(
-      `INSERT INTO transactions (id, user_id, order_id, type, amount, balance_before, balance_after, description, status, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'completed', NOW())`,
+      `INSERT INTO energy_transactions (id, user_id, type, amount, note, created_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())`,
       [
         randomUUID(),
         userId,
-        null,
-        'profit',
+        'profit_convert',
         convertAmount,
-        balanceBefore,
-        balanceBefore + convertAmount,
-        `产品收益转为收益`
-      ]
-    );
-
-    // 记录收益交易（写入 energy_transactions 表 - 用于会员端收益记录显示）
-    await query(
-      `INSERT INTO energy_transactions (id, user_id, type, amount, from_user_id, status, description, created_at)
-       VALUES ($1, $2, 'transfer_in', $3, $4, 'completed', $5, NOW())`,
-      [
-        randomUUID(),
-        userId,
-        convertAmount,
-        null,
         `产品收益转为收益`
       ]
     );
