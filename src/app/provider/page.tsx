@@ -4341,10 +4341,7 @@ export default function ProviderPage() {
                                                 <p className="text-xs text-red-600">提现总额</p>
                                                 <p className="text-lg font-bold text-red-700">{(capitalFlowData.stats?.withdrawTotal || 0).toLocaleString()}</p>
                                             </div>
-                                            <div className="bg-purple-50 rounded-lg p-3 text-center">
-                                                <p className="text-xs text-purple-600">充值总额</p>
-                                                <p className="text-lg font-bold text-purple-700">{(capitalFlowData.stats?.rechargeTotal || 0).toLocaleString()}</p>
-                                            </div>
+
                                         </div>
                                         {/* 类型筛选 */}
                                         <div className="flex gap-2 flex-wrap">
@@ -4354,8 +4351,7 @@ export default function ProviderPage() {
                                                 { key: "transfer_in", label: "转入" },
                                                 { key: "energy_to_points", label: "转积分" },
                                                 { key: "withdraw", label: "提现" },
-                                                { key: "recharge", label: "充值" },
-                                            ].map(ft => (
+                                                                                            ].map(ft => (
                                                 <button key={ft.key} onClick={() => { setCapitalFlowTab(ft.key); setCapitalFlowPage(1); }}
                                                     className={`px-3 py-1 rounded-full text-xs ${capitalFlowTab === ft.key ? "bg-teal-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>{ft.label}</button>
                                             ))}
@@ -4370,8 +4366,8 @@ export default function ProviderPage() {
                                                         <p className="text-xs text-gray-400">{new Date(r.created_at).toLocaleString("zh-CN")}</p>
                                                     </div>
                                                     <div className="text-right">
-                                                        <p className={`text-sm font-bold ${["transfer_in","recharge"].includes(r.flow_type) ? "text-green-600" : "text-red-500"}`}>
-                                                            {["transfer_in","recharge"].includes(r.flow_type) ? "+" : "-"}{Number(r.amount).toLocaleString()}
+                                                        <p className={`text-sm font-bold ${["transfer_in"].includes(r.flow_type) ? "text-green-600" : "text-red-500"}`}>
+                                                            {["transfer_in"].includes(r.flow_type) ? "+" : "-"}{Number(r.amount).toLocaleString()}
                                                         </p>
                                                         {Number(r.fee_amount) > 0 && <p className="text-xs text-gray-400">手续费: {Number(r.fee_amount).toLocaleString()}</p>}
                                                     </div>

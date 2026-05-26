@@ -9924,10 +9924,8 @@ export default function AdminPage() {
       { value: 'all', label: '全部' },
       { value: 'transfer_out', label: '转出' },
       { value: 'transfer_in', label: '转入' },
-      { value: 'recharge', label: '充值' },
       { value: 'withdraw', label: '提现' },
       { value: 'energy_to_points', label: '转积分' },
-      { value: 'sell_profit', label: '卖出收益' },
     ];
 
     const flowTypeLabels: Record<string, string> = {
@@ -9935,8 +9933,6 @@ export default function AdminPage() {
       transfer_in: '转入',
       energy_to_points: '转积分',
       withdraw: '提现',
-      recharge: '充值',
-      sell_profit: '卖出收益',
       withdraw_fee: '提现手续费',
     };
 
@@ -9996,18 +9992,11 @@ export default function AdminPage() {
           </div>
           <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="w-4 h-4 text-blue-500" />
-              <span className="text-xs text-gray-500">充值总额</span>
-            </div>
-            <div className="text-lg font-bold text-blue-600">{Number(stats.total_recharge || 0).toLocaleString()}</div>
-          </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
-            <div className="flex items-center gap-2 mb-2">
               <DollarSign className="w-4 h-4 text-gray-500" />
               <span className="text-xs text-gray-500">手续费合计</span>
             </div>
             <div className="text-lg font-bold text-gray-700">
-              {Number(stats.total_transfer_fee || 0 + stats.total_withdraw_fee || 0).toLocaleString()}
+              {Number((Number(stats.total_transfer_fee || 0) + Number(stats.total_withdraw_fee || 0))).toLocaleString()}
             </div>
           </div>
         </div>

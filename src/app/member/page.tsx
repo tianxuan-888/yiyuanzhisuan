@@ -1278,10 +1278,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                     <div className="text-xs text-gray-500">转入总额</div>
                                     <div className="text-lg font-bold text-green-600">{Number(capitalFlowData?.stats?.total_transfer_in || 0).toLocaleString()}</div>
                                 </div>
-                                <div className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
-                                    <div className="text-xs text-gray-500">充值总额</div>
-                                    <div className="text-lg font-bold text-blue-600">{Number(capitalFlowData?.stats?.total_recharge || 0).toLocaleString()}</div>
-                                </div>
+
                                 <div className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
                                     <div className="text-xs text-gray-500">提现总额</div>
                                     <div className="text-lg font-bold text-orange-600">{Number(capitalFlowData?.stats?.total_withdraw || 0).toLocaleString()}</div>
@@ -1294,8 +1291,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                     { value: 'all', label: '全部' },
                                     { value: 'transfer_out', label: '转出' },
                                     { value: 'transfer_in', label: '转入' },
-                                    { value: 'recharge', label: '充值' },
-                                    { value: 'withdraw', label: '提现' },
+                                                                        { value: 'withdraw', label: '提现' },
                                     { value: 'energy_to_points', label: '转积分' },
                                     { value: 'sell_profit', label: '收益' },
                                 ].map(opt => (
@@ -1325,7 +1321,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                         const flowTypeLabels: Record<string, string> = {
                                             transfer_out: '转出', transfer_in: '转入',
                                             energy_to_points: '转积分', withdraw: '提现',
-                                            recharge: '充值', sell_profit: '收益',
+                                            sell_profit: "收益",
                                         };
                                         const flowTypeColors: Record<string, string> = {
                                             transfer_out: 'bg-red-100 text-red-600',
