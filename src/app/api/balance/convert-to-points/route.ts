@@ -50,16 +50,26 @@ export async function POST(request: NextRequest) {
 
     // 执行转换：1:1，energy_value → points
     // 1. 扣除智算金
-    await execute(
-      'UPDATE users SET energy_value = energy_value - $1 WHERE id::text = $2',
+    const deductResult = await execute(
+      'UPDATE users SET energy_value = energy_value - $1 WHERE id::text = $2 AND energy_value >= $1',
       [convertAmount, userId]
     );
+    console.log('[convert-to-points] deduct energy result:', JSON.stringify(deductResult));
+
+    // 验证扣除是否成功
+    const afterDeduct = await query('SELECT energy_value FROM users WHERE id::text = $1', [userId]);
+    console.log('[convert-to-points] after deduct energy_value:', afterDeduct?.[0]?.energy_value);
 
     // 2. 增加积分
-    await execute(
+    const addPointsResult = await execute(
       'UPDATE users SET points = (COALESCE(points::float, 0) + $1)::numeric WHERE id::text = $2',
       [convertAmount, userId]
     );
+    console.log('[convert-to-points] add points result:', JSON.stringify(addPointsResult));
+
+    // 验证积分是否增加
+    const afterPoints = await query('SELECT points FROM users WHERE id::text = $1', [userId]);
+    console.log('[convert-to-points] after add points:', afterPoints?.[0]?.points);
 
     // 3. 记录 transactions 明细 - 扣减智算金
     await execute(

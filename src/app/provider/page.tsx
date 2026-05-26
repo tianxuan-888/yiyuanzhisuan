@@ -5088,6 +5088,9 @@ export default function ProviderPage() {
                                                 showMessage("success", data.message);
                                                 setShowConvertDialog(false);
                                                 setWithdrawAmount("");
+                                                // 立即刷新用户数据确保页面显示最新
+                                                await refreshUser();
+                                                // 再刷新其他数据
                                                 refreshAll();
                                             } else {
                                                 showMessage("error", data.error || "转换失败");
