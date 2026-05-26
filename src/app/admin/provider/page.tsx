@@ -1339,26 +1339,26 @@ export default function ProviderDashboard() {
             </div>
             
             {/* 智算金大卡片 - 点击弹窗选择功能 */}
-            <Card className="bg-gradient-to-br from-purple-600 to-purple-800 text-white border-0 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
-              onClick={() => setShowEnergyActionDialog(true)}>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-                        <Coins className="w-5 h-5 text-white" />
-                      </div>
-                      <span className="text-purple-200 text-sm font-medium">智算金</span>
+            <div 
+              className="bg-gradient-to-br from-purple-600 to-purple-800 text-white rounded-lg shadow-lg cursor-pointer hover:shadow-xl transition-shadow p-6"
+              onClick={() => setShowEnergyActionDialog(true)}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+                      <Coins className="w-5 h-5 text-white" />
                     </div>
-                    <p className="text-3xl font-bold mt-2">¥{(balanceInfo.energyValue || 0).toLocaleString()}</p>
-                    <p className="text-xs opacity-70 mt-1">点击选择：互转 / 转积分 / 提现</p>
+                    <span className="text-purple-200 text-sm font-medium">智算金</span>
                   </div>
-                  <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center ml-4">
-                    <ChevronRight className="w-8 h-8 text-white/80" />
-                  </div>
+                  <p className="text-3xl font-bold mt-2">¥{(balanceInfo.energyValue || 0).toLocaleString()}</p>
+                  <p className="text-xs opacity-70 mt-1">点击选择：互转 / 转积分 / 提现</p>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center ml-4">
+                  <ChevronRight className="w-8 h-8 text-white/80" />
+                </div>
+              </div>
+            </div>
 
             {/* 收益统计卡片 */}
             <div className="grid grid-cols-3 gap-6">
