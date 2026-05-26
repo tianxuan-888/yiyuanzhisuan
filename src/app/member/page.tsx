@@ -431,8 +431,8 @@ const [copySuccess, setCopySuccess] = useState(false);
                         if (releaseData.success) {
                             console.log('[member] 到期收益已自动释放');
                             // 更新用户余额（从返回数据中获取）
-                            if (releaseData.data?.userBalance !== undefined) {
-                                setUser((prev: any) => prev ? { ...prev, balance: releaseData.data.userBalance } : prev);
+                            if (releaseData.data?.userEnergyValue !== undefined) {
+                                setUser((prev: any) => prev ? { ...prev, energy_value: releaseData.data.userEnergyValue } : prev);
                             }
                         }
                     } catch (e) {
