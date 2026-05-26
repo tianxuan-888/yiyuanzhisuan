@@ -122,17 +122,17 @@ export async function POST(request: NextRequest) {
         );
 
       } else if (reviewer.role === 'admin') {
-        // 总台审核通过：网点提现的是收益(balance)，到账总台的收益
+        // 总台审核通过：网点提现的是智算金(energy_value)，到账总台的智算金
         await execute(
-          `UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
+          `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
           [withdrawal.amount, auth.userId]
         );
 
-        // 写入交易记录
+        // 写入能量值流水
         await execute(
-          `INSERT INTO transactions (user_id, type, amount, status, description, created_at)
-           VALUES ($1, 'withdraw_receive', $2, 'completed', $3, NOW())`,
-          [auth.userId, withdrawal.amount, `收到${applicantName}提现¥${withdrawal.amount}`]
+          `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, created_at)
+           VALUES ($1, 'withdraw_receive', $2, $3, $1, $4, NOW())`,
+          [auth.userId, withdrawal.amount, withdrawal.user_id, `收到${applicantName}提现¥${withdrawal.amount}`]
         );
       }
 
@@ -142,14 +142,10 @@ export async function POST(request: NextRequest) {
       });
 
     } else {
-      // 审核拒绝 → 退还扣除的金额
-      const applicantRole = withdrawal.applicant_role || withdrawal.user_role;
-      const isEnergyWithdraw = ['member', 'provider'].includes(applicantRole);
-      const refundField = isEnergyWithdraw ? 'energy_value' : 'balance';
-
+      // 审核拒绝 → 退还扣除的金额（统一退还到energy_value/智算金）
       // 退还金额
       await execute(
-        `UPDATE users SET ${refundField} = ${refundField} + $1, updated_at = NOW() WHERE id = $2`,
+        `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
         [withdrawal.amount, withdrawal.user_id]
       );
 
@@ -160,13 +156,11 @@ export async function POST(request: NextRequest) {
       );
 
       // 写入退还流水
-      if (isEnergyWithdraw) {
-        await execute(
-          `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, created_at)
-           VALUES ($1, 'withdraw_refund', $2, $1, $1, $3, NOW())`,
-          [withdrawal.user_id, withdrawal.amount, '提现被拒绝，金额退还']
-        );
-      }
+      await execute(
+        `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, created_at)
+         VALUES ($1, 'withdraw_refund', $2, $1, $1, $3, NOW())`,
+        [withdrawal.user_id, withdrawal.amount, '提现被拒绝，金额退还']
+      );
 
       return NextResponse.json({
         success: true,

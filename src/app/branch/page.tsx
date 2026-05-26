@@ -2710,9 +2710,9 @@ export default function BranchPage() {
                   <CardContent className="pt-4">
                     <div className="flex items-center gap-2 mb-2">
                       <TrendingUp className="w-5 h-5" />
-                      <span className="text-sm opacity-80">累计收益</span>
+                      <span className="text-sm opacity-80">智算金余额</span>
                     </div>
-                    <p className="text-2xl font-bold">¥{Number(branchRevenueStats.totalRevenue || 0).toLocaleString()}</p>
+                    <p className="text-2xl font-bold">¥{Number(user?.energy_value || 0).toLocaleString()}</p>
                   </CardContent>
                 </Card>
                 <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
@@ -2756,7 +2756,7 @@ export default function BranchPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-500">可提现余额</p>
-                      <p className="text-2xl font-bold text-green-600">¥{Number(branchRevenueStats.totalRevenue || 0).toLocaleString()}</p>
+                      <p className="text-2xl font-bold text-green-600">¥{Number(user?.energy_value || 0).toLocaleString()}</p>
                     </div>
                     <div className="flex gap-2">
                       {/* 收益转收益按钮已禁用 */}
@@ -3184,13 +3184,13 @@ export default function BranchPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Banknote className="w-5 h-5 text-green-500" />
-                收益提现到智算中心
+                智算金提现
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="bg-green-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600">当前可提现收益余额</p>
-                <p className="text-2xl font-bold text-green-600">¥{Number(user?.balance || 0).toLocaleString()}</p>
+                <p className="text-sm text-gray-600">当前智算金余额</p>
+                <p className="text-2xl font-bold text-green-600">¥{Number(user?.energy_value || 0).toLocaleString()}</p>
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">提现金额</label>

@@ -43,13 +43,10 @@ export async function POST(request: NextRequest) {
 
     console.log('[withdrawals] POST user:', user.username, 'role:', user.role, 'energy_value:', user.energy_value, 'balance:', user.balance, 'amount:', amount);
 
-    // 根据角色确定扣除来源
-    // 会员/服务商 → 扣智算金(energy_value)
-    // 网点 → 扣收益(balance)
-    const isEnergyWithdraw = ['member', 'provider'].includes(user.role);
-    const sourceField = isEnergyWithdraw ? 'energy_value' : 'balance';
-    const sourceLabel = isEnergyWithdraw ? '智算金' : '收益';
-    const availableAmount = isEnergyWithdraw ? user.energy_value : user.balance;
+    // 所有角色统一从智算金(energy_value)扣除
+    const sourceField = 'energy_value';
+    const sourceLabel = '智算金';
+    const availableAmount = user.energy_value;
 
     if (availableAmount < amount) {
       return NextResponse.json({ success: false, message: `${sourceLabel}余额不足，当前余额¥${availableAmount}` });
