@@ -1914,7 +1914,7 @@ export default function ProviderPage() {
         if (activeTab === "capitalFlow") {
             loadCapitalFlow();
         }
-    }, [capitalFlowTab, capitalFlowPage]);
+    }, [activeTab, capitalFlowTab, capitalFlowPage]);
 
     // 加载积分记录
     const loadPointsRecords = useCallback(async () => {
@@ -2374,7 +2374,7 @@ export default function ProviderPage() {
                                 <Gift className="w-4 h-4" />我的积分
                             </button>
                             <button
-                                onClick={() => setActiveTab("capitalFlow")}
+                                onClick={() => { setActiveTab("capitalFlow"); loadCapitalFlow(); }}
                                 className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "capitalFlow" ? "bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg shadow-teal-200" : "text-gray-600 hover:bg-teal-50"}`}>
                                 <ArrowRightLeft className="w-4 h-4" />资金流水
                             </button>

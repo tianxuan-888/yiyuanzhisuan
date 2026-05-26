@@ -677,7 +677,7 @@ const [copySuccess, setCopySuccess] = useState(false);
         if (activeTab === "capitalFlow") {
             loadCapitalFlow();
         }
-    }, [capitalFlowTab, capitalFlowPage]);
+    }, [activeTab, capitalFlowTab, capitalFlowPage]);
 
     // 加载收款信息
     const loadPaymentInfo = async () => {
