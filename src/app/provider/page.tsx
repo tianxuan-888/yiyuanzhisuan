@@ -67,6 +67,7 @@ import {
     Download,
     Calendar,
     RotateCcw,
+    AlertTriangle,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -265,6 +266,9 @@ export default function ProviderPage() {
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [changingPassword, setChangingPassword] = useState(false);
+
+    // 回购确认弹窗
+    const [repurchaseConfirm, setRepurchaseConfirm] = useState<{ show: boolean; productId: string; productName: string; price: number }>({ show: false, productId: '', productName: '', price: 0 });
 
     const [message, setMessage] = useState<{
         type: "success" | "error";
@@ -1806,7 +1810,6 @@ export default function ProviderPage() {
 
     // 服务商回购产品
     const handleRepurchase = useCallback(async (productId: string) => {
-        if (!confirm("确定要回购此产品吗？回购后会员端显示已完成，产品回到您的在售列表。")) return;
         setAssigningMatch(true);
         try {
             const res = await authFetch("/api/products/repurchase", {
@@ -1817,6 +1820,7 @@ export default function ProviderPage() {
             const data = await res.json();
             if (data.success) {
                 showMessage("success", "回购成功，产品已回到在售列表");
+                setRepurchaseConfirm({ show: false, productId: '', productName: '', price: 0 });
                 loadTransferData();
             } else {
                 showMessage("error", "回购失败: " + (data.message || data.error || "未知错误"));
@@ -3886,7 +3890,7 @@ export default function ProviderPage() {
                                                                 <Button
                                                                     size="sm"
                                                                     className="bg-amber-600 hover:bg-amber-700"
-                                                                    onClick={() => handleRepurchase(product.id)}
+                                                                    onClick={() => setRepurchaseConfirm({ show: true, productId: product.id, productName: product.name || product.code, price: product.price })}
                                                                     disabled={assigningMatch}
                                                                 >
                                                                     <RotateCcw className="w-4 h-4 mr-1" /> 回购
@@ -5911,6 +5915,47 @@ export default function ProviderPage() {
                                 >
                                     {assigningMatch ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <UserPlus className="w-4 h-4 mr-1" />}
                                     确认匹配
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* 回购确认弹窗 */}
+                    <Dialog open={repurchaseConfirm.show} onOpenChange={(open) => { if (!open) setRepurchaseConfirm({ show: false, productId: '', productName: '', price: 0 }); }}>
+                        <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                                <DialogTitle className="flex items-center gap-2 text-amber-600">
+                                    <AlertTriangle className="w-5 h-5" />
+                                    确认回购
+                                </DialogTitle>
+                                <DialogDescription>
+                                    此操作不可撤销，请确认后再操作
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="py-4 space-y-3">
+                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-gray-600">产品名称</span>
+                                        <span className="font-medium">{repurchaseConfirm.productName}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-gray-600">回购金额</span>
+                                        <span className="font-bold text-amber-600">¥{repurchaseConfirm.price?.toLocaleString()}</span>
+                                    </div>
+                                </div>
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                                    <p className="text-sm text-red-700">
+                                        回购后该产品将回到您的在售列表，会员端显示已完成。请确认是否执行回购操作？
+                                    </p>
+                                </div>
+                            </div>
+                            <DialogFooter className="gap-2">
+                                <Button variant="outline" onClick={() => setRepurchaseConfirm({ show: false, productId: '', productName: '', price: 0 })}>
+                                    取消
+                                </Button>
+                                <Button className="bg-amber-600 hover:bg-amber-700" onClick={() => handleRepurchase(repurchaseConfirm.productId)} disabled={assigningMatch}>
+                                    {assigningMatch ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <RotateCcw className="w-4 h-4 mr-1" />}
+                                    确认回购
                                 </Button>
                             </DialogFooter>
                         </DialogContent>
