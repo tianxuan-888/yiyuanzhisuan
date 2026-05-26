@@ -337,7 +337,7 @@ export default function BranchPage() {
         fetch(`/api/quota-requests?requesterId=${branchId}&requesterType=branch`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`/api/branch/approve-quota?branchId=${branchId}&status=pending`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`/api/energy/branch-stats?branchId=${branchId}&username=${username || ''}`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`/api/withdrawals?tab=review&status=pending`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`/api/withdrawals?tab=review`, { headers: { 'Authorization': `Bearer ${token}` } }),
       ]);
       console.log('[loadData] 所有API请求完成');
       
@@ -978,7 +978,7 @@ export default function BranchPage() {
   // 加载待审核提现列表 - 统一调用 /api/withdrawals
   const loadPendingWithdrawals = async () => {
     try {
-      const response = await authFetch('/api/withdrawals?tab=review&status=pending');
+      const response = await authFetch('/api/withdrawals?tab=review');
       const data = await response.json();
       if (data.success) {
         const records = data.data?.records || [];
@@ -2586,60 +2586,83 @@ export default function BranchPage() {
           {/* 提现审核 Tab */}
           {activeTab === 'withdraw-review' && (
             <div className="space-y-3 md:space-y-6">
+              {/* 待审核 */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <ClipboardCheck className="w-5 h-5" />
-                    提现审核
+                    待审核提现
+                    <Badge className="bg-orange-500 ml-2">{pendingWithdrawals.filter((w: any) => w.status === 'pending').length}</Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {pendingWithdrawals.length > 0 ? (
+                  {pendingWithdrawals.filter((w: any) => w.status === 'pending').length > 0 ? (
                     <div className="space-y-4">
-                      {pendingWithdrawals.map((w: any) => (
+                      {pendingWithdrawals.filter((w: any) => w.status === 'pending').map((w: any) => (
                         <div key={w.id} className="border rounded-lg p-4 bg-orange-50">
                           <div className="flex justify-between items-start mb-3">
                             <div>
                               <p className="font-medium">{w.username || w.real_name || '用户'}</p>
-                              <p className="text-sm text-gray-500">角色: {w.user_role_name === 'member' ? '会员' : w.user_role_name === 'provider' ? '服务商' : w.user_role_name || (w.user_role === 'member' ? '会员' : w.user_role === 'provider' ? '服务商' : w.user_role)}</p>
+                              <p className="text-sm text-gray-500">角色: {w.user_role === 'member' ? '会员' : w.user_role === 'provider' ? '服务商' : w.user_role}</p>
                               <p className="text-sm text-gray-500">手机: {w.phone || '-'}</p>
                             </div>
                             <div className="text-right">
                               <p className="text-xl font-bold text-orange-600">¥{Number(w.amount).toLocaleString()}</p>
-                              <p className="text-xs text-gray-500">手续费: ¥{Number(w.fee_amount || w.fee).toLocaleString()}</p>
+                              <p className="text-xs text-gray-500">手续费: ¥{Number(w.fee).toLocaleString()} | 到账: ¥{Number(w.actual_amount).toLocaleString()}</p>
                             </div>
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-sm mb-3">
                             <div className="text-gray-600"><span className="font-medium">支付宝:</span> {w.alipay_account || '-'}</div>
                             <div className="text-gray-600"><span className="font-medium">姓名:</span> {w.real_name || '-'}</div>
                           </div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <Badge className={w.status === 'pending' ? 'bg-yellow-500' : w.status === 'approved' ? 'bg-blue-500' : w.status === 'transferred' ? 'bg-green-500' : 'bg-gray-500'}>
-                              {w.status === 'pending' ? '待审核' : w.status === 'approved' ? '已审核' : w.status === 'transferred' ? '已打款' : w.status}
-                            </Badge>
-                          </div>
                           <div className="flex gap-2">
-                            {w.status === 'pending' && (
-                              <>
-                                <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleReviewWithdrawal(w.id, 'approve')} disabled={submitting}>
-                                  <CheckCircle className="w-4 h-4 mr-1" /> 审核通过
-                                </Button>
-                                <Button size="sm" variant="destructive" onClick={() => handleReviewWithdrawal(w.id, 'reject')} disabled={submitting}>
-                                  <XCircle className="w-4 h-4 mr-1" /> 拒绝
-                                </Button>
-                              </>
-                            )}
-                            {w.status === 'approved' && (
-                              <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => handleReviewWithdrawal(w.id, 'confirm_transfer')} disabled={submitting}>
-                                <CheckCircle className="w-4 h-4 mr-1" /> 确认已转账
-                              </Button>
-                            )}
+                            <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleReviewWithdrawal(w.id, 'approve')} disabled={submitting}>
+                              <CheckCircle className="w-4 h-4 mr-1" /> 审核通过
+                            </Button>
+                            <Button size="sm" variant="destructive" onClick={() => handleReviewWithdrawal(w.id, 'reject')} disabled={submitting}>
+                              <XCircle className="w-4 h-4 mr-1" /> 拒绝
+                            </Button>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
                     <p className="text-gray-500 text-center py-8">暂无待审核的提现申请</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* 审核记录 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <History className="w-5 h-5" />
+                    审核记录
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {pendingWithdrawals.filter((w: any) => w.status !== 'pending').length > 0 ? (
+                    <div className="space-y-3">
+                      {pendingWithdrawals.filter((w: any) => w.status !== 'pending').map((w: any) => (
+                        <div key={w.id} className="border rounded-lg p-3 bg-gray-50">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <p className="font-medium text-sm">{w.username || w.real_name || '用户'} <span className="text-gray-400 text-xs">({w.user_role === 'member' ? '会员' : w.user_role === 'provider' ? '服务商' : w.user_role})</span></p>
+                              <p className="text-xs text-gray-500">{new Date(w.reviewed_at || w.updated_at).toLocaleString()}</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="font-bold">¥{Number(w.amount).toLocaleString()}</span>
+                              <Badge className={w.status === 'approved' ? 'bg-green-500' : w.status === 'completed' ? 'bg-blue-500' : 'bg-red-500'}>
+                                {w.status === 'approved' ? '已审核' : w.status === 'completed' ? '已打款' : w.status === 'rejected' ? '已拒绝' : w.status}
+                              </Badge>
+                            </div>
+                          </div>
+                          {w.reject_reason && <p className="text-xs text-red-500 mt-1">拒绝原因: {w.reject_reason}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-center py-4">暂无审核记录</p>
                   )}
                 </CardContent>
               </Card>
@@ -2656,18 +2679,18 @@ export default function BranchPage() {
                     <TrendingUp className="w-5 h-5" />
                     <span className="opacity-80 text-sm">智算金</span>
                   </div>
-                  <p className="text-3xl font-bold">¥{Number(user?.balance || branchEnergyBalance || 0).toLocaleString()}</p>
+                  <p className="text-3xl font-bold">¥{Number(user?.energy_value || 0).toLocaleString()}</p>
                   <p className="text-xs opacity-70 mt-1">可提现/互转/转积分</p>
                   <div className="flex gap-2 mt-3">
-                    <Button size="sm" variant="secondary" className="h-8 text-xs bg-white/20 hover:bg-white/30 text-white border-0"
+                    <Button size="sm" className="h-8 text-xs bg-white text-purple-700 hover:bg-purple-50 border-0 font-bold shadow-sm"
                       onClick={() => setShowTransferDialog(true)}>
                       <ArrowLeftRight className="w-3.5 h-3.5 mr-1" />互转
                     </Button>
-                    <Button size="sm" variant="secondary" className="h-8 text-xs bg-white/20 hover:bg-white/30 text-white border-0"
+                    <Button size="sm" className="h-8 text-xs bg-white text-purple-700 hover:bg-purple-50 border-0 font-bold shadow-sm"
                       onClick={() => setShowConvertToEnergyDialog(true)}>
                       <Repeat className="w-3.5 h-3.5 mr-1" />转积分
                     </Button>
-                    <Button size="sm" variant="secondary" className="h-8 text-xs bg-white/20 hover:bg-white/30 text-white border-0"
+                    <Button size="sm" className="h-8 text-xs bg-white text-purple-700 hover:bg-purple-50 border-0 font-bold shadow-sm"
                       onClick={() => setShowBranchWithdrawDialog(true)}>
                       <Wallet className="w-3.5 h-3.5 mr-1" />提现
                     </Button>
@@ -3018,9 +3041,9 @@ export default function BranchPage() {
                 />
               </div>
               <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
-                <p className="font-medium mb-1">💡 配比说明</p>
-                <p>服务网点申请额度配比20%收益</p>
-                <p className="text-xs mt-1">例如：申请100,000元额度，将配比20,000收益</p>
+                <p className="font-medium mb-1">💡 额度说明</p>
+                <p>服务网点向智算中心申请算力额度</p>
+                <p className="text-xs mt-1">申请额度按120%配比：申请100,000元额度，获得100,000算力额度+20,000能量值</p>
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setShowQuotaApplyDialog(false)}>取消</Button>
@@ -3228,7 +3251,7 @@ export default function BranchPage() {
             <CardContent className="space-y-4">
               <div className="bg-purple-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-600">当前智算金余额</p>
-                <p className="text-2xl font-bold text-purple-600">¥{Number(user?.balance || branchEnergyBalance || 0).toLocaleString()}</p>
+                <p className="text-2xl font-bold text-purple-600">¥{Number(user?.energy_value || 0).toLocaleString()}</p>
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">转换金额</label>

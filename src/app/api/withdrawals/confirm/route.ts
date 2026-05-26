@@ -102,9 +102,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'approve') {
-      // 审核通过 → 标记为completed（确认线下打款已完成）
+      // 审核通过 → 标记为approved
       await execute(
-        `UPDATE withdrawals SET status = 'completed', reviewer_id = $1, reviewed_at = NOW(), completed_at = NOW(), updated_at = NOW() WHERE id = $2`,
+        `UPDATE withdrawals SET status = 'approved', reviewer_id = $1, reviewed_at = NOW(), updated_at = NOW() WHERE id = $2`,
         [auth.userId, withdrawalId]
       );
 

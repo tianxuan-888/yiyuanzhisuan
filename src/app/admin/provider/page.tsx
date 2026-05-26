@@ -1351,15 +1351,15 @@ export default function ProviderDashboard() {
                     <p className="text-3xl font-bold mt-2">¥{(balanceInfo.energyValue || 0).toLocaleString()}</p>
                     <p className="text-xs opacity-70 mt-1">可提现/互转/转积分</p>
                     <div className="flex gap-3 mt-4">
-                      <Button size="sm" className="h-9 px-4 text-xs bg-white/20 hover:bg-white/30 text-white border-0 font-medium"
+                      <Button size="sm" className="h-9 px-5 text-sm bg-white text-purple-700 hover:bg-purple-50 border-0 font-bold shadow-sm"
                         onClick={() => setActiveMenu('balance-transfer')}>
                         <ArrowLeftRight className="w-4 h-4 mr-1.5" />互转
                       </Button>
-                      <Button size="sm" className="h-9 px-4 text-xs bg-white/20 hover:bg-white/30 text-white border-0 font-medium"
+                      <Button size="sm" className="h-9 px-5 text-sm bg-white text-purple-700 hover:bg-purple-50 border-0 font-bold shadow-sm"
                         onClick={() => setShowBalanceConvertDialog(true)}>
                         <Repeat className="w-4 h-4 mr-1.5" />转积分
                       </Button>
-                      <Button size="sm" className="h-9 px-4 text-xs bg-white/20 hover:bg-white/30 text-white border-0 font-medium"
+                      <Button size="sm" className="h-9 px-5 text-sm bg-white text-purple-700 hover:bg-purple-50 border-0 font-bold shadow-sm"
                         onClick={() => setShowWithdrawDialog(true)}>
                         <Wallet className="w-4 h-4 mr-1.5" />提现
                       </Button>

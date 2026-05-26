@@ -150,8 +150,9 @@ export async function GET(request: NextRequest) {
       //   mine tab: 看自己的提现
       if (tab === 'review') {
         conditions.push(`w.reviewer_type = 'branch'`);
-        // 只看本网点下的会员和服务商
-        conditions.push(`(u.branch_id = $${paramIndex++} OR u.provider_id IN (SELECT id FROM users WHERE branch_id = $${paramIndex++}))`);
+        // 只看本网点下的会员和服务商的提现
+        // 会员的 branch_id 直接指向网点，服务商通过 providers 表关联网点
+        conditions.push(`(u.branch_id = $${paramIndex++} OR w.user_id IN (SELECT p.user_id FROM providers p WHERE p.branch_id = $${paramIndex++}))`);
         params.push(user.id);
         params.push(user.id);
       } else if (tab === 'mine') {
@@ -159,7 +160,7 @@ export async function GET(request: NextRequest) {
         params.push(user.id);
       } else {
         // 默认：自己的提现 + 待自己审核的提现
-        conditions.push(`(w.user_id = $${paramIndex++} OR (w.reviewer_type = 'branch' AND (u.branch_id = $${paramIndex++} OR u.provider_id IN (SELECT id FROM users WHERE branch_id = $${paramIndex++}))))`);
+        conditions.push(`(w.user_id = $${paramIndex++} OR (w.reviewer_type = 'branch' AND (u.branch_id = $${paramIndex++} OR w.user_id IN (SELECT p.user_id FROM providers p WHERE p.branch_id = $${paramIndex++}))))`);
         params.push(user.id);
         params.push(user.id);
         params.push(user.id);
