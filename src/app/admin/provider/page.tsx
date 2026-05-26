@@ -163,6 +163,7 @@ export default function ProviderDashboard() {
   const [converting, setConverting] = useState(false);
   const [showBalanceConvertDialog, setShowBalanceConvertDialog] = useState(false);
   const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
+  const [showEnergyActionDialog, setShowEnergyActionDialog] = useState(false);
 
   // Toast
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
@@ -1337,8 +1338,9 @@ export default function ProviderDashboard() {
               <p className="text-gray-500 text-sm mt-1">管理您的收益，为会员充值</p>
             </div>
             
-            {/* 智算金大卡片 - 与会员端一致 */}
-            <Card className="bg-gradient-to-br from-purple-600 to-purple-800 text-white border-0 shadow-lg">
+            {/* 智算金大卡片 - 点击弹窗选择功能 */}
+            <Card className="bg-gradient-to-br from-purple-600 to-purple-800 text-white border-0 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+              onClick={() => setShowEnergyActionDialog(true)}>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
@@ -1349,24 +1351,10 @@ export default function ProviderDashboard() {
                       <span className="text-purple-200 text-sm font-medium">智算金</span>
                     </div>
                     <p className="text-3xl font-bold mt-2">¥{(balanceInfo.energyValue || 0).toLocaleString()}</p>
-                    <p className="text-xs opacity-70 mt-1">可提现/互转/转积分</p>
-                    <div className="flex gap-3 mt-4">
-                      <Button size="sm" className="h-9 px-5 text-sm bg-white text-purple-700 hover:bg-purple-50 border-0 font-bold shadow-sm"
-                        onClick={() => setActiveMenu('balance-transfer')}>
-                        <ArrowLeftRight className="w-4 h-4 mr-1.5" />互转
-                      </Button>
-                      <Button size="sm" className="h-9 px-5 text-sm bg-white text-purple-700 hover:bg-purple-50 border-0 font-bold shadow-sm"
-                        onClick={() => setShowBalanceConvertDialog(true)}>
-                        <Repeat className="w-4 h-4 mr-1.5" />转积分
-                      </Button>
-                      <Button size="sm" className="h-9 px-5 text-sm bg-white text-purple-700 hover:bg-purple-50 border-0 font-bold shadow-sm"
-                        onClick={() => setShowWithdrawDialog(true)}>
-                        <Wallet className="w-4 h-4 mr-1.5" />提现
-                      </Button>
-                    </div>
+                    <p className="text-xs opacity-70 mt-1">点击选择：互转 / 转积分 / 提现</p>
                   </div>
                   <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center ml-4">
-                    <DollarSign className="w-8 h-8 text-white/80" />
+                    <ChevronRight className="w-8 h-8 text-white/80" />
                   </div>
                 </div>
               </CardContent>
@@ -1544,39 +1532,6 @@ export default function ProviderDashboard() {
                     </div>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-
-            {/* 智算金操作按钮 - 醒目显示 */}
-            <Card className="border-2 border-purple-300 shadow-lg">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Wallet className="w-5 h-5 text-purple-600" />
-                    <span className="font-bold text-purple-700 text-lg">智算金余额</span>
-                  </div>
-                  <span className="text-2xl font-black text-purple-700">¥{(balanceInfo?.energyValue || user?.energy_value || 0).toLocaleString()}</span>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <Button 
-                    onClick={() => setActiveMenu('balance-transfer')}
-                    className="bg-purple-600 hover:bg-purple-700 text-white h-11 text-base font-bold"
-                  >
-                    <ArrowLeftRight className="w-4 h-4 mr-1" /> 互转
-                  </Button>
-                  <Button 
-                    onClick={() => setShowBalanceConvertDialog(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white h-11 text-base font-bold"
-                  >
-                    <RefreshCw className="w-4 h-4 mr-1" /> 转积分
-                  </Button>
-                  <Button 
-                    onClick={() => setShowWithdrawDialog(true)}
-                    className="bg-green-600 hover:bg-green-700 text-white h-11 text-base font-bold"
-                  >
-                    <Banknote className="w-4 h-4 mr-1" /> 提现
-                  </Button>
-                </div>
               </CardContent>
             </Card>
 
@@ -2599,6 +2554,36 @@ export default function ProviderDashboard() {
                 确认转换
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* 智算金操作弹窗 */}
+        <Dialog open={showEnergyActionDialog} onOpenChange={setShowEnergyActionDialog}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-center text-xl">智算金操作</DialogTitle>
+              <DialogDescription className="text-center">当前余额：¥{(balanceInfo.energyValue || 0).toLocaleString()}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              <Button
+                className="w-full h-14 text-lg font-bold bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={() => { setShowEnergyActionDialog(false); setActiveMenu('balance-transfer'); }}
+              >
+                <ArrowLeftRight className="w-5 h-5 mr-2" /> 智算金互转
+              </Button>
+              <Button
+                className="w-full h-14 text-lg font-bold bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={() => { setShowEnergyActionDialog(false); setShowBalanceConvertDialog(true); }}
+              >
+                <RefreshCw className="w-5 h-5 mr-2" /> 转积分
+              </Button>
+              <Button
+                className="w-full h-14 text-lg font-bold bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => { setShowEnergyActionDialog(false); setShowWithdrawDialog(true); }}
+              >
+                <Wallet className="w-5 h-5 mr-2" /> 提现
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
 
