@@ -3189,8 +3189,8 @@ export default function BranchPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="bg-green-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600">当前收益余额</p>
-                <p className="text-2xl font-bold text-green-600">¥{Number(branchRevenueStats.totalRevenue || 0).toLocaleString()}</p>
+                <p className="text-sm text-gray-600">当前可提现收益余额</p>
+                <p className="text-2xl font-bold text-green-600">¥{Number(user?.balance || 0).toLocaleString()}</p>
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">提现金额</label>
