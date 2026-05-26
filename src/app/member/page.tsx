@@ -2869,72 +2869,11 @@ const [copySuccess, setCopySuccess] = useState(false);
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    {/* 筛选标签 */}
-                                    <div className="flex gap-2 mb-4 flex-wrap">
-                                        <Button
-                                            size="sm"
-                                            variant={profitDetailFilter === 'all' ? "default" : "outline"}
-                                            onClick={() => setProfitDetailFilter('all')}
-                                        >
-                                            全部
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant={profitDetailFilter === 'principal_return' ? "default" : "outline"}
-                                            onClick={() => setProfitDetailFilter('principal_return')}
-                                        >
-                                            Token值回流
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant={profitDetailFilter === 'profit_in' ? "default" : "outline"}
-                                            onClick={() => setProfitDetailFilter('profit_in')}
-                                        >
-                                            收益入账
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant={profitDetailFilter === 'convert_to_energy' ? "default" : "outline"}
-                                            onClick={() => setProfitDetailFilter('convert_to_energy')}
-                                        >
-                                            转入收益
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant={profitDetailFilter === 'withdraw' ? "default" : "outline"}
-                                            onClick={() => setProfitDetailFilter('withdraw')}
-                                        >
-                                            提现
-                                        </Button>
-                                    </div>
 
-                                    {/* 收益明细统计 */}
-                                    {profitDetailsStats && (
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-                                            <div className="bg-blue-50 rounded-lg p-2 text-center">
-                                                <p className="text-xs text-blue-600">Token值回流</p>
-                                                <p className="font-bold text-blue-600">{Number(profitDetailsStats.totalPrincipal || 0).toLocaleString()}</p>
-                                            </div>
-                                            <div className="bg-green-50 rounded-lg p-2 text-center">
-                                                <p className="text-xs text-green-600">收益入账</p>
-                                                <p className="font-bold text-green-600">{Number(profitDetailsStats.totalProfit || 0).toLocaleString()}</p>
-                                            </div>
-                                            <div className="bg-purple-50 rounded-lg p-2 text-center">
-                                                <p className="text-xs text-purple-600">转入收益</p>
-                                                <p className="font-bold text-purple-600">{Number(profitDetailsStats.totalConvert || 0).toLocaleString()}</p>
-                                            </div>
-                                            <div className="bg-amber-50 rounded-lg p-2 text-center">
-                                                <p className="text-xs text-amber-600">已提现</p>
-                                                <p className="font-bold text-amber-600">{Number(profitDetailsStats.totalWithdraw || 0).toLocaleString()}</p>
-                                            </div>
-                                        </div>
-                                    )}
 
                                     {profitDetails.length > 0 ? (
                                         <div className="space-y-3 max-h-96 overflow-y-auto">
-                                            {profitDetails
-                                                .filter((d: any) => profitDetailFilter === 'all' || d.type === profitDetailFilter)
-                                                .map((detail: any) => (
+                                            {profitDetails.map((detail: any) => (
                                                     <div key={detail.id} className="border rounded-lg p-3 bg-slate-50">
                                                         <div className="flex justify-between items-start">
                                                             <div>
