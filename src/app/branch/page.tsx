@@ -3043,7 +3043,6 @@ export default function BranchPage() {
               <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
                 <p className="font-medium mb-1">💡 额度说明</p>
                 <p>服务网点向智算中心申请算力额度</p>
-                <p className="text-xs mt-1">申请额度按120%配比：申请100,000元额度，获得100,000算力额度+20,000能量值</p>
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setShowQuotaApplyDialog(false)}>取消</Button>
