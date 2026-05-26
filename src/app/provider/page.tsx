@@ -66,6 +66,7 @@ import {
     Check,
     Download,
     Calendar,
+    RotateCcw,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -1774,6 +1775,30 @@ export default function ProviderPage() {
             }
         } catch (error) {
             showMessage("error", "取消匹配失败");
+        } finally {
+            setAssigningMatch(false);
+        }
+    }, [loadTransferData, showMessage]);
+
+    // 服务商回购产品
+    const handleRepurchase = useCallback(async (productId: string) => {
+        if (!confirm("确定要回购此产品吗？回购后会员端显示已完成，产品回到您的在售列表。")) return;
+        setAssigningMatch(true);
+        try {
+            const res = await authFetch("/api/products/repurchase", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ productId }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                showMessage("success", "回购成功，产品已回到在售列表");
+                loadTransferData();
+            } else {
+                showMessage("error", "回购失败: " + (data.message || data.error || "未知错误"));
+            }
+        } catch (error) {
+            showMessage("error", "回购操作失败");
         } finally {
             setAssigningMatch(false);
         }
@@ -3849,6 +3874,14 @@ export default function ProviderPage() {
                                                                     disabled={assigningMatch}
                                                                 >
                                                                     <UserPlus className="w-4 h-4 mr-1" /> 匹配
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    className="bg-amber-600 hover:bg-amber-700"
+                                                                    onClick={() => handleRepurchase(product.id)}
+                                                                    disabled={assigningMatch}
+                                                                >
+                                                                    <RotateCcw className="w-4 h-4 mr-1" /> 回购
                                                                 </Button>
                                                             </div>
                                                         </div>

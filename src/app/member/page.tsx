@@ -2510,7 +2510,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                 {(() => {
                                     // 分为待确认和持有中两组
                                     const pendingProducts = userProducts.filter(up => up.status === 'pending_confirm');
-                                    const activeProducts = userProducts.filter(up => up.status === 'holding' || up.status === 'pending_sell' || up.status === 'transferring' || up.status === 'repurchase_pending' || up.status === 'recycled');
+                                    const activeProducts = userProducts.filter(up => up.status === 'holding' || up.status === 'pending_sell' || up.status === 'transferring' || up.status === 'repurchase_pending' || up.status === 'recycled' || up.status === 'repurchased');
                                     
                                     // 按产品周期分组
                                     const groupByPeriod = (products: typeof userProducts) => {
@@ -2625,7 +2625,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                         up.status === "pending_sell" ? "bg-yellow-100 text-yellow-700" : 
                                                                         up.status === "transferring" ? "bg-orange-100 text-orange-700" :
                                                                         up.status === "repurchase_pending" ? "bg-purple-100 text-purple-700" :
-                                                                        up.status === "repurchased" ? "bg-red-100 text-red-700" :
+                                                                        up.status === "repurchased" ? "bg-green-100 text-green-700" :
                                                                         up.status === "recycled" ? "bg-gray-200 text-gray-500" :
                                                                         up.status === "pending_match" ? "bg-cyan-100 text-cyan-700" :
                                                                         up.status === "sold" ? "bg-gray-200 text-gray-500" :
@@ -2637,7 +2637,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                      up.status === "pending_sell" ? "待审核" : 
                                                                      up.status === "transferring" ? "流转中" :
                                                                      up.status === "repurchase_pending" ? "待确认回购" :
-                                                                     up.status === "repurchased" ? "已回购" :
+                                                                     up.status === "repurchased" ? "已完成" :
                                                                      up.status === "recycled" ? "已回收" :
                                                                      up.status === "pending_match" ? "待匹配" :
                                                                      up.status === "sold" ? "已售出" :
@@ -2672,6 +2672,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                     }}>卖出
                                                                 </Button>}
                                                                 {up.status === "pending_sell" && <span className="text-sm text-orange-500">售卖中</span>}
+                                                                {up.status === "repurchased" && <span className="text-sm text-green-600">已完成</span>}
                                                                 {up.status === "transferred" && <span className="text-sm text-green-600">已转出</span>}
                                                                 {up.status === "recycled" && <span className="text-sm text-gray-500">产品已回收</span>}
                                                             </td>
