@@ -635,8 +635,9 @@ export default function ProviderDashboard() {
       } else {
         setToast({ message: data.message || '提现申请失败', type: 'error' });
       }
-    } catch (err) {
-      setToast({ message: '提现申请失败', type: 'error' });
+    } catch (err: any) {
+      setToast({ message: `提现申请失败: ${err?.message || '网络错误'}`, type: 'error' });
+      console.error('提现申请错误:', err);
     }
     setWithdrawing(false);
   };
@@ -2633,8 +2634,9 @@ export default function ProviderDashboard() {
                   } else {
                     setToast({ message: data.message || '提现申请失败', type: 'error' });
                   }
-                } catch (err) {
-                  setToast({ message: '提现申请失败', type: 'error' });
+                } catch (err: any) {
+                  setToast({ message: `提现失败: ${err?.message || '网络错误'}`, type: 'error' });
+                  console.error('提现申请错误:', err);
                 } finally {
                   setWithdrawing(false);
                 }

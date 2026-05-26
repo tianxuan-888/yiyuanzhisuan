@@ -41,6 +41,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: '用户不存在' });
     }
 
+    console.log('[withdrawals] POST user:', user.username, 'role:', user.role, 'energy_value:', user.energy_value, 'balance:', user.balance, 'amount:', amount);
+
     // 根据角色确定扣除来源
     // 会员/服务商 → 扣智算金(energy_value)
     // 网点 → 扣收益(balance)
@@ -98,6 +100,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : '提现申请失败';
+    console.error('[withdrawals] POST error:', error);
     return NextResponse.json({ success: false, message }, { status: 500 });
   }
 }
