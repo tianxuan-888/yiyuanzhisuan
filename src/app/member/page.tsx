@@ -52,6 +52,7 @@ import {
     XCircle,
     Timer,
     Repeat,
+    Shield,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -276,6 +277,9 @@ export default function MemberPage() {
         members: [] as { id: string; username: string; phone: string; uniqueId: string; role: string; balance: number; createdAt: string }[],
     });
 
+    // 保护期相关状态
+    const [protectionInfo, setProtectionInfo] = useState<any>(null);
+
 const [copySuccess, setCopySuccess] = useState(false);
 
     // 收益记录相关状态
@@ -349,6 +353,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                 authFetch(`/api/member/points-records?userId=${userId}`),
                 authFetch(`/api/products/transfer/list?userId=${userId}`),
                 authFetch(`/api/products/transfer/market?memberId=${userId}`),
+                authFetch(`/api/member/protection?userId=${userId}`),
             ]);
 
             // 安全解析 JSON
@@ -364,7 +369,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                 }
             };
 
-            const [productsData, assetsData, notificationsData, referralData, energyRecordsData, rechargeData, purchaseLimitsData, chainDataResult, pendingOrdersData, withdrawData, pointsData, transfersData, transferMarketData] = await Promise.all(
+            const [productsData, assetsData, notificationsData, referralData, energyRecordsData, rechargeData, purchaseLimitsData, chainDataResult, pendingOrdersData, withdrawData, pointsData, transfersData, transferMarketData, protectionData] = await Promise.all(
                 results.map(safeJson)
             );
 
@@ -391,6 +396,11 @@ const [copySuccess, setCopySuccess] = useState(false);
             // 处理流转市场数据
             if (transferMarketData.success && transferMarketData.data) {
                 setTransferMarket(transferMarketData.data);
+            }
+
+            // 处理保护期数据
+            if (protectionData.success && protectionData.data) {
+                setProtectionInfo(protectionData.data);
             }
 
             // 处理关系链数据，提取服务商ID
@@ -1942,6 +1952,79 @@ const [copySuccess, setCopySuccess] = useState(false);
                                             </CardContent>
                                         </Card>
                                     )}
+
+                                    {/* 保护期 */}
+                                    <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
+                                        <CardHeader>
+                                            <CardTitle className="flex items-center gap-2">
+                                                <Shield className="w-5 h-5 text-blue-500" />
+                                                账号保护期
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="space-y-4">
+                                            {/* 保护期倒计时 */}
+                                            <div className="flex items-center justify-between p-4 bg-white rounded-xl shadow-sm">
+                                                <div>
+                                                    <p className="text-sm text-muted-foreground">当前保护期状态</p>
+                                                    <p className={`text-lg font-bold ${protectionInfo?.isProtected ? 'text-green-600' : 'text-red-500'}`}>
+                                                        {protectionInfo?.isProtected ? '保护中' : '已过期'}
+                                                    </p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-sm text-muted-foreground">剩余天数</p>
+                                                    <p className="text-2xl font-bold text-blue-600">
+                                                        {protectionInfo?.remainingDays ?? '-'}
+                                                        <span className="text-sm font-normal text-muted-foreground ml-1">天</span>
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {/* 有效直推统计 */}
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="p-3 bg-white rounded-xl shadow-sm text-center">
+                                                    <p className="text-sm text-muted-foreground">有效直推人数</p>
+                                                    <p className="text-xl font-bold text-blue-600">{protectionInfo?.validReferrals ?? 0}</p>
+                                                </div>
+                                                <div className="p-3 bg-white rounded-xl shadow-sm text-center">
+                                                    <p className="text-sm text-muted-foreground">累计延长天数</p>
+                                                    <p className="text-xl font-bold text-green-600">{(protectionInfo?.validReferrals ?? 0) * 18}</p>
+                                                </div>
+                                            </div>
+
+                                            {/* 到期时间 */}
+                                            {protectionInfo?.expiresAt && (
+                                                <div className="p-3 bg-white rounded-xl shadow-sm flex items-center justify-between">
+                                                    <span className="text-sm text-muted-foreground">保护期到期时间</span>
+                                                    <span className="text-sm font-medium">{new Date(protectionInfo.expiresAt).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })}</span>
+                                                </div>
+                                            )}
+
+                                            {/* 保护期规则说明 */}
+                                            <div className="p-3 bg-blue-100/60 rounded-lg border border-blue-200">
+                                                <p className="text-sm font-medium text-blue-800 mb-2">保护期规则</p>
+                                                <ul className="text-xs text-blue-700 space-y-1">
+                                                    <li>• 注册即享18天保护期</li>
+                                                    <li>• 每推荐1位有效直推 +18天</li>
+                                                    <li>• 有效直推：被推荐人购买产品累计≥¥3,000</li>
+                                                </ul>
+                                            </div>
+
+                                            {/* 延长记录 */}
+                                            {protectionInfo?.extensions && protectionInfo.extensions.length > 0 && (
+                                                <div className="space-y-2">
+                                                    <p className="text-sm font-medium">延长记录</p>
+                                                    {protectionInfo.extensions.map((ext: { id: string; referred_name: string; purchase_amount: number; extended_days: number; created_at: string }) => (
+                                                        <div key={ext.id} className="flex items-center justify-between p-2 bg-white rounded-lg text-sm">
+                                                            <span className="text-muted-foreground">
+                                                                {ext.referred_name || '用户'} 购买 ¥{Number(ext.purchase_amount).toLocaleString()}
+                                                            </span>
+                                                            <span className="text-green-600 font-medium">+{ext.extended_days}天</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
 
                                     {/* 邀请规则 */}
                                     <Card>

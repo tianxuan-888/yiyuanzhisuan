@@ -219,6 +219,53 @@ export async function POST(request: NextRequest) {
         sender_name: '系统通知', type: 'buy_confirmed', title: '购买申请已确认',
         content: `您购买的产品 ${productName} 已分配成功`, amount: price, related_id: userProduct?.id,
       });
+
+      // 保护期延长逻辑：被推荐人购买>=3000时，推荐人保护期+18天
+      try {
+        if (member?.inviter_id && price >= 3000) {
+          // 计算该被推荐人的累计购买金额
+          const referredTotalResult = await queryOne(
+            `SELECT COALESCE(SUM(purchase_price), 0) as total FROM user_products WHERE user_id = $1 AND status IN ('holding', 'sold')`,
+            [order.user_id]
+          );
+          const referredTotal = parseFloat(referredTotalResult?.total || '0');
+          
+          // 判断是否刚好达到3000门槛（避免重复延长）
+          if (referredTotal >= 3000) {
+            // 检查是否已经为这个被推荐人延长过保护期
+            const alreadyExtended = await queryOne(
+              `SELECT id FROM protection_extensions WHERE inviter_id = $1 AND referred_id = $2 LIMIT 1`,
+              [member.inviter_id, order.user_id]
+            );
+            
+            if (!alreadyExtended) {
+              // 延长推荐人保护期18天
+              await execute(
+                `UPDATE users SET 
+                  protection_expires_at = CASE 
+                    WHEN protection_expires_at IS NULL OR protection_expires_at < NOW() THEN NOW() + INTERVAL '18 days'
+                    ELSE protection_expires_at + INTERVAL '18 days'
+                  END,
+                  valid_referrals_count = COALESCE(valid_referrals_count, 0) + 1,
+                  updated_at = NOW()
+                WHERE id = $1`,
+                [member.inviter_id]
+              );
+              
+              // 记录延长记录
+              await execute(
+                `INSERT INTO protection_extensions (inviter_id, referred_id, order_id, purchase_amount, extended_days, created_at)
+                 VALUES ($1, $2, $3, $4, 18, NOW())`,
+                [member.inviter_id, order.user_id, orderId, price]
+              );
+              
+              console.log(`[protection] 用户${member.inviter_id}保护期延长18天，因推荐${order.user_id}购买${price}元`);
+            }
+          }
+        }
+      } catch (e) {
+        console.error('保护期延长失败:', e);
+      }
     }
 
     // 最后更新订单状态为已完成

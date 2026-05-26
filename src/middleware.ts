@@ -69,6 +69,7 @@ const PUBLIC_PATHS = [
   '/api/notifications',
   '/api/notifications/mark-read',
   '/api/admin/platform-stats',
+  '/api/member/protection',
   '/api/admin/energy-stats',
   '/api/admin/energy-branch-stats',
   '/api/admin/reconcile-energy',
