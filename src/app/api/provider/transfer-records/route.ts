@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     // ===== Step 1: 查询该服务商的所有产品 =====
     const { data: providerProducts, error: prodError } = await client
       .from('products')
-      .select('id, code, name, price, period, profit_rate, market_rate, provider_id')
+      .select('id, code, name, price, period, profit_rate, market_rate, provider_id, previous_holder_id, previous_holder_name')
       .eq('provider_id', providerId);
 
     if (prodError) {
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     const productMap = new Map(providerProducts.map(p => [p.id, p]));
     const productIds = providerProducts.map(p => p.id);
 
-    // ===== Step 2: 查询 user_products（先不带可能不存在的字段）=====
+    // ===== Step 2: 查询 user_products =====
     const { data: allUserProducts, error: upError } = await client
       .from('user_products')
       .select('id, user_id, product_id, purchase_price, purchase_date, expire_date, expected_profit, market_fee, status, created_at, updated_at')
@@ -54,27 +54,54 @@ export async function GET(request: NextRequest) {
 
     console.log('[transfer-records] 用户产品数量:', allUserProducts?.length || 0);
 
-    // ===== Step 3: 尝试查 seller_id 和 transfer_type（可能字段不存在）=====
-    let sellerIdMap = new Map<string, string | null>();
-    let transferTypeMap = new Map<string, string | null>();
+    // ===== Step 3: 构建卖方映射 - 通过同一产品的历史持有记录确定真正的卖方 =====
+    // 核心逻辑：如果一个产品有多条 user_products 记录，按时间排序后，
+    // 当前记录的卖方 = 上一条记录的买方（上一个持有者）
+    // 如果是第一条记录（首次购买），卖方 = 服务商
 
-    try {
-      const { data: upWithSeller, error: sellerError } = await client
-        .from('user_products')
-        .select('id, seller_id, transfer_type')
-        .in('product_id', productIds);
-
-      if (!sellerError && upWithSeller) {
-        upWithSeller.forEach(up => {
-          sellerIdMap.set(up.id, up.seller_id || null);
-          transferTypeMap.set(up.id, up.transfer_type || null);
-        });
-        console.log('[transfer-records] seller_id数据条数:', upWithSeller.length);
-      } else {
-        console.log('[transfer-records] seller_id字段可能不存在:', sellerError?.message || '无数据');
+    // 按产品ID分组，每组按创建时间排序
+    const productHistoryMap = new Map<string, Array<{ upId: string; userId: string; createdAt: string }>>();
+    (allUserProducts || []).forEach(up => {
+      if (!productHistoryMap.has(up.product_id)) {
+        productHistoryMap.set(up.product_id, []);
       }
-    } catch (e) {
-      console.log('[transfer-records] seller_id查询异常:', e);
+      productHistoryMap.get(up.product_id)!.push({
+        upId: up.id,
+        userId: up.user_id,
+        createdAt: up.created_at,
+      });
+    });
+
+    // 每组按时间正序排列（最早在前）
+    productHistoryMap.forEach((history, _productId) => {
+      history.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    });
+
+    // 构建 user_product.id → 卖方用户ID 的映射
+    const sellerIdMap = new Map<string, string | null>();
+    productHistoryMap.forEach((history) => {
+      history.forEach((record, idx) => {
+        if (idx === 0) {
+          // 第一条记录：首次从服务商购买，没有上一个持有者
+          sellerIdMap.set(record.upId, null);
+        } else {
+          // 后续记录：卖方 = 上一条记录的买方
+          sellerIdMap.set(record.upId, history[idx - 1].userId);
+        }
+      });
+    });
+
+    // 同时从 products 表获取 previous_holder 作为补充（针对已流转走的记录）
+    const prevHolderFromProduct = new Map<string, string | null>();
+    const { data: productsWithHolder } = await client
+      .from('products')
+      .select('id, previous_holder_id')
+      .in('id', productIds);
+    
+    if (productsWithHolder) {
+      productsWithHolder.forEach(p => {
+        prevHolderFromProduct.set(p.id, p.previous_holder_id || null);
+      });
     }
 
     // ===== Step 4: 查询 orders 表 =====
@@ -112,6 +139,7 @@ export async function GET(request: NextRequest) {
 
     (allUserProducts || []).forEach(up => {
       if (up.user_id) userIds.add(up.user_id);
+      // 从 sellerIdMap 获取卖方ID
       const sid = sellerIdMap.get(up.id);
       if (sid) userIds.add(sid);
     });
@@ -148,10 +176,12 @@ export async function GET(request: NextRequest) {
       if (recordTime < timeStart || recordTime > timeEnd) return;
 
       const buyer = userMap.get(up.user_id);
-      const sellerId = sellerIdMap.get(up.id);
-      const transferType = transferTypeMap.get(up.id);
-      const hasSeller = sellerId && sellerId !== up.user_id;
-      const seller = hasSeller ? userMap.get(sellerId!) : null;
+      const prevSellerId = sellerIdMap.get(up.id);
+      // 如果 sellerIdMap 没有，尝试从 products.previous_holder_id 补充
+      const fallbackHolderId = prevHolderFromProduct.get(up.product_id);
+      const effectiveSellerId = prevSellerId || (fallbackHolderId && fallbackHolderId !== up.user_id ? fallbackHolderId : null);
+      const hasPrevSeller = !!effectiveSellerId && effectiveSellerId !== up.user_id;
+      const sellerUser = hasPrevSeller ? userMap.get(effectiveSellerId!) : null;
       const profitRate = product.profit_rate || 0;
       const transferAmount = up.purchase_price || 0;
 
@@ -161,23 +191,27 @@ export async function GET(request: NextRequest) {
       let sellerPhone: string;
       let finalSellerId: string;
       let sellerProfit: number;
+      let sellerRealName: string;
 
-      if (hasSeller) {
-        finalTransferType = transferType || 'member_transfer';
-        finalSellerId = sellerId!;
-        sellerName = seller?.username || '';
-        sellerUniqueId = seller?.unique_id || '';
-        sellerPhone = seller?.phone || '';
+      if (hasPrevSeller) {
+        // 有上一个持有者 → 会员间流转，卖方是上一个持有者
+        finalTransferType = 'member_transfer';
+        finalSellerId = effectiveSellerId!;
+        sellerName = sellerUser?.username || '未知用户';
+        sellerUniqueId = sellerUser?.unique_id || '';
+        sellerPhone = sellerUser?.phone || '';
+        sellerRealName = sellerUser?.real_name || '';
         sellerProfit = transferAmount * profitRate / 100;
       } else {
+        // 没有上一个持有者 → 首次从服务商处购买，服务商是卖方
         finalTransferType = 'provider_match';
         finalSellerId = providerId;
         sellerName = providerUser?.username || '服务商';
         sellerUniqueId = providerUser?.unique_id || '';
         sellerPhone = providerUser?.phone || '';
-        // 服务商匹配：服务商收益 = 产品价格 × 服务商市场费分成比例(2%)
+        sellerRealName = providerUser?.real_name || '';
         const marketRate = product.market_rate || 0;
-        const providerShare = 0.02; // 服务商占产品价格的2%
+        const providerShare = 0.02;
         sellerProfit = transferAmount * providerShare;
       }
 
@@ -196,7 +230,7 @@ export async function GET(request: NextRequest) {
         sellerName: sellerName,
         sellerUniqueId: sellerUniqueId,
         sellerPhone: sellerPhone,
-        sellerRealName: seller?.real_name || '',
+        sellerRealName: sellerRealName,
         buyerId: up.user_id,
         buyerName: buyer?.username || '',
         buyerUniqueId: buyer?.unique_id || '',
@@ -223,9 +257,11 @@ export async function GET(request: NextRequest) {
       if (records.some(r => r.id === existingId)) return;
 
       const buyer = userMap.get(order.user_id);
-      const sellerId = sellerIdMap.get(up.id);
-      const hasSeller = sellerId && sellerId !== up.user_id;
-      const seller = hasSeller ? userMap.get(sellerId!) : null;
+      const prevSellerId = sellerIdMap.get(up.id);
+      const fallbackHolderId = prevHolderFromProduct.get(up.product_id);
+      const effectiveSellerId = prevSellerId || (fallbackHolderId && fallbackHolderId !== up.user_id ? fallbackHolderId : null);
+      const hasPrevSeller = !!effectiveSellerId && effectiveSellerId !== up.user_id;
+      const sellerUser = hasPrevSeller ? userMap.get(effectiveSellerId!) : null;
       const profitRate = product.profit_rate || 0;
       const transferAmount = up.purchase_price || order.amount || 0;
 
@@ -235,13 +271,15 @@ export async function GET(request: NextRequest) {
       let sellerPhone: string;
       let finalSellerId: string;
       let sellerProfit: number;
+      let sellerRealName: string;
 
-      if (hasSeller) {
-        finalTransferType = order.order_type === 'sell' ? 'member_transfer' : (transferTypeMap.get(up.id) || 'member_transfer');
-        finalSellerId = sellerId!;
-        sellerName = seller?.username || '';
-        sellerUniqueId = seller?.unique_id || '';
-        sellerPhone = seller?.phone || '';
+      if (hasPrevSeller) {
+        finalTransferType = 'member_transfer';
+        finalSellerId = effectiveSellerId!;
+        sellerName = sellerUser?.username || '未知用户';
+        sellerUniqueId = sellerUser?.unique_id || '';
+        sellerPhone = sellerUser?.phone || '';
+        sellerRealName = sellerUser?.real_name || '';
         sellerProfit = transferAmount * profitRate / 100;
       } else {
         finalTransferType = 'provider_match';
@@ -249,7 +287,7 @@ export async function GET(request: NextRequest) {
         sellerName = providerUser?.username || '服务商';
         sellerUniqueId = providerUser?.unique_id || '';
         sellerPhone = providerUser?.phone || '';
-        // 服务商匹配：服务商收益 = 产品价格 × 服务商市场费分成比例(2%)
+        sellerRealName = providerUser?.real_name || '';
         const providerShare = 0.02;
         sellerProfit = transferAmount * providerShare;
       }
@@ -269,7 +307,7 @@ export async function GET(request: NextRequest) {
         sellerName: sellerName,
         sellerUniqueId: sellerUniqueId,
         sellerPhone: sellerPhone,
-        sellerRealName: seller?.real_name || '',
+        sellerRealName: sellerRealName,
         buyerId: order.user_id,
         buyerName: buyer?.username || '',
         buyerUniqueId: buyer?.unique_id || '',
