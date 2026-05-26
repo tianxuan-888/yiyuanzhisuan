@@ -2604,6 +2604,8 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                     <Badge className="bg-orange-100 text-orange-700">流转中</Badge>
                                                                 ) : up.status === "repurchase_pending" ? (
                                                                     <Badge className="bg-purple-100 text-purple-700">待确认回购</Badge>
+                                                                ) : up.status === "pending_match" ? (
+                                                                    <Badge className="bg-cyan-100 text-cyan-700">待匹配</Badge>
                                                                 ) : up.status === "holding" && (
                                                                     canSell ? (
                                                                         <Badge className="bg-green-100 text-green-700">已解锁</Badge>
@@ -2625,6 +2627,9 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                         up.status === "repurchase_pending" ? "bg-purple-100 text-purple-700" :
                                                                         up.status === "repurchased" ? "bg-red-100 text-red-700" :
                                                                         up.status === "recycled" ? "bg-gray-200 text-gray-500" :
+                                                                        up.status === "pending_match" ? "bg-cyan-100 text-cyan-700" :
+                                                                        up.status === "sold" ? "bg-gray-200 text-gray-500" :
+                                                                        up.status === "expired" ? "bg-orange-100 text-orange-700" :
                                                                         "bg-gray-100 text-gray-700"
                                                                     }>
                                                                     {up.status === "pending_confirm" ? "已申购待确认" : 
@@ -2634,6 +2639,9 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                      up.status === "repurchase_pending" ? "待确认回购" :
                                                                      up.status === "repurchased" ? "已回购" :
                                                                      up.status === "recycled" ? "已回收" :
+                                                                     up.status === "pending_match" ? "待匹配" :
+                                                                     up.status === "sold" ? "已售出" :
+                                                                     up.status === "expired" ? "已到期" :
                                                                      up.status}
                                                                 </Badge>
                                                             </td>
