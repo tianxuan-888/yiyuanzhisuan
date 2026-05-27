@@ -1027,6 +1027,11 @@ export default function BranchPage() {
         showMessage('success', data.message || '操作成功');
         loadPendingWithdrawals();
         loadBranchRevenueRecords();
+        // 刷新智算金余额和资金流水
+        refreshUser();
+        if (activeTab === 'capitalFlow') loadCapitalFlow();
+        setTimeout(() => { refreshUser(); if (activeTab === 'capitalFlow') loadCapitalFlow(); }, 1500);
+        setTimeout(() => { refreshUser(); if (activeTab === 'capitalFlow') loadCapitalFlow(); }, 3000);
       } else {
         showMessage('error', data.message || '操作失败');
       }
@@ -2819,7 +2824,8 @@ export default function BranchPage() {
                               {r.type === 'member_withdraw' ? '会员提现' : 
                                r.type === 'provider_withdraw' ? '服务商提现' :
                                r.type === 'market_fee_share' ? '市场费分润(5%)' :
-                               r.type === 'provider_upstream' ? '上级服务商分润(10%)' : r.type}
+                               r.type === 'provider_upstream' ? '上级服务商分润(10%)' :
+                               r.type === 'withdraw_income' ? '提现收入' : r.type}
                             </p>
                             <p className="text-xs text-gray-400">{r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</p>
                           </div>

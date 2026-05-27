@@ -136,6 +136,14 @@ export async function POST(request: NextRequest) {
           [auth.userId, withdrawal.amount, feeAmount, branchAmount, withdrawal.user_id, `审核${applicantName}提现，到账95%智算金`]
         );
 
+        // 写入网点收益记录（branch_revenue_records）
+        const revenueType = applicantRole === 'provider' ? 'provider_withdraw' : 'member_withdraw';
+        await execute(
+          `INSERT INTO branch_revenue_records (id, branch_id, type, amount, related_user_id, related_order_id, note, status, created_at)
+           VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, 'completed', NOW())`,
+          [auth.userId, revenueType, branchAmount, withdrawal.user_id, withdrawalId, `审核${applicantName}提现，到账95%智算金（${withdrawal.amount}元扣5%手续费${feeAmount}元）`]
+        );
+
       } else if (reviewer.role === 'admin') {
         // 总台审核通过：网点提现智算金，到账总台
         // 同样5%手续费沉淀
