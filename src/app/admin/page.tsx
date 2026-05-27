@@ -5490,6 +5490,7 @@ export default function AdminPage() {
                         <th className="text-left py-3 px-4">手机号</th>
                         <th className="text-left py-3 px-4">专属ID</th>
                         <th className="text-left py-3 px-4">隶属关系</th>
+                        <th className="text-left py-3 px-4">推荐人</th>
                         <th className="text-left py-3 px-4">智算金</th>
                         <th className="text-left py-3 px-4">持有Token值</th>
                         <th className="text-left py-3 px-4">状态</th>
@@ -5522,8 +5523,7 @@ export default function AdminPage() {
                             {u.role === 'member' && (
                               <div className="space-y-0.5">
                                 {u.provider_name && u.provider_name !== '-' && <div><span className="text-muted-foreground">服务商:</span> {u.provider_name}</div>}
-                                {u.inviter_name && u.inviter_name !== '-' && <div><span className="text-muted-foreground">推荐人:</span> {u.inviter_name}</div>}
-                                {(!u.provider_name || u.provider_name === '-') && (!u.inviter_name || u.inviter_name === '-') && <span className="text-muted-foreground">-</span>}
+                                {(!u.provider_name || u.provider_name === '-') && <span className="text-muted-foreground">-</span>}
                               </div>
                             )}
                             {u.role === 'provider' && (
@@ -5536,6 +5536,7 @@ export default function AdminPage() {
                             {u.role === 'branch' && <span className="text-muted-foreground">隶属智算中心</span>}
                             {u.role === 'admin' && <span className="text-muted-foreground">-</span>}
                           </td>
+                          <td className="py-3 px-4 text-muted-foreground">{u.inviter_name || '-'}</td>
                           <td className="py-3 px-4 text-green-600 font-medium">¥{(u.balance || 0).toLocaleString()}</td>
                           <td className="py-3 px-4 text-blue-600 font-medium">¥{(u.holding_token || 0).toLocaleString()}</td>
                           <td className="py-3 px-4">
