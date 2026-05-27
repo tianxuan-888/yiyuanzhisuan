@@ -165,7 +165,7 @@ export async function GET(request: NextRequest) {
 
     if (usersError) throw usersError;
 
-    // 查询每个用户的持有Token值（holding状态的user_products总purchase_price）
+    // 查询每个用户的持有产力值（holding状态的user_products总purchase_price）
     const { data: holdingData } = await client
       .from('user_products')
       .select('user_id, purchase_price')
@@ -177,20 +177,43 @@ export async function GET(request: NextRequest) {
       holdingTokenMap[uid] = (holdingTokenMap[uid] || 0) + (Number(h.purchase_price) || 0);
     });
 
+    // 查询每个用户的算力值（quota_accounts 中的 balance）
+    const { data: quotaAccountsData } = await client
+      .from('quota_accounts')
+      .select('user_id, balance');
+
+    const quotaBalanceMap: Record<string, number> = {};
+    (quotaAccountsData || []).forEach((qa: any) => {
+      quotaBalanceMap[qa.user_id] = Number(qa.balance) || 0;
+    });
+
     // 构建用户ID到用户名的映射，用于解析隶属关系
     const userIdMap = new Map<string, string>();
     (allUsers || []).forEach((u: any) => {
       userIdMap.set(u.id, u.username || u.real_name || '-');
     });
 
-    // 给每个用户附加 holding_token 值和隶属关系名称
-    const usersWithHolding = (allUsers || []).map((u: any) => ({
+    // 给每个用户附加 holding_token(产力值)、quota_balance(算力值) 和隶属关系名称
+    let usersWithHolding = (allUsers || []).map((u: any) => ({
       ...u,
       holding_token: holdingTokenMap[u.id] || 0,
+      quota_balance: quotaBalanceMap[u.id] || 0,
       provider_name: u.provider_id ? (userIdMap.get(u.provider_id) || '-') : '-',
       inviter_name: u.inviter_id ? (userIdMap.get(u.inviter_id) || '-') : '-',
       branch_name: u.branch_id ? (userIdMap.get(u.branch_id) || '-') : '-',
     }));
+
+    // 智算中心的算力值从 company_quota 表读取
+    const { data: companyQuota } = await client
+      .from('company_quota')
+      .select('available_quota')
+      .limit(1);
+    if (companyQuota && companyQuota.length > 0) {
+      const adminUser = usersWithHolding.find((u: any) => u.role === 'admin');
+      if (adminUser) {
+        adminUser.quota_balance = Number(companyQuota[0].available_quota) || 0;
+      }
+    }
 
     // 统计
     const stats = {

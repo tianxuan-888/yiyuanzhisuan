@@ -5476,7 +5476,7 @@ export default function AdminPage() {
                   </div>
                   <div className="bg-teal-50 border border-teal-200 rounded-lg p-4 text-center">
                     <div className="text-2xl font-bold text-teal-600">¥{(accountsData.stats?.totalHoldingToken || 0).toLocaleString()}</div>
-                    <div className="text-sm text-teal-600">持有Token总值</div>
+                    <div className="text-sm text-teal-600">产力值总值</div>
                   </div>
                 </div>
 
@@ -5492,19 +5492,20 @@ export default function AdminPage() {
                         <th className="text-left py-3 px-4">隶属关系</th>
                         <th className="text-left py-3 px-4">推荐人</th>
                         <th className="text-left py-3 px-4">智算金</th>
-                        <th className="text-left py-3 px-4">持有Token值</th>
+                        <th className="text-left py-3 px-4">产力值</th>
+                        <th className="text-left py-3 px-4">算力值</th>
                         <th className="text-left py-3 px-4">状态</th>
                         <th className="text-left py-3 px-4">操作</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {accountsData.users?.filter((u: { id: string; username: string; role: string; phone: string; unique_id: string; balance: number; holding_token: number; is_active: boolean; provider_name?: string; inviter_name?: string; branch_name?: string }) => {
+                      {accountsData.users?.filter((u: { id: string; username: string; role: string; phone: string; unique_id: string; balance: number; holding_token: number; quota_balance: number; is_active: boolean; provider_name?: string; inviter_name?: string; branch_name?: string }) => {
                         if (!accountSearch.trim()) return true;
                         const q = accountSearch.trim().toLowerCase();
                         return (u.username || '').toLowerCase().includes(q)
                           || (u.phone || '').includes(q)
                           || (u.unique_id || '').toLowerCase().includes(q);
-                      }).map((u: { id: string; username: string; role: string; phone: string; unique_id: string; balance: number; holding_token: number; is_active: boolean; provider_name?: string; inviter_name?: string; branch_name?: string }) => (
+                      }).map((u: { id: string; username: string; role: string; phone: string; unique_id: string; balance: number; holding_token: number; quota_balance: number; is_active: boolean; provider_name?: string; inviter_name?: string; branch_name?: string }) => (
                         <tr key={u.id} className="border-b hover:bg-muted/30">
                           <td className="py-3 px-4 font-medium">{u.username}</td>
                           <td className="py-3 px-4">
@@ -5539,6 +5540,7 @@ export default function AdminPage() {
                           <td className="py-3 px-4 text-muted-foreground">{u.inviter_name || '-'}</td>
                           <td className="py-3 px-4 text-green-600 font-medium">¥{(u.balance || 0).toLocaleString()}</td>
                           <td className="py-3 px-4 text-blue-600 font-medium">¥{(u.holding_token || 0).toLocaleString()}</td>
+                          <td className="py-3 px-4 text-amber-600 font-medium">{(u.role === 'branch' || u.role === 'provider' || u.role === 'admin') ? `¥${(u.quota_balance || 0).toLocaleString()}` : '-'}</td>
                           <td className="py-3 px-4">
                             <Badge className={u.is_active !== false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
                               {statusLabel(u.is_active !== false)}
@@ -5826,7 +5828,7 @@ export default function AdminPage() {
                             <tr className="border-b bg-muted/50">
                               <th className="text-left py-3 px-4">网点</th>
                               <th className="text-left py-3 px-4">服务商数</th>
-                              <th className="text-left py-3 px-4">Token总额度</th>
+                              <th className="text-left py-3 px-4">算力总额度</th>
                               <th className="text-left py-3 px-4">体系收益</th>
                               <th className="text-left py-3 px-4">智算金余额</th>
                             </tr>
@@ -6092,8 +6094,14 @@ export default function AdminPage() {
                 </div>
                 {clearDataUser.role === 'member' && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">持有产品额度</span>
+                    <span className="text-muted-foreground">产力值</span>
                     <span className="font-medium text-blue-600">¥{(clearDataUser.holding_token || 0).toLocaleString()}</span>
+                  </div>
+                )}
+                {(clearDataUser.role === 'branch' || clearDataUser.role === 'provider' || clearDataUser.role === 'admin') && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">算力值</span>
+                    <span className="font-medium text-amber-600">¥{(clearDataUser.quota_balance || 0).toLocaleString()}</span>
                   </div>
                 )}
               </div>
