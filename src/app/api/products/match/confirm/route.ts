@@ -153,48 +153,47 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        // 7. 写入产品流转记录（抢购）
-        try {
-          const sellerId = product.previous_holder_id || user.userId;
-          const sellerInfo = await queryOne<any>(
-            `SELECT id, username, unique_id, phone FROM users WHERE id = $1`,
-            [sellerId]
-          );
-          const buyerInfo = await queryOne<any>(
-            `SELECT id, username, unique_id, phone FROM users WHERE id = $1`,
-            [targetUser.id]
-          );
-          const productPrice = parseFloat(product.price) || 0;
-          const profitRateVal = parseFloat(product.profit_rate) || 0;
-          const expectedProfit = productPrice * profitRateVal / 100;
-          // 抢购时卖方收益 = 产品金额 × 收益率
-          const sellerProfit = product.previous_holder_id ? expectedProfit : expectedProfit;
+        // 7. 写入产品流转记录（仅会员间流转才记录，服务商只是审核角色）
+        if (product.previous_holder_id) {
+          try {
+            const sellerInfo = await queryOne<any>(
+              `SELECT id, username, unique_id, phone FROM users WHERE id = $1`,
+              [product.previous_holder_id]
+            );
+            const buyerInfo = await queryOne<any>(
+              `SELECT id, username, unique_id, phone FROM users WHERE id = $1`,
+              [targetUser.id]
+            );
+            const productPrice = parseFloat(product.price) || 0;
+            const profitRateVal = parseFloat(product.profit_rate) || 0;
+            const expectedProfit = productPrice * profitRateVal / 100;
 
-          await execute(
-            `INSERT INTO product_flow_records 
-             (product_id, product_code, product_name, product_price, period, profit_rate, expected_profit,
-              flow_type, seller_id, seller_name, seller_unique_id, seller_phone,
-              buyer_id, buyer_name, buyer_unique_id, buyer_phone,
-              seller_profit, provider_id)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
-            [
-              product.id, product.code || '', product.name, productPrice,
-              product.period, profitRateVal, expectedProfit,
-              '抢购',
-              sellerId,
-              sellerInfo?.username || '',
-              sellerInfo?.unique_id || '',
-              sellerInfo?.phone || '',
-              targetUser.id,
-              buyerInfo?.username || '',
-              buyerInfo?.unique_id || '',
-              buyerInfo?.phone || '',
-              sellerProfit,
-              product.provider_id
-            ]
-          );
-        } catch (flowErr) {
-          console.error('[MATCH CONFIRM] 写入流转记录失败:', flowErr);
+            await execute(
+              `INSERT INTO product_flow_records 
+               (product_id, product_code, product_name, product_price, period, profit_rate, expected_profit,
+                flow_type, seller_id, seller_name, seller_unique_id, seller_phone,
+                buyer_id, buyer_name, buyer_unique_id, buyer_phone,
+                seller_profit, provider_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+              [
+                product.id, product.code || '', product.name, productPrice,
+                product.period, profitRateVal, expectedProfit,
+                '抢购',
+                product.previous_holder_id,
+                sellerInfo?.username || '',
+                sellerInfo?.unique_id || '',
+                sellerInfo?.phone || '',
+                targetUser.id,
+                buyerInfo?.username || '',
+                buyerInfo?.unique_id || '',
+                buyerInfo?.phone || '',
+                expectedProfit,
+                product.provider_id
+              ]
+            );
+          } catch (flowErr) {
+            console.error('[MATCH CONFIRM] 写入流转记录失败:', flowErr);
+          }
         }
 
         console.log('[MATCH CONFIRM] 匹配成功，收益待到期释放:', {
