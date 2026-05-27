@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
       let providerData: any = null;
       let branchId: string | null = null;
       if (providerId) {
-        providerData = await queryOne<any>('SELECT branch_id FROM providers WHERE user_id = $1', [providerId]);
+        providerData = await queryOne<any>('SELECT branch_id, parent_provider_id FROM providers WHERE user_id = $1', [providerId]);
         branchId = providerData?.branch_id || null;
       }
 
@@ -170,17 +170,21 @@ export async function POST(request: NextRequest) {
       }
 
       // 4. 上级服务商收益到账（写入energy_value智算金）
-      const memberData = await queryOne<any>('SELECT provider_id FROM users WHERE id = $1', [userProduct.user_id]);
-      if (memberData?.provider_id && memberData.provider_id !== providerId && parentProviderShare > 0) {
+      const parentProviderId = providerData?.parent_provider_id || null;
+      let noParentShare = 0;
+      if (parentProviderId && parentProviderShare > 0) {
         await execute(
           `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
-          [parentProviderShare, memberData.provider_id]
+          [parentProviderShare, parentProviderId]
         );
         await execute(
           `INSERT INTO energy_transactions (user_id, type, amount, note, created_at)
            VALUES ($1, 'parent_provider_revenue', $2, $3, NOW())`,
-          [memberData.provider_id, parentProviderShare, '下级会员产品到期，上级服务商分成0.25%']
+          [parentProviderId, parentProviderShare, '下级服务商会员产品到期，上级服务商分成0.25%']
         );
+      } else if (parentProviderShare > 0) {
+        // 无上级服务商时，0.25%归公司运营
+        noParentShare = parentProviderShare;
       }
 
       // 5. 网点收益到账（写入energy_value智算金）
@@ -196,17 +200,18 @@ export async function POST(request: NextRequest) {
           );
       }
 
-      // 6. 总台运营收益到账（写入energy_value智算金）
+      // 6. 总台运营收益到账（写入energy_value智算金，含无上级服务商时的0.25%）
       const adminUser = await queryOne<any>('SELECT id FROM users WHERE role = $1 LIMIT 1', ['admin']);
-      if (adminUser && companyShare > 0) {
+      const companyTotalShare = companyShare + noParentShare;
+      if (adminUser && companyTotalShare > 0) {
         await execute(
           `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
-          [companyShare, adminUser.id]
+          [companyTotalShare, adminUser.id]
         );
         await execute(
           `INSERT INTO energy_transactions (user_id, type, amount, note, created_at)
            VALUES ($1, 'company_revenue', $2, $3, NOW())`,
-          [adminUser.id, companyShare, '会员产品到期，总台运营分成0.4%']
+          [adminUser.id, companyTotalShare, noParentShare > 0 ? '会员产品到期，总台运营分成0.4%+上级空缺0.25%' : '会员产品到期，总台运营分成0.4%']
         );
       }
 
