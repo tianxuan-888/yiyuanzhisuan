@@ -249,6 +249,11 @@ export default function AdminPage() {
   const [accountsData, setAccountsData] = useState<any>(null);
   const [accountsStats, setAccountsStats] = useState<any>(null);
   const [accountsLoading, setAccountsLoading] = useState(false);
+  const [expandedProviderId, setExpandedProviderId] = useState<string | null>(null);
+  const [providerMembers, setProviderMembers] = useState<any[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [deleteConfirmMember, setDeleteConfirmMember] = useState<any>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [financialData, setFinancialData] = useState<any>(null);
   const [financialReport, setFinancialReport] = useState<any>(null);
   const [financialLoading, setFinancialLoading] = useState(false);
@@ -4781,6 +4786,61 @@ export default function AdminPage() {
     }
   };
 
+  // 获取服务商下的会员明细
+  const loadProviderMembers = async (providerId: string) => {
+    setMembersLoading(true);
+    try {
+      const res = await fetch(`/api/branch/members?branchId=all&providerId=${providerId}&pageSize=50`);
+      const data = await res.json();
+      if (data.success) {
+        setProviderMembers(data.data?.members || []);
+      } else {
+        setProviderMembers([]);
+      }
+    } catch {
+      setProviderMembers([]);
+    } finally {
+      setMembersLoading(false);
+    }
+  };
+
+  // 点击服务商展开会员明细
+  const handleProviderClick = (providerId: string) => {
+    if (expandedProviderId === providerId) {
+      setExpandedProviderId(null);
+      setProviderMembers([]);
+    } else {
+      setExpandedProviderId(providerId);
+      loadProviderMembers(providerId);
+    }
+  };
+
+  // 删除会员
+  const handleDeleteMember = async () => {
+    if (!deleteConfirmMember) return;
+    setDeleteLoading(true);
+    try {
+      const res = await fetch('/api/admin/delete-member', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberId: deleteConfirmMember.id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDeleteConfirmMember(null);
+        setExpandedProviderId(null);
+        setProviderMembers([]);
+        loadAccountsData();
+      } else {
+        alert(data.message || '删除失败');
+      }
+    } catch {
+      alert('删除请求失败');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const loadFinancialReport = async () => {
     setFinancialLoading(true);
     try {
@@ -5550,8 +5610,17 @@ export default function AdminPage() {
                         <div className="bg-purple-50 p-3 pl-10 flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <Briefcase className="w-4 h-4 text-purple-600" />
-                            <span className="font-medium text-purple-800">{provider.providerName}</span>
+                            <button
+                              type="button"
+                              className="font-medium text-purple-800 hover:text-purple-600 hover:underline cursor-pointer"
+                              onClick={() => handleProviderClick(provider.providerId)}
+                            >
+                              {provider.providerName}
+                            </button>
                             <Badge className="bg-purple-100 text-purple-700 text-xs">服务商</Badge>
+                            {expandedProviderId === provider.providerId && (
+                              <ChevronDown className="w-4 h-4 text-purple-500" />
+                            )}
                           </div>
                           <div className="flex gap-4 text-sm text-purple-700">
                             <span>会员: {provider.memberCount} 人</span>
@@ -5559,9 +5628,54 @@ export default function AdminPage() {
                             <span>已用: ¥{(provider.usedQuota || 0).toLocaleString()}</span>
                           </div>
                         </div>
-                        <div className="bg-green-50/50 p-2 pl-20 text-sm text-green-700">
-                          <UserCheck className="w-3 h-3 inline mr-1" />会员数: {provider.memberCount} 人
-                        </div>
+                        {/* 会员数提示 - 可点击展开 */}
+                        <button
+                          type="button"
+                          className="bg-green-50/50 p-2 pl-20 text-sm text-green-700 hover:bg-green-100/50 w-full text-left cursor-pointer"
+                          onClick={() => handleProviderClick(provider.providerId)}
+                        >
+                          <UserCheck className="w-3 h-3 inline mr-1" />
+                          {expandedProviderId === provider.providerId ? '收起会员列表' : `会员数: ${provider.memberCount} 人（点击查看明细）`}
+                        </button>
+                        {/* 展开的会员明细 */}
+                        {expandedProviderId === provider.providerId && (
+                          <div className="bg-gray-50 p-3 pl-20">
+                            {membersLoading ? (
+                              <div className="text-center py-4 text-muted-foreground text-sm">加载中...</div>
+                            ) : providerMembers.length === 0 ? (
+                              <div className="text-center py-4 text-muted-foreground text-sm">暂无会员</div>
+                            ) : (
+                              <div className="space-y-2">
+                                <div className="grid grid-cols-5 gap-2 text-xs text-muted-foreground font-medium px-3 py-1">
+                                  <span>用户名</span>
+                                  <span>手机号</span>
+                                  <span>智算金</span>
+                                  <span>持仓产品</span>
+                                  <span>操作</span>
+                                </div>
+                                {providerMembers.map((m: { id: string; username?: string; phone?: string; realName?: string; energyValue?: number; holdingProducts?: number; totalInvestment?: number }) => (
+                                  <div key={m.id} className="grid grid-cols-5 gap-2 items-center bg-white rounded px-3 py-2 text-sm border">
+                                    <span className="font-medium">{m.username || m.realName || '-'}</span>
+                                    <span className="text-muted-foreground">{m.phone || '-'}</span>
+                                    <span>{(m.energyValue || 0).toLocaleString()}</span>
+                                    <span className={(m.holdingProducts || 0) > 0 ? 'text-orange-600 font-medium' : 'text-green-600'}>
+                                      {(m.holdingProducts || 0) > 0 ? `${m.holdingProducts} 个` : '无持仓'}
+                                    </span>
+                                    <Button
+                                      variant="destructive"
+                                      size="sm"
+                                      className="h-7 text-xs"
+                                      disabled={(m.holdingProducts || 0) > 0}
+                                      onClick={() => setDeleteConfirmMember({ id: m.id, username: m.username || m.realName || '-', holdingProducts: m.holdingProducts || 0 })}
+                                    >
+                                      {(m.holdingProducts || 0) > 0 ? '有持仓无法删除' : '删除账号'}
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -10541,6 +10655,68 @@ export default function AdminPage() {
         {renderContent()}
       </main>
       </div>
+
+      {/* 删除会员确认弹窗 */}
+      <Dialog open={!!deleteConfirmMember} onOpenChange={(open) => !open && setDeleteConfirmMember(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="w-5 h-5" />
+              确认删除账号
+            </DialogTitle>
+            <DialogDescription>
+              此操作不可恢复，请确认以下信息后操作
+            </DialogDescription>
+          </DialogHeader>
+          {deleteConfirmMember && (
+            <div className="space-y-3 py-2">
+              <div className="bg-muted/50 rounded-lg p-3 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">用户名</span>
+                  <span className="font-medium">{deleteConfirmMember.username}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">手机号</span>
+                  <span>{deleteConfirmMember.phone || '-'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">专属ID</span>
+                  <span>{deleteConfirmMember.unique_id || '-'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">智算金</span>
+                  <span>{deleteConfirmMember.energy_value || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">收益余额</span>
+                  <span>{deleteConfirmMember.balance || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">积分</span>
+                  <span>{deleteConfirmMember.points || 0}</span>
+                </div>
+              </div>
+              {deleteConfirmMember.holdingCount > 0 ? (
+                <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-lg p-3 text-sm text-red-600">
+                  该会员有 {deleteConfirmMember.holdingCount} 个持仓中的产品，无法删除账号。请先处理持仓后再操作。
+                </div>
+              ) : (
+                <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg p-3 text-sm text-amber-700">
+                  删除后将清除该账号的所有数据（智算金、收益、积分、持仓记录等），此操作不可恢复！
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmMember(null)}>取消</Button>
+            {deleteConfirmMember && deleteConfirmMember.holdingCount === 0 && (
+              <Button variant="destructive" onClick={() => handleDeleteMember()}>
+                确认删除
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
