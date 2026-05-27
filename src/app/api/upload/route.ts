@@ -45,10 +45,10 @@ export async function POST(request: NextRequest) {
       contentType: file.type,
     });
 
-    // 生成签名访问URL（有效期7天）
+    // 生成签名访问URL（有效期10年，等同永久访问）
     const imageUrl = await storage.generatePresignedUrl({
       key: fileKey,
-      expireTime: 7 * 24 * 3600,
+      expireTime: 10 * 365 * 24 * 3600,
     });
 
     return NextResponse.json({
