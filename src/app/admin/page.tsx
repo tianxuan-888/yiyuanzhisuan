@@ -5215,12 +5215,12 @@ export default function AdminPage() {
                     <TableHead>释放时间</TableHead>
                     <TableHead>产品价格</TableHead>
                     <TableHead>市场费总额</TableHead>
-                    <TableHead>会员收益</TableHead>
-                    <TableHead>服务商(70%)</TableHead>
-                    <TableHead>直推(10%)</TableHead>
-                    <TableHead>上级(10%)</TableHead>
-                    <TableHead>网点(5%)</TableHead>
-                    <TableHead>总台(5%)</TableHead>
+                    <TableHead>会员(2%)</TableHead>
+                    <TableHead>服务商(2%)</TableHead>
+                    <TableHead>直推(0.25%)</TableHead>
+                    <TableHead>上级(0.25%)</TableHead>
+                    <TableHead>网点(0.1%)</TableHead>
+                    <TableHead>总台(0.4%)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
