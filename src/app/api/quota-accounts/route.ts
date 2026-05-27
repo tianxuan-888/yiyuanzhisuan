@@ -7,11 +7,40 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId');
     const role = searchParams.get('role');
 
+    // 1. 获取智算中心额度（始终从 company_quota 表读取，不依赖 quota_accounts）
+    const companyQuota = await query(
+      'SELECT total_quota, used_quota, available_quota FROM company_quota LIMIT 1'
+    );
+    const adminUser = await query(
+      'SELECT id, username, role, phone, unique_id FROM users WHERE role = $1 LIMIT 1',
+      ['admin']
+    );
+
+    let accounts: any[] = [];
+
+    // 添加智算中心额度记录（始终以 company_quota 为准）
+    if (companyQuota.length > 0 && adminUser.length > 0) {
+      accounts.push({
+        id: 'company-quota',
+        user_id: adminUser[0].id,
+        balance: Number(companyQuota[0].available_quota),
+        total_in: Number(companyQuota[0].total_quota),
+        total_out: Number(companyQuota[0].used_quota),
+        created_at: companyQuota[0].created_at || new Date().toISOString(),
+        updated_at: companyQuota[0].updated_at || new Date().toISOString(),
+        username: adminUser[0].username,
+        role: adminUser[0].role,
+        phone: adminUser[0].phone,
+        unique_id: adminUser[0].unique_id,
+      });
+    }
+
+    // 2. 获取网点和服务商的额度（从 quota_accounts 表，排除 admin）
     let sql = `
       SELECT qa.*, u.username, u.role, u.phone, u.unique_id
       FROM quota_accounts qa
       LEFT JOIN users u ON u.id = qa.user_id
-      WHERE 1=1
+      WHERE u.role != 'admin'
     `;
     const params: any[] = [];
 
@@ -20,47 +49,17 @@ export async function GET(request: NextRequest) {
       params.push(userId);
     }
 
-    if (role) {
+    if (role && role !== 'admin') {
       sql += ` AND u.role = $${params.length + 1}`;
       params.push(role);
     }
 
     sql += ` ORDER BY qa.created_at DESC`;
 
-    let accounts = await query(sql, params);
+    const otherAccounts = await query(sql, params);
+    accounts = [...accounts, ...otherAccounts];
 
-    // 补充 admin 的额度信息（从 company_quota 表获取）
-    // admin 不一定在 quota_accounts 表中有记录，但 company_quota 表记录了智算中心总额度
-    const adminInList = accounts.find((a: any) => a.role === 'admin');
-    if (!adminInList) {
-      // 查询 company_quota 获取智算中心额度
-      const companyQuota = await query(
-        'SELECT total_quota, used_quota, available_quota FROM company_quota LIMIT 1'
-      );
-      // 查询 admin 用户信息
-      const adminUser = await query(
-        'SELECT id, username, role, phone, unique_id FROM users WHERE role = $1 LIMIT 1',
-        ['admin']
-      );
-      if (companyQuota.length > 0 && adminUser.length > 0) {
-        accounts.unshift({
-          id: 'company-quota',
-          user_id: adminUser[0].id,
-          balance: Number(companyQuota[0].available_quota),
-          total_in: Number(companyQuota[0].total_quota),
-          total_out: Number(companyQuota[0].used_quota),
-          created_at: companyQuota[0].created_at || new Date().toISOString(),
-          updated_at: companyQuota[0].updated_at || new Date().toISOString(),
-          username: adminUser[0].username,
-          role: adminUser[0].role,
-          phone: adminUser[0].phone,
-          unique_id: adminUser[0].unique_id,
-        });
-      }
-    }
-
-    // 补充尚未在 quota_accounts 表中有记录的 branch 用户
-    // 新注册的服务网点可能只有 users 表记录，没有 quota_accounts 记录
+    // 3. 补充尚未在 quota_accounts 表中有记录的 branch 用户
     const existingUserIds = accounts
       .filter((a: any) => a.user_id)
       .map((a: any) => String(a.user_id));
