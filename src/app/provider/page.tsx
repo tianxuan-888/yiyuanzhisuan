@@ -1963,8 +1963,9 @@ export default function ProviderPage() {
             loadPointsRecords(),
             loadConvertRecords(),
             loadWithdrawalRecords(),
+            activeTab === 'capitalFlow' ? loadCapitalFlow() : Promise.resolve(),
         ]);
-    }, [refreshUser, loadData, loadRevenueRecords, loadTransferRecords, loadWithdrawRecords, loadWithdrawalData, loadEnergyRequests, loadPointsRecords, loadConvertRecords, loadWithdrawalRecords]);
+    }, [refreshUser, loadData, loadRevenueRecords, loadTransferRecords, loadWithdrawRecords, loadWithdrawalData, loadEnergyRequests, loadPointsRecords, loadConvertRecords, loadWithdrawalRecords, activeTab, loadCapitalFlow]);
 
     // 积分转入收益
     const handlePointsToEnergy = async () => {
@@ -5096,8 +5097,9 @@ export default function ProviderPage() {
                                                 setWithdrawAmount("");
                                                 // 立即刷新用户数据确保页面显示最新
                                                 await refreshUser();
-                                                // 再刷新其他数据
-                                                refreshAll();
+                                                // 延迟刷新确保数据库写入完成
+                                                setTimeout(() => { refreshAll(); loadCapitalFlow(); }, 1500);
+                                                setTimeout(() => { refreshAll(); loadCapitalFlow(); }, 3000);
                                             } else {
                                                 showMessage("error", data.error || "转换失败");
                                             }

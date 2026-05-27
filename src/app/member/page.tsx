@@ -632,6 +632,27 @@ const [copySuccess, setCopySuccess] = useState(false);
         }
     }, [user?.id]);
 
+    // 加载资金流水（必须在refreshAll之前声明）
+    const loadCapitalFlow = useCallback(async () => {
+        const userId = user?.id || localStorage.getItem("userId");
+        if (!userId) return;
+        setCapitalFlowLoading(true);
+        try {
+            const flowType = capitalFlowTab === 'all' ? '' : capitalFlowTab;
+            const params = new URLSearchParams({ userId, page: String(capitalFlowPage), pageSize: '20' });
+            if (flowType) params.set('flowType', flowType);
+            const res = await fetch(`/api/capital-flow?${params}`);
+            const data = await res.json();
+            if (data.success) {
+                setCapitalFlowData(data.data);
+            }
+        } catch (e) {
+            console.error('加载资金流水失败', e);
+        } finally {
+            setCapitalFlowLoading(false);
+        }
+    }, [user?.id, capitalFlowTab, capitalFlowPage]);
+
     // 全量并行刷新：用户信息 + 业务数据
     const refreshAll = useCallback(async () => {
         // 短暂延迟确保数据库写入完成后再读取，避免 PostgREST 缓存返回旧数据
@@ -643,8 +664,9 @@ const [copySuccess, setCopySuccess] = useState(false);
             loadChainData(),
             loadMyTransfers(),
             loadTransferMarket(),
+            activeTab === 'capitalFlow' ? loadCapitalFlow() : Promise.resolve(),
         ]);
-    }, [refreshUser, loadData, loadProfitRecords, loadChainData]);
+    }, [refreshUser, loadData, loadProfitRecords, loadChainData, activeTab, loadCapitalFlow]);
 
     useEffect(() => {
         if (profileSubTab === 'chain' && !chainData) {
@@ -677,7 +699,7 @@ const [copySuccess, setCopySuccess] = useState(false);
         if (activeTab === "capitalFlow") {
             loadCapitalFlow();
         }
-    }, [activeTab, capitalFlowTab, capitalFlowPage]);
+    }, [activeTab, capitalFlowTab, capitalFlowPage, loadCapitalFlow]);
 
     // 加载收款信息
     const loadPaymentInfo = async () => {
@@ -730,7 +752,9 @@ const [copySuccess, setCopySuccess] = useState(false);
                 localStorage.setItem('userName', newUsername.trim());
 
                 // 刷新页面数据
-                refreshAll();
+                await refreshAll();
+                setTimeout(() => refreshAll(), 1500);
+                setTimeout(() => refreshAll(), 3000);
                 setEditingUsername(false);
                 showMessage("success", "用户名修改成功");
             } else {
@@ -1138,29 +1162,6 @@ const [copySuccess, setCopySuccess] = useState(false);
             }
         } catch (error) {
             console.error("加载积分记录失败", error);
-        }
-    };
-
-    // 加载资金流水
-    const loadCapitalFlow = async () => {
-        const userId = localStorage.getItem("userId");
-        console.log('[DEBUG] loadCapitalFlow called, userId:', userId, 'tab:', capitalFlowTab, 'page:', capitalFlowPage);
-        if (!userId) return;
-        setCapitalFlowLoading(true);
-        try {
-            const flowType = capitalFlowTab === 'all' ? '' : capitalFlowTab;
-            const params = new URLSearchParams({ userId, page: String(capitalFlowPage), pageSize: '20' });
-            if (flowType) params.set('flowType', flowType);
-            const res = await fetch(`/api/capital-flow?${params}`);
-            const data = await res.json();
-            console.log('[DEBUG] capital-flow response:', data.success, 'records:', data.data?.records?.length, 'stats:', data.data?.stats);
-            if (data.success) {
-                setCapitalFlowData(data.data);
-            }
-        } catch (e) {
-            console.error('加载资金流水失败', e);
-        } finally {
-            setCapitalFlowLoading(false);
         }
     };
 
@@ -3657,7 +3658,8 @@ const [copySuccess, setCopySuccess] = useState(false);
                                         setTransferToAmount("");
                                         setTransferToNote("");
                                         await refreshAll();
-                                        setTimeout(() => refreshAll(), 1500);
+                                        setTimeout(() => refreshAll(), 1000);
+                                        setTimeout(() => refreshAll(), 3000);
                                     } else {
                                         showMessage("error", data.error || "转账失败");
                                     }
@@ -3729,7 +3731,9 @@ const [copySuccess, setCopySuccess] = useState(false);
                                         showMessage("success", data.message);
                                         setShowBalanceConvertDialog(false);
                                         setConvertAmount("");
-                                        refreshAll();
+                                        await refreshAll();
+                                        setTimeout(() => { refreshAll(); loadCapitalFlow(); }, 1500);
+                                        setTimeout(() => { refreshAll(); loadCapitalFlow(); }, 3000);
                                     } else {
                                         showMessage("error", data.error || "转换失败");
                                     }
