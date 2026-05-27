@@ -4979,7 +4979,7 @@ export default function ProviderPage() {
                                                     u.role === 'provider' ? 'border-purple-400 text-purple-600' :
                                                     'border-green-400 text-green-600'
                                                 }`}>
-                                                    {u.role === 'branch' ? '服务网点' : u.role === 'provider' ? '服务商' : u.role === 'admin' ? '总台' : '会员'}
+                                                    {u.role === 'branch' ? '服务网点' : u.role === 'provider' ? '服务商' : u.role === 'admin' ? '智算中心' : '会员'}
                                                 </Badge>
                                             </div>
                                         ))}

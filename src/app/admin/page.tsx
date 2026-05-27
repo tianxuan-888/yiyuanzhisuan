@@ -3505,7 +3505,7 @@ export default function AdminPage() {
             </Card>
             <Card className="mobile-compact-card text-center">
               <CardContent className="p-3">
-                <div className="text-xs text-gray-500 mobile-label">总台运营 {shareBreakdown.company.rate}</div>
+                <div className="text-xs text-gray-500 mobile-label">智算中心运营 {shareBreakdown.company.rate}</div>
                 <div className="text-lg font-bold text-emerald-600 mobile-num">¥{shareBreakdown.company.amount.toLocaleString()}</div>
               </CardContent>
             </Card>
@@ -3549,7 +3549,7 @@ export default function AdminPage() {
                           { name: `直推奖励 ${shareBreakdown.directReward.rate}`, value: Math.max(shareBreakdown.directReward.amount, 1), color: '#ec4899' },
                           { name: `下级服务商 ${shareBreakdown.parentProvider.rate}`, value: Math.max(shareBreakdown.parentProvider.amount, 1), color: '#6366f1' },
                           { name: `服务网点 ${shareBreakdown.branch.rate}`, value: Math.max(shareBreakdown.branch.amount, 1), color: '#14b8a6' },
-                          { name: `总台运营 ${shareBreakdown.company.rate}`, value: Math.max(shareBreakdown.company.amount, 1), color: '#10b981' },
+                          { name: `智算中心运营 ${shareBreakdown.company.rate}`, value: Math.max(shareBreakdown.company.amount, 1), color: '#10b981' },
                         ]}
                         cx="50%"
                         cy="50%"
@@ -4291,7 +4291,7 @@ export default function AdminPage() {
                 {tbSearchResults.length > 0 && !tbSelectedUser && (
                   <div className="border rounded-md divide-y max-h-60 overflow-y-auto">
                     {tbSearchResults.map((u: any) => {
-                      const roleLabel = u.role === 'admin' ? '总台' : u.role === 'branch' ? '服务网点' : u.role === 'provider' ? '服务商' : '会员';
+                      const roleLabel = u.role === 'admin' ? '智算中心' : u.role === 'branch' ? '服务网点' : u.role === 'provider' ? '服务商' : '会员';
                       const roleColor = u.role === 'admin' ? 'bg-red-100 text-red-700' : u.role === 'branch' ? 'bg-blue-100 text-blue-700' : u.role === 'provider' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700';
                       return (
                         <div key={u.id} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 cursor-pointer" onClick={() => { setTbSelectedUser(u); setTbSearchResults([]); setTbSearchQuery(''); setTbTransferResult(null); }}>
@@ -4324,7 +4324,7 @@ export default function AdminPage() {
                         {tbSelectedUser.unique_id && <span className="text-sm text-gray-400 ml-2">[{tbSelectedUser.unique_id}]</span>}
                         {tbSelectedUser.phone && <span className="text-sm text-gray-400 ml-2">({tbSelectedUser.phone})</span>}
                         <span className={`text-xs px-2 py-0.5 rounded ml-2 ${tbSelectedUser.role === 'admin' ? 'bg-red-100 text-red-700' : tbSelectedUser.role === 'branch' ? 'bg-blue-100 text-blue-700' : tbSelectedUser.role === 'provider' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}`}>
-                          {tbSelectedUser.role === 'admin' ? '总台' : tbSelectedUser.role === 'branch' ? '服务网点' : tbSelectedUser.role === 'provider' ? '服务商' : '会员'}
+                          {tbSelectedUser.role === 'admin' ? '智算中心' : tbSelectedUser.role === 'branch' ? '服务网点' : tbSelectedUser.role === 'provider' ? '服务商' : '会员'}
                         </span>
                       </div>
                       <Button variant="ghost" size="sm" onClick={() => { setTbSelectedUser(null); setTbTransferResult(null); }}>重新选择</Button>
@@ -4405,7 +4405,7 @@ export default function AdminPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Card className="bg-gradient-to-br from-amber-500 to-amber-700 text-white">
                   <CardContent className="p-4">
-                    <div className="text-sm opacity-80">总台智算金余额</div>
+                    <div className="text-sm opacity-80">智算中心智算金余额</div>
                     <div className="text-3xl font-bold mt-1">¥{adminBalance.toLocaleString()}</div>
                   </CardContent>
                 </Card>
@@ -4423,7 +4423,7 @@ export default function AdminPage() {
                 </Card>
                 <Card className="bg-gradient-to-br from-purple-500 to-purple-700 text-white">
                   <CardContent className="p-4">
-                    <div className="text-sm opacity-80">总台积分余额</div>
+                    <div className="text-sm opacity-80">智算中心积分余额</div>
                     <div className="text-3xl font-bold mt-1">{adminPoints.toLocaleString()}</div>
                   </CardContent>
                 </Card>
@@ -4936,10 +4936,10 @@ export default function AdminPage() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between gap-2 overflow-x-auto py-4">
-              {/* 总台额度 */}
+              {/* 智算中心额度 */}
               <div className="flex-shrink-0 text-center p-4 bg-primary/5 border-2 border-primary/20 rounded-xl min-w-[140px]">
                 <Database className="w-8 h-8 mx-auto text-primary mb-2" />
-                <p className="text-sm font-semibold text-primary">总台额度</p>
+                <p className="text-sm font-semibold text-primary">智算中心额度</p>
                 <p className="text-lg font-bold">¥{((quota.companyQuota?.total_quota || 0) / 10000).toFixed(0)}万</p>
                 <p className="text-xs text-muted-foreground">可用 ¥{((quota.companyQuota?.available_quota || 0) / 10000).toFixed(0)}万</p>
               </div>
@@ -5237,7 +5237,7 @@ export default function AdminPage() {
                 <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalBranch / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
               </div>
               <div className="text-center p-3 bg-slate-50 dark:bg-slate-950/30 rounded-lg">
-                <div className="text-xs text-muted-foreground mb-1">总台运营 (0.4%)</div>
+                <div className="text-xs text-muted-foreground mb-1">智算中心运营 (0.4%)</div>
                 <div className="text-lg font-bold text-slate-600">¥{totalCompany.toLocaleString()}</div>
                 <div className="text-xs text-muted-foreground">{totalRelease > 0 ? ((totalCompany / totalRelease) * 100).toFixed(1) : '0.0'}%</div>
               </div>
@@ -5250,7 +5250,7 @@ export default function AdminPage() {
       <Card>
         <CardHeader>
           <CardTitle>释放收益明细记录</CardTitle>
-          <CardDescription>产品到期释放市场费，按比例分配到各方（会员2% / 服务商2% / 直推0.25% / 上级0.25% / 网点0.1% / 总台0.4%）</CardDescription>
+          <CardDescription>产品到期释放市场费，按比例分配到各方（会员2% / 服务商2% / 直推0.25% / 上级0.25% / 网点0.1% / 智算中心0.4%）</CardDescription>
         </CardHeader>
         <CardContent>
           {/* 筛选区 */}
@@ -5280,7 +5280,7 @@ export default function AdminPage() {
                     <TableHead>直推(0.25%)</TableHead>
                     <TableHead>上级(0.25%)</TableHead>
                     <TableHead>网点(0.1%)</TableHead>
-                    <TableHead>总台(0.4%)</TableHead>
+                    <TableHead>智算中心(0.4%)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -5400,7 +5400,7 @@ export default function AdminPage() {
   const renderAccountsManagement = () => {
     const roleLabel = (role: string) => {
       switch(role) {
-        case 'admin': return '总台';
+        case 'admin': return '智算中心';
         case 'branch': return '服务网点';
         case 'provider': return '服务商';
         case 'member': return '会员';
@@ -5533,7 +5533,7 @@ export default function AdminPage() {
                                   : <span className="text-muted-foreground">-</span>}
                               </div>
                             )}
-                            {u.role === 'branch' && <span className="text-muted-foreground">隶属总台</span>}
+                            {u.role === 'branch' && <span className="text-muted-foreground">隶属智算中心</span>}
                             {u.role === 'admin' && <span className="text-muted-foreground">-</span>}
                           </td>
                           <td className="py-3 px-4 text-green-600 font-medium">¥{(u.balance || 0).toLocaleString()}</td>
@@ -5893,7 +5893,7 @@ export default function AdminPage() {
                 <span className="flex items-center gap-1 mt-1">
                   {acctEditUser.username}
                   {acctEditUser.unique_id && <span className="text-muted-foreground text-xs">[{acctEditUser.unique_id}]</span>}
-                  <Badge variant="outline" className="text-xs ml-1">{acctEditUser.role === 'admin' ? '总台' : acctEditUser.role === 'branch' ? '网点' : acctEditUser.role === 'provider' ? '服务商' : '会员'}</Badge>
+                  <Badge variant="outline" className="text-xs ml-1">{acctEditUser.role === 'admin' ? '智算中心' : acctEditUser.role === 'branch' ? '网点' : acctEditUser.role === 'provider' ? '服务商' : '会员'}</Badge>
                 </span>
               )}
             </DialogDescription>
@@ -5986,7 +5986,7 @@ export default function AdminPage() {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">身份</span>
                   <Badge className={acctTransferUser.role === 'admin' ? 'bg-red-100 text-red-700' : acctTransferUser.role === 'branch' ? 'bg-blue-100 text-blue-700' : acctTransferUser.role === 'provider' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}>
-                    {acctTransferUser.role === 'admin' ? '总台' : acctTransferUser.role === 'branch' ? '服务网点' : acctTransferUser.role === 'provider' ? '服务商' : '会员'}
+                    {acctTransferUser.role === 'admin' ? '智算中心' : acctTransferUser.role === 'branch' ? '服务网点' : acctTransferUser.role === 'provider' ? '服务商' : '会员'}
                   </Badge>
                 </div>
                 <div className="flex justify-between">
@@ -6041,7 +6041,7 @@ export default function AdminPage() {
                   const res = await authFetch('/api/admin/transfer-balance', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ toUserId: acctTransferUser.id, amount: amt, note: acctTransferNote || `总台转入智算金 ¥${amt}` }),
+                    body: JSON.stringify({ toUserId: acctTransferUser.id, amount: amt, note: acctTransferNote || `智算中心转入智算金 ¥${amt}` }),
                   });
                   const data = await res.json();
                   if (data.success) {
@@ -6194,7 +6194,7 @@ export default function AdminPage() {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">当前身份</span>
                   <Badge className={roleChangeUser.role === 'admin' ? 'bg-red-100 text-red-700' : roleChangeUser.role === 'branch' ? 'bg-blue-100 text-blue-700' : roleChangeUser.role === 'provider' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}>
-                    {roleChangeUser.role === 'admin' ? '总台' : roleChangeUser.role === 'branch' ? '服务网点' : roleChangeUser.role === 'provider' ? '服务商' : '会员'}
+                    {roleChangeUser.role === 'admin' ? '智算中心' : roleChangeUser.role === 'branch' ? '服务网点' : roleChangeUser.role === 'provider' ? '服务商' : '会员'}
                   </Badge>
                 </div>
               </div>
@@ -6214,7 +6214,7 @@ export default function AdminPage() {
               {selectedNewRole && selectedNewRole !== roleChangeUser.role && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                   <p className="text-sm text-yellow-700">
-                    即将把 <strong>{roleChangeUser.username}</strong> 的身份从 <strong>{roleChangeUser.role === 'admin' ? '总台' : roleChangeUser.role === 'branch' ? '服务网点' : roleChangeUser.role === 'provider' ? '服务商' : '会员'}</strong> 修改为 <strong>{selectedNewRole === 'branch' ? '服务网点' : selectedNewRole === 'provider' ? '服务商' : '会员'}</strong>
+                    即将把 <strong>{roleChangeUser.username}</strong> 的身份从 <strong>{roleChangeUser.role === 'admin' ? '智算中心' : roleChangeUser.role === 'branch' ? '服务网点' : roleChangeUser.role === 'provider' ? '服务商' : '会员'}</strong> 修改为 <strong>{selectedNewRole === 'branch' ? '服务网点' : selectedNewRole === 'provider' ? '服务商' : '会员'}</strong>
                   </p>
                 </div>
               )}
