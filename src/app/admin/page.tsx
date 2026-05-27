@@ -10423,8 +10423,10 @@ export default function AdminPage() {
                           const formData = new FormData();
                           formData.append('file', file);
                           try {
-                            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                            const token = localStorage.getItem('token');
+                            const res = await fetch('/api/upload', { method: 'POST', body: formData, headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
                             const data = await res.json();
+                            if (res.status === 401) { alert('登录已过期，请重新登录'); return; }
                             if (data.success) {
                               setNewProduct({ ...newProduct, image_url: data.data.url });
                             } else {
