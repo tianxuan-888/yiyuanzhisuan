@@ -1,62 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { S3Storage } from 'coze-coding-dev-sdk';
-
-const storage = new S3Storage({
-  endpointUrl: process.env.COZE_BUCKET_ENDPOINT_URL,
-  accessKey: '',
-  secretKey: '',
-  bucketName: process.env.COZE_BUCKET_NAME,
-  region: 'cn-beijing',
-});
+import { writeFile, mkdir } from 'fs/promises';
+import path from 'path';
 
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
-    const file = formData.get('file') as File | null;
+    const file = formData.get('file') as File;
 
     if (!file) {
-      return NextResponse.json({ success: false, error: '请选择要上传的文件' }, { status: 400 });
-    }
-
-    // 验证文件类型
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ success: false, error: '仅支持 JPG/PNG/GIF/WebP/SVG 格式的图片' }, { status: 400 });
-    }
-
-    // 验证文件大小（最大5MB）
-    if (file.size > 5 * 1024 * 1024) {
-      return NextResponse.json({ success: false, error: '图片大小不能超过5MB' }, { status: 400 });
+      return NextResponse.json({ error: '请选择文件' }, { status: 400 });
     }
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // 生成文件名
-    const ext = file.name.split('.').pop() || 'png';
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 8);
-    const fileName = `mall/${timestamp}-${random}.${ext}`;
+    // 生成唯一文件名
+    const ext = file.name.split('.').pop() || 'jpg';
+    const fileName = `mall_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
 
-    // 上传到对象存储
-    const fileKey = await storage.uploadFile({
-      fileContent: buffer,
-      fileName: fileName,
-      contentType: file.type,
-    });
+    // 确保上传目录存在
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads');
+    await mkdir(uploadDir, { recursive: true });
 
-    // 生成签名访问URL（有效期10年，等同永久访问）
-    const imageUrl = await storage.generatePresignedUrl({
-      key: fileKey,
-      expireTime: 10 * 365 * 24 * 3600,
-    });
+    const filePath = path.join(uploadDir, fileName);
+    await writeFile(filePath, buffer);
+
+    // 返回公开访问的URL路径
+    const imageUrl = `/uploads/${fileName}`;
 
     return NextResponse.json({
       success: true,
-      data: { url: imageUrl, key: fileKey, fileName }
+      url: imageUrl,
+      fileName: fileName,
     });
   } catch (error) {
-    console.error('文件上传失败:', error);
-    return NextResponse.json({ success: false, error: '文件上传失败' }, { status: 500 });
+    console.error('Upload error:', error);
+    return NextResponse.json({ error: '文件上传失败' }, { status: 500 });
   }
 }
