@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
-import { existsSync } from 'fs';
+import { S3Storage } from 'coze-coding-dev-sdk';
+
+const storage = new S3Storage({
+  endpointUrl: process.env.COZE_BUCKET_ENDPOINT_URL,
+  accessKey: '',
+  secretKey: '',
+  bucketName: process.env.COZE_BUCKET_NAME,
+  region: 'cn-beijing',
+});
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,27 +32,28 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // 生成唯一文件名
+    // 生成文件名
     const ext = file.name.split('.').pop() || 'png';
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);
-    const fileName = `mall-${timestamp}-${random}.${ext}`;
+    const fileName = `mall/${timestamp}-${random}.${ext}`;
 
-    // 确保上传目录存在
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true });
-    }
+    // 上传到对象存储
+    const fileKey = await storage.uploadFile({
+      fileContent: buffer,
+      fileName: fileName,
+      contentType: file.type,
+    });
 
-    const filePath = path.join(uploadDir, fileName);
-    await writeFile(filePath, buffer);
-
-    // 返回可访问的URL路径
-    const imageUrl = `/uploads/${fileName}`;
+    // 生成签名访问URL（有效期7天）
+    const imageUrl = await storage.generatePresignedUrl({
+      key: fileKey,
+      expireTime: 7 * 24 * 3600,
+    });
 
     return NextResponse.json({
       success: true,
-      data: { url: imageUrl, fileName }
+      data: { url: imageUrl, key: fileKey, fileName }
     });
   } catch (error) {
     console.error('文件上传失败:', error);
