@@ -3234,7 +3234,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                 record.status === 'rejected' ? 'destructive' :
                                                                 'outline'
                                                             }>
-                                                                {record.status === 'pending' ? '待审核' :
+                                                                {record.status === 'pending' ? '待审核付款' :
                                                                  record.status === 'completed' ? '已完成' :
                                                                  record.status === 'rejected' ? '已拒绝' : record.status}
                                                             </Badge>

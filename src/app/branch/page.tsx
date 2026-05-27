@@ -1742,7 +1742,7 @@ export default function BranchPage() {
               </button>
 
               <button
-                onClick={() => { loadPendingWithdrawals(); setActiveTab('withdraw-review'); }}
+                onClick={() => { loadPendingWithdrawals(); loadBranchWithdrawRecords(); setActiveTab('withdraw-review'); }}
                 className={`px-4 py-2 rounded-md transition-all flex items-center gap-1 ${
                   activeTab === 'withdraw-review' ? 'bg-white text-purple-900 font-semibold shadow-md' : 'text-white/80 hover:text-white hover:bg-white/10'
                 }`}
@@ -2665,8 +2665,8 @@ export default function BranchPage() {
                             </div>
                             <div className="flex items-center gap-3">
                               <span className="font-bold">¥{Number(w.amount).toLocaleString()}</span>
-                              <Badge className={w.status === 'approved' ? 'bg-green-500' : w.status === 'completed' ? 'bg-blue-500' : 'bg-red-500'}>
-                                {w.status === 'approved' ? '已审核' : w.status === 'completed' ? '已打款' : w.status === 'rejected' ? '已拒绝' : w.status}
+                              <Badge className={w.status === 'completed' ? 'bg-green-500' : w.status === 'rejected' ? 'bg-red-500' : 'bg-yellow-500'}>
+                                {w.status === 'completed' ? '已完成' : w.status === 'rejected' ? '已拒绝' : w.status === 'pending' ? '待审核付款' : w.status}
                               </Badge>
                             </div>
                           </div>
@@ -2676,6 +2676,40 @@ export default function BranchPage() {
                     </div>
                   ) : (
                     <p className="text-gray-500 text-center py-4">暂无审核记录</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* 我的提现记录（网点向总台提现） */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Wallet className="w-5 h-5" />
+                    我的提现记录
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {branchWithdrawRecords.length > 0 ? (
+                    <div className="space-y-3">
+                      {branchWithdrawRecords.map((w: any) => (
+                        <div key={w.id} className="flex items-center justify-between border rounded-lg p-3 bg-gray-50">
+                          <div>
+                            <p className="font-medium">¥{Number(w.amount).toLocaleString()}</p>
+                            <p className="text-xs text-gray-500">手续费: ¥{Number(w.fee).toLocaleString()} | 到账: ¥{Number(w.actual_amount).toLocaleString()}</p>
+                            {w.alipay_account && (
+                              <p className="text-xs text-gray-400">支付宝: {w.alipay_account} | {w.real_name}</p>
+                            )}
+                            <p className="text-xs text-gray-400">{new Date(w.created_at).toLocaleString()}</p>
+                            {w.reject_reason && <p className="text-xs text-red-500 mt-1">拒绝原因: {w.reject_reason}</p>}
+                          </div>
+                          <Badge className={w.status === 'completed' ? 'bg-green-500' : w.status === 'rejected' ? 'bg-red-500' : 'bg-yellow-500'}>
+                            {w.status === 'completed' ? '已完成' : w.status === 'rejected' ? '已拒绝' : '待审核付款'}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-center py-4">暂无提现记录</p>
                   )}
                 </CardContent>
               </Card>

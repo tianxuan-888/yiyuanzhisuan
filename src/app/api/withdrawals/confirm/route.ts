@@ -98,9 +98,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'approve') {
-      // 审核通过 → 标记为approved
+      // 审核通过 → 标记为completed（审核通过即付款完成）
       await execute(
-        `UPDATE withdrawals SET status = 'approved', reviewer_id = $1, reviewed_at = NOW(), updated_at = NOW() WHERE id = $2`,
+        `UPDATE withdrawals SET status = 'completed', reviewer_id = $1, reviewed_at = NOW(), completed_at = NOW(), updated_at = NOW() WHERE id = $2`,
         [auth.userId, withdrawalId]
       );
 
@@ -138,10 +138,11 @@ export async function POST(request: NextRequest) {
 
         // 写入网点收益记录（branch_revenue_records）
         const revenueType = applicantRole === 'provider' ? 'provider_withdraw' : 'member_withdraw';
+        const revenueId = crypto.randomUUID();
         await execute(
           `INSERT INTO branch_revenue_records (id, branch_id, type, amount, related_user_id, related_order_id, note, status, created_at)
-           VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, 'completed', NOW())`,
-          [auth.userId, revenueType, branchAmount, withdrawal.user_id, withdrawalId, `审核${applicantName}提现，到账95%智算金（${withdrawal.amount}元扣5%手续费${feeAmount}元）`]
+           VALUES ($1, $2, $3, $4, $5, $6, $7, 'completed', NOW())`,
+          [revenueId, auth.userId, revenueType, branchAmount, withdrawal.user_id, withdrawalId, `审核${applicantName}提现，到账95%智算金（${withdrawal.amount}元扣5%手续费${feeAmount}元）`]
         );
 
       } else if (reviewer.role === 'admin') {

@@ -4117,8 +4117,8 @@ export default function AdminPage() {
                         <div className="text-gray-600"><span className="font-medium">姓名:</span> {w.real_name || '-'}</div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge className={w.status === 'pending' ? 'bg-yellow-500' : w.status === 'approved' ? 'bg-blue-500' : w.status === 'transferred' ? 'bg-green-500' : w.status === 'completed' ? 'bg-gray-500' : 'bg-red-500'}>
-                          {w.status === 'pending' ? '待审核' : w.status === 'approved' ? '已审核' : w.status === 'transferred' ? '已打款' : w.status === 'completed' ? '已完成' : '已拒绝'}
+                        <Badge className={w.status === 'pending' ? 'bg-yellow-500' : w.status === 'completed' || w.status === 'approved' || w.status === 'transferred' ? 'bg-green-500' : 'bg-red-500'}>
+                          {w.status === 'pending' ? '待审核付款' : w.status === 'approved' ? '已完成' : w.status === 'transferred' ? '已完成' : w.status === 'completed' ? '已完成' : '已拒绝'}
                         </Badge>
                         {w.status === 'pending' && isBranchWithdraw && (
                           <div className="flex gap-2 ml-2">
@@ -4129,8 +4129,8 @@ export default function AdminPage() {
                         {w.status === 'pending' && !isBranchWithdraw && (
                           <span className="text-xs text-gray-400 ml-2">（由服务网点审核）</span>
                         )}
-                        {w.status === 'approved' && isBranchWithdraw && (
-                          <span className="text-xs text-green-600 ml-2">已审核通过</span>
+                        {w.status === 'completed' && (
+                          <span className="text-xs text-green-600 ml-2">已完成</span>
                         )}
                       </div>
                     </div>
@@ -6182,10 +6182,10 @@ export default function AdminPage() {
                   <td className="py-3 px-4">
                     <Badge className={
                       w.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                      w.status === 'approved' ? 'bg-green-100 text-green-700' :
+                      w.status === 'completed' ? 'bg-green-100 text-green-700' :
                       'bg-red-100 text-red-700'
                     }>
-                      {w.status === 'pending' ? '待审核' : w.status === 'approved' ? '已通过' : '已拒绝'}
+                      {w.status === 'pending' ? '待审核付款' : w.status === 'completed' ? '已完成' : '已拒绝'}
                     </Badge>
                   </td>
                   <td className="py-3 px-4 text-sm text-gray-500">{w.created_at}</td>

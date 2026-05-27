@@ -196,10 +196,10 @@ function ProviderWithdrawRecords({ userId, authFetch }: { userId: string; authFe
     };
 
     const statusMap: Record<string, { label: string; color: string }> = {
-        pending: { label: '待审核', color: 'bg-yellow-100 text-yellow-700' },
-        approved: { label: '审核通过', color: 'bg-blue-100 text-blue-700' },
-        transferred: { label: '已打款', color: 'bg-green-100 text-green-700' },
-        completed: { label: '已完成', color: 'bg-gray-100 text-gray-700' },
+        pending: { label: '待审核付款', color: 'bg-yellow-100 text-yellow-700' },
+        approved: { label: '已完成', color: 'bg-green-100 text-green-700' },
+        transferred: { label: '已完成', color: 'bg-green-100 text-green-700' },
+        completed: { label: '已完成', color: 'bg-green-100 text-green-700' },
         rejected: { label: '已拒绝', color: 'bg-red-100 text-red-700' },
     };
 
@@ -4188,8 +4188,8 @@ export default function ProviderPage() {
                                                                         record.status === 'rejected' ? 'bg-red-100 text-red-700' :
                                                                         'bg-gray-100 text-gray-700'
                                                                     }>
-                                                                        {record.status === 'completed' ? '提现成功' :
-                                                                         record.status === 'pending' ? '待审核' :
+                                                                        {record.status === 'completed' ? '已完成' :
+                                                                         record.status === 'pending' ? '待审核付款' :
                                                                          record.status === 'rejected' ? '已拒绝' : record.status}
                                                                     </Badge>
                                                                 </div>
