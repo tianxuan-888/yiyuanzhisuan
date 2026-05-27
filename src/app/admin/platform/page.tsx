@@ -1768,7 +1768,7 @@ function SettingsPage() {
               <p className="text-gray-400 text-sm">会员卖出时服务商获得的收益比例</p>
             </div>
             <div className="flex items-center gap-2">
-              <Input className="w-24 bg-slate-900 border-slate-700 text-white text-right" defaultValue="60" />
+              <Input className="w-24 bg-slate-900 border-slate-700 text-white text-right" defaultValue="2" />
               <span className="text-gray-400">%</span>
             </div>
           </div>

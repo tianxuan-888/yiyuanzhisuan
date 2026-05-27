@@ -98,12 +98,14 @@ export async function POST(request: NextRequest) {
       const memberProfit = purchasePrice * (profitRate / 100);
       const marketPool = purchasePrice * (marketRate / 100);
 
-      // 市场费池分配
-      const providerShare = marketPool * 0.70;     // 服务商 70%
-      const directShare = marketPool * 0.10;       // 直推 10%
-      const parentProviderShare = marketPool * 0.10; // 上级服务商 10%
-      const branchShare = marketPool * 0.05;       // 网点 5%
-      const companyShare = marketPool * 0.05;       // 总台 5%
+      // 收益分配（按用户确认的5%分配逻辑，各角色占产品价格的固定百分比）
+      // 合计5%：会员2% + 服务商2% + 直推0.25% + 上级服务商0.25% + 网点0.1% + 公司0.4%
+      const memberShare = purchasePrice * 0.02;        // 会员 2%
+      const providerShare = purchasePrice * 0.02;      // 服务商 2%
+      const directShare = purchasePrice * 0.0025;      // 直推 0.25%
+      const parentProviderShare = purchasePrice * 0.0025; // 上级服务商 0.25%
+      const branchShare = purchasePrice * 0.001;       // 网点 0.1%
+      const companyShare = purchasePrice * 0.004;      // 总台 0.4%
 
       console.log('[RELEASE REVENUE] 释放收益:', {
         userProductId: userProduct.id,
@@ -116,18 +118,29 @@ export async function POST(request: NextRequest) {
         companyShare
       });
 
-      // 1. 会员收益到账（写入energy_value智算金）
+      // 1. 会员收益到账 = profit_rate收益 + 市场费池40%返还（写入energy_value智算金）
+      const memberTotalGain = memberProfit + memberShare;
       await execute(
         `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
-        [memberProfit, userProduct.user_id]
+        [memberTotalGain, userProduct.user_id]
       );
-      // 写入energy_transactions明细
+      // 写入energy_transactions明细 - 收益部分
       await execute(
         `INSERT INTO energy_transactions (user_id, type, amount, note, created_at)
          VALUES ($1, 'profit_release', $2, $3, NOW())`,
         [userProduct.user_id, memberProfit,
          `产品「${userProduct.product_name}」到期释放收益${profitRate}%`]
       );
+      // 写入energy_transactions明细 - 市场费返还部分
+      if (memberShare > 0) {
+        await execute(
+          `INSERT INTO energy_transactions (user_id, type, amount, note, created_at)
+           VALUES ($1, 'market_fee_return', $2, $3, NOW())`,
+          [userProduct.user_id, memberShare,
+           `产品「${userProduct.product_name}」市场费返还2%`]
+
+        );
+      }
 
       // 2. 服务商收益到账（写入energy_value智算金）
       if (providerId && providerShare > 0) {
@@ -138,7 +151,7 @@ export async function POST(request: NextRequest) {
         await execute(
           `INSERT INTO energy_transactions (user_id, type, amount, note, created_at)
            VALUES ($1, 'provider_revenue', $2, $3, NOW())`,
-          [providerId, providerShare, '会员产品到期，服务商分成70%']
+          [providerId, providerShare, '会员产品到期，服务商分成2%']
         );
       }
 
@@ -152,7 +165,7 @@ export async function POST(request: NextRequest) {
         await execute(
           `INSERT INTO energy_transactions (user_id, type, amount, note, created_at)
            VALUES ($1, 'direct_referral_revenue', $2, $3, NOW())`,
-          [memberUser.inviter_id, directShare, '直推会员产品到期，直推分成10%']
+          [memberUser.inviter_id, directShare, '直推会员产品到期，直推分成0.25%']
         );
       }
 
@@ -166,7 +179,7 @@ export async function POST(request: NextRequest) {
         await execute(
           `INSERT INTO energy_transactions (user_id, type, amount, note, created_at)
            VALUES ($1, 'parent_provider_revenue', $2, $3, NOW())`,
-          [memberData.provider_id, parentProviderShare, '下级会员产品到期，上级服务商分成10%']
+          [memberData.provider_id, parentProviderShare, '下级会员产品到期，上级服务商分成0.25%']
         );
       }
 
@@ -179,7 +192,7 @@ export async function POST(request: NextRequest) {
           await execute(
             `INSERT INTO energy_transactions (user_id, type, amount, note, created_at)
              VALUES ($1, 'branch_revenue', $2, $3, NOW())`,
-            [branchId, branchShare, '服务商会员产品到期，网点分成5%']
+            [branchId, branchShare, '服务商会员产品到期，网点分成0.1%']
           );
       }
 
@@ -193,7 +206,7 @@ export async function POST(request: NextRequest) {
         await execute(
           `INSERT INTO energy_transactions (user_id, type, amount, note, created_at)
            VALUES ($1, 'company_revenue', $2, $3, NOW())`,
-          [adminUser.id, companyShare, '会员产品到期，总台运营分成5%']
+          [adminUser.id, companyShare, '会员产品到期，总台运营分成0.4%']
         );
       }
 
@@ -204,7 +217,7 @@ export async function POST(request: NextRequest) {
         `INSERT INTO member_revenue 
          (user_id, user_product_id, principal, profit, total_amount, converted_to_energy, status, product_name, product_code, product_period, total_rate, profit_rate, market_rate, holding_days)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-        [userProduct.user_id, userProduct.id, purchasePrice, memberProfit, purchasePrice + memberProfit,
+        [userProduct.user_id, userProduct.id, purchasePrice, memberTotalGain, purchasePrice + memberTotalGain,
          0, 'available', userProduct.product_name, userProduct.product_code, userProduct.period,
          totalRate, profitRate, marketRate, holdingDays]
       );
@@ -225,7 +238,7 @@ export async function POST(request: NextRequest) {
           marketRate,
           userProduct.user_id,
           memberUser?.username || memberUser?.real_name || '',
-          memberProfit,
+          memberTotalGain,
           memberUser?.inviter_id || null,
           directShare,
           providerId || null,
@@ -259,7 +272,7 @@ export async function POST(request: NextRequest) {
           parentProviderShare,
           branchShare,
           companyShare,
-          memberProfit
+          memberTotalGain
         ]
       );
 
@@ -279,7 +292,7 @@ export async function POST(request: NextRequest) {
           receiver_role: 'member',
           type: 'revenue_released',
           title: '收益已释放',
-          content: `产品「${userProduct.product_name}」已到期，收益¥${memberProfit.toFixed(2)}已到账智算金`,
+          content: `产品「${userProduct.product_name}」已到期，收益¥${memberTotalGain.toFixed(2)}已到账智算金`,
           is_read: false
         });
       } catch (e) {
