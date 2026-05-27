@@ -4152,7 +4152,7 @@ export default function ProviderPage() {
                                     <CardContent className="space-y-4">
                                         <div>
                                             <label className="text-sm font-medium mb-2 block">我的智算金</label>
-                                            <p className="text-2xl font-bold text-green-600">¥{revenueStats.balance?.toLocaleString() || 0}</p>
+                                            <p className="text-2xl font-bold text-green-600">¥{user?.energy_value?.toLocaleString() || 0}</p>
                                         </div>
                                         <div className="text-sm text-gray-500 bg-gray-50 rounded-lg p-3">
                                             <strong>说明：</strong>提现手续费5%，提现申请后等到平台审核通过，最低提现金额100元。
@@ -4882,7 +4882,7 @@ export default function ProviderPage() {
                         <DialogContent className="max-w-sm">
                             <DialogHeader>
                                 <DialogTitle className="text-center text-xl">智算金操作</DialogTitle>
-                                <DialogDescription className="text-center">当前余额：¥{revenueStats.balance?.toLocaleString() || 0}</DialogDescription>
+                                <DialogDescription className="text-center">当前余额：¥{user?.energy_value?.toLocaleString() || 0}</DialogDescription>
                             </DialogHeader>
                             <div className="space-y-3 py-2">
                                 <Button
@@ -5135,7 +5135,7 @@ export default function ProviderPage() {
                                 </div>
                                 <div>
                                     <label className="text-sm font-medium mb-2 block">我的智算金</label>
-                                    <p className="text-2xl font-bold text-green-600">¥{revenueStats.balance?.toLocaleString() || 0}</p>
+                                    <p className="text-2xl font-bold text-green-600">¥{user?.energy_value?.toLocaleString() || 0}</p>
                                 </div>
                                 <div>
                                     <label className="text-sm font-medium mb-2 block">提现金额</label>
