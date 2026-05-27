@@ -12,8 +12,8 @@ const RELEASE_SHARE_RATIOS = {
   company: 0.004,           // 总台运营 0.4%
 };
 
-// 增加用户余额（balance）并记录
-async function addBalance(
+// 增加用户智算金（energy_value）并记录
+async function addEnergy(
   userId: string,
   amount: number,
   type: string,
@@ -22,7 +22,7 @@ async function addBalance(
   if (amount <= 0) return;
   
   await execute(
-    `UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
+    `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
     [amount, userId]
   );
   
@@ -48,22 +48,19 @@ async function releaseAndDistribute(
   // 1. 会员收益 2% → 延迟到卖出/流转时到账，购买时不发放
   const memberShare = Math.round(productPrice * RELEASE_SHARE_RATIOS.member);
 
-  // 2. 直推奖励 0.25%（购买时立即到账）
+  // 2. 直推奖励 0.25%（购买时立即到账，归直推人）
   let directRewardTo: string | null = null;
   const directRewardAmount = Math.round(productPrice * RELEASE_SHARE_RATIOS.directReward);
-  const inviterIsProvider = member?.inviter_id && member.inviter_id === providerId;
 
-  if (member?.inviter_id && !inviterIsProvider) {
+  if (member?.inviter_id) {
     directRewardTo = member.inviter_id;
-    await addBalance(directRewardTo!, directRewardAmount, 'direct_reward', '直推会员购买产品奖励 (0.25%)');
-  } else if (inviterIsProvider && providerId) {
-    await addBalance(providerId, directRewardAmount, 'direct_reward_merged', '直推奖励(0.25%)合并到服务商收益');
+    await addEnergy(member.inviter_id, directRewardAmount, 'direct_reward', '直推会员购买产品奖励 (0.25%)');
   }
 
   // 3. 服务商收益 2%
   const providerShare = Math.round(productPrice * RELEASE_SHARE_RATIOS.provider);
   if (providerId) {
-    await addBalance(providerId, providerShare, 'provider_share', '会员购买产品收益分成 (2%)');
+    await addEnergy(providerId, providerShare, 'provider_share', '会员购买产品收益分成 (2%)');
   }
 
   // 4. 上级服务商 0.25%
@@ -79,7 +76,7 @@ async function releaseAndDistribute(
     );
     if (parentProvider?.user_id) {
       parentProviderUserId = parentProvider.user_id;
-      await addBalance(parentProvider.user_id, parentProviderShare, 'parent_provider_share', '下级服务商会员购买产品分成 (0.25%)');
+      await addEnergy(parentProvider.user_id, parentProviderShare, 'parent_provider_share', '下级服务商会员购买产品分成 (0.25%)');
     }
   }
 
@@ -97,7 +94,7 @@ async function releaseAndDistribute(
     );
     if (branchUser) {
       distributionBranchId = branchUser.id;
-      await addBalance(branchUser.id, branchTotalShare, 'branch_share', noParentShare > 0 ? '服务商会员购买产品分成 (0.1%+上级空缺0.25%)' : '服务商会员购买产品分成 (0.1%)');
+      await addEnergy(branchUser.id, branchTotalShare, 'branch_share', noParentShare > 0 ? '服务商会员购买产品分成 (0.1%+上级空缺0.25%)' : '服务商会员购买产品分成 (0.1%)');
     }
   }
 
@@ -111,7 +108,7 @@ async function releaseAndDistribute(
       []
     );
     if (adminUser) {
-      await addBalance(adminUser.id, companyShare, 'company_share', '平台运营收益');
+      await addEnergy(adminUser.id, companyShare, 'company_share', '平台运营收益');
     }
   }
 
@@ -151,8 +148,8 @@ async function releaseAndDistribute(
        VALUES ($1, $2, $3, $4, $5, $6, 0, $7, $8, $9, $10, $11, $12, $13, $14, 'completed', NOW())`,
       [
         randomUUID(), orderId, providerId, memberId, productId, productPrice,
-        providerShare + (inviterIsProvider ? directRewardAmount : 0),
-        inviterIsProvider ? 0 : directRewardAmount,
+        providerShare,
+        directRewardAmount,
         directRewardTo,
         parentProviderId ? parentProviderShare : 0,
         parentProviderUserId,
