@@ -92,32 +92,39 @@ export async function POST(request: NextRequest) {
       previousHolderId: product.previous_holder_id
     });
 
-    // 5. 写入产品流转记录
+    // 5. 写入产品流转记录（回流）
     try {
-      const supabase = getSupabase();
       const sellerInfo = product.previous_holder_id
-        ? await queryOne('SELECT id, username, unique_id, phone FROM users WHERE id = $1', [product.previous_holder_id])
+        ? await queryOne<any>('SELECT id, username, unique_id, phone FROM users WHERE id = $1', [product.previous_holder_id])
         : null;
-      const providerInfo = await queryOne('SELECT id, username FROM users WHERE id = $1', [product.provider_id]);
+      const providerInfo = await queryOne<any>('SELECT id, username, unique_id, phone FROM users WHERE id = $1', [product.provider_id]);
+      const productPrice = parseFloat(product.price) || 0;
+      const profitRate = parseFloat(product.profit_rate) || 0;
+      const expectedProfit = productPrice * profitRate / 100;
 
-      await supabase.from('product_flow_records').insert({
-        product_id: product.id,
-        product_code: product.code,
-        product_name: product.name,
-        product_price: product.price,
-        period: product.period,
-        flow_type: 'repurchase',
-        seller_id: product.previous_holder_id || product.provider_id,
-        seller_name: sellerInfo?.username || providerInfo?.username || '',
-        seller_unique_id: sellerInfo?.unique_id || '',
-        seller_phone: sellerInfo?.phone || '',
-        buyer_id: product.provider_id,
-        buyer_name: providerInfo?.username || '',
-        transfer_amount: product.price,
-        seller_profit: 0,
-        provider_id: product.provider_id,
-        provider_name: providerInfo?.username || '',
-      });
+      await execute(
+        `INSERT INTO product_flow_records 
+         (product_id, product_code, product_name, product_price, period, profit_rate, expected_profit,
+          flow_type, seller_id, seller_name, seller_unique_id, seller_phone,
+          buyer_id, buyer_name, buyer_unique_id, buyer_phone,
+          seller_profit, provider_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+        [
+          product.id, product.code || '', product.name, productPrice,
+          product.period, profitRate, expectedProfit,
+          '回流',
+          product.previous_holder_id || product.provider_id,
+          sellerInfo?.username || providerInfo?.username || '',
+          sellerInfo?.unique_id || '',
+          sellerInfo?.phone || '',
+          product.provider_id,
+          providerInfo?.username || '',
+          providerInfo?.unique_id || '',
+          providerInfo?.phone || '',
+          productPrice, // 回流时返还本金
+          product.provider_id
+        ]
+      );
     } catch (flowErr) {
       console.error('[REPURCHASE] 写入流转记录失败:', flowErr);
     }

@@ -598,11 +598,7 @@ const [copySuccess, setCopySuccess] = useState(false);
         if (!user?.id) return;
         try {
             const token = localStorage.getItem('token');
-            // 先检查超时流转，触发回购标记
-            await fetch('/api/products/transfer/check-timeout', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-            });
+            // 获取流转列表
             const response = await fetch(`/api/products/transfer/list?userId=${user.id}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });

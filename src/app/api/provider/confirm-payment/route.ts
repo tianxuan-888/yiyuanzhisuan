@@ -213,6 +213,31 @@ export async function POST(request: NextRequest) {
         console.error('记录释放收益失败:', e);
       }
 
+      // 写入产品流转记录（抢购）
+      try {
+        const memberInfo = await queryOne('SELECT id, username, unique_id, phone FROM users WHERE id = $1', [order.user_id]);
+        const providerInfo2 = await queryOne('SELECT id, username, unique_id, phone FROM users WHERE id = $1', [providerId]);
+        const expectedProfit = price * (parseFloat(product.profit_rate) / 100);
+        await execute(
+          `INSERT INTO product_flow_records 
+           (product_id, product_code, product_name, product_price, period, profit_rate, expected_profit,
+            flow_type, seller_id, seller_name, seller_unique_id, seller_phone,
+            buyer_id, buyer_name, buyer_unique_id, buyer_phone,
+            seller_profit, provider_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+          [
+            product.id, product.code || '', productName, price,
+            product.period, product.profit_rate, expectedProfit,
+            '抢购',
+            providerId, providerInfo2?.username || '', providerInfo2?.unique_id || '', providerInfo2?.phone || '',
+            order.user_id, memberInfo?.username || '', memberInfo?.unique_id || '', memberInfo?.phone || '',
+            expectedProfit, providerId
+          ]
+        );
+      } catch (e) {
+        console.error('写入流转记录失败:', e);
+      }
+
       // 发送通知给会员
       await client.from('notifications').insert({
         receiver_id: order.user_id, receiver_role: 'member', sender_id: providerId,

@@ -102,7 +102,6 @@ const PUBLIC_PATHS = [
   '/api/products/transfer/pending-repurchase',
   '/api/products/transfer/repurchase',
   '/api/products/transfer/confirm-repurchase',
-  '/api/products/transfer/check-timeout',
   '/api/provider/transfer-records',
   '/api/products/match/list',
   '/api/products/match/assign',

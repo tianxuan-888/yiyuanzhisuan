@@ -592,8 +592,12 @@ export default function ProviderPage() {
         const XLSX = require('xlsx');
         const exportData = transferRecords.map((r: any) => ({
             '产品编号': r.productCode || '',
-            '流转时间': r.transferTime || '',
-            '流转金额(¥)': r.transferAmount || 0,
+            '产品名称': r.productName || '',
+            '产品金额(¥)': r.productPrice || 0,
+            '周期(天)': r.period || 0,
+            '到期收益率(%)': r.profitRate || 0,
+            '到期收益金额(¥)': r.expectedProfit || 0,
+            '流转类型': r.flowType || '',
             '卖方用户名': r.sellerName || '',
             '卖方专属ID': r.sellerUniqueId || '',
             '卖方手机号': r.sellerPhone || '',
@@ -601,7 +605,7 @@ export default function ProviderPage() {
             '买方专属ID': r.buyerUniqueId || '',
             '买方手机号': r.buyerPhone || '',
             '卖方收益(¥)': r.sellerProfit || 0,
-            '流转类型': r.transferType || ''
+            '流转时间': r.transferTime || ''
         }));
         const ws = XLSX.utils.json_to_sheet(exportData);
         const wb = XLSX.utils.book_new();
@@ -3644,20 +3648,27 @@ export default function ProviderPage() {
                                         <thead>
                                             <tr className="border-b bg-muted/50">
                                                 <th className="text-left py-2 px-3">产品编号</th>
-                                                <th className="text-left py-2 px-3">流转时间</th>
-                                                <th className="text-left py-2 px-3">流转金额</th>
+                                                <th className="text-left py-2 px-3">产品名称</th>
+                                                <th className="text-left py-2 px-3">产品金额</th>
+                                                <th className="text-left py-2 px-3">周期</th>
+                                                <th className="text-left py-2 px-3">到期收益率</th>
+                                                <th className="text-left py-2 px-3">到期收益</th>
                                                 <th className="text-left py-2 px-3">卖方(A)</th>
                                                 <th className="text-left py-2 px-3">买方(B)</th>
                                                 <th className="text-left py-2 px-3">A的收益</th>
                                                 <th className="text-left py-2 px-3">流转类型</th>
+                                                <th className="text-left py-2 px-3">流转时间</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {transferRecords.map((record, idx) => (
                                                 <tr key={idx} className="border-b hover:bg-muted/30">
                                                     <td className="py-2 px-3 font-mono text-xs">{record.productCode}</td>
-                                                    <td className="py-2 px-3 text-xs">{record.transferTime?.slice(0, 16)?.replace('T', ' ') || '-'}</td>
-                                                    <td className="py-2 px-3 text-green-600 font-medium">¥{(record.transferAmount || 0).toLocaleString()}</td>
+                                                    <td className="py-2 px-3 text-xs">{record.productName || '-'}</td>
+                                                    <td className="py-2 px-3 text-green-600 font-medium">¥{(record.productPrice || 0).toLocaleString()}</td>
+                                                    <td className="py-2 px-3 text-xs">{record.period}天</td>
+                                                    <td className="py-2 px-3 text-xs">{record.profitRate}%</td>
+                                                    <td className="py-2 px-3 text-xs">¥{(record.expectedProfit || 0).toLocaleString()}</td>
                                                     <td className="py-2 px-3">
                                                         <div>
                                                             <p className="font-medium text-xs">{record.sellerName || '-'}</p>
@@ -3673,24 +3684,19 @@ export default function ProviderPage() {
                                                     <td className="py-2 px-3 text-orange-600 font-medium">¥{(record.sellerProfit || 0).toLocaleString()}</td>
                                                     <td className="py-2 px-3">
                                                         <Badge className={
-                                                            record.transferType === 'first_purchase' ? 'bg-blue-100 text-blue-700' :
-                                                            record.transferType === 'member_transfer' ? 'bg-purple-100 text-purple-700' :
-                                                            record.transferType === 'provider_match' ? 'bg-green-100 text-green-700' :
-                                                            record.transferType === 'provider_repurchase' ? 'bg-amber-100 text-amber-700' :
+                                                            record.flowType === '抢购' ? 'bg-blue-100 text-blue-700' :
+                                                            record.flowType === '回流' ? 'bg-amber-100 text-amber-700' :
                                                             'bg-gray-100 text-gray-700'
                                                         }>
-                                                            {record.transferType === 'first_purchase' ? '首次购买' :
-                                                             record.transferType === 'member_transfer' ? '会员流转' :
-                                                             record.transferType === 'provider_match' ? '服务商匹配' :
-                                                             record.transferType === 'provider_repurchase' ? '服务商回购' :
-                                                             record.transferType || '-'}
+                                                            {record.flowType || '-'}
                                                         </Badge>
                                                     </td>
+                                                    <td className="py-2 px-3 text-xs">{record.transferTime?.slice(0, 16)?.replace('T', ' ') || '-'}</td>
                                                 </tr>
                                             ))}
                                             {transferRecords.length === 0 && (
                                                 <tr>
-                                                    <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                                                    <td colSpan={11} className="py-8 text-center text-muted-foreground">
                                                         暂无流转记录
                                                     </td>
                                                 </tr>

@@ -311,6 +311,30 @@ export async function POST(request: NextRequest) {
       ]
     );
 
+    // 写入产品流转记录（抢购）
+    try {
+      const sellerInfo = await queryOne<any>('SELECT id, username, unique_id, phone FROM users WHERE id = $1', [transfer.from_user_id]);
+      const buyerInfo = await queryOne<any>('SELECT id, username, unique_id, phone FROM users WHERE id = $1', [transfer.to_user_id]);
+      await query(
+        `INSERT INTO product_flow_records 
+         (product_id, product_code, product_name, product_price, period, profit_rate, expected_profit,
+          flow_type, seller_id, seller_name, seller_unique_id, seller_phone,
+          buyer_id, buyer_name, buyer_unique_id, buyer_phone,
+          seller_profit, provider_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+        [
+          product.id, product.code || '', product.name, transferPrice,
+          product.period, product.profit_rate, expectedProfit,
+          '抢购',
+          transfer.from_user_id, sellerInfo?.username || '', sellerInfo?.unique_id || '', sellerInfo?.phone || '',
+          transfer.to_user_id, buyerInfo?.username || '', buyerInfo?.unique_id || '', buyerInfo?.phone || '',
+          sellerProfit, product.provider_id
+        ]
+      );
+    } catch (e) {
+      console.error('写入流转记录失败:', e);
+    }
+
     return NextResponse.json({
       success: true,
       message: '流转审核通过，产品已转移，收益已释放',

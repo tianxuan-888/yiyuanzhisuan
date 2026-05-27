@@ -153,49 +153,46 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        // 7. 写入产品流转记录
+        // 7. 写入产品流转记录（抢购）
         try {
-          // 获取买卖双方信息
           const sellerId = product.previous_holder_id || user.userId;
-          const sellerInfo = await queryOne(
+          const sellerInfo = await queryOne<any>(
             `SELECT id, username, unique_id, phone FROM users WHERE id = $1`,
             [sellerId]
           );
-          const buyerInfo = await queryOne(
+          const buyerInfo = await queryOne<any>(
             `SELECT id, username, unique_id, phone FROM users WHERE id = $1`,
             [targetUser.id]
           );
-          const providerInfo = await queryOne(
-            `SELECT id, username FROM users WHERE id = $1`,
-            [product.provider_id]
-          );
-          const flowType = product.previous_holder_id ? 'member_transfer' : 'provider_match';
-          const sellerProfit = product.previous_holder_id
-            ? product.price * (profitRate / 100)
-            : 0;
+          const productPrice = parseFloat(product.price) || 0;
+          const profitRateVal = parseFloat(product.profit_rate) || 0;
+          const expectedProfit = productPrice * profitRateVal / 100;
+          // 抢购时卖方收益 = 产品金额 × 收益率
+          const sellerProfit = product.previous_holder_id ? expectedProfit : expectedProfit;
 
-          await supabase.from('product_flow_records').insert({
-            product_id: product.id,
-            product_code: product.code,
-            product_name: product.name,
-            product_price: product.price,
-            period: product.period,
-            profit_rate: product.profit_rate,
-            market_rate: product.market_rate,
-            flow_type: flowType,
-            seller_id: sellerId,
-            seller_name: sellerInfo?.username || '',
-            seller_unique_id: sellerInfo?.unique_id || '',
-            seller_phone: sellerInfo?.phone || '',
-            buyer_id: targetUser.id,
-            buyer_name: buyerInfo?.username || '',
-            buyer_unique_id: buyerInfo?.unique_id || '',
-            buyer_phone: buyerInfo?.phone || '',
-            transfer_amount: product.price,
-            seller_profit: sellerProfit,
-            provider_id: product.provider_id,
-            provider_name: providerInfo?.username || '',
-          });
+          await execute(
+            `INSERT INTO product_flow_records 
+             (product_id, product_code, product_name, product_price, period, profit_rate, expected_profit,
+              flow_type, seller_id, seller_name, seller_unique_id, seller_phone,
+              buyer_id, buyer_name, buyer_unique_id, buyer_phone,
+              seller_profit, provider_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+            [
+              product.id, product.code || '', product.name, productPrice,
+              product.period, profitRateVal, expectedProfit,
+              '抢购',
+              sellerId,
+              sellerInfo?.username || '',
+              sellerInfo?.unique_id || '',
+              sellerInfo?.phone || '',
+              targetUser.id,
+              buyerInfo?.username || '',
+              buyerInfo?.unique_id || '',
+              buyerInfo?.phone || '',
+              sellerProfit,
+              product.provider_id
+            ]
+          );
         } catch (flowErr) {
           console.error('[MATCH CONFIRM] 写入流转记录失败:', flowErr);
         }

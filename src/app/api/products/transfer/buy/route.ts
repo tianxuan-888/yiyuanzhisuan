@@ -38,8 +38,8 @@ export async function POST(request: NextRequest) {
 
       if (userProduct) {
         const newTransfer = await queryOne<any>(
-          `INSERT INTO product_transfers (product_id, from_user_id, transfer_price, status, expires_at, created_at, updated_at)
-           VALUES ($1, $2, $3, 'pending', NOW() + INTERVAL '48 hours', NOW(), NOW())
+          `INSERT INTO product_transfers (product_id, from_user_id, transfer_price, status, created_at, updated_at)
+           VALUES ($1, $2, $3, 'pending', NOW(), NOW())
            RETURNING *`,
           [userProduct.product_id, userProduct.user_id, userProduct.purchase_price]
         );
@@ -58,10 +58,6 @@ export async function POST(request: NextRequest) {
 
     if (transfer.status !== 'pending') {
       return NextResponse.json({ error: '该流转已结束或已有买家' }, { status: 400 });
-    }
-
-    if (transfer.expires_at && new Date(transfer.expires_at) < new Date()) {
-      return NextResponse.json({ error: '该流转已过期' }, { status: 400 });
     }
 
     if (transfer.from_user_id === buyerId) {

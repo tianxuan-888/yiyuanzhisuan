@@ -11,78 +11,14 @@ export async function GET(request: NextRequest) {
     const statusFilter = searchParams.get('status');
     const marketMode = searchParams.get('market'); // 'true' 表示获取流转市场
 
-    // ========== 自动超时取消：2小时未付款的流转 ==========
-    try {
-      const timeoutTransfers = await query(
-        `SELECT id, product_id, from_user_id, to_user_id, market_fee 
-         FROM product_transfers 
-         WHERE status = 'awaiting_payment' 
-           AND updated_at < NOW() - INTERVAL '2 hours'`
-      );
-
-      if (Array.isArray(timeoutTransfers) && timeoutTransfers.length > 0) {
-        for (const t of timeoutTransfers) {
-          // 恢复产品状态
-          await query(
-            "UPDATE products SET status = 'available', updated_at = NOW() WHERE id = $1",
-            [t.product_id]
-          );
-
-          // 恢复卖家持仓状态
-          const sellerUp = await query(
-            "SELECT id FROM user_products WHERE product_id = $1 AND user_id = $2 AND status = 'transferring'",
-            [t.product_id, t.from_user_id]
-          );
-          if (Array.isArray(sellerUp) && sellerUp.length > 0) {
-            await query(
-              "UPDATE user_products SET status = 'holding', updated_at = NOW() WHERE id = $1",
-              [sellerUp[0].id]
-            );
-          }
-
-          // 购买时不扣市场费，超时取消无需退还
-          // 重新发布流转（恢复为pending，让其他会员可购买）
-          await query(
-            `UPDATE product_transfers 
-             SET status = 'pending', to_user_id = NULL, market_fee = NULL, expected_profit = NULL,
-                 buyer_confirmed_at = NULL, seller_confirmed = false,
-                 expires_at = NOW() + INTERVAL '48 hours', updated_at = NOW()
-             WHERE id = $1`,
-            [t.id]
-          );
-
-          // 通知卖家和买家
-          if (t.from_user_id) {
-            const fromUser = await queryOne<any>('SELECT role FROM users WHERE id = $1', [t.from_user_id]);
-            await query(
-              `INSERT INTO notifications (receiver_id, receiver_role, type, title, content, related_id, status, created_at)
-               VALUES ($1, $2, 'transfer_cancelled', '流转超时取消', $3, $4, 'unread', NOW())`,
-              [t.from_user_id, fromUser?.role || 'member', '买家付款超时，流转已自动取消，产品已重新上架到流转市场', t.id]
-            );
-          }
-          if (t.to_user_id) {
-            const toUser = await queryOne<any>('SELECT role FROM users WHERE id = $1', [t.to_user_id]);
-            await query(
-              `INSERT INTO notifications (receiver_id, receiver_role, type, title, content, related_id, status, created_at)
-               VALUES ($1, $2, 'transfer_cancelled', '流转超时取消', $3, $4, 'unread', NOW())`,
-              [t.to_user_id, toUser?.role || 'member', '付款超时，流转已自动取消，市场费已退还', t.id]
-            );
-          }
-        }
-      }
-    } catch (timeoutErr) {
-      console.error('自动超时处理失败:', timeoutErr);
-      // 不影响主查询
-    }
-
-    // 构建SQL查询
+    // ========== 构建SQL查询 ==========
     let whereClause = '1=1';
     const params: any[] = [];
     let paramIdx = 1;
 
-    // 流转市场模式：只显示 pending 且未过期的
+    // 流转市场模式：只显示 pending
     if (marketMode === 'true') {
-      whereClause += ` AND pt.status = 'pending' AND pt.expires_at > NOW()`;
+      whereClause += ` AND pt.status = 'pending'`;
     } else {
       // 按状态过滤
       if (statusFilter) {

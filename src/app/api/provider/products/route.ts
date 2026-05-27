@@ -39,6 +39,42 @@ export async function GET(request: NextRequest) {
       params
     );
 
+    // 为已出售/待确认产品关联持有会员信息
+    const soldProductIds = products
+      .filter((p: any) => p.status === 'sold' || p.status === 'pending_sell' || p.status === 'pending_confirm' || p.status === 'pending_match')
+      .map((p: any) => p.id);
+
+    let holderMap: Record<string, { userId: string; username: string; phone: string; uniqueId: string; status: string }> = {};
+
+    if (soldProductIds.length > 0) {
+      const userProducts = await query(
+        `SELECT up.product_id, up.user_id, up.status as holding_status, u.username, u.phone, u.unique_id
+         FROM user_products up
+         JOIN users u ON up.user_id = u.id
+         WHERE up.product_id = ANY($1) AND up.status IN ('holding', 'pending_sell', 'pending_confirm', 'transferring')`,
+        [soldProductIds]
+      );
+
+      for (const up of userProducts) {
+        // 只取最新的持有人（holding 优先）
+        if (!holderMap[up.product_id] || up.holding_status === 'holding') {
+          holderMap[up.product_id] = {
+            userId: up.user_id,
+            username: up.username || '',
+            phone: up.phone || '',
+            uniqueId: up.unique_id || '',
+            status: up.holding_status || '',
+          };
+        }
+      }
+    }
+
+    // 将持有会员信息附加到产品数据
+    const productsWithHolder = products.map((p: any) => ({
+      ...p,
+      holder: holderMap[p.id] || null,
+    }));
+
     // 获取统计数据
     const statsResult = await query(
       `SELECT 
@@ -57,7 +93,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        products,
+        products: productsWithHolder,
         stats: {
           total: parseInt(statsResult[0]?.total || '0'),
           available: parseInt(statsResult[0]?.available || '0'),
