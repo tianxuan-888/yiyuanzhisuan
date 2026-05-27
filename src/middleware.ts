@@ -169,6 +169,7 @@ const PUBLIC_PATHS = [
   '/api/provider/points-records',
   '/api/admin/points-products',
   '/api/admin/points-exchange-orders',
+  '/api/upload',
 ];
 
 // 静态资源和页面路径不走 API 认证
