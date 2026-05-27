@@ -171,19 +171,19 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 5. 服务网点0.1% → balance
+      // 5. 服务网点0.1%（+无上级时的0.25%归网点）→ balance
       let distributionBranchId: string | null = providerInfo?.branch_id || null;
-      if (providerInfo?.branch_id && branchShare > 0) {
-        await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [branchShare, providerInfo.branch_id]);
+      const noParentExtra = actualParentProviderId ? 0 : parentShare;
+      const branchTotalShare = branchShare + noParentExtra;
+      if (providerInfo?.branch_id && branchTotalShare > 0) {
+        await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [branchTotalShare, providerInfo.branch_id]);
       }
 
-      // 6. 总台运营0.4%（+无上级时的0.25%）→ balance
-      const noParentExtra = actualParentProviderId ? 0 : parentShare;
-      const finalCompanyShare = companyBaseShare + noParentExtra;
-      if (finalCompanyShare > 0) {
+      // 6. 总台运营0.4% → balance
+      if (companyBaseShare > 0) {
         const adminUser = await queryOne("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
         if (adminUser) {
-          await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [finalCompanyShare, adminUser.id]);
+          await execute('UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2', [companyBaseShare, adminUser.id]);
         }
       }
 
@@ -206,7 +206,7 @@ export async function POST(request: NextRequest) {
             providerId, providerShare,
             actualParentProviderId, actualParentProviderId ? parentShare : 0,
             null, 0,
-            distributionBranchId, branchShare, finalCompanyShare
+            distributionBranchId, branchShare, companyBaseShare
           ]
         );
       } catch (e) {

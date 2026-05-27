@@ -142,27 +142,27 @@ export async function POST(request: NextRequest) {
             [parentProviderShare, providerInfo.parent_provider_id]
           );
         } else if (parentProviderShare > 0) {
-          // 无上级服务商时，0.25%归公司运营
+          // 无上级服务商时，0.25%归网点
           noParentShare = parentProviderShare;
         }
-        // 网点收益 0.1%（写入energy_value智算金）
+        // 网点收益 0.1%（写入energy_value智算金，含无上级服务商时的0.25%）
         const branchShare = parseFloat(userProduct.purchase_price) * 0.001;
-        if (providerInfo?.branch_id && branchShare > 0) {
+        const branchTotalShare = branchShare + noParentShare;
+        if (providerInfo?.branch_id && branchTotalShare > 0) {
           await execute(
             `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
-            [branchShare, providerInfo.branch_id]
+            [branchTotalShare, providerInfo.branch_id]
           );
         }
       }
 
-      // 总台收益 0.4% + 无上级服务商时的0.25%（写入energy_value智算金）
+      // 总台收益 0.4%（写入energy_value智算金）
       const companyShare = parseFloat(userProduct.purchase_price) * 0.004;
-      const companyTotalShare = companyShare + noParentShare;
       const adminUser = await queryOne<any>('SELECT id FROM users WHERE role = $1 LIMIT 1', ['admin']);
-      if (adminUser && companyTotalShare > 0) {
+      if (adminUser && companyShare > 0) {
         await execute(
           `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
-          [companyTotalShare, adminUser.id]
+          [companyShare, adminUser.id]
         );
       }
 

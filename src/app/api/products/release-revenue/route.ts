@@ -183,35 +183,35 @@ export async function POST(request: NextRequest) {
           [parentProviderId, parentProviderShare, '下级服务商会员产品到期，上级服务商分成0.25%']
         );
       } else if (parentProviderShare > 0) {
-        // 无上级服务商时，0.25%归公司运营
+        // 无上级服务商时，0.25%归网点
         noParentShare = parentProviderShare;
       }
 
-      // 5. 网点收益到账（写入energy_value智算金）
-      if (branchId && branchShare > 0) {
+      // 5. 网点收益到账（写入energy_value智算金，含无上级服务商时的0.25%）
+      const branchTotalShare = branchShare + noParentShare;
+      if (branchId && branchTotalShare > 0) {
           await execute(
             `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
-            [branchShare, branchId]
+            [branchTotalShare, branchId]
           );
           await execute(
             `INSERT INTO energy_transactions (user_id, type, amount, note, created_at)
              VALUES ($1, 'branch_revenue', $2, $3, NOW())`,
-            [branchId, branchShare, '服务商会员产品到期，网点分成0.1%']
+            [branchId, branchTotalShare, noParentShare > 0 ? '服务商会员产品到期，网点分成0.1%+上级空缺0.25%' : '服务商会员产品到期，网点分成0.1%']
           );
       }
 
-      // 6. 总台运营收益到账（写入energy_value智算金，含无上级服务商时的0.25%）
+      // 6. 总台运营收益到账（写入energy_value智算金）
       const adminUser = await queryOne<any>('SELECT id FROM users WHERE role = $1 LIMIT 1', ['admin']);
-      const companyTotalShare = companyShare + noParentShare;
-      if (adminUser && companyTotalShare > 0) {
+      if (adminUser && companyShare > 0) {
         await execute(
           `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
-          [companyTotalShare, adminUser.id]
+          [companyShare, adminUser.id]
         );
         await execute(
           `INSERT INTO energy_transactions (user_id, type, amount, note, created_at)
            VALUES ($1, 'company_revenue', $2, $3, NOW())`,
-          [adminUser.id, companyTotalShare, noParentShare > 0 ? '会员产品到期，总台运营分成0.4%+上级空缺0.25%' : '会员产品到期，总台运营分成0.4%']
+          [adminUser.id, companyShare, '会员产品到期，总台运营分成0.4%']
         );
       }
 

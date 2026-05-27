@@ -83,9 +83,11 @@ async function releaseAndDistribute(
     }
   }
 
-  // 5. 服务网点 0.1%
+  // 5. 服务网点 0.1%（+无上级服务商时0.25%归网点）
   const branchId = providerRecord?.branch_id || member?.branch_id;
   const branchShare = Math.round(productPrice * RELEASE_SHARE_RATIOS.branch);
+  const noParentShare = parentProviderId ? 0 : parentProviderShare;
+  const branchTotalShare = branchShare + noParentShare;
   let distributionBranchId: string | null = null;
 
   if (branchId) {
@@ -95,14 +97,13 @@ async function releaseAndDistribute(
     );
     if (branchUser) {
       distributionBranchId = branchUser.id;
-      await addBalance(branchUser.id, branchShare, 'branch_share', '服务商会员购买产品分成 (0.1%)');
+      await addBalance(branchUser.id, branchTotalShare, 'branch_share', noParentShare > 0 ? '服务商会员购买产品分成 (0.1%+上级空缺0.25%)' : '服务商会员购买产品分成 (0.1%)');
     }
   }
 
-  // 6. 总台运营 0.4% + 无上级服务商时的0.25%
+  // 6. 总台运营 0.4%
   const companyBaseShare = Math.round(productPrice * RELEASE_SHARE_RATIOS.company);
-  const noParentShare = parentProviderId ? 0 : parentProviderShare;
-  const companyShare = companyBaseShare + noParentShare;
+  const companyShare = companyBaseShare;
 
   if (companyShare > 0) {
     const adminUser: any = await queryOne(

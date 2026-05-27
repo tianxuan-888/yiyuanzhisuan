@@ -187,24 +187,24 @@ export async function POST(request: NextRequest) {
       );
       if (providerInfo?.branch_id) {
         distributionBranchId = providerInfo.branch_id;
+        const noParentExtra = distributionParentProviderId ? 0 : parentProviderShare;
+        const branchTotalShare = branchShare + noParentExtra;
         await query(
           'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
-          [branchShare, providerInfo.branch_id]
+          [branchTotalShare, providerInfo.branch_id]
         );
       }
     }
 
-    // 6. 智算平台运营0.4%（+无上级服务商时0.25%归总台，即时到账）
-    const noParentExtra = distributionParentProviderId ? 0 : parentProviderShare;
-    const finalCompanyShare = companyShare + noParentExtra;
-    if (finalCompanyShare > 0) {
+    // 6. 智算平台运营0.4%（即时到账）
+    if (companyShare > 0) {
       const adminUser = await queryOne<any>(
         "SELECT id FROM users WHERE role = 'admin' LIMIT 1"
       );
       if (adminUser) {
         await query(
           'UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2',
-          [finalCompanyShare, adminUser.id]
+          [companyShare, adminUser.id]
         );
       }
     }
@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
         product.provider_id, providerShare,
         distributionParentProviderId, distributionParentProviderId ? parentProviderShare : 0,
         null, 0,
-        distributionBranchId, branchShare, finalCompanyShare
+        distributionBranchId, branchShare, companyShare
       ]
     );
 
