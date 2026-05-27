@@ -5144,18 +5144,7 @@ export default function AdminPage() {
                 <div className="text-2xl font-bold text-primary">{totalCount}</div>
               </CardContent>
             </Card>
-            <Card className="bg-primary/5 border-primary/20">
-              <CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">平均每笔释放</div>
-                <div className="text-2xl font-bold text-primary">¥{totalCount > 0 ? (totalRelease / totalCount).toFixed(2) : '0.00'}</div>
-              </CardContent>
-            </Card>
-            <Card className="bg-primary/5 border-primary/20">
-              <CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">市场费比例</div>
-                <div className="text-2xl font-bold text-primary">市场费率</div>
-              </CardContent>
-            </Card>
+
           </div>
 
           {/* 市场费分配明细统计 */}
