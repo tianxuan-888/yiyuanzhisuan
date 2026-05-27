@@ -67,6 +67,7 @@ import {
   LayoutGrid,
   Gift,
   Receipt,
+  Upload,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -10282,13 +10283,48 @@ export default function AdminPage() {
                 />
               </div>
               <div>
-                <Label>商品图片URL</Label>
-                <Input
-                  value={newProduct.image_url}
-                  onChange={(e) => setNewProduct({ ...newProduct, image_url: e.target.value })}
-                  placeholder="请输入图片URL地址"
-                  className="mt-1"
-                />
+                <Label>商品图片</Label>
+                <div className="mt-1">
+                  {newProduct.image_url ? (
+                    <div className="relative inline-block">
+                      <img src={newProduct.image_url} alt="商品图片" className="w-32 h-32 object-cover rounded-lg border" />
+                      <button
+                        type="button"
+                        onClick={() => setNewProduct({ ...newProduct, image_url: '' })}
+                        className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-colors">
+                      <Upload className="w-8 h-8 text-gray-400" />
+                      <span className="mt-1 text-xs text-gray-500">点击上传图片</span>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          if (file.size > 5 * 1024 * 1024) { alert('图片大小不能超过5MB'); return; }
+                          const formData = new FormData();
+                          formData.append('file', file);
+                          try {
+                            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                            const data = await res.json();
+                            if (data.success) {
+                              setNewProduct({ ...newProduct, image_url: data.data.url });
+                            } else {
+                              alert(data.error || '上传失败');
+                            }
+                          } catch { alert('上传失败'); }
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
               </div>
               <div>
                 <Label>兑换积分 *</Label>
