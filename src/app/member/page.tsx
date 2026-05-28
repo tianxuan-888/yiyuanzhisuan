@@ -211,7 +211,6 @@ export default function MemberPage() {
     const [buyingTransferId, setBuyingTransferId] = useState<string | null>(null);
 
     // 积分兑换相关状态
-    const [showPointsShop, setShowPointsShop] = useState(false);
     const [shopProducts, setShopProducts] = useState<any[]>([]);
     const [shopLoading, setShopLoading] = useState(false);
     const [exchangeProduct, setExchangeProduct] = useState<any>(null);
@@ -229,10 +228,10 @@ export default function MemberPage() {
         finally { setShopLoading(false); }
     }, []);
 
-    // 打开积分商城时加载商品
+    // 切换到积分tab时加载商品
     useEffect(() => {
-        if (showPointsShop) loadShopProducts();
-    }, [showPointsShop, loadShopProducts]);
+        if (activeTab === 'points') loadShopProducts();
+    }, [activeTab, loadShopProducts]);
 
     // 兑换商品
     const handleExchange = async () => {
@@ -3116,7 +3115,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                         </div>
                                         <p className="text-2xl font-bold">{user?.points?.toLocaleString() || '0'}</p>
                                         <button
-                                            onClick={() => setShowPointsShop(true)}
+                                            onClick={() => setActiveTab('points')}
                                             className="mt-2 px-3 py-1 bg-white/20 rounded-full text-xs font-medium hover:bg-white/30 transition-colors"
                                         >
                                             积分兑换
@@ -3339,20 +3338,97 @@ const [copySuccess, setCopySuccess] = useState(false);
                         </div>
                     )}
                     {activeTab === "points" && <div className="space-y-3 md:space-y-6">
+                        {/* 积分余额卡片 */}
                         <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white">
                             <CardContent className="pt-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Gift className="w-5 h-5" />
-                                    <span className="text-sm opacity-80">我的积分</span>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Gift className="w-5 h-5" />
+                                            <span className="text-sm opacity-80">我的积分</span>
+                                        </div>
+                                        <p className="text-3xl font-bold">{Number(user?.points || 0).toLocaleString()}</p>
+                                        <span className="text-xs opacity-70 mt-1">收益转入收益时，5%自动转为积分，积分可兑换产品</span>
+                                    </div>
                                 </div>
-                                <p className="text-3xl font-bold">{Number(user?.points || 0).toLocaleString()}</p>
-                                <span className="text-xs opacity-70 mt-1">收益转入收益时，5%自动转为积分，积分可兑换产品</span>
                             </CardContent>
                         </Card>
 
+                        {/* 积分商城 */}
                         <Card>
                             <CardHeader className="pb-3">
-                                <CardTitle className="text-base">积分记录</CardTitle>
+                                <CardTitle className="flex items-center gap-2 text-base">
+                                    <Gift className="w-5 h-5 text-amber-500" />
+                                    积分商城
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {shopProducts.length > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {shopProducts.map((product: any) => {
+                                            const stock = product.stock || 0;
+                                            const exchanged = product.exchanged_count || 0;
+                                            const remaining = stock - exchanged;
+                                            const canAfford = (user?.points || 0) >= product.points_cost;
+                                            const isSoldOut = remaining <= 0;
+                                            return (
+                                                <div key={product.id} className="border rounded-lg overflow-hidden bg-white hover:shadow-md transition-shadow">
+                                                    {product.image_url && (
+                                                        <div className="aspect-[2/1] overflow-hidden bg-gray-100">
+                                                            <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                                                        </div>
+                                                    )}
+                                                    <div className="p-4">
+                                                        <h4 className="font-semibold text-sm mb-1">{product.name}</h4>
+                                                        {product.description && (
+                                                            <p className="text-xs text-gray-500 mb-2 line-clamp-2">{product.description}</p>
+                                                        )}
+                                                        <div className="flex items-center justify-between">
+                                                            <div>
+                                                                <span className="text-amber-600 font-bold">{product.points_cost} 积分</span>
+                                                                <div className="flex items-center gap-2 mt-1">
+                                                                    <Badge className={isSoldOut ? 'bg-red-100 text-red-700' : remaining <= 5 ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}>
+                                                                        {isSoldOut ? '已售罄' : `库存 ${remaining}`}
+                                                                    </Badge>
+                                                                    {stock > 0 && (
+                                                                        <span className="text-xs text-gray-400">已兑 {exchanged}/{stock}</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <Button
+                                                                size="sm"
+                                                                disabled={!canAfford || isSoldOut || exchangeSubmitting}
+                                                                onClick={() => setExchangeProduct(product)}
+                                                                className={
+                                                                    isSoldOut ? 'bg-gray-300 text-gray-500' :
+                                                                    !canAfford ? 'bg-gray-300 text-gray-500' :
+                                                                    'bg-amber-500 hover:bg-amber-600 text-white'
+                                                                }
+                                                            >
+                                                                {exchangeSubmitting && exchangeProduct?.id === product.id ? '兑换中...' : isSoldOut ? '已售罄' : !canAfford ? '积分不足' : '立即兑换'}
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-8 text-gray-500">
+                                        <Gift className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                                        <p>暂无可兑换商品</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* 积分记录 */}
+                        <Card>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base flex items-center gap-2">
+                                    <History className="w-4 h-4" />
+                                    积分记录
+                                </CardTitle>
                             </CardHeader>
                             <CardContent>
                                 {pointsRecords.length > 0 ? (
@@ -3751,57 +3827,6 @@ const [copySuccess, setCopySuccess] = useState(false);
                     </div>
                 </DialogContent>
             </Dialog>
-
-            {/* 积分兑换商城弹窗 */}
-            {showPointsShop && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-2xl w-full max-w-2xl mx-4 max-h-[85vh] overflow-hidden flex flex-col">
-                        <div className="flex items-center justify-between p-4 border-b">
-                            <h3 className="text-lg font-bold flex items-center gap-2">
-                                <Gift className="w-5 h-5 text-purple-500" />
-                                积分兑换商城
-                            </h3>
-                            <div className="flex items-center gap-3">
-                                <span className="text-sm text-gray-500">当前积分: <span className="font-bold text-purple-600">{user?.points?.toLocaleString() || 0}</span></span>
-                                <button onClick={() => { setShowPointsShop(false); setExchangeProduct(null); }} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
-                            </div>
-                        </div>
-                        <div className="overflow-y-auto p-4 flex-1">
-                            {shopLoading ? (
-                                <div className="text-center py-8 text-gray-400">加载中...</div>
-                            ) : shopProducts.length === 0 ? (
-                                <div className="text-center py-12 text-gray-400">暂无可兑换商品</div>
-                            ) : (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    {shopProducts.map((product: any) => (
-                                        <div key={product.id} className="border rounded-xl overflow-hidden hover:shadow-md transition-shadow">
-                                            {product.image_url && (
-                                                <div className="h-36 bg-gray-100">
-                                                    <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
-                                                </div>
-                                            )}
-                                            <div className="p-3 space-y-2">
-                                                <h4 className="font-semibold text-gray-800">{product.name}</h4>
-                                                {product.description && <p className="text-xs text-gray-500 line-clamp-2">{product.description}</p>}
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-purple-600 font-bold">{product.points_price} 积分</span>
-                                                    <button
-                                                        onClick={() => setExchangeProduct(product)}
-                                                        disabled={(user?.points || 0) < product.points_price}
-                                                        className="px-3 py-1.5 bg-purple-500 text-white rounded-lg text-sm font-medium hover:bg-purple-600 disabled:opacity-40 disabled:cursor-not-allowed"
-                                                    >
-                                                        兑换
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* 兑换收货信息弹窗 */}
             {exchangeProduct && (
