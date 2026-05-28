@@ -2483,7 +2483,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                 </Card>
 
                                 {/* 保护期状态 */}
-                                <Card className={`border ${purchaseLimits.limits?.isTimeLocked ? 'border-red-400 bg-red-600' : purchaseLimits.limits?.graceRemainingDays > 0 ? 'border-green-400 bg-green-600' : 'border-slate-400 bg-slate-600'}`}>
+                                <Card className={`border ${purchaseLimits.limits?.isTimeLocked ? 'border-red-400 bg-red-600' : purchaseLimits.limits?.graceRemainingDays > 0 ? 'border-green-400 bg-green-600' : !purchaseLimits.limits?.firstPurchaseDate ? 'border-blue-400 bg-blue-600' : purchaseLimits.limits?.hasDirectReferral ? 'border-green-400 bg-green-600' : 'border-slate-400 bg-slate-600'}`}>
                                     <CardContent className="p-2">
                                         <div className="flex items-center gap-1 mb-1">
                                             <Clock className={`w-3.5 h-3.5 text-white/80`} />
@@ -2509,6 +2509,11 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                         <p className="text-lg font-bold text-white">已解除</p>
                                                         <p className="text-[10px] text-white/60">有直推会员</p>
                                                     </>
+                                                ) : !purchaseLimits.limits?.firstPurchaseDate ? (
+                                                    <>
+                                                        <p className="text-lg font-bold text-white">新用户</p>
+                                                        <p className="text-[10px] text-white/60">可正常购买</p>
+                                                    </>
                                                 ) : (
                                                     <>
                                                         <p className="text-lg font-bold text-white">待激活</p>
@@ -2517,7 +2522,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                 )}
                                             </div>
                                             <Badge variant="outline" className={`text-[10px] text-white/80 bg-white/10`}>
-                                                {purchaseLimits.limits?.isTimeLocked ? '已锁定' : purchaseLimits.limits?.graceRemainingDays > 0 ? '保护中' : purchaseLimits.limits?.hasDirectReferral ? '已解除' : '待激活'}
+                                                {purchaseLimits.limits?.isTimeLocked ? '已锁定' : purchaseLimits.limits?.graceRemainingDays > 0 ? '保护中' : !purchaseLimits.limits?.firstPurchaseDate ? '可购买' : purchaseLimits.limits?.hasDirectReferral ? '已解除' : '待激活'}
                                             </Badge>
                                         </div>
                                     </CardContent>
