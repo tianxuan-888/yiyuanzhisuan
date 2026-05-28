@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/pg-client';
+import { getSupabase } from '@/lib/supabase-client';
 import { hashPassword } from '@/lib/password';
 import { getInviteCodeType, generateUniqueId, findUserByInviteCode } from '@/lib/invite-code';
 import { getVerifyCode, deleteVerifyCode } from '@/lib/verify-code';
@@ -90,13 +91,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 检查用户名是否已存在
-    const existingUsers = await query(
-      'SELECT id FROM users WHERE username = $1',
-      [username]
-    );
+    // 检查用户名是否已存在（直接使用 Supabase REST API，避免 rpc_query 不稳定）
+    const supabase = getSupabase();
+    const { data: existingUsers } = await supabase
+      .from('users')
+      .select('id')
+      .eq('username', username)
+      .limit(1);
 
-    if (existingUsers.length > 0) {
+    if (existingUsers && existingUsers.length > 0) {
       return NextResponse.json(
         { error: '用户名已存在' },
         { status: 400 }
@@ -104,11 +107,13 @@ export async function POST(request: NextRequest) {
     }
 
     // 检查手机号是否已注册
-    const existingPhone = await query(
-      'SELECT id FROM users WHERE phone = $1',
-      [phone]
-    );
-    if (existingPhone.length > 0) {
+    const { data: existingPhone } = await supabase
+      .from('users')
+      .select('id')
+      .eq('phone', phone)
+      .limit(1);
+
+    if (existingPhone && existingPhone.length > 0) {
       return NextResponse.json(
         { error: '该手机号已注册' },
         { status: 400 }

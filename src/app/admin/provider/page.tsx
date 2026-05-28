@@ -977,6 +977,47 @@ export default function ProviderDashboard() {
                 </CardContent>
               </Card>
             </div>
+            {/* 邀请码 & 分享链接卡片 */}
+            <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-purple-800">
+                  <Gift className="w-5 h-5" />
+                  专属邀请码 & 分享链接
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="px-4 py-2 bg-white rounded-lg border-2 border-dashed border-purple-300">
+                      <p className="text-2xl font-bold text-purple-700 tracking-wider">{user?.unique_id || 'PV00001'}</p>
+                    </div>
+                    <Button size="sm" variant="outline" className="border-purple-300 text-purple-700 hover:bg-purple-100"
+                      onClick={() => {
+                        const code = user?.unique_id || '';
+                        if (code) {
+                          navigator.clipboard.writeText(code).then(() => setToast({ message: '邀请码已复制', type: 'success' }));
+                        }
+                      }}>
+                      <Copy className="w-3.5 h-3.5 mr-1" />
+                      复制邀请码
+                    </Button>
+                  </div>
+                  <div className="h-8 w-px bg-purple-200 hidden sm:block" />
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white"
+                      onClick={() => {
+                        const code = user?.unique_id || '';
+                        const link = `${window.location.origin}/?invite=${code}`;
+                        navigator.clipboard.writeText(link).then(() => setToast({ message: '邀请链接已复制，发送给好友即可自动填充邀请码注册', type: 'success' }));
+                      }}>
+                      <Copy className="w-3.5 h-3.5 mr-1" />
+                      复制邀请链接
+                    </Button>
+                    <p className="text-xs text-purple-500">好友通过链接注册，邀请码自动填充</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
