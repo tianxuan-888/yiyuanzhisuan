@@ -26,10 +26,10 @@ export async function GET(request: NextRequest) {
 
     const supabase = getSupabase();
 
-    // 构建查询条件
+    // 构建查询条件 - 不使用外键join，改为分开查询
     let queryBuilder = supabase
       .from('capital_flow_records')
-      .select('*, user:users!capital_flow_records_user_id_fkey(id,username,phone,unique_id), related_user:users!capital_flow_records_related_user_id_fkey(id,username,phone,unique_id)', { count: 'exact' })
+      .select('*', { count: 'exact' })
       .order('created_at', { ascending: false });
 
     if (userId) {
@@ -105,6 +105,8 @@ export async function GET(request: NextRequest) {
       total_withdraw: 0,
       total_withdraw_fee: 0,
       total_withdraw_income: 0,
+      total_sell_profit: 0,
+      total_recharge: 0,
     };
 
     (allRecords || []).forEach((r: any) => {
@@ -124,6 +126,10 @@ export async function GET(request: NextRequest) {
         stats.total_withdraw_fee += fee;
       } else if (r.flow_type === 'withdraw_income') {
         stats.total_withdraw_income += actual;
+      } else if (r.flow_type === 'sell_profit') {
+        stats.total_sell_profit += actual;
+      } else if (r.flow_type === 'recharge') {
+        stats.total_recharge += actual;
       }
     });
 
@@ -154,6 +160,25 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // 收集需要查询关联用户名的ID
+    const relatedUserIds = new Set<string>();
+    (records || []).forEach((r: any) => {
+      if (r.related_user_id) relatedUserIds.add(r.related_user_id);
+      if (r.user_id) relatedUserIds.add(r.user_id);
+    });
+
+    // 批量查询关联用户信息
+    const userNameMap: Record<string, string> = {};
+    if (relatedUserIds.size > 0) {
+      const { data: relatedUsers } = await supabase
+        .from('users')
+        .select('id, username, phone, unique_id')
+        .in('id', Array.from(relatedUserIds));
+      (relatedUsers || []).forEach((u: any) => {
+        userNameMap[u.id] = u.username || u.phone || '';
+      });
+    }
+
     const flowTypeLabels: Record<string, string> = {
       transfer_out: '智算金转出',
       transfer_in: '智算金转入',
@@ -172,17 +197,17 @@ export async function GET(request: NextRequest) {
         records: (records || []).map((r: any) => ({
           id: r.id,
           userId: r.user_id,
-          userName: r.user?.username || '',
-          userPhone: r.user?.phone || '',
-          userUniqueId: r.user?.unique_id || '',
+          userName: userNameMap[r.user_id] || '',
+          userPhone: '',
+          userUniqueId: '',
           flowType: r.flow_type,
           flowTypeLabel: flowTypeLabels[r.flow_type] || r.flow_type,
           amount: parseFloat(String(r.amount)) || 0,
           feeAmount: parseFloat(String(r.fee_amount)) || 0,
           actualAmount: parseFloat(String(r.actual_amount)) || 0,
           relatedUserId: r.related_user_id,
-          relatedUserName: r.related_user?.username || '',
-          relatedUserPhone: r.related_user?.phone || '',
+          relatedUserName: userNameMap[r.related_user_id] || '',
+          relatedUserPhone: '',
           note: r.note,
           status: r.status,
           createdAt: r.created_at,

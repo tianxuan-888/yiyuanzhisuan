@@ -4451,14 +4451,18 @@ export default function ProviderPage() {
                                 {!capitalFlowLoading && capitalFlowData && (
                                     <>
                                         {/* 统计卡片 */}
-                                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                             <div className="bg-blue-50 rounded-lg p-3 text-center">
-                                                <p className="text-xs text-blue-600">转出总额</p>
-                                                <p className="text-lg font-bold text-blue-700">{Number(capitalFlowData.stats?.total_transfer_out || 0).toLocaleString()}</p>
+                                                <p className="text-xs text-blue-600">充值总额</p>
+                                                <p className="text-lg font-bold text-blue-700">{Number(capitalFlowData.stats?.total_recharge || 0).toLocaleString()}</p>
                                             </div>
                                             <div className="bg-green-50 rounded-lg p-3 text-center">
                                                 <p className="text-xs text-green-600">转入总额</p>
                                                 <p className="text-lg font-bold text-green-700">{Number(capitalFlowData.stats?.total_transfer_in || 0).toLocaleString()}</p>
+                                            </div>
+                                            <div className="bg-orange-50 rounded-lg p-3 text-center">
+                                                <p className="text-xs text-orange-600">转出总额</p>
+                                                <p className="text-lg font-bold text-orange-700">{Number(capitalFlowData.stats?.total_transfer_out || 0).toLocaleString()}</p>
                                             </div>
                                             <div className="bg-amber-50 rounded-lg p-3 text-center">
                                                 <p className="text-xs text-amber-600">转积分</p>
@@ -4468,17 +4472,27 @@ export default function ProviderPage() {
                                                 <p className="text-xs text-red-600">提现总额</p>
                                                 <p className="text-lg font-bold text-red-700">{Number(capitalFlowData.stats?.total_withdraw || 0).toLocaleString()}</p>
                                             </div>
-
+                                            <div className="bg-emerald-50 rounded-lg p-3 text-center">
+                                                <p className="text-xs text-emerald-600">提现收入</p>
+                                                <p className="text-lg font-bold text-emerald-700">{Number(capitalFlowData.stats?.total_withdraw_income || 0).toLocaleString()}</p>
+                                            </div>
+                                            <div className="bg-teal-50 rounded-lg p-3 text-center">
+                                                <p className="text-xs text-teal-600">卖出收益</p>
+                                                <p className="text-lg font-bold text-teal-700">{Number(capitalFlowData.stats?.total_sell_profit || 0).toLocaleString()}</p>
+                                            </div>
                                         </div>
                                         {/* 类型筛选 */}
                                         <div className="flex gap-2 flex-wrap">
                                             {[
                                                 { key: "all", label: "全部" },
+                                                { key: "recharge", label: "充值" },
                                                 { key: "transfer_out", label: "转出" },
                                                 { key: "transfer_in", label: "转入" },
                                                 { key: "energy_to_points", label: "转积分" },
                                                 { key: "withdraw", label: "提现" },
-                                                                                            ].map(ft => (
+                                                { key: "withdraw_income", label: "提现收入" },
+                                                { key: "sell_profit", label: "收益" },
+                                            ].map(ft => (
                                                 <button key={ft.key} onClick={() => { setCapitalFlowTab(ft.key); setCapitalFlowPage(1); }}
                                                     className={`px-3 py-1 rounded-full text-xs ${capitalFlowTab === ft.key ? "bg-teal-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>{ft.label}</button>
                                             ))}
@@ -4486,21 +4500,37 @@ export default function ProviderPage() {
                                         {/* 记录列表 */}
                                         <div className="space-y-2">
                                             {(capitalFlowData.records || []).length === 0 && <div className="text-center py-8 text-gray-400">暂无记录</div>}
-                                            {(capitalFlowData.records || []).map((r: any) => (
+                                            {(capitalFlowData.records || []).map((r: any) => {
+                                                const isIncoming = ['transfer_in', 'withdraw_income', 'sell_profit', 'recharge'].includes(r.flowType);
+                                                return (
                                                 <div key={r.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                                                    <div>
-                                                        <p className="text-sm font-medium">{r.flowTypeLabel || r.note || r.flowType}</p>
-                                                        {r.relatedUserName && <p className="text-xs text-gray-400">关联: {r.relatedUserName}</p>}
-                                                        <p className="text-xs text-gray-400">{new Date(r.createdAt).toLocaleString("zh-CN")}</p>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${
+                                                            r.flowType === 'recharge' ? 'bg-blue-500' :
+                                                            r.flowType === 'transfer_out' ? 'bg-orange-500' :
+                                                            r.flowType === 'transfer_in' ? 'bg-green-500' :
+                                                            r.flowType === 'energy_to_points' ? 'bg-purple-500' :
+                                                            r.flowType === 'withdraw' ? 'bg-red-500' :
+                                                            r.flowType === 'withdraw_income' ? 'bg-emerald-500' :
+                                                            r.flowType === 'sell_profit' ? 'bg-teal-500' : 'bg-gray-500'
+                                                        }`}>
+                                                            {r.flowType === 'recharge' ? '充' : r.flowType === 'transfer_out' ? '出' : r.flowType === 'transfer_in' ? '入' : r.flowType === 'energy_to_points' ? '积' : r.flowType === 'withdraw_income' ? '收' : r.flowType === 'sell_profit' ? '益' : '提'}
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-medium text-gray-900">{r.flowTypeLabel || r.note || r.flowType}</p>
+                                                            {r.relatedUserName && <p className="text-xs text-gray-400">关联: {r.relatedUserName}</p>}
+                                                            <p className="text-xs text-gray-400">{r.createdAt?.substring(0, 16)?.replace('T', ' ')}{r.note && ` · ${r.note}`}</p>
+                                                        </div>
                                                     </div>
                                                     <div className="text-right">
-                                                        <p className={`text-sm font-bold ${["transfer_in"].includes(r.flowType) ? "text-green-600" : "text-red-500"}`}>
-                                                            {["transfer_in"].includes(r.flowType) ? "+" : "-"}{Number(r.amount).toLocaleString()}
+                                                        <p className={`text-sm font-bold ${isIncoming ? 'text-green-600' : 'text-red-500'}`}>
+                                                            {isIncoming ? '+' : '-'}{Number(r.amount).toLocaleString()}
                                                         </p>
                                                         {Number(r.feeAmount) > 0 && <p className="text-xs text-gray-400">手续费: {Number(r.feeAmount).toLocaleString()}</p>}
                                                     </div>
                                                 </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                         {/* 分页 */}
                                         {capitalFlowData.pagination && capitalFlowData.pagination.totalPages > 1 && (

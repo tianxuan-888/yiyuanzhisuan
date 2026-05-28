@@ -3098,14 +3098,18 @@ export default function BranchPage() {
           {activeTab === 'capitalFlow' && (
             <div className="space-y-4">
               {/* 统计卡片 */}
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div className="grid grid-cols-3 md:grid-cols-7 gap-3">
                 <div className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
-                  <div className="text-xs text-gray-500">转出总额</div>
-                  <div className="text-lg font-bold text-orange-600">{Number(capitalFlowData?.stats?.total_transfer_out || 0).toLocaleString()}</div>
+                  <div className="text-xs text-gray-500">充值总额</div>
+                  <div className="text-lg font-bold text-blue-600">{Number(capitalFlowData?.stats?.total_recharge || 0).toLocaleString()}</div>
                 </div>
                 <div className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
                   <div className="text-xs text-gray-500">转入总额</div>
                   <div className="text-lg font-bold text-green-600">{Number(capitalFlowData?.stats?.total_transfer_in || 0).toLocaleString()}</div>
+                </div>
+                <div className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
+                  <div className="text-xs text-gray-500">转出总额</div>
+                  <div className="text-lg font-bold text-orange-600">{Number(capitalFlowData?.stats?.total_transfer_out || 0).toLocaleString()}</div>
                 </div>
                 <div className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
                   <div className="text-xs text-gray-500">转积分总额</div>
@@ -3119,17 +3123,23 @@ export default function BranchPage() {
                   <div className="text-xs text-gray-500">提现收入</div>
                   <div className="text-lg font-bold text-green-600">{Number(capitalFlowData?.stats?.total_withdraw_income || 0).toLocaleString()}</div>
                 </div>
+                <div className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
+                  <div className="text-xs text-gray-500">卖出收益</div>
+                  <div className="text-lg font-bold text-emerald-600">{Number(capitalFlowData?.stats?.total_sell_profit || 0).toLocaleString()}</div>
+                </div>
               </div>
 
               {/* 筛选 */}
               <div className="flex gap-2 flex-wrap">
                 {[
                   { key: 'all', label: '全部' },
-                  { key: 'transfer_out', label: '转出' },
+                  { key: 'recharge', label: '充值' },
                   { key: 'transfer_in', label: '转入' },
+                  { key: 'transfer_out', label: '转出' },
                   { key: 'energy_to_points', label: '转积分' },
                   { key: 'withdraw', label: '提现' },
                   { key: 'withdraw_income', label: '提现收入' },
+                  { key: 'sell_profit', label: '收益' },
                 ].map(ft => (
                   <button key={ft.key}
                     className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${capitalFlowTab === ft.key ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
@@ -3147,13 +3157,15 @@ export default function BranchPage() {
                     <div key={r.id} className="bg-white rounded-lg p-3 border border-gray-100 shadow-sm flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${
+                          r.flowType === 'recharge' ? 'bg-blue-500' :
                           r.flowType === 'transfer_out' ? 'bg-orange-500' :
                           r.flowType === 'transfer_in' ? 'bg-green-500' :
                           r.flowType === 'energy_to_points' ? 'bg-purple-500' :
                           r.flowType === 'withdraw' ? 'bg-red-500' :
-                          r.flowType === 'withdraw_income' ? 'bg-emerald-500' : 'bg-gray-500'
+                          r.flowType === 'withdraw_income' ? 'bg-emerald-500' :
+                          r.flowType === 'sell_profit' ? 'bg-teal-500' : 'bg-gray-500'
                         }`}>
-                          {r.flowType === 'transfer_out' ? '出' : r.flowType === 'transfer_in' ? '入' : r.flowType === 'energy_to_points' ? '积' : r.flowType === 'withdraw_income' ? '收' : '提'}
+                          {r.flowType === 'recharge' ? '充' : r.flowType === 'transfer_out' ? '出' : r.flowType === 'transfer_in' ? '入' : r.flowType === 'energy_to_points' ? '积' : r.flowType === 'withdraw_income' ? '收' : r.flowType === 'sell_profit' ? '益' : '提'}
                         </div>
                         <div>
                           <div className="text-sm font-medium text-gray-900">{r.flowTypeLabel}</div>
@@ -3166,9 +3178,9 @@ export default function BranchPage() {
                       </div>
                       <div className="text-right">
                         <div className={`text-sm font-bold ${
-                          (r.flowType === 'transfer_in' || r.flowType === 'withdraw_income') ? 'text-green-600' : 'text-red-500'
+                          (r.flowType === 'transfer_in' || r.flowType === 'withdraw_income' || r.flowType === 'sell_profit' || r.flowType === 'recharge') ? 'text-green-600' : 'text-red-500'
                         }`}>
-                          {(r.flowType === 'transfer_in' || r.flowType === 'withdraw_income') ? '+' : '-'}{Number(r.amount).toLocaleString()}
+                          {(r.flowType === 'transfer_in' || r.flowType === 'withdraw_income' || r.flowType === 'sell_profit' || r.flowType === 'recharge') ? '+' : '-'}{Number(r.amount).toLocaleString()}
                         </div>
                         {Number(r.feeAmount) > 0 && (
                           <div className="text-xs text-gray-400">手续费: {Number(r.feeAmount).toLocaleString()}</div>
