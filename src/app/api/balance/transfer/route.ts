@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne, execute } from '@/lib/pg-client';
+import { getSupabase } from '@/lib/supabase-client';
 
 // 智算金互转 - 从 energy_value 扣除，5%手续费转为积分
 export async function POST(request: NextRequest) {
@@ -127,19 +128,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 9. 写入资金流水记录 - 转出方
-    await execute(
-      `INSERT INTO capital_flow_records (id, user_id, flow_type, amount, fee_amount, actual_amount, related_user_id, note, status, created_at)
-       VALUES (gen_random_uuid(), $1, 'transfer_out', $2, $3, $4, $5, $6, 'completed', NOW())`,
-      [fromUserId, transferAmount, feeAmount, transferAmount - feeAmount, toUserId, `转出给${toUser.username}`]
-    );
-
-    // 10. 写入资金流水记录 - 转入方
-    await execute(
-      `INSERT INTO capital_flow_records (id, user_id, flow_type, amount, fee_amount, actual_amount, related_user_id, note, status, created_at)
-       VALUES (gen_random_uuid(), $1, 'transfer_in', $2, 0, $2, $3, $4, 'completed', NOW())`,
-      [toUserId, actualArrival, fromUserId, `来自${fromUser.username}转入`]
-    );
+    // 9. 写入资金流水记录 - 转出方 & 转入方
+    const supabase = getSupabase();
+    await supabase.from('capital_flow_records').insert({
+      user_id: fromUserId,
+      flow_type: 'transfer_out',
+      amount: transferAmount,
+      fee_amount: feeAmount,
+      actual_amount: transferAmount - feeAmount,
+      related_user_id: toUserId,
+      note: `转出给${toUser.username}`,
+      status: 'completed',
+    });
+    await supabase.from('capital_flow_records').insert({
+      user_id: toUserId,
+      flow_type: 'transfer_in',
+      amount: actualArrival,
+      fee_amount: 0,
+      actual_amount: actualArrival,
+      related_user_id: fromUserId,
+      note: `来自${fromUser.username}转入`,
+      status: 'completed',
+    });
 
     // 查询更新后的余额
     const updatedFromUser: any = await queryOne(

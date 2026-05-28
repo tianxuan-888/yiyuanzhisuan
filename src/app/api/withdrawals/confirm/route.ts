@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth';
 import { queryOne, execute } from '@/lib/supabase-client';
+import { getSupabase } from '@/lib/supabase-client';
 
 /**
  * 提现审核API
@@ -130,11 +131,17 @@ export async function POST(request: NextRequest) {
         }
 
         // 网点资金流水：提现收入
-        await execute(
-          `INSERT INTO capital_flow_records (user_id, flow_type, amount, fee_amount, actual_amount, related_user_id, note, status, created_at)
-           VALUES ($1, 'withdraw_income', $2, $3, $4, $5, $6, 'completed', NOW())`,
-          [auth.userId, withdrawal.amount, feeAmount, branchAmount, withdrawal.user_id, `审核${applicantName}提现，到账95%智算金`]
-        );
+        const sb = getSupabase();
+        await sb.from('capital_flow_records').insert({
+          user_id: auth.userId,
+          flow_type: 'withdraw_income',
+          amount: withdrawal.amount,
+          fee_amount: feeAmount,
+          actual_amount: branchAmount,
+          related_user_id: withdrawal.user_id,
+          note: `审核${applicantName}提现，到账95%智算金`,
+          status: 'completed',
+        });
 
         // 写入网点收益记录（branch_revenue_records）
         const revenueType = applicantRole === 'provider' ? 'provider_withdraw' : 'member_withdraw';
@@ -159,11 +166,17 @@ export async function POST(request: NextRequest) {
         );
 
         // 总公司资金流水：提现收入
-        await execute(
-          `INSERT INTO capital_flow_records (user_id, flow_type, amount, fee_amount, actual_amount, related_user_id, note, status, created_at)
-           VALUES ($1, 'withdraw_income', $2, $3, $4, $5, $6, 'completed', NOW())`,
-          [auth.userId, withdrawal.amount, feeAmount, adminReceiveAmount, withdrawal.user_id, `审核${applicantName}提现，到账95%智算金`]
-        );
+        const sb2 = getSupabase();
+        await sb2.from('capital_flow_records').insert({
+          user_id: auth.userId,
+          flow_type: 'withdraw_income',
+          amount: withdrawal.amount,
+          fee_amount: feeAmount,
+          actual_amount: adminReceiveAmount,
+          related_user_id: withdrawal.user_id,
+          note: `审核${applicantName}提现，到账95%智算金`,
+          status: 'completed',
+        });
       }
 
       // 写入手续费沉淀记录（5%手续费）
@@ -176,11 +189,17 @@ export async function POST(request: NextRequest) {
       }
 
       // 写入资金流水记录 - 提现（申请人）
-      await execute(
-        `INSERT INTO capital_flow_records (user_id, flow_type, amount, fee_amount, actual_amount, related_order_id, note, status, created_at)
-         VALUES ($1, 'withdraw', $2, $3, $4, $5, $6, 'completed', NOW())`,
-        [withdrawal.user_id, withdrawal.amount, withdrawal.fee || 0, withdrawal.amount - (parseFloat(withdrawal.fee) || 0), withdrawalId, `智算金提现${reviewer.role === 'admin' ? '（总台审核）' : '（网点审核）'}`]
-      );
+      const sb3 = getSupabase();
+      await sb3.from('capital_flow_records').insert({
+        user_id: withdrawal.user_id,
+        flow_type: 'withdraw',
+        amount: withdrawal.amount,
+        fee_amount: withdrawal.fee || 0,
+        actual_amount: withdrawal.amount - (parseFloat(withdrawal.fee) || 0),
+        related_order_id: withdrawalId,
+        note: `智算金提现${reviewer.role === 'admin' ? '（总台审核）' : '（网点审核）'}`,
+        status: 'completed',
+      });
 
       return NextResponse.json({
         success: true,

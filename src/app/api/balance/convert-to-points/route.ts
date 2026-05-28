@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, queryOne, execute } from '@/lib/pg-client';
 import { authenticateRequest } from '@/lib/auth';
+import { getSupabase } from '@/lib/supabase-client';
 
 // 收益（智算金/balance）转积分（points）
 // 规则：balance可转为points，1:1转换，积分不可转回智算金
@@ -90,11 +91,16 @@ export async function POST(request: NextRequest) {
     );
 
     // 5. 写入资金流水记录
-    await execute(
-      `INSERT INTO capital_flow_records (user_id, flow_type, amount, fee_amount, actual_amount, note, status, created_at)
-       VALUES ($1, 'energy_to_points', $2, 0, $2, $3, 'completed', NOW())`,
-      [userId, convertAmount, `将${convertAmount}智算金转换为积分`]
-    );
+    const supabase = getSupabase();
+    await supabase.from('capital_flow_records').insert({
+      user_id: userId,
+      flow_type: 'energy_to_points',
+      amount: convertAmount,
+      fee_amount: 0,
+      actual_amount: convertAmount,
+      note: `将${convertAmount}智算金转换为积分`,
+      status: 'completed',
+    });
 
     // 查询更新后的数据
     const updatedUser: any = await queryOne(
