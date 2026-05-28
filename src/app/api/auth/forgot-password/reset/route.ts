@@ -42,21 +42,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '两次密码不一致' }, { status: 400 });
     }
 
-    // 验证验证码：优先使用阿里云服务端校验，否则本地数据库比对
-    if (isAliyunSmsConfigured()) {
-      const checkResult = await checkSmsVerifyCode(phone, verifyCode);
-      if (!checkResult.success) {
-        return NextResponse.json({ error: checkResult.message || '验证码错误' }, { status: 400 });
-      }
-    } else {
-      const storedCode = await getVerifyCode(`reset_${phone}`);
-      if (!storedCode || storedCode.code !== verifyCode) {
-        return NextResponse.json({ error: '验证码错误或已过期' }, { status: 400 });
-      }
+    // 验证验证码：优先使用本地存储的验证码校验（发送时已存储）
+    // 阿里云 CheckSmsVerifyCode 二次校验不稳定，本地比对更可靠
+    const storedCode = await getVerifyCode(`reset_${phone}`);
+    if (storedCode && storedCode.code === verifyCode) {
       if (storedCode.expiresAt < Date.now()) {
         await deleteVerifyCode(`reset_${phone}`);
         return NextResponse.json({ error: '验证码已过期，请重新获取' }, { status: 400 });
       }
+      // 验证通过
+    } else if (isAliyunSmsConfigured()) {
+      const checkResult = await checkSmsVerifyCode(phone, verifyCode);
+      if (!checkResult.success) {
+        return NextResponse.json({ error: '验证码错误，请重新获取' }, { status: 400 });
+      }
+    } else {
+      return NextResponse.json({ error: '验证码错误，请重新获取' }, { status: 400 });
     }
 
     // 检查用户是否存在

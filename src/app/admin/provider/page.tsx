@@ -848,6 +848,40 @@ export default function ProviderDashboard() {
                     <Input value={user?.balance || 0} disabled className="mt-1 bg-gray-100" />
                   </div>
                 </div>
+                {/* 专属邀请码 & 分享链接 */}
+                <div className="mt-4 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-200">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Gift className="w-4 h-4 text-purple-600" />
+                    <span className="font-medium text-purple-800">专属邀请码 & 分享链接</span>
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                    <div className="px-4 py-2 bg-white rounded-lg border-2 border-dashed border-purple-300">
+                      <p className="text-2xl font-bold text-purple-700 tracking-wider">{user?.unique_id || 'PV00001'}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" variant="outline" className="border-purple-300 text-purple-700 hover:bg-purple-100"
+                        onClick={() => {
+                          const code = user?.unique_id || '';
+                          if (code) {
+                            navigator.clipboard.writeText(code).then(() => setToast({ message: '邀请码已复制', type: 'success' }));
+                          }
+                        }}>
+                        <Copy className="w-3.5 h-3.5 mr-1" />
+                        复制邀请码
+                      </Button>
+                      <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white"
+                        onClick={() => {
+                          const code = user?.unique_id || '';
+                          const link = `${window.location.origin}/?invite=${code}`;
+                          navigator.clipboard.writeText(link).then(() => setToast({ message: '邀请链接已复制，发送给好友即可自动填充邀请码注册', type: 'success' }));
+                        }}>
+                        <Copy className="w-3.5 h-3.5 mr-1" />
+                        复制邀请链接
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-purple-500 mt-2">好友通过邀请链接注册，邀请码自动填充</p>
+                </div>
               </CardContent>
             </Card>
             <Card>
@@ -864,35 +898,7 @@ export default function ProviderDashboard() {
                 </Button>
               </CardContent>
             </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Gift className="w-5 h-5" />
-                  我的邀请码
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                  <p className="text-sm text-purple-600 mb-2">分享您的邀请码给好友</p>
-                  <div className="flex items-center gap-4">
-                    <p className="text-2xl font-bold text-purple-700">{user?.unique_id || user?.invite_code || 'PV00001'}</p>
-                    <Button size="sm" variant="outline" onClick={() => copyToClipboard(user?.unique_id || user?.invite_code || 'PV00001')}>
-                      <Copy className="w-4 h-4 mr-1" />
-                      复制
-                    </Button>
-                  </div>
-                  <div className="mt-3 flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => {
-                      const code = user?.unique_id || user?.invite_code || '';
-                      const link = `${window.location.origin}/?invite=${code}`;
-                      copyToClipboard(link);
-                    }}>
-                      复制邀请链接
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {/* 邀请码已整合到基本信息卡片中 */}
           </div>
         );
 
