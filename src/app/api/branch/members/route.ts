@@ -95,6 +95,19 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // 获取推荐人名称映射
+    const inviterIds = members.map(m => m.inviter_id).filter(Boolean);
+    const inviterNames: Record<string, string> = {};
+    if (inviterIds.length > 0) {
+      const inviters = await query<{ id: string; username: string; real_name: string; unique_id: string }>(
+        `SELECT id, username, real_name, unique_id FROM users WHERE id = ANY($1)`,
+        [inviterIds]
+      );
+      inviters.forEach(inv => {
+        inviterNames[inv.id] = (inv.real_name || inv.username) + (inv.unique_id ? ` [${inv.unique_id}]` : '');
+      });
+    }
+
     // 处理会员数据
     const processedMembers = members.map(m => ({
       id: m.id,
@@ -108,6 +121,7 @@ export async function GET(request: NextRequest) {
       providerId: m.provider_id,
       providerName: providerNames[m.provider_id] || '未知',
       inviterId: m.inviter_id,
+      inviterName: m.inviter_id ? (inviterNames[m.inviter_id] || '未知') : '-',
       createdAt: m.created_at,
       totalInvestment: memberStats[m.id]?.totalInvestment || 0,
       holdingProducts: memberStats[m.id]?.productCount || 0,

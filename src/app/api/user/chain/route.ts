@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
     if (currentUser.role === 'provider') {
       const membersResult = await query(`
         SELECT u.id, u.username, u.phone, u.real_name, u.balance,
-          u.unique_id, u.created_at
+          u.unique_id, u.inviter_id, u.created_at
         FROM users u WHERE u.provider_id = $1 AND u.role = 'member'
         ORDER BY u.created_at DESC
       `, [userId]);
@@ -136,11 +136,25 @@ export async function GET(request: NextRequest) {
           };
         });
 
+        // 批量获取推荐人信息
+        const inviterIds = membersResult.map((m: any) => m.inviter_id).filter(Boolean);
+        const inviterMap: Record<string, string> = {};
+        if (inviterIds.length > 0) {
+          const inviterResult = await query(`
+            SELECT id, username, real_name, unique_id FROM users WHERE id = ANY($1)
+          `, [inviterIds]);
+          inviterResult.forEach((inv: any) => {
+            inviterMap[inv.id] = (inv.real_name || inv.username) + (inv.unique_id ? ` [${inv.unique_id}]` : '');
+          });
+        }
+
         chain.members = membersResult.map((m: any) => ({
           id: m.id, username: m.username, phone: m.phone, realName: m.real_name,
           balance: m.balance || 0, uniqueId: m.unique_id,
           productCount: holdingsMap[m.id]?.productCount || 0,
           totalAmount: holdingsMap[m.id]?.totalAmount || 0,
+          inviterId: m.inviter_id,
+          inviterName: m.inviter_id ? (inviterMap[m.inviter_id] || '未知') : '-',
           createdAt: m.created_at, roleName: '会员'
         }));
       }

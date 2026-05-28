@@ -2976,22 +2976,23 @@ export default function BranchPage() {
                     ) : (
                       <>
                         {/* 表头 */}
-                        <div className="hidden md:grid grid-cols-12 gap-2 text-sm font-medium text-gray-500 pb-2 border-b">
-                          <div className="col-span-2">姓名</div>
-                          <div className="col-span-1">专属ID</div>
-                          <div className="col-span-2">手机号</div>
-                          <div className="col-span-2">隶属服务商</div>
-                          <div className="col-span-1">收益</div>
-                          <div className="col-span-2">持有Token额度</div>
-                          <div className="col-span-2">操作</div>
+                        <div className="hidden md:grid grid-cols-[1.5fr_1fr_1.5fr_1.5fr_1.5fr_1fr_1.5fr_1.5fr] gap-2 text-sm font-medium text-gray-500 pb-2 border-b">
+                          <div>姓名</div>
+                          <div>专属ID</div>
+                          <div>手机号</div>
+                          <div>隶属服务商</div>
+                          <div>推荐人</div>
+                          <div>收益</div>
+                          <div>持有Token额度</div>
+                          <div>操作</div>
                         </div>
 
                         {/* 会员行 */}
                         <div className="space-y-1">
                           {filteredMembers.map((m: any) => (
-                            <div key={m.id} className={`grid grid-cols-1 md:grid-cols-12 gap-2 py-3 border-b last:border-b-0 items-center hover:bg-gray-50 rounded px-1 ${m.buyLocked ? 'bg-red-50' : ''}`}>
+                            <div key={m.id} className={`grid grid-cols-1 md:grid-cols-[1.5fr_1fr_1.5fr_1.5fr_1.5fr_1fr_1.5fr_1.5fr] gap-2 py-3 border-b last:border-b-0 items-center hover:bg-gray-50 rounded px-1 ${m.buyLocked ? 'bg-red-50' : ''}`}>
                               {/* 姓名 */}
-                              <div className="col-span-2">
+                              <div>
                                 <div className="flex items-center gap-1.5">
                                   <p className="font-medium">{m.realName || m.username || '-'}</p>
                                   {m.buyLocked && (
@@ -3001,30 +3002,34 @@ export default function BranchPage() {
                                 <p className="text-xs text-gray-400 md:hidden">手机: {m.phone || '-'}</p>
                               </div>
                               {/* 专属ID */}
-                              <div className="col-span-1">
+                              <div>
                                 <span className="font-mono text-sm text-purple-600">{m.uniqueId || '-'}</span>
                               </div>
                               {/* 手机号 */}
-                              <div className="col-span-2 hidden md:block">
+                              <div className="hidden md:block">
                                 <span className="text-sm">{m.phone || '-'}</span>
                               </div>
                               {/* 隶属服务商 */}
-                              <div className="col-span-2 hidden md:block">
+                              <div className="hidden md:block">
                                 <Badge className="bg-blue-100 text-blue-700">{m.providerName || '-'}</Badge>
                               </div>
+                              {/* 推荐人 */}
+                              <div className="hidden md:block">
+                                <span className="text-sm text-gray-700">{m.inviterName || '-'}</span>
+                              </div>
                               {/* 收益 */}
-                              <div className="col-span-1 hidden md:block">
+                              <div className="hidden md:block">
                                 <span className="text-sm font-medium text-emerald-600">{(m.balance || 0).toLocaleString()}</span>
                               </div>
                               {/* 持有Token额度 */}
-                              <div className="col-span-2 hidden md:block">
+                              <div className="hidden md:block">
                                 <div>
                                   <span className="text-sm font-semibold text-orange-600">¥{(m.totalInvestment || 0).toLocaleString()}</span>
                                   <span className="text-xs text-gray-400 ml-1">({m.holdingProducts || 0}个产品)</span>
                                 </div>
                               </div>
                               {/* 操作 */}
-                              <div className="col-span-2 flex items-center gap-1">
+                              <div className="flex items-center gap-1">
                                 <Button
                                   size="sm"
                                   variant="outline"

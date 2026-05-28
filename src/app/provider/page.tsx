@@ -2825,8 +2825,11 @@ export default function ProviderPage() {
                                                                             <p className="text-white font-medium">{member.username}</p>
                                                                             <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
                                                                                 {member.uniqueId && <span className="text-purple-400">{member.uniqueId}</span>}
-                                                                                {member.phone && <span>{member.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')}</span>}
+                                                                                {member.phone && <span>{member.phone}</span>}
                                                                             </div>
+                                                                            {member.inviterName && member.inviterName !== '-' && (
+                                                                                <div className="text-xs text-slate-500 mt-0.5">推荐人: {member.inviterName}</div>
+                                                                            )}
                                                                         </div>
                                                                         <span className="px-2 py-0.5 bg-green-600/20 text-green-400 text-xs rounded-full">会员</span>
                                                                     </div>
@@ -3622,7 +3625,7 @@ export default function ProviderPage() {
                                                                 </div>
                                                                 <div>
                                                                     <p className="font-medium text-sm">{record.holder.name}</p>
-                                                                    <p className="text-xs text-gray-500">{record.holder.phone?.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')}</p>
+                                                                    <p className="text-xs text-gray-500">{record.holder.phone}</p>
                                                                 </div>
                                                             </div>
                                                         ) : (

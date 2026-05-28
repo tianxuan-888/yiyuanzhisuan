@@ -10205,7 +10205,7 @@ export default function AdminPage() {
                     </TableCell>
                     <TableCell className="text-sm">
                       <div className="font-medium">{r.userName || '-'}</div>
-                      {r.userPhone && <div className="text-xs text-gray-400">{r.userPhone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')}</div>}
+                      {r.userPhone && <div className="text-xs text-gray-400">{r.userPhone}</div>}
                     </TableCell>
                     <TableCell className="font-semibold">{Number(r.amount).toLocaleString()}</TableCell>
                     <TableCell className="text-red-500 text-sm">{r.feeAmount > 0 ? `-${r.feeAmount}` : '-'}</TableCell>
