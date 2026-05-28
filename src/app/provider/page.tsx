@@ -68,6 +68,7 @@ import {
     Calendar,
     RotateCcw,
     AlertTriangle,
+    Share2,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -2711,6 +2712,40 @@ export default function ProviderPage() {
                                                     <span className="text-purple-400 font-medium">{chainData.self?.username || '我'}</span>
                                                     <ArrowRight className="w-4 h-4 text-slate-500" />
                                                     <span className="text-green-400">我的会员</span>
+                                                </div>
+                                            </div>
+
+                                            {/* 专属邀请码 & 分享链接 */}
+                                            <div className="p-4 bg-gradient-to-r from-purple-900/60 to-fuchsia-900/60 rounded-xl border border-purple-700/50">
+                                                <h4 className="text-purple-300 font-medium mb-3 flex items-center gap-2">
+                                                    <Share2 className="w-4 h-4" />
+                                                    专属邀请码 & 分享链接
+                                                </h4>
+                                                <div className="flex flex-col gap-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-slate-400 text-sm">邀请码</span>
+                                                        <span className="font-mono text-lg font-bold text-white bg-purple-700/50 px-3 py-1 rounded-lg">{user?.invite_code || (user as any)?.unique_id || '-'}</span>
+                                                        <Button size="sm" variant="outline" className="border-purple-600 text-purple-300 hover:bg-purple-800" onClick={() => {
+                                                            const code = user?.invite_code || (user as any)?.unique_id || '';
+                                                            navigator.clipboard.writeText(code);
+                                                            showMessage('success', '邀请码已复制');
+                                                        }}>
+                                                            复制邀请码
+                                                        </Button>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-slate-400 text-sm">分享链接</span>
+                                                        <span className="text-xs text-purple-200 truncate max-w-[200px]">{typeof window !== 'undefined' ? `${window.location.origin}/?invite=${user?.invite_code || (user as any)?.unique_id || ''}` : ''}</span>
+                                                        <Button size="sm" variant="outline" className="border-fuchsia-600 text-fuchsia-300 hover:bg-fuchsia-800" onClick={() => {
+                                                            const code = user?.invite_code || (user as any)?.unique_id || '';
+                                                            const link = `${window.location.origin}/?invite=${code}`;
+                                                            navigator.clipboard.writeText(link);
+                                                            showMessage('success', '分享链接已复制，发给好友即可自动填充邀请码');
+                                                        }}>
+                                                            复制链接
+                                                        </Button>
+                                                    </div>
+                                                    <p className="text-slate-500 text-xs">好友通过分享链接注册，邀请码将自动填充</p>
                                                 </div>
                                             </div>
 
