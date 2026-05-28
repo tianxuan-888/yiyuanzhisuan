@@ -630,16 +630,20 @@ const [copySuccess, setCopySuccess] = useState(false);
     // 加载资金流水（必须在refreshAll之前声明）
     const loadCapitalFlow = useCallback(async () => {
         const userId = user?.id || localStorage.getItem("userId");
-        if (!userId) return;
+        if (!userId) { console.log('[资金流水] 无userId，跳过加载'); return; }
         setCapitalFlowLoading(true);
         try {
             const flowType = capitalFlowTab === 'all' ? '' : capitalFlowTab;
             const params = new URLSearchParams({ userId, page: String(capitalFlowPage), pageSize: '20' });
             if (flowType) params.set('flowType', flowType);
+            console.log('[资金流水] 请求API:', `/api/capital-flow?${params}`);
             const res = await fetch(`/api/capital-flow?${params}`);
             const data = await res.json();
+            console.log('[资金流水] API返回:', data.success, data.data?.stats, data.data?.records?.length);
             if (data.success) {
                 setCapitalFlowData(data.data);
+            } else {
+                console.error('[资金流水] API返回失败:', data);
             }
         } catch (e) {
             console.error('加载资金流水失败', e);
