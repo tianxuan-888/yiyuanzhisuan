@@ -5669,7 +5669,7 @@ export default function AdminPage() {
                                       size="sm"
                                       className="h-7 text-xs"
                                       disabled={(m.holdingProducts || 0) > 0}
-                                      onClick={() => setDeleteConfirmMember({ id: m.id, username: m.username || m.realName || '-', holdingProducts: m.holdingProducts || 0 })}
+                                      onClick={() => setDeleteConfirmMember({ id: m.id, username: m.username || m.realName || '-', phone: m.phone, holdingCount: m.holdingProducts || 0 })}
                                     >
                                       {(m.holdingProducts || 0) > 0 ? '有持仓无法删除' : '删除账号'}
                                     </Button>
