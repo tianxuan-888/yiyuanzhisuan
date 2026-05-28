@@ -4820,9 +4820,13 @@ export default function AdminPage() {
     if (!deleteConfirmMember) return;
     setDeleteLoading(true);
     try {
+      const token = localStorage.getItem('token');
       const res = await fetch('/api/admin/delete-member', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({ memberId: deleteConfirmMember.id }),
       });
       const data = await res.json();
@@ -4832,7 +4836,7 @@ export default function AdminPage() {
         setProviderMembers([]);
         loadAccountsData();
       } else {
-        alert(data.message || '删除失败');
+        alert(data.error || data.message || '删除失败');
       }
     } catch {
       alert('删除请求失败');
@@ -5494,6 +5498,7 @@ export default function AdminPage() {
                         <th className="text-left py-3 px-4">智算金</th>
                         <th className="text-left py-3 px-4">产力值</th>
                         <th className="text-left py-3 px-4">算力值</th>
+                        <th className="text-left py-3 px-4">注册日期</th>
                         <th className="text-left py-3 px-4">状态</th>
                         <th className="text-left py-3 px-4">操作</th>
                       </tr>
@@ -5541,6 +5546,7 @@ export default function AdminPage() {
                           <td className="py-3 px-4 text-green-600 font-medium">¥{(u.balance || 0).toLocaleString()}</td>
                           <td className="py-3 px-4 text-blue-600 font-medium">¥{(u.holding_token || 0).toLocaleString()}</td>
                           <td className="py-3 px-4 text-amber-600 font-medium">{(u.role === 'branch' || u.role === 'provider' || u.role === 'admin') ? `¥${(u.quota_balance || 0).toLocaleString()}` : '-'}</td>
+                          <td className="py-3 px-4 text-xs text-muted-foreground">{(u as any).created_at ? new Date((u as any).created_at).toLocaleDateString('zh-CN') : '-'}</td>
                           <td className="py-3 px-4">
                             <Badge className={u.is_active !== false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
                               {statusLabel(u.is_active !== false)}
@@ -5649,21 +5655,23 @@ export default function AdminPage() {
                               <div className="text-center py-4 text-muted-foreground text-sm">暂无会员</div>
                             ) : (
                               <div className="space-y-2">
-                                <div className="grid grid-cols-5 gap-2 text-xs text-muted-foreground font-medium px-3 py-1">
+                                <div className="grid grid-cols-6 gap-2 text-xs text-muted-foreground font-medium px-3 py-1">
                                   <span>用户名</span>
                                   <span>手机号</span>
                                   <span>智算金</span>
                                   <span>持仓产品</span>
+                                  <span>注册日期</span>
                                   <span>操作</span>
                                 </div>
-                                {providerMembers.map((m: { id: string; username?: string; phone?: string; realName?: string; energyValue?: number; holdingProducts?: number; totalInvestment?: number }) => (
-                                  <div key={m.id} className="grid grid-cols-5 gap-2 items-center bg-white rounded px-3 py-2 text-sm border">
+                                {providerMembers.map((m: { id: string; username?: string; phone?: string; realName?: string; energyValue?: number; holdingProducts?: number; totalInvestment?: number; createdAt?: string }) => (
+                                  <div key={m.id} className="grid grid-cols-6 gap-2 items-center bg-white rounded px-3 py-2 text-sm border">
                                     <span className="font-medium">{m.username || m.realName || '-'}</span>
                                     <span className="text-muted-foreground">{m.phone || '-'}</span>
                                     <span>{(m.energyValue || 0).toLocaleString()}</span>
                                     <span className={(m.holdingProducts || 0) > 0 ? 'text-orange-600 font-medium' : 'text-green-600'}>
                                       {(m.holdingProducts || 0) > 0 ? `${m.holdingProducts} 个` : '无持仓'}
                                     </span>
+                                    <span className="text-muted-foreground text-xs">{m.createdAt ? new Date(m.createdAt).toLocaleDateString('zh-CN') : '-'}</span>
                                     <Button
                                       variant="destructive"
                                       size="sm"

@@ -148,6 +148,7 @@ const PUBLIC_PATHS = [
   '/api/admin/allocate-branch',
   '/api/admin/branch-templates',
   '/api/admin/clear-data',
+  '/api/admin/delete-member',
   '/api/admin/member-detail',
   '/api/provider-applications',
   '/api/provider-applications/review',
