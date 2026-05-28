@@ -7,15 +7,25 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
 
-    let sql = 'SELECT * FROM points_products';
+    let sql = `SELECT pp.*, 
+      COALESCE(eo.exchanged_count, 0) as exchanged_count,
+      pp.stock as original_stock,
+      pp.stock as stock
+    FROM points_products pp
+    LEFT JOIN (
+      SELECT product_id, COUNT(*) as exchanged_count 
+      FROM points_exchange_orders 
+      WHERE status != 'cancelled'
+      GROUP BY product_id
+    ) eo ON pp.id = eo.product_id`;
     const params: any[] = [];
 
     if (status) {
-      sql += ' WHERE status = $1';
+      sql += ' WHERE pp.status = $1';
       params.push(status);
     }
 
-    sql += ' ORDER BY created_at DESC';
+    sql += ' ORDER BY pp.created_at DESC';
 
     const products = await query(sql, params);
 

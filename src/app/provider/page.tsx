@@ -2385,6 +2385,17 @@ export default function ProviderPage() {
                                 <Gift className="w-4 h-4" />我的积分
                             </button>
                             <button
+                                onClick={() => {
+                                    setActiveTab("pointsShop");
+                                    if (pointsShopProducts.length === 0) {
+                                        setPointsShopLoading(true);
+                                        authFetch('/api/points-products?status=active').then(r => r.json()).then(data => { if (data.success) setPointsShopProducts(data.data || []); }).catch(console.error).finally(() => setPointsShopLoading(false));
+                                    }
+                                }}
+                                className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "pointsShop" ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-200" : "text-gray-600 hover:bg-amber-50"}`}>
+                                <ShoppingBag className="w-4 h-4" />积分商城
+                            </button>
+                            <button
                                 onClick={() => { setActiveTab("capitalFlow"); loadCapitalFlow(); }}
                                 className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "capitalFlow" ? "bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg shadow-teal-200" : "text-gray-600 hover:bg-teal-50"}`}>
                                 <ArrowRightLeft className="w-4 h-4" />资金流水
@@ -4270,16 +4281,7 @@ export default function ProviderPage() {
                                         <Button
                                             size="sm"
                                             variant="secondary"
-                                            onClick={async () => {
-                                                setShowPointsShop(true);
-                                                setPointsShopLoading(true);
-                                                try {
-                                                    const res = await authFetch('/api/points-products?status=active');
-                                                    const data = await res.json();
-                                                    if (data.success) setPointsShopProducts(data.data || []);
-                                                } catch (e) { console.error(e); }
-                                                setPointsShopLoading(false);
-                                            }}
+                                            onClick={() => setActiveTab("pointsShop")}
                                         >
                                             <Gift className="w-4 h-4 mr-1" />
                                             积分兑换
@@ -4358,6 +4360,84 @@ export default function ProviderPage() {
                                 </CardContent>
                             </Card>
                         </div>
+                    )}
+
+                    {/* 积分商城 Tab */}
+                    {activeTab === "pointsShop" && (
+                        <Card className="mobile-compact-card bg-gradient-to-br from-white to-amber-50 border-amber-200 shadow-xl">
+                            <CardHeader className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-t-lg">
+                                <CardTitle className="text-white flex items-center gap-2">
+                                    <ShoppingBag className="w-5 h-5" />积分兑换商城
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-4">
+                                <div className="mb-4 flex items-center justify-between bg-amber-50 rounded-lg p-3 border border-amber-200">
+                                    <div className="flex items-center gap-2">
+                                        <Gift className="w-5 h-5 text-amber-500" />
+                                        <span className="text-sm text-amber-700">当前积分：</span>
+                                        <span className="text-xl font-bold text-amber-600">{Number(user?.points || 0).toLocaleString()}</span>
+                                    </div>
+                                </div>
+                                {pointsShopLoading ? (
+                                    <div className="flex items-center justify-center py-12">
+                                        <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+                                    </div>
+                                ) : pointsShopProducts.length === 0 ? (
+                                    <div className="text-center py-12 text-muted-foreground">
+                                        <Gift className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                                        <p>暂无可兑换商品</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {pointsShopProducts.map((product: any) => {
+                                            const stock = product.stock ?? 0;
+                                            const exchanged = product.exchanged_count ?? 0;
+                                            const remaining = stock - exchanged;
+                                            const canAfford = (Number(user?.points || 0)) >= product.points_price;
+                                            const hasStock = remaining > 0;
+                                            return (
+                                                <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow border-amber-100">
+                                                    {product.image_url && (
+                                                        <div className="aspect-video bg-muted flex items-center justify-center overflow-hidden">
+                                                            <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                                                        </div>
+                                                    )}
+                                                    <CardContent className="pt-3 space-y-2">
+                                                        <h3 className="font-semibold text-base">{product.name}</h3>
+                                                        {product.description && (
+                                                            <p className="text-xs text-muted-foreground line-clamp-2">{product.description}</p>
+                                                        )}
+                                                        <div className="flex items-center justify-between text-sm">
+                                                            <span className="text-amber-600 font-bold">{product.points_price} 积分</span>
+                                                            <span className={`text-xs px-2 py-0.5 rounded-full ${hasStock ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                                                                库存：{remaining}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center text-xs text-muted-foreground">
+                                                            <span>已兑：{exchanged} / {stock}</span>
+                                                            <div className="flex-1 ml-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                                                <div className="h-full bg-amber-400 rounded-full" style={{ width: `${stock > 0 ? Math.min((exchanged / stock) * 100, 100) : 0}%` }} />
+                                                            </div>
+                                                        </div>
+                                                        <Button
+                                                            className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+                                                            disabled={!canAfford || !hasStock}
+                                                            onClick={() => {
+                                                                setExchangeProduct(product);
+                                                                setExchangeForm({ name: '', phone: '', address: '' });
+                                                                setShowExchangeForm(true);
+                                                            }}
+                                                        >
+                                                            {!hasStock ? '已售罄' : !canAfford ? '积分不足' : '立即兑换'}
+                                                        </Button>
+                                                    </CardContent>
+                                                </Card>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
                     )}
 
                     {/* 资金流水 Tab */}
@@ -4720,64 +4800,6 @@ export default function ProviderPage() {
                                     确认充值
                                 </Button>
                             </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-
-                    {/* 积分兑换商城弹窗 */}
-                    <Dialog open={showPointsShop} onOpenChange={setShowPointsShop}>
-                        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                            <DialogHeader>
-                                <DialogTitle className="flex items-center gap-2">
-                                    <Gift className="w-5 h-5 text-amber-500" />
-                                    积分兑换商城
-                                </DialogTitle>
-                            </DialogHeader>
-                            {pointsShopLoading ? (
-                                <div className="flex items-center justify-center py-12">
-                                    <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
-                                </div>
-                            ) : pointsShopProducts.length === 0 ? (
-                                <div className="text-center py-12 text-muted-foreground">
-                                    <Gift className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                                    <p>暂无可兑换商品</p>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {pointsShopProducts.map((product: any) => (
-                                        <Card key={product.id} className="overflow-hidden hover:shadow-md transition-shadow">
-                                            {product.image_url && (
-                                                <div className="aspect-video bg-muted flex items-center justify-center">
-                                                    <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
-                                                </div>
-                                            )}
-                                            <CardContent className="pt-3">
-                                                <h3 className="font-semibold text-sm mb-1">{product.name}</h3>
-                                                {product.description && (
-                                                    <p className="text-xs text-muted-foreground mb-2 line-clamp-2">{product.description}</p>
-                                                )}
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-amber-600 font-bold text-sm">{product.points_price} 积分</span>
-                                                    <Button
-                                                        size="sm"
-                                                        className="bg-amber-500 hover:bg-amber-600 text-white"
-                                                        disabled={(Number(user?.points || 0)) < product.points_price}
-                                                        onClick={() => {
-                                                            setExchangeProduct(product);
-                                                            setExchangeForm({ name: '', phone: '', address: '' });
-                                                            setShowExchangeForm(true);
-                                                        }}
-                                                    >
-                                                        兑换
-                                                    </Button>
-                                                </div>
-                                                {(Number(user?.points || 0)) < product.points_price && (
-                                                    <p className="text-xs text-red-400 mt-1">积分不足</p>
-                                                )}
-                                            </CardContent>
-                                        </Card>
-                                    ))}
-                                </div>
-                            )}
                         </DialogContent>
                     </Dialog>
 
