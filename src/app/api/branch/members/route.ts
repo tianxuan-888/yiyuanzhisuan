@@ -70,13 +70,13 @@ export async function GET(request: NextRequest) {
         [memberIds]
       );
 
-      // 计算每个会员的投资金额
+      // 计算每个会员的投资金额（只计算holding状态）
       userProducts.forEach(up => {
         if (!memberStats[up.user_id]) {
           memberStats[up.user_id] = { totalInvestment: 0, productCount: 0 };
         }
-        memberStats[up.user_id].totalInvestment += parseFloat(up.purchase_price) || 0;
         if (up.status === 'holding') {
+          memberStats[up.user_id].totalInvestment += parseFloat(up.purchase_price) || 0;
           memberStats[up.user_id].productCount += 1;
         }
       });

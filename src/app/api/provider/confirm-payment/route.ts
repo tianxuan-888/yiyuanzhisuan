@@ -213,8 +213,36 @@ export async function POST(request: NextRequest) {
         console.error('记录释放收益失败:', e);
       }
 
-      // 首次购买不写入流转记录（服务商只是审核角色，流转记录记录会员间流转）
-      // 流转记录仅记录：会员间流转（抢购）和 服务商回购（回流）
+      // 首次购买也写入流转记录（服务商→会员）
+      try {
+        const providerUser = await queryOne(
+          `SELECT username, unique_id, phone FROM users WHERE id = $1`,
+          [providerId]
+        );
+        const flowExpectedProfit = Number(price) * (Number(product.profit_rate) || 5) / 100;
+        await client.from('product_flow_records').insert({
+          product_id: product.id,
+          product_code: product.code,
+          product_name: productName,
+          product_price: price,
+          period: product.period,
+          profit_rate: product.profit_rate,
+          expected_profit: flowExpectedProfit,
+          flow_type: 'provider_match',
+          seller_id: providerId,
+          seller_name: providerUser?.username || '服务商',
+          seller_unique_id: providerUser?.unique_id || '',
+          seller_phone: providerUser?.phone || '',
+          buyer_id: order.user_id,
+          buyer_name: member?.username || order.user_id,
+          buyer_unique_id: member?.unique_id || '',
+          buyer_phone: member?.phone || '',
+          seller_profit: 0,
+          provider_id: providerId,
+        });
+      } catch (e) {
+        console.error('记录首次流转失败:', e);
+      }
 
       // 发送通知给会员
       await client.from('notifications').insert({

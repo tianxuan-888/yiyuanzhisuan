@@ -3733,11 +3733,15 @@ export default function ProviderPage() {
                                                     <td className="py-2 px-3 text-orange-600 font-medium">¥{(record.sellerProfit || 0).toLocaleString()}</td>
                                                     <td className="py-2 px-3">
                                                         <Badge className={
+                                                            record.flowType === 'provider_match' ? 'bg-green-100 text-green-700' :
                                                             record.flowType === '抢购' ? 'bg-blue-100 text-blue-700' :
                                                             record.flowType === '回流' ? 'bg-amber-100 text-amber-700' :
                                                             'bg-gray-100 text-gray-700'
                                                         }>
-                                                            {record.flowType || '-'}
+                                                            {record.flowType === 'provider_match' ? '首轮匹配' :
+                                                             record.flowType === '抢购' ? '会员抢购' :
+                                                             record.flowType === '回流' ? '服务商回购' :
+                                                             record.flowType || '-'}
                                                         </Badge>
                                                     </td>
                                                     <td className="py-2 px-3 text-xs">{record.transferTime?.slice(0, 16)?.replace('T', ' ') || '-'}</td>
