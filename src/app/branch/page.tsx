@@ -1414,14 +1414,14 @@ export default function BranchPage() {
 
   // 强制卖出单个产品
   const handleForceSell = async (upId: string) => {
-    if (!confirm('确认强制卖出此产品？本金+收益将返还给会员。')) return;
+    if (!confirm('确认卖出此产品？产品将发布为待匹配状态，等待服务商匹配。')) return;
     setSellingIds(prev => new Set(prev).add(upId));
     try {
       const token = localStorage.getItem('token');
       const res = await fetch('/api/branch/force-sell', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ userProductId: upId })
+        body: JSON.stringify({ userProductIds: [upId] })
       });
       const data = await res.json();
       if (data.success) {

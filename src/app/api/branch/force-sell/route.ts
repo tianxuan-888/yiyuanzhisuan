@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { setUserProductStatus } from '@/lib/energy-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,7 +39,6 @@ export async function POST(request: Request) {
     for (const up of userProducts) {
       // 如果还没解锁，先解锁
       if (!up.revenue_released) {
-        // 调用unlock逻辑（解锁+分配收益）
         try {
           const unlockRes = await fetch(new URL('/api/branch/unlock', request.url).toString(), {
             method: 'POST',
@@ -58,16 +56,54 @@ export async function POST(request: Request) {
         }
       }
 
-      // 本金线下交易，不在系统内处理
-      // 只更新产品状态为已售出
-      const statusOk = await setUserProductStatus(up.id, 'sold', { sold: true });
-
-      if (statusOk) {
+      // 如果已经是pending_sell状态，跳过（已经在售卖中）
+      if (up.status === 'pending_sell') {
+        sellLog.push(`产品${up.product_id}: 已在售卖中，跳过`);
         successCount++;
-        sellLog.push(`产品${up.product_id}: 已卖出(本金线下退还)`);
-      } else {
-        sellLog.push(`产品${up.product_id}: 状态更新失败`);
+        continue;
       }
+
+      // 更新user_products状态为pending_sell（等待服务商匹配）
+      const { error: upUpdateErr } = await sb
+        .from('user_products')
+        .update({ status: 'pending_sell' })
+        .eq('id', up.id);
+
+      if (upUpdateErr) {
+        sellLog.push(`产品${up.product_id}: user_products状态更新失败 - ${upUpdateErr.message}`);
+        continue;
+      }
+
+      // 更新products表状态为pending_match（等待服务商匹配）
+      const { error: prodUpdateErr } = await sb
+        .from('products')
+        .update({ status: 'pending_match' })
+        .eq('id', up.product_id);
+
+      if (prodUpdateErr) {
+        sellLog.push(`产品${up.product_id}: products状态更新失败 - ${prodUpdateErr.message}`);
+        // 回滚user_products状态
+        await sb.from('user_products').update({ status: up.status }).eq('id', up.id);
+        continue;
+      }
+
+      // 记录pending_match_user_id（标记谁在卖）
+      // 通过products表查找provider_id，设置pending_match_user_id
+      const { data: prodData } = await sb
+        .from('products')
+        .select('provider_id')
+        .eq('id', up.product_id)
+        .single();
+
+      if (prodData) {
+        await sb
+          .from('products')
+          .update({ pending_match_user_id: up.user_id })
+          .eq('id', up.product_id);
+      }
+
+      successCount++;
+      sellLog.push(`产品${up.product_id}: 已发布待匹配(会员可等待服务商匹配)`);
     }
 
     console.log(`[force-sell] 完成: 成功${successCount}/${userProducts.length}`);
@@ -76,7 +112,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       message: `成功卖出 ${successCount} 个产品`,
-      data: { total: userProducts.length, success: successCount, log: sellLog },
+      data: { total: userProducts.length, soldCount: successCount, log: sellLog },
     });
 
   } catch (error) {
