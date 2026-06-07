@@ -3463,27 +3463,36 @@ export default function BranchPage() {
                 <CardContent>
                   {branchRevenueRecords.length > 0 ? (
                     <div className="space-y-2">
-                      {branchRevenueRecords.map((r: any) => (
-                        <div key={r.id} className="flex items-center justify-between border rounded-lg p-3 hover:bg-gray-50">
-                          <div>
-                            <p className="font-medium text-green-600">+¥{Number(r.amount).toLocaleString()}</p>
-                            <p className="text-xs text-gray-500">
-                              {r.type === 'member_withdraw' ? '会员提现' : 
-                               r.type === 'provider_withdraw' ? '服务商提现' :
-                               r.type === 'market_fee_share' ? '收益释放分润' :
-                               r.type === 'provider_upstream' ? '无上级服务商分成(归网点)' :
-                               r.type === 'withdraw_income' ? '提现收入' : r.type}
-                            </p>
-                            {r.product_id && (
-                              <p className="text-xs text-gray-400">产品ID: {r.product_id?.substring(0,8)}...</p>
-                            )}
-                            <p className="text-xs text-gray-400">{r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</p>
+                      {branchRevenueRecords.map((r: any) => {
+                        const typeLabel = r.type === 'market_fee_share' ? '收益释放分润(0.1%)' :
+                                         r.type === 'provider_upstream' ? '无上级服务商分成(归网点)' :
+                                         r.type === 'member_withdraw' ? '会员提现手续费' :
+                                         r.type === 'provider_withdraw' ? '服务商提现手续费' :
+                                         r.type === 'withdraw_income' ? '提现收入' : r.type;
+                        return (
+                          <div key={r.id} className="flex items-center justify-between border rounded-lg p-3 hover:bg-gray-50">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <p className="font-medium text-green-600">+¥{Number(r.amount).toLocaleString()}</p>
+                                <Badge className="bg-amber-100 text-amber-700 text-xs">{typeLabel}</Badge>
+                              </div>
+                              {r.product_name && (
+                                <p className="text-sm text-gray-700">{r.product_name} · ¥{Number(r.product_price).toLocaleString()}</p>
+                              )}
+                              {r.member_name && (
+                                <p className="text-xs text-gray-500">来源会员: {r.member_name}{r.member_unique_id ? ` [${r.member_unique_id}]` : ''}</p>
+                              )}
+                              {r.provider_name && (
+                                <p className="text-xs text-gray-500">所属服务商: {r.provider_name}</p>
+                              )}
+                              <p className="text-xs text-gray-400">{r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</p>
+                            </div>
+                            <Badge className={r.status === 'received' ? 'bg-blue-100 text-blue-700' : r.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}>
+                              {r.status === 'received' ? '已入账' : r.status === 'paid' ? '已支出' : r.status === 'completed' ? '已完成' : r.status}
+                            </Badge>
                           </div>
-                          <Badge className={r.status === 'received' ? 'bg-blue-100 text-blue-700' : r.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}>
-                            {r.status === 'received' ? '已入账' : r.status === 'paid' ? '已支出' : r.status === 'completed' ? '已完成' : r.status}
-                          </Badge>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <p className="text-gray-500 text-center py-8">暂无收益记录</p>

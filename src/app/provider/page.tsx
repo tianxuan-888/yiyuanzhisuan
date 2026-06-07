@@ -4202,20 +4202,48 @@ export default function ProviderPage() {
                                             <p className="text-gray-500 text-center py-8">暂无收益记录</p>
                                         ) : (
                                             <div className="space-y-2">
+                                                {/* 统计汇总 */}
+                                                <div className="grid grid-cols-3 gap-2 mb-4">
+                                                    <div className="bg-green-50 rounded-lg p-2 text-center">
+                                                        <p className="text-xs text-gray-500">服务商分成(2%)</p>
+                                                        <p className="text-sm font-bold text-green-600">¥{revenueRecords.reduce((s: number, r: any) => s + (Number(r.provider_share) || 0), 0).toLocaleString()}</p>
+                                                    </div>
+                                                    <div className="bg-blue-50 rounded-lg p-2 text-center">
+                                                        <p className="text-xs text-gray-500">下级分成</p>
+                                                        <p className="text-sm font-bold text-blue-600">¥{revenueRecords.reduce((s: number, r: any) => s + (Number(r.sub_provider_share) || 0), 0).toLocaleString()}</p>
+                                                    </div>
+                                                    <div className="bg-purple-50 rounded-lg p-2 text-center">
+                                                        <p className="text-xs text-gray-500">总收益</p>
+                                                        <p className="text-sm font-bold text-purple-600">¥{revenueRecords.reduce((s: number, r: any) => s + (Number(r.provider_share) || 0) + (Number(r.sub_provider_share) || 0), 0).toLocaleString()}</p>
+                                                    </div>
+                                                </div>
                                                 {revenueRecords.map((record: any, index: number) => (
-                                                    <div key={index} className="flex items-center justify-between border rounded-lg p-3 hover:bg-gray-50">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${record.amount > 0 ? 'bg-green-100' : 'bg-red-100'}`}>
-                                                                <DollarSign className={`w-4 h-4 ${record.amount > 0 ? 'text-green-600' : 'text-red-600'}`} />
+                                                    <div key={index} className="border rounded-lg p-3 hover:bg-gray-50">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-8 h-8 rounded-full flex items-center justify-center bg-green-100">
+                                                                    <DollarSign className="w-4 h-4 text-green-600" />
+                                                                </div>
+                                                                <div>
+                                                                    <p className="font-medium text-sm">{record.product_name || '产品'}</p>
+                                                                    <p className="text-xs text-gray-500">持有人: {record.member_name || '-'} [{record.member_unique_id || '-'}]</p>
+                                                                </div>
                                                             </div>
-                                                            <div>
-                                                                <p className="font-medium text-sm">{record.description || record.type}</p>
-                                                                <p className="text-xs text-gray-500">{record.created_at?.slice(0, 16)}</p>
+                                                            <div className="text-right">
+                                                                <p className="font-bold text-green-600">+¥{Number(record.provider_share || 0).toLocaleString()}</p>
+                                                                <p className="text-xs text-gray-400">{record.created_at?.slice(0, 16)}</p>
                                                             </div>
                                                         </div>
-                                                        <span className={`font-bold ${record.amount > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                            {record.amount > 0 ? '+' : ''}¥{Number(record.amount || 0).toLocaleString()}
-                                                        </span>
+                                                        <div className="mt-2 flex gap-4 text-xs text-gray-500">
+                                                            <span>产品价格: ¥{Number(record.product_price || 0).toLocaleString()}</span>
+                                                            <span>周期: {record.period}天</span>
+                                                            <span>智算金: ¥{Number(record.market_fee || 0).toLocaleString()}</span>
+                                                        </div>
+                                                        {Number(record.sub_provider_share) > 0 && (
+                                                            <div className="mt-1 text-xs text-blue-500">
+                                                                下级服务商分成: +¥{Number(record.sub_provider_share).toLocaleString()}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 ))}
                                             </div>

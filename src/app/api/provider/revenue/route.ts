@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/storage/database/pg-client';
 import { authenticateRequest } from '@/lib/auth';
 
-// 获取服务商的收益记录
+// 获取服务商的收益记录 - 直接从user_products + products统计
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '缺少 providerId 参数' }, { status: 400 });
     }
 
-    // 查询服务商的用户信息
+    // 查询服务商信息
     const providerUser: any = await query(
       'SELECT id, username, balance FROM users WHERE id::text = $1',
       [providerId]
@@ -33,7 +33,8 @@ export async function GET(request: NextRequest) {
     const userId = providerUser[0].id;
     const currentBalance = Number(providerUser[0].balance) || 0;
 
-    // 1. 产品分成收益（provider_revenue_distribution）
+    // 1. 服务商2%产品分成 + 直推0.25%奖励 + 上级服务商0.25%分成
+    // 从user_products(revenue_released=true)关联products和users直接计算
     let distRecords: any[] = [];
     let distSelfRevenue = 0;
     let distDirectReward = 0;
@@ -41,41 +42,72 @@ export async function GET(request: NextRequest) {
     try {
       const distSql = `
         SELECT 
-          prd.id::text,
-          'distribution' as source,
-          prd.provider_share::float as amount,
-          prd.market_fee::float,
-          prd.direct_reward::float,
-          prd.parent_provider_share::float,
-          prd.product_price::float,
+          up.id::text,
           p.name as product_name,
           p.code as product_code,
+          p.price::float as product_price,
+          p.period,
+          p.total_rate::float,
+          p.market_rate::float,
+          p.profit_rate::float,
+          up.purchase_price::float,
           m.username as member_name,
           m.phone as member_phone,
-          prd.created_at
-        FROM provider_revenue_distribution prd
-        LEFT JOIN products p ON p.id::text = prd.product_id::text
-        LEFT JOIN users m ON m.id::text = prd.member_id::text
-        WHERE prd.provider_id::text = $1
-        ORDER BY prd.created_at DESC
-        LIMIT 100
+          m.unique_id as member_unique_id,
+          inv.username as inviter_name,
+          up.created_at,
+          up.revenue_released,
+          -- 服务商2%分成
+          (up.purchase_price * 2.0 / 100)::float as provider_share,
+          -- 直推0.25%
+          (up.purchase_price * 0.25 / 100)::float as direct_reward,
+          -- 上级服务商0.25%
+          (up.purchase_price * 0.25 / 100)::float as parent_provider_share,
+          -- 总释放5%
+          (up.purchase_price * 5.0 / 100)::float as total_release,
+          CASE 
+            WHEN m.inviter_id IS NOT NULL AND m.inviter_id::text != prv.user_id::text THEN inv.username
+            ELSE NULL
+          END as actual_inviter_name
+        FROM user_products up
+        JOIN products p ON p.id::text = up.product_id::text
+        JOIN users m ON m.id::text = up.user_id::text
+        LEFT JOIN providers prv ON prv.user_id::text = p.provider_id::text
+        LEFT JOIN users inv ON inv.id::text = m.inviter_id
+        WHERE up.revenue_released = true
+          AND p.provider_id::text = $1
+        ORDER BY up.created_at DESC
       `;
       distRecords = await query(distSql, [userId]);
 
-      const distSumSql = `
-        SELECT 
-          COALESCE(SUM(provider_share::float), 0) as self,
-          COALESCE(SUM(CASE WHEN direct_reward_to::text = $1 THEN direct_reward::float ELSE 0 END), 0) as direct,
-          COALESCE(SUM(CASE WHEN parent_provider_id::text = $1 THEN parent_provider_share::float ELSE 0 END), 0) as parent
-        FROM provider_revenue_distribution
-        WHERE provider_id::text = $1 OR direct_reward_to::text = $1 OR parent_provider_id::text = $1
+      // 统计服务商自身2%分成
+      distSelfRevenue = distRecords.reduce((sum: number, r: any) => sum + (Number(r.provider_share) || 0), 0);
+
+      // 统计直推0.25%奖励（服务商是会员的直推人时）
+      const directRewardSql = `
+        SELECT COALESCE(SUM(up.purchase_price::float * 0.25 / 100), 0) as total
+        FROM user_products up
+        JOIN products p ON p.id::text = up.product_id::text
+        JOIN users m ON m.id::text = up.user_id::text
+        WHERE up.revenue_released = true
+          AND m.inviter_id::text = $1
       `;
-      const distSumResult: any = await query(distSumSql, [userId]);
-      distSelfRevenue = parseFloat(String(distSumResult?.[0]?.self || '0'));
-      distDirectReward = parseFloat(String(distSumResult?.[0]?.direct || '0'));
-      distParentShare = parseFloat(String(distSumResult?.[0]?.parent || '0'));
-    } catch {
-      // 表可能不存在
+      const directResult: any = await query(directRewardSql, [userId]);
+      distDirectReward = parseFloat(String(directResult?.[0]?.total || '0'));
+
+      // 统计上级服务商0.25%分成（当前服务商是其他服务商的上级时）
+      const parentShareSql = `
+        SELECT COALESCE(SUM(up.purchase_price::float * 0.25 / 100), 0) as total
+        FROM user_products up
+        JOIN products p ON p.id::text = up.product_id::text
+        JOIN providers sub_prv ON sub_prv.user_id::text = p.provider_id::text
+        WHERE up.revenue_released = true
+          AND sub_prv.parent_provider_id::text = $1
+      `;
+      const parentResult: any = await query(parentShareSql, [userId]);
+      distParentShare = parseFloat(String(parentResult?.[0]?.total || '0'));
+    } catch (e) {
+      console.error('查询产品分成失败:', e);
     }
 
     // 2. 下级服务商分成
@@ -147,23 +179,37 @@ export async function GET(request: NextRequest) {
     // 可用收益 = 总收益 - 已提现 - 已转收益
     const availableRevenue = Math.max(0, totalRevenue - totalWithdrawn - totalConverted);
 
-    // 合并所有记录并按时间排序
+    // 格式化收益记录
     const allRecords = [
-      ...(distRecords || []).map((r: any) => ({
-        ...r,
-        source_label: '产品分成',
-        amount: Number(r.amount) || 0,
-        market_fee: Number(r.market_fee) || 0,
-        direct_reward: Number(r.direct_reward) || 0,
-        parent_provider_share: Number(r.parent_provider_share) || 0,
-        product_price: Number(r.product_price) || 0,
-      })),
+      ...(distRecords || []).map((r: any) => {
+        const totalRelease = Number(r.purchase_price) * 5.0 / 100;
+        return {
+          id: r.id,
+          source: 'distribution',
+          source_label: '产品分成',
+          product_name: r.product_name,
+          product_code: r.product_code,
+          product_price: Number(r.purchase_price) || 0,
+          period: r.period,
+          total_rate: Number(r.total_rate) || 0,
+          market_rate: Number(r.market_rate) || 0,
+          profit_rate: Number(r.profit_rate) || 0,
+          member_name: r.member_name,
+          member_phone: r.member_phone,
+          member_unique_id: r.member_unique_id,
+          inviter_name: r.inviter_name,
+          amount: Number(r.provider_share) || 0,
+          provider_share: Number(r.provider_share) || 0,
+          direct_reward: Number(r.direct_reward) || 0,
+          parent_provider_share: Number(r.parent_provider_share) || 0,
+          total_release: totalRelease,
+          created_at: r.created_at,
+        };
+      }),
       ...(subordinateRecords || []).map((r: any) => ({
         ...r,
         source_label: '下级分成',
         amount: Number(r.amount) || 0,
-        transaction_amount: Number(r.transaction_amount) || 0,
-        split_rate: Number(r.split_rate) || 0,
       })),
     ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
