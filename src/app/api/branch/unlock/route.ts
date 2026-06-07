@@ -52,23 +52,23 @@ export async function POST(request: Request) {
     }
 
     // 2. 先收集所有待解锁的product_id，用于去重查询
-    const allProductIds = userProducts.map((up: { product_id: string }) => up.product_id);
+    const allUserProductIds = userProducts.map((up: { id: string }) => up.id);
 
-    // 3. 检查哪些产品已有分配记录（避免重复分配energy_value和重复写记录）
-    // 用 provider_revenue_distribution 去重（release_records表可能为空）
+    // 3. 检查哪些持仓已有分配记录（避免重复分配energy_value和重复写记录）
+    // 用 provider_revenue_distribution 的 user_product_id 去重
     const { data: existingRecords } = await sb
       .from('provider_revenue_distribution')
-      .select('product_id, member_id, product_price')
-      .in('product_id', allProductIds);
+      .select('user_product_id')
+      .in('user_product_id', allUserProductIds);
 
-    // 构建已分配的集合：product_id + member_id 组合去重
+    // 构建已分配的集合：user_product_id 去重
     const releasedSet = new Set<string>(
-      (existingRecords || []).map((r: { product_id: string; member_id: string }) => `${r.product_id}|${r.member_id}`)
+      (existingRecords || []).map((r: { user_product_id: string }) => r.user_product_id)
     );
 
     // 过滤出需要分配收益的产品（未分配过的）
-    const toDistribute: Array<{ id: string; product_id: string; user_id: string; purchase_price: number; purchase_date?: string }> = userProducts.filter((up: { id: string; product_id: string; user_id: string }) => 
-      !releasedSet.has(`${up.product_id}|${up.user_id}`)
+    const toDistribute: Array<{ id: string; product_id: string; user_id: string; purchase_price: number; purchase_date?: string }> = userProducts.filter((up: { id: string }) => 
+      !releasedSet.has(up.id)
     );
 
     if (toDistribute.length === 0) {
@@ -102,6 +102,23 @@ export async function POST(request: Request) {
       .in('id', allUserIds);
 
     const userMap = new Map<string, any>((users || []).map((u: any) => [u.id, u]));
+
+    // 额外查询所有持有者的inviter信息（inviter可能不在userIds/providerIds中）
+    const inviterIds = new Set<string>();
+    for (const u of users || []) {
+      if (u.inviter_id && !userMap.has(u.inviter_id)) {
+        inviterIds.add(u.inviter_id);
+      }
+    }
+    if (inviterIds.size > 0) {
+      const { data: inviterUsers } = await sb
+        .from('users')
+        .select('id, username, role, provider_id, inviter_id, branch_id, energy_value')
+        .in('id', [...inviterIds]);
+      for (const u of inviterUsers || []) {
+        userMap.set(u.id, u);
+      }
+    }
 
     // 5. 获取服务商的上级服务商信息
     const providerUserIds = [...providerIds];
@@ -257,14 +274,8 @@ export async function POST(request: Request) {
         results.push({ userId: adminUser.id, role: 'admin', amount: companyShare, description: '公司运营', success: r !== null });
       }
 
-      // (7) 标记为已释放 + 状态改为unlocked
+      // (7) 标记为已释放（前端通过 revenue_released=true 判断"已解锁"状态）
       const releaseOk = await setRevenueReleased(up.id, true);
-      // 更新持仓状态为已解锁
-      try {
-        await sb.from('user_products').update({ status: 'unlocked' }).eq('id', up.id);
-      } catch (e: any) {
-        console.error('[unlock] 更新status=unlocked失败:', e?.message);
-      }
       
       if (releaseOk) {
         successCount++;
@@ -310,6 +321,7 @@ export async function POST(request: Request) {
         await sb.from('provider_revenue_distribution').insert({
           id: `prd-${up.id}-${Date.now()}`,
           product_id: up.product_id,
+          user_product_id: up.id,
           provider_id: product.provider_id || '',
           member_id: up.user_id,
           member_inviter_id: holder?.inviter_id || null,

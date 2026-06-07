@@ -84,6 +84,7 @@ export async function addEnergyValue(userId: string, amount: number, description
   // 3. 写入energy_transactions流水记录
   try {
     const record: Record<string, unknown> = {
+      user_id: userId,
       type: txType || (fromUserId ? 'transfer_in' : 'revenue'),
       amount: amount,
       to_user_id: userId,
@@ -92,10 +93,12 @@ export async function addEnergyValue(userId: string, amount: number, description
     if (fromUserId) {
       record.from_user_id = fromUserId;
     }
-    await sb.from('energy_transactions').insert(record);
+    const { error: txInsertErr } = await sb.from('energy_transactions').insert(record);
+    if (txInsertErr) {
+      console.error(`[addEnergyValue] 写入流水失败: ${txInsertErr.message}`);
+    }
   } catch (txErr) {
-    console.error(`[addEnergyValue] 写入流水失败: ${txErr}`);
-    // 流水写入失败不影响主流程
+    console.error(`[addEnergyValue] 写入流水异常: ${txErr}`);
   }
   
   console.log(`[addEnergyValue] 成功: ${description}, userId=${userId}, ${currentVal} → ${newVal} (+${amount})`);
@@ -166,6 +169,7 @@ export async function deductEnergyValue(userId: string, amount: number, descript
   // 写入energy_transactions流水记录
   try {
     const record: Record<string, unknown> = {
+      user_id: userId,
       type: toUserId ? 'transfer_out' : 'deduction',
       amount: amount,
       from_user_id: userId,
@@ -174,9 +178,12 @@ export async function deductEnergyValue(userId: string, amount: number, descript
     if (toUserId) {
       record.to_user_id = toUserId;
     }
-    await sb.from('energy_transactions').insert(record);
+    const { error: txInsertErr } = await sb.from('energy_transactions').insert(record);
+    if (txInsertErr) {
+      console.error(`[deductEnergyValue] 写入流水失败: ${txInsertErr.message}`);
+    }
   } catch (txErr) {
-    console.error(`[deductEnergyValue] 写入流水失败: ${txErr}`);
+    console.error(`[deductEnergyValue] 写入流水异常: ${txErr}`);
   }
   
   console.log(`[deductEnergyValue] 成功: ${description}, userId=${userId}, ${currentVal} → ${newVal} (-${amount})`);

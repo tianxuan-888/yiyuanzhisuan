@@ -1367,14 +1367,13 @@ export default function BranchPage() {
     setReleasingIds(prev => new Set(prev).add(upId));
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('/api/admin/force-release', {
+      const res = await fetch('/api/branch/unlock', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ adminKey: 'admin-force-release-2026', userProductIds: [upId] })
+        body: JSON.stringify({ userProductIds: [upId] })
       });
       const data = await res.json();
       if (data.success) {
-        // 刷新到期产品列表
         if (expandedProvider) loadProviderExpired(expandedProvider);
       } else {
         alert(data.message || '解锁失败');

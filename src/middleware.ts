@@ -180,6 +180,7 @@ const PUBLIC_PATHS = [
   '/api/upload',
   '/api/fix/energy-reset',
   '/api/fix/write-revenue-records',
+  '/api/admin/exec-sql',
 ];
 
 // 静态资源和页面路径不走 API 认证
