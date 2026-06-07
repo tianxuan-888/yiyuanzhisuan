@@ -82,9 +82,11 @@ export async function GET(request: NextRequest) {
         SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END) as available,
         SUM(CASE WHEN status = 'sold' THEN 1 ELSE 0 END) as sold,
         SUM(CASE WHEN status IN ('unlisted', 'pending_sell') THEN 1 ELSE 0 END) as pending,
+        SUM(CASE WHEN status = 'pending_match' THEN 1 ELSE 0 END) as pending_match,
         SUM(CASE WHEN status = 'available' THEN price ELSE 0 END) as available_amount,
         SUM(CASE WHEN status = 'sold' THEN price ELSE 0 END) as sold_amount,
         SUM(CASE WHEN status IN ('unlisted', 'pending_sell') THEN price ELSE 0 END) as pending_amount,
+        SUM(CASE WHEN status = 'pending_match' THEN price ELSE 0 END) as pending_match_amount,
         SUM(price) as total_value
        FROM products WHERE provider_id = $1`,
       [providerId]
@@ -99,9 +101,11 @@ export async function GET(request: NextRequest) {
           available: parseInt(statsResult[0]?.available || '0'),
           sold: parseInt(statsResult[0]?.sold || '0'),
           pending: parseInt(statsResult[0]?.pending || '0'),
+          pendingMatch: parseInt(statsResult[0]?.pending_match || '0'),
           availableAmount: parseFloat(statsResult[0]?.available_amount || '0'),
           soldAmount: parseFloat(statsResult[0]?.sold_amount || '0'),
           pendingAmount: parseFloat(statsResult[0]?.pending_amount || '0'),
+          pendingMatchAmount: parseFloat(statsResult[0]?.pending_match_amount || '0'),
           totalValue: parseFloat(statsResult[0]?.total_value || '0')
         }
       }

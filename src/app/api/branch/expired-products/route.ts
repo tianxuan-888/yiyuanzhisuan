@@ -55,12 +55,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, data: { products: [], stats: { total: 0, locked: 0, unlocked: 0, totalValue: 0, totalRevenue5pct: 0 } } });
     }
 
-    // 3. 查这些会员的持仓产品
+    // 3. 查这些会员的持仓产品（包括holding和pending_sell状态）
     const { data: userProducts, error: upErr } = await sb
       .from('user_products')
       .select('id, user_id, product_id, purchase_price, purchase_date, expire_date, status, revenue_released, expected_profit, market_fee')
       .in('user_id', memberIds)
-      .eq('status', 'holding');
+      .in('status', ['holding', 'pending_sell']);
 
     if (upErr) {
       console.error('[expired-products] user_products query error:', upErr);
@@ -144,6 +144,7 @@ export async function GET(request: NextRequest) {
       total: resultList.length,
       locked: resultList.filter(p => p.unlockStatus === 'locked').length,
       unlocked: resultList.filter(p => p.unlockStatus === 'unlocked').length,
+      pendingSell: resultList.filter(p => p.status === 'pending_sell').length,
       totalValue: resultList.reduce((sum, p) => sum + p.purchasePrice, 0),
       totalRevenue5pct: resultList.reduce((sum, p) => sum + p.revenue5pct, 0),
     };

@@ -2942,10 +2942,11 @@ export default function BranchPage() {
                                               const memberShare = p.memberShare || price * 0.02;
                                               const provShare = p.providerShare || price * 0.02;
                                               const isUnlocked = p.revenueReleased === true;
-                                              const isSold = p.status === 'sold';
+                                              const isSold = p.status === 'sold' || p.status === 'pending_sell' || p.status === 'pending_match';
+                                              const isPendingSell = p.status === 'pending_sell' || p.status === 'pending_match';
                                               const isSelected = selectedExpiredIds.has(p.id);
                                               return (
-                                                <div key={p.id} className={`border rounded-lg p-3 ${isSelected ? 'border-amber-400 bg-amber-50' : 'bg-white'} ${isSold ? 'opacity-60' : ''}`}>
+                                                <div key={p.id} className={`border rounded-lg p-3 ${isSelected ? 'border-amber-400 bg-amber-50' : isPendingSell ? 'border-orange-200 bg-orange-50' : 'bg-white'} ${isSold && !isPendingSell ? 'opacity-60' : ''}`}>
                                                   <div className="flex items-start gap-3">
                                                     {/* 选择框 */}
                                                     <input
@@ -2965,7 +2966,9 @@ export default function BranchPage() {
                                                       <div className="flex items-center gap-2 mb-1.5">
                                                         <span className="font-medium">{p.productName || '-'}</span>
                                                         <span className="font-mono text-xs text-gray-400">{p.productCode || '-'}</span>
-                                                        {isSold ? (
+                                                        {isPendingSell ? (
+                                                          <Badge className="bg-orange-100 text-orange-700 text-xs">售卖中</Badge>
+                                                        ) : isSold ? (
                                                           <Badge className="bg-gray-100 text-gray-500 text-xs">已卖出</Badge>
                                                         ) : isUnlocked ? (
                                                           <Badge className="bg-green-100 text-green-700 text-xs">已解锁</Badge>
@@ -3008,7 +3011,10 @@ export default function BranchPage() {
                                                           卖出
                                                         </Button>
                                                       )}
-                                                      {isSold && (
+                                                      {isPendingSell && (
+                                                        <span className="text-xs text-orange-500 text-center font-medium">等待服务商匹配</span>
+                                                      )}
+                                                      {isSold && !isPendingSell && (
                                                         <span className="text-xs text-gray-400 text-center">已完成</span>
                                                       )}
                                                     </div>

@@ -750,7 +750,8 @@ export default function ProviderPage() {
             }
 
             if (productsData.success) {
-                setProducts(productsData.data?.products || []);
+                const productList = productsData.data?.products || [];
+                setProducts(productList);
                 const productStats = productsData.data?.stats || {};
 
                 setStats(prev => ({
@@ -758,8 +759,16 @@ export default function ProviderPage() {
                     pending_count: productStats.pending || 0,
                     available_count: productStats.available || 0,
                     sold_count: productStats.sold || 0,
+                    pending_match_count: productStats.pendingMatch || 0,
                     total_value: productStats.totalValue || productStats.total_value || 0
                 }));
+
+                // 如果有待匹配产品且没有已上架产品，自动切换到待匹配Tab
+                const pendingMatchCount = productList.filter((p: any) => p.status === 'pending_match').length;
+                const availableCount = productList.filter((p: any) => p.status === 'available').length;
+                if (pendingMatchCount > 0 && availableCount === 0) {
+                    setProductListTab('pending_match');
+                }
             }
 
             if (applicationsData.success) {
@@ -2364,6 +2373,7 @@ export default function ProviderPage() {
                                 onClick={() => setActiveTab("power")}
                                 className={`px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium text-sm whitespace-nowrap ${activeTab === "power" ? "bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-200" : "text-gray-600 hover:bg-purple-50"}`}>
                                 <Cpu className="w-4 h-4" />Token值管理
+                                          {products.filter((p: any) => p.status === 'pending_match').length > 0 && <Badge className="ml-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs shadow-lg animate-pulse">{products.filter((p: any) => p.status === 'pending_match').length}</Badge>}
                             </button>
                             <button
                                 onClick={() => setActiveTab("applications")}
@@ -2897,6 +2907,17 @@ export default function ProviderPage() {
                                         <p className="text-sm text-blue-700 font-medium mb-2">您有可用的额度: ¥{(stats.available_quota || 0).toLocaleString()}</p>
                                         <p className="text-xs text-blue-500">前往额度管理，一键生成Token</p>
                                     </div>}
+                                    {products.filter((p: any) => p.status === 'pending_match').length > 0 && <div className="p-4 bg-gradient-to-r from-purple-50 to-fuchsia-50 rounded-xl border border-purple-300 animate-pulse">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-sm text-purple-700 font-bold mb-1">🎯 有 {products.filter((p: any) => p.status === 'pending_match').length} 个Token待匹配</p>
+                                                <p className="text-xs text-purple-500">会员已发起卖出，请及时处理匹配</p>
+                                            </div>
+                                            <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => { setActiveTab("power"); setPowerSubTab("products"); setTimeout(() => setProductListTab('pending_match'), 100); }}>
+                                                去匹配
+                                            </Button>
+                                        </div>
+                                    </div>}
                                     {stats.pending_count > 0 && <Button
                                         onClick={handleListAllProducts}
                                         className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-lg"
@@ -2971,6 +2992,7 @@ export default function ProviderPage() {
                             </button>
                             <button onClick={() => { setPowerSubTab('products'); }} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${powerSubTab === 'products' ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-purple-50'}`}>
                                 <Package className="w-3.5 h-3.5 inline mr-1" />Token列表
+                                {products.filter((p: any) => p.status === 'pending_match').length > 0 && <Badge className="ml-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs shadow-lg animate-pulse">{products.filter((p: any) => p.status === 'pending_match').length}</Badge>}
                             </button>
                             <button onClick={() => { setPowerSubTab('sales'); loadSalesRecords(); loadTransferRecords(transferStartDate, transferEndDate); }} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${powerSubTab === 'sales' ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-purple-50'}`}>
                                 <TrendingUp className="w-3.5 h-3.5 inline mr-1" />销售记录
@@ -2981,6 +3003,7 @@ export default function ProviderPage() {
                             </button>
                             <button onClick={() => { setPowerSubTab('transfers'); loadTransferData(); }} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${powerSubTab === 'transfers' ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-purple-50'}`}>
                                 <ArrowLeftRight className="w-3.5 h-3.5 inline mr-1" />流转审核
+                                {products.filter((p: any) => p.status === 'pending_match').length > 0 && <Badge className="ml-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs shadow-lg animate-pulse">{products.filter((p: any) => p.status === 'pending_match').length}</Badge>}
                             </button>
                         </div>
 
