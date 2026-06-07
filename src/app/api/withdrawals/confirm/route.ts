@@ -188,18 +188,17 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 写入资金流水记录 - 提现（申请人）
-      const sb3 = getSupabase();
-      await sb3.from('capital_flow_records').insert({
-        user_id: withdrawal.user_id,
-        flow_type: 'withdraw',
-        amount: withdrawal.amount,
-        fee_amount: withdrawal.fee || 0,
-        actual_amount: withdrawal.amount - (parseFloat(withdrawal.fee) || 0),
-        related_order_id: withdrawalId,
-        note: `智算金提现${reviewer.role === 'admin' ? '（总台审核）' : '（网点审核）'}`,
-        status: 'completed',
-      });
+      // 更新申请人的资金流水记录状态：pending → completed
+      await execute(
+        `UPDATE capital_flow_records 
+         SET status = 'completed', note = $1
+         WHERE id = (
+           SELECT id FROM capital_flow_records 
+           WHERE user_id = $2 AND flow_type = 'withdraw' AND status = 'pending' AND amount = $3
+           ORDER BY created_at DESC LIMIT 1
+         )`,
+        [`智算金提现${reviewer.role === 'admin' ? '（总台审核通过）' : '（网点审核通过）'}`, withdrawal.user_id, withdrawal.amount]
+      );
 
       return NextResponse.json({
         success: true,
@@ -225,6 +224,18 @@ export async function POST(request: NextRequest) {
         `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, created_at)
          VALUES ($1, 'withdraw_refund', $2, $1, $1, $3, NOW())`,
         [withdrawal.user_id, withdrawal.amount, '提现被拒绝，金额退还']
+      );
+
+      // 更新资金流水记录状态：pending → rejected
+      await execute(
+        `UPDATE capital_flow_records 
+         SET status = 'rejected', note = $1
+         WHERE id = (
+           SELECT id FROM capital_flow_records 
+           WHERE user_id = $2 AND flow_type = 'withdraw' AND status = 'pending' AND amount = $3
+           ORDER BY created_at DESC LIMIT 1
+         )`,
+        [`智算金提现被拒绝：${rejectReason || '审核拒绝'}`, withdrawal.user_id, withdrawal.amount]
       );
 
       return NextResponse.json({

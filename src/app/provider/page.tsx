@@ -459,8 +459,10 @@ export default function ProviderPage() {
 
     // 加载服务商提现记录
     const loadWithdrawalRecords = async () => {
+        const providerId = localStorage.getItem("userId");
+        if (!providerId) return;
         try {
-            const response = await authFetch(`/api/provider/withdraw`);
+            const response = await authFetch(`/api/provider/withdraw?userId=${providerId}`);
             const data = await response.json();
             if (data.success) {
                 setWithdrawalRecords(data.data || []);
@@ -4557,6 +4559,16 @@ export default function ProviderPage() {
                                                             {isIncoming ? '+' : '-'}{Number(r.amount).toLocaleString()}
                                                         </p>
                                                         {Number(r.feeAmount) > 0 && <p className="text-xs text-gray-400">手续费: {Number(r.feeAmount).toLocaleString()}</p>}
+                                                        {r.status && r.flowType === 'withdraw' && (
+                                                            <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium ${
+                                                                r.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                                                                r.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                                                r.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                                                'bg-gray-100 text-gray-600'
+                                                            }`}>
+                                                                {r.status === 'pending' ? '待审核' : r.status === 'completed' ? '已完成' : r.status === 'rejected' ? '已拒绝' : r.status}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 );
@@ -5324,8 +5336,10 @@ export default function ProviderPage() {
                                                 setWithdrawAmount("");
                                                 setWithdrawAlipay("");
                                                 setWithdrawAlipayName("");
+                                                refreshUser();
                                                 loadData();
                                                 loadWithdrawalRecords();
+                                                loadCapitalFlow();
                                             } else {
                                                 showMessage("error", data.error || "提现失败");
                                             }

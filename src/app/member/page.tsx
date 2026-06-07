@@ -1377,6 +1377,16 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                         {['transfer_out', 'withdraw', 'energy_to_points'].includes(r.flowType) ? '-' : '+'}{Number(r.amount).toLocaleString()}
                                                     </div>
                                                     {r.feeAmount > 0 && <div className="text-xs text-gray-400">手续费: {r.feeAmount}</div>}
+                                                    {r.status && r.flowType === 'withdraw' && (
+                                                        <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium ${
+                                                            r.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                                                            r.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                                            r.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                                            'bg-gray-100 text-gray-600'
+                                                        }`}>
+                                                            {r.status === 'pending' ? '待审核' : r.status === 'completed' ? '已完成' : r.status === 'rejected' ? '已拒绝' : r.status}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                         );

@@ -77,9 +77,16 @@ export async function POST(request: NextRequest) {
 
     // 记录 energy_transactions 明细
     await execute(
-      `INSERT INTO energy_transactions (id, type, amount, from_user_id, to_user_id, created_at)
-       VALUES (gen_random_uuid(), 'withdraw', $1, $2, NULL, NOW())`,
-      [withdrawAmount, user.id]
+      `INSERT INTO energy_transactions (id, user_id, type, amount, from_user_id, to_user_id, created_at)
+       VALUES (gen_random_uuid(), $1, 'withdraw', $2, $1, NULL, NOW())`,
+      [user.id, withdrawAmount]
+    );
+
+    // 记录 capital_flow_records 资金流水（申请时pending，审核通过后更新为completed）
+    await execute(
+      `INSERT INTO capital_flow_records (id, user_id, flow_type, amount, fee_amount, actual_amount, status, note, created_at)
+       VALUES (gen_random_uuid(), $1, 'withdraw', $2, $3, $4, 'pending', $5, NOW())`,
+      [user.id, withdrawAmount, fee, actualAmount, `智算金提现申请，手续费¥${fee}，实际到账¥${actualAmount}`]
     );
 
     return NextResponse.json({
