@@ -53,6 +53,7 @@ import {
     Timer,
     Repeat,
     Shield,
+    Truck,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -216,6 +217,7 @@ export default function MemberPage() {
     const [exchangeProduct, setExchangeProduct] = useState<any>(null);
     const [exchangeForm, setExchangeForm] = useState({ receiverName: '', receiverPhone: '', receiverAddress: '' });
     const [exchangeSubmitting, setExchangeSubmitting] = useState(false);
+    const [myExchangeOrders, setMyExchangeOrders] = useState<any[]>([]);
 
     // 加载积分商城商品
     const loadShopProducts = useCallback(async () => {
@@ -228,10 +230,24 @@ export default function MemberPage() {
         finally { setShopLoading(false); }
     }, []);
 
-    // 切换到积分tab时加载商品
+    // 加载我的兑换记录（需要在useEffect之前定义）
+    const loadMyExchangeOrders = useCallback(async () => {
+        const userId = localStorage.getItem("userId");
+        if (!userId) return;
+        try {
+            const res = await authFetch(`/api/points-exchange?userId=${userId}`);
+            const data = await res.json();
+            if (data.success) setMyExchangeOrders(data.data || []);
+        } catch (e) { console.error('加载兑换记录失败:', e); }
+    }, []);
+
+    // 切换到积分tab时加载商品和兑换记录
     useEffect(() => {
-        if (activeTab === 'points') loadShopProducts();
-    }, [activeTab, loadShopProducts]);
+        if (activeTab === 'points') {
+            loadShopProducts();
+            loadMyExchangeOrders();
+        }
+    }, [activeTab, loadShopProducts, loadMyExchangeOrders]);
 
     // 兑换商品
     const handleExchange = async () => {
@@ -1176,6 +1192,26 @@ const [copySuccess, setCopySuccess] = useState(false);
             }
         } catch (error) {
             console.error("加载积分记录失败", error);
+        }
+    };
+
+    // 确认收货
+    const handleConfirmReceive = async (orderId: string) => {
+        try {
+            const res = await fetch('/api/points-exchange/orders', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId, status: 'completed' })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setMessage({ type: 'success', text: '已确认收货，兑换订单已完成' });
+                loadMyExchangeOrders();
+            } else {
+                setMessage({ type: 'error', text: data.error || '确认收货失败' });
+            }
+        } catch (e) {
+            setMessage({ type: 'error', text: '网络错误' });
         }
     };
 
@@ -3490,6 +3526,66 @@ const [copySuccess, setCopySuccess] = useState(false);
                                     <div className="text-center py-8 text-gray-500">
                                         <Gift className="w-12 h-12 mx-auto mb-3 opacity-50" />
                                         <p>暂无可兑换商品</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* 我的兑换 */}
+                        <Card>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base flex items-center gap-2">
+                                    <Package className="w-4 h-4 text-amber-500" />
+                                    我的兑换
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {myExchangeOrders.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {myExchangeOrders.map((order: any) => (
+                                            <div key={order.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                                                <div className="flex items-center gap-3">
+                                                    <Package className="w-4 h-4 text-amber-500" />
+                                                    <div>
+                                                        <span className="font-medium">{order.product_name || order.name}</span>
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <span className="text-xs text-amber-600">{order.points_cost} 积分</span>
+                                                            <Badge className={
+                                                                order.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                                                                order.status === 'shipped' ? 'bg-blue-100 text-blue-700' :
+                                                                'bg-green-100 text-green-700'
+                                                            }>
+                                                                {order.status === 'pending' ? '待发货' :
+                                                                 order.status === 'shipped' ? '已发货' :
+                                                                 order.status === 'completed' ? '已完成' : order.status}
+                                                            </Badge>
+                                                        </div>
+                                                        <p className="text-xs text-muted-foreground mt-1">
+                                                            收货人：{order.receiver_name} {order.receiver_phone}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right flex items-center gap-2">
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {new Date(order.created_at).toLocaleString('zh-CN')}
+                                                    </p>
+                                                    {order.status === 'shipped' && (
+                                                        <Button
+                                                            size="sm"
+                                                            className="bg-green-500 hover:bg-green-600 text-white text-xs"
+                                                            onClick={() => handleConfirmReceive(order.id)}
+                                                        >
+                                                            确认收货
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-6 text-gray-500">
+                                        <Package className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                                        <p className="text-sm">暂无兑换记录</p>
                                     </div>
                                 )}
                             </CardContent>

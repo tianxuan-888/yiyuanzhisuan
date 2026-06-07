@@ -10833,7 +10833,42 @@ export default function AdminPage() {
                           <p className="text-sm text-gray-600 mt-0.5">{order.receiver_address}</p>
                         )}
                       </div>
-                      <p className="text-xs text-gray-400 mt-1">{new Date(order.created_at).toLocaleString()}</p>
+                      <div className="flex items-center justify-between mt-2">
+                        <p className="text-xs text-gray-400">{new Date(order.created_at).toLocaleString()}</p>
+                        <div className="flex gap-2">
+                          {order.status === 'pending' && (
+                            <Button size="sm" className="h-7 text-xs bg-cyan-600 hover:bg-cyan-700"
+                              onClick={async () => {
+                                try {
+                                  const res = await fetch('/api/points-exchange/orders', {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ orderId: order.id, status: 'shipped' })
+                                  });
+                                  const d = await res.json();
+                                  if (d.success) {
+                                    order.status = 'shipped';
+                                    setExchangeOrders([...exchangeOrders]);
+                                    if (exchangeOrderStats) {
+                                      setExchangeOrderStats({
+                                        ...exchangeOrderStats,
+                                        pendingCount: exchangeOrderStats.pendingCount - 1,
+                                        pendingPoints: exchangeOrderStats.pendingPoints - order.points_cost,
+                                        shippedCount: exchangeOrderStats.shippedCount + 1,
+                                        shippedPoints: exchangeOrderStats.shippedPoints + order.points_cost,
+                                      });
+                                    }
+                                  }
+                                } catch (e) { console.error(e); }
+                              }}>
+                              确认发货
+                            </Button>
+                          )}
+                          {order.status === 'shipped' && (
+                            <span className="text-xs text-cyan-600">等待用户确认收货</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>

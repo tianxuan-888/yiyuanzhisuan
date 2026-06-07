@@ -341,6 +341,9 @@ export default function ProviderPage() {
     const [showExchangeForm, setShowExchangeForm] = useState(false);
     const [exchangeProduct, setExchangeProduct] = useState<any>(null);
     const [exchangeForm, setExchangeForm] = useState({ name: '', phone: '', address: '' });
+    const [exchangeOrders, setExchangeOrders] = useState<any[]>([]);
+    const [exchangeOrdersLoading, setExchangeOrdersLoading] = useState(false);
+    const [exchangeConfirming, setExchangeConfirming] = useState(false);
 
 
     // 收益记录相关状态
@@ -455,6 +458,39 @@ export default function ProviderPage() {
         } catch (error) {
             console.error('加载收益记录失败:', error);
         }
+    };
+
+    // 加载兑换记录
+    const loadExchangeOrders = async () => {
+        const userId = localStorage.getItem("userId");
+        if (!userId) return;
+        setExchangeOrdersLoading(true);
+        try {
+            const res = await authFetch(`/api/points-exchange?userId=${userId}`);
+            const data = await res.json();
+            if (data.success) setExchangeOrders(data.data || []);
+        } catch (e) { console.error('加载兑换记录失败', e); }
+        finally { setExchangeOrdersLoading(false); }
+    };
+
+    // 确认收货
+    const confirmExchangeReceive = async (orderId: string) => {
+        setExchangeConfirming(true);
+        try {
+            const res = await authFetch(`/api/points-exchange/orders`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId, status: 'completed' }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                showMessage('success', '确认收货成功');
+                loadExchangeOrders();
+            } else {
+                showMessage('error', data.message || '操作失败');
+            }
+        } catch (e: any) { showMessage('error', '操作失败：' + e.message); }
+        finally { setExchangeConfirming(false); }
     };
 
     // 加载服务商提现记录
@@ -4424,6 +4460,7 @@ export default function ProviderPage() {
 
                     {/* 积分商城 Tab */}
                     {activeTab === "pointsShop" && (
+                    <div className="space-y-4">
                         <Card className="mobile-compact-card bg-gradient-to-br from-white to-amber-50 border-amber-200 shadow-xl">
                             <CardHeader className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-t-lg">
                                 <CardTitle className="text-white flex items-center gap-2">
@@ -4498,6 +4535,61 @@ export default function ProviderPage() {
                                 )}
                             </CardContent>
                         </Card>
+
+                        {/* 我的兑换记录 */}
+                        <Card className="mobile-compact-card border-purple-200 shadow-xl">
+                            <CardHeader className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-t-lg">
+                                <CardTitle className="text-white flex items-center gap-2">
+                                    <Package className="w-5 h-5" />我的兑换
+                                    <button onClick={loadExchangeOrders} className="ml-auto text-white/80 hover:text-white"><RefreshCw className="w-4 h-4" /></button>
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-4 md:p-6">
+                                {exchangeOrdersLoading ? (
+                                    <div className="text-center py-4 text-gray-500">加载中...</div>
+                                ) : exchangeOrders.length === 0 ? (
+                                    <p className="text-center text-gray-400 py-4">暂无兑换记录</p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {exchangeOrders.map((order: any) => (
+                                            <div key={order.id} className="bg-gray-50 rounded-lg p-4 border">
+                                                <div className="flex items-start justify-between">
+                                                    <div className="flex-1">
+                                                        <p className="font-medium text-sm">{order.product_name}</p>
+                                                        <p className="text-xs text-gray-500 mt-1">{order.points_cost} 积分 · {new Date(order.created_at).toLocaleString('zh-CN')}</p>
+                                                        <div className="mt-2 text-xs space-y-0.5">
+                                                            <p>收货人：{order.receiver_name || '-'}</p>
+                                                            <p>电话：{order.receiver_phone || '-'}</p>
+                                                            <p>地址：{order.receiver_address || '-'}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col items-end gap-2">
+                                                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                                            order.status === 'pending' ? 'bg-orange-100 text-orange-700' :
+                                                            order.status === 'shipped' ? 'bg-blue-100 text-blue-700' :
+                                                            order.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                                            'bg-gray-100 text-gray-700'
+                                                        }`}>
+                                                            {order.status === 'pending' ? '待发货' : order.status === 'shipped' ? '已发货' : order.status === 'completed' ? '已完成' : order.status}
+                                                        </span>
+                                                        {order.status === 'shipped' && (
+                                                            <button
+                                                                onClick={() => confirmExchangeReceive(order.id)}
+                                                                disabled={exchangeConfirming}
+                                                                className="text-xs bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-full disabled:opacity-50"
+                                                            >
+                                                                确认收货
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
                     )}
 
                     {/* 资金流水 Tab */}
@@ -4951,6 +5043,7 @@ export default function ProviderPage() {
                                                 setShowPointsShop(false);
                                                 // 刷新用户数据
                                                 refreshUser();
+                                                loadExchangeOrders();
                                             } else {
                                                 showMessage('error', data.message || '兑换失败');
                                             }
