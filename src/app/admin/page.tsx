@@ -373,6 +373,7 @@ export default function AdminPage() {
   const [showAddProductDialog, setShowAddProductDialog] = useState(false);
   const [newProduct, setNewProduct] = useState({ name: '', description: '', image_url: '', points_price: 0 });
   const [exchangeOrders, setExchangeOrders] = useState<any[]>([]);
+  const [exchangeOrderStats, setExchangeOrderStats] = useState<any>(null);
   const [showOrdersDialog, setShowOrdersDialog] = useState(false);
 
   // 会员管理相关状态
@@ -10150,6 +10151,7 @@ export default function AdminPage() {
       const data = await res.json();
       if (data.success) {
         setExchangeOrders(data.data || []);
+        setExchangeOrderStats(data.stats || null);
       }
     } catch (e) {
       console.error('加载兑换订单失败', e);
@@ -10411,12 +10413,17 @@ export default function AdminPage() {
           </div>
           <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
-              <DollarSign className="w-4 h-4 text-gray-500" />
-              <span className="text-xs text-gray-500">手续费合计</span>
+              <DollarSign className="w-4 h-4 text-amber-500" />
+              <span className="text-xs text-gray-500">转账手续费</span>
             </div>
-            <div className="text-lg font-bold text-gray-700">
-              {Number((Number(stats.total_transfer_fee || 0) + Number(stats.total_withdraw_fee || 0))).toLocaleString()}
+            <div className="text-lg font-bold text-amber-600">{Number(stats.total_transfer_fee || 0).toLocaleString()}</div>
+          </div>
+          <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <DollarSign className="w-4 h-4 text-rose-500" />
+              <span className="text-xs text-gray-500">提现手续费</span>
             </div>
+            <div className="text-lg font-bold text-rose-600">{Number(stats.total_withdraw_fee || 0).toLocaleString()}</div>
           </div>
         </div>
 
@@ -10768,20 +10775,65 @@ export default function AdminPage() {
               </Button>
             </CardHeader>
             <CardContent>
+              {/* 兑换统计 */}
+              {exchangeOrderStats && (
+                <div className="grid grid-cols-4 gap-3 mb-4">
+                  <div className="bg-blue-50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-blue-600">总兑换</p>
+                    <p className="text-lg font-bold text-blue-700">{exchangeOrderStats.totalOrders}笔</p>
+                    <p className="text-xs text-blue-500">{exchangeOrderStats.totalPointsCost}积分</p>
+                  </div>
+                  <div className="bg-orange-50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-orange-600">待发货</p>
+                    <p className="text-lg font-bold text-orange-700">{exchangeOrderStats.pendingCount}笔</p>
+                    <p className="text-xs text-orange-500">{exchangeOrderStats.pendingPoints}积分</p>
+                  </div>
+                  <div className="bg-cyan-50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-cyan-600">已发货</p>
+                    <p className="text-lg font-bold text-cyan-700">{exchangeOrderStats.shippedCount}笔</p>
+                    <p className="text-xs text-cyan-500">{exchangeOrderStats.shippedPoints}积分</p>
+                  </div>
+                  <div className="bg-green-50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-green-600">已完成</p>
+                    <p className="text-lg font-bold text-green-700">{exchangeOrderStats.completedCount}笔</p>
+                    <p className="text-xs text-green-500">{exchangeOrderStats.completedPoints}积分</p>
+                  </div>
+                </div>
+              )}
               {exchangeOrders.length === 0 ? (
                 <div className="text-center py-8 text-gray-400">暂无兑换记录</div>
               ) : (
                 <div className="space-y-3">
                   {exchangeOrders.map((order: any) => (
-                    <div key={order.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-800">{order.product_name || '商品'}</p>
-                        <p className="text-sm text-gray-500">{order.username || order.user_id} | {order.receiver_name} {order.receiver_phone}</p>
+                    <div key={order.id} className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <p className="font-medium text-gray-800">{order.product_name || '商品'}</p>
+                          <p className="text-sm text-gray-500">
+                            {order.unique_id ? `${order.unique_id} | ` : ''}{order.username || order.user_id} {order.phone ? `(${order.phone})` : ''}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-orange-600 font-bold">{order.points_cost} 积分</p>
+                          <div className="flex items-center gap-1 justify-end">
+                            {order.status === 'pending' && <span className="text-xs px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded">待发货</span>}
+                            {order.status === 'shipped' && <span className="text-xs px-1.5 py-0.5 bg-cyan-100 text-cyan-700 rounded">已发货</span>}
+                            {order.status === 'completed' && <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded">已完成</span>}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-orange-600 font-bold">{order.points_cost} 积分</p>
-                        <p className="text-xs text-gray-400">{new Date(order.created_at).toLocaleString()}</p>
+                      {/* 收货人信息 */}
+                      <div className="border-t border-gray-200 pt-2 mt-1">
+                        <p className="text-xs text-gray-400 mb-1">收货信息</p>
+                        <p className="text-sm text-gray-700">
+                          <span className="font-medium">{order.receiver_name || '未填写'}</span>
+                          {order.receiver_phone && <span className="ml-2">{order.receiver_phone}</span>}
+                        </p>
+                        {order.receiver_address && (
+                          <p className="text-sm text-gray-600 mt-0.5">{order.receiver_address}</p>
+                        )}
                       </div>
+                      <p className="text-xs text-gray-400 mt-1">{new Date(order.created_at).toLocaleString()}</p>
                     </div>
                   ))}
                 </div>
