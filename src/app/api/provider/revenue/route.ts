@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     const currentBalance = Number(providerUser[0].balance) || 0;
 
     // 1. 服务商2%产品分成 + 直推0.25%奖励 + 上级服务商0.25%分成
-    // 从user_products(revenue_released=true)关联products和users直接计算
+    // 从user_products(revenue_distributed=true)关联products和users直接计算
     let distRecords: any[] = [];
     let distSelfRevenue = 0;
     let distDirectReward = 0;
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
         JOIN users m ON m.id::text = up.user_id::text
         LEFT JOIN providers prv ON prv.user_id::text = p.provider_id::text
         LEFT JOIN users inv ON inv.id::text = m.inviter_id
-        WHERE up.revenue_released = true
+        WHERE up.revenue_distributed = true
           AND p.provider_id::text = $1
         ORDER BY up.created_at DESC
       `;
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
         FROM user_products up
         JOIN products p ON p.id::text = up.product_id::text
         JOIN users m ON m.id::text = up.user_id::text
-        WHERE up.revenue_released = true
+        WHERE up.revenue_distributed = true
           AND m.inviter_id::text = $1
       `;
       const directResult: any = await query(directRewardSql, [userId]);
@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
         FROM user_products up
         JOIN products p ON p.id::text = up.product_id::text
         JOIN providers sub_prv ON sub_prv.user_id::text = p.provider_id::text
-        WHERE up.revenue_released = true
+        WHERE up.revenue_distributed = true
           AND sub_prv.parent_provider_id::text = $1
       `;
       const parentResult: any = await query(parentShareSql, [userId]);

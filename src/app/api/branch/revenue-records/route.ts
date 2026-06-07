@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
       console.error('查询服务商上级信息失败:', e);
     }
 
-    // 2. 从user_products(revenue_released=true)关联products计算收益
+    // 2. 从user_products(revenue_distributed=true)关联products计算收益
     let revenueRecords: any[] = [];
     let totalRevenue = 0;
     try {
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
         JOIN products p ON p.id::text = up.product_id::text
         JOIN users m ON m.id::text = up.user_id::text
         LEFT JOIN users pv ON pv.id::text = p.provider_id
-        WHERE up.revenue_released = true
+        WHERE up.revenue_distributed = true
           AND p.provider_id IN (
             SELECT user_id::text FROM providers WHERE branch_id::text = $1
           )

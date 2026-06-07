@@ -14,7 +14,7 @@ export async function GET(request: Request) {
       dateFilter = `AND up.created_at >= '${startDate}' AND up.created_at <= '${endDate} 23:59:59'`;
     }
 
-    // 直接从 user_products (revenue_released=true) + products 计算所有数据
+    // 直接从 user_products (revenue_distributed=true) + products 计算所有数据
     // 释放总金额 = 产品价格 × total_rate (5%)
     // 分配比例: 会员 profit_rate(2%) / 服务商2% / 直推0.25% / 上级0.25% / 网点0.1% / 公司0.4%
     const statsResult = await query(`
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
         COALESCE(SUM(up.purchase_price * 0.4 / 100), 0) as total_company_share
       FROM user_products up
       JOIN products p ON p.id = up.product_id
-      WHERE up.revenue_released = true ${dateFilter}
+      WHERE up.revenue_distributed = true ${dateFilter}
     `);
 
     const rawStats = statsResult?.[0] || {};
@@ -68,7 +68,7 @@ export async function GET(request: Request) {
       JOIN products p ON p.id = up.product_id
       LEFT JOIN users m ON m.id = up.user_id
       LEFT JOIN users pv ON pv.id = p.provider_id
-      WHERE up.revenue_released = true ${dateFilter}
+      WHERE up.revenue_distributed = true ${dateFilter}
       ORDER BY up.created_at DESC
       LIMIT ${pageSize} OFFSET ${offset}
     `);
