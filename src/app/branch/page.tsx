@@ -1075,11 +1075,10 @@ export default function BranchPage() {
         setBranchRevenueRecords(data.data?.records || []);
         const s = data.data?.stats || {};
         setBranchRevenueStats({
-          totalRevenue: s.total_revenue || 0,
-          memberWithdraw: s.total_member_withdraw || 0,
-          providerWithdraw: s.total_provider_withdraw || 0,
-          marketFeeShare: s.total_market_fee_share || 0,
-          providerUpstream: s.total_provider_upstream || 0,
+          totalRevenue: s.totalRevenue || 0,
+          marketFeeShare: s.totalBranchShare || 0,
+          providerUpstream: s.totalUpstreamShare || 0,
+          memberWithdraw: s.totalWithdrawn || 0,
         });
       }
     } catch (error) {
