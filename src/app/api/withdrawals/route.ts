@@ -84,6 +84,19 @@ export async function POST(request: NextRequest) {
       [user.id, amount, `${roleLabel}提现¥${amount}`]
     );
 
+    // 写入资金流水记录（待审核）
+    const { getSupabase } = await import('@/lib/supabase-client');
+    const supabase = getSupabase();
+    await supabase.from('capital_flow_records').insert({
+      user_id: user.id,
+      flow_type: 'withdraw',
+      amount: amount,
+      fee_amount: fee,
+      actual_amount: actualAmount,
+      note: `${roleLabel}提现¥${amount}，手续费¥${fee}，实际到账¥${actualAmount}`,
+      status: 'pending',
+    });
+
     // 查询更新后的余额
     const updatedUser = await queryOne(
       `SELECT ${sourceField} FROM users WHERE id = $1`,
