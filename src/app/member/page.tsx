@@ -1132,10 +1132,10 @@ const [copySuccess, setCopySuccess] = useState(false);
             return;
         }
 
-        // 提现时间限制：9:00-22:00
+        // 提现时间限制：9:00-22:00（北京时间 UTC+8）
         const now = new Date();
-        const hour = now.getHours();
-        if (hour < 9 || hour >= 22) {
+        const bjHour = (now.getUTCHours() + 8) % 24;
+        if (bjHour < 9 || bjHour >= 22) {
             showMessage("error", "提现时间为早上9:00至晚上10:00，请在规定时间内申请提现");
             return;
         }

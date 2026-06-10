@@ -977,9 +977,9 @@ export default function BranchPage() {
       return;
     }
 
-    // 提现时间限制：9:00-22:00
+    // 提现时间限制：9:00-22:00（北京时间UTC+8）
     const nowBW = new Date();
-    const hourBW = nowBW.getHours();
+    const hourBW = (nowBW.getUTCHours() + 8) % 24;
     if (hourBW < 9 || hourBW >= 22) {
       showMessage('error', '提现时间为早上9:00至晚上10:00，请在规定时间内申请提现');
       return;
@@ -1084,8 +1084,8 @@ export default function BranchPage() {
         const s = data.data?.stats || {};
         setBranchRevenueStats({
           totalRevenue: s.totalRevenue || 0,
-          marketFeeShare: s.totalBranchShare || 0,
-          providerUpstream: s.totalUpstreamShare || 0,
+          totalBranchShare: s.totalBranchShare || 0,
+          totalUpstreamShare: s.totalUpstreamShare || 0,
           withdrawalIncome: s.withdrawalIncome || 0,
           withdrawalFeeIncome: s.withdrawalFeeIncome || 0,
           memberWithdraw: s.totalWithdrawn || 0,
@@ -1111,9 +1111,9 @@ export default function BranchPage() {
       showMessage('error', '请输入支付宝姓名');
       return;
     }
-    // 提现时间限制：9:00-22:00
+    // 提现时间限制：9:00-22:00（北京时间UTC+8）
     const nowBW2 = new Date();
-    const hourBW2 = nowBW2.getHours();
+    const hourBW2 = (nowBW2.getUTCHours() + 8) % 24;
     if (hourBW2 < 9 || hourBW2 >= 22) {
       showMessage('error', '提现时间为早上9:00至晚上10:00，请在规定时间内申请提现');
       return;

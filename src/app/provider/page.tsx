@@ -5456,10 +5456,10 @@ export default function ProviderPage() {
                                             showMessage("error", "请输入支付宝姓名");
                                             return;
                                         }
-                                        // 提现时间限制：9:00-22:00
+                                        // 提现时间限制：9:00-22:00（北京时间 UTC+8）
                                         const nowW = new Date();
-                                        const hourW = nowW.getHours();
-                                        if (hourW < 9 || hourW >= 22) {
+                                        const bjHourW = (nowW.getUTCHours() + 8) % 24;
+                                        if (bjHourW < 9 || bjHourW >= 22) {
                                             showMessage("error", "提现时间为早上9:00至晚上10:00，请在规定时间内申请提现");
                                             return;
                                         }
