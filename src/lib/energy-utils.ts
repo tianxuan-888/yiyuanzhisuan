@@ -1,292 +1,211 @@
 /**
- * 安全更新用户 energy_value 的工具函数
- * 
- * 问题：Supabase REST API 的 .update() 不支持 SQL 表达式（如 energy_value = energy_value + 50）
- * parseSetClause 会把 "energy_value + 50" 当成字符串字面值
- * 
- * 方案：先读取当前值 → 计算新值 → 用字面值更新 → 验证成功
+ * 安全更新用户 energy_value / balance 的工具函数
+ *
+ * 核心问题：Supabase REST API 的 .update() 会静默失败
+ *   - 返回 204 但不实际写入数据
+ *   - .select('id, energy_value') 返回空数组但不报错
+ *
+ * 解决方案：全部使用 execute(SQL) 直接执行 SQL，确保数据一定写入
  */
 
-import { createClient } from '@supabase/supabase-js';
-
-function getSupabaseClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-  const key = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-  return createClient(url, key, {
-    auth: { autoRefreshToken: false, persistSession: false },
-    global: { headers: { 'Prefer': 'return=representation', 'Cache-Control': 'no-cache' } },
-  });
-}
+import { execute, queryOne } from '@/lib/supabase-client';
 
 /**
  * 安全地增加用户的 energy_value，同时写入energy_transactions流水记录
- * @param userId 用户ID
- * @param amount 增加的金额（正数）
- * @param description 描述（用于流水记录的note）
- * @param fromUserId 来源用户ID（可选，用于收益分配标识来源）
- * @returns 更新后的 energy_value 值，失败返回 null
+ * 使用 execute(SQL) 直接操作，避免 Supabase REST API 静默失败
  */
 export async function addEnergyValue(userId: string, amount: number, description: string = '', fromUserId?: string, txType?: string): Promise<number | null> {
-  const sb = getSupabaseClient();
-  
-  // 1. 读取当前值
-  const { data: user, error: readErr } = await sb
-    .from('users')
-    .select('id, energy_value')
-    .eq('id', userId)
-    .single();
-  
-  if (readErr || !user) {
-    console.error(`[addEnergyValue] 读取用户失败: userId=${userId}, error=${readErr?.message}`);
-    return null;
-  }
-  
-  const currentVal = Number(user.energy_value) || 0;
-  const newVal = currentVal + amount;
-  
-  // 2. 用字面值更新
-  const { data: updated, error: updateErr } = await sb
-    .from('users')
-    .update({ energy_value: newVal })
-    .eq('id', userId)
-    .select('id, energy_value');
-  
-  if (updateErr) {
-    console.error(`[addEnergyValue] 更新失败: userId=${userId}, error=${updateErr?.message}`);
-    return null;
-  }
-  
-  if (!updated || updated.length === 0) {
-    console.error(`[addEnergyValue] 更新返回空: userId=${userId}, 可能静默失败`);
-    // 重试一次：再次读取确认
-    const { data: recheck } = await sb
-      .from('users')
-      .select('energy_value')
-      .eq('id', userId)
-      .single();
-    
-    if (recheck && Number(recheck.energy_value) === newVal) {
-      console.log(`[addEnergyValue] 二次确认成功: userId=${userId}, newVal=${newVal}`);
-    } else {
-      // 仍然失败，尝试直接用 RPC
-      console.warn(`[addEnergyValue] 尝试RPC更新: userId=${userId}`);
-      const { error: rpcErr } = await sb.rpc('rpc_execute', {
-        sql_query: `UPDATE users SET energy_value = ${newVal} WHERE id = '${userId}'`
-      });
-      
-      if (rpcErr) {
-        console.error(`[addEnergyValue] RPC也失败: ${rpcErr.message}`);
-        return null;
-      }
-    }
-  }
-  
-  // 3. 写入energy_transactions流水记录
   try {
-    const record: Record<string, unknown> = {
-      user_id: userId,
-      type: txType || (fromUserId ? 'transfer_in' : 'revenue'),
-      amount: amount,
-      to_user_id: userId,
-      note: description || '智算金增加',
-    };
-    if (fromUserId) {
-      record.from_user_id = fromUserId;
+    // 1. 读取当前值
+    const user = await queryOne<any>('SELECT energy_value FROM users WHERE id = $1', [userId]);
+    if (!user) {
+      console.error(`[addEnergyValue] 读取用户失败: userId=${userId}`);
+      return null;
     }
-    const { error: txInsertErr } = await sb.from('energy_transactions').insert(record);
-    if (txInsertErr) {
-      console.error(`[addEnergyValue] 写入流水失败: ${txInsertErr.message}`);
+
+    const currentVal = Number(user.energy_value) || 0;
+    const newVal = currentVal + amount;
+
+    // 2. 用 execute(SQL) 更新，COALESCE 确保处理 NULL
+    await execute(
+      `UPDATE users SET energy_value = COALESCE(energy_value, 0) + $1, updated_at = NOW() WHERE id = $2`,
+      [amount, userId]
+    );
+
+    // 3. 验证更新是否成功
+    const recheck = await queryOne<any>('SELECT energy_value FROM users WHERE id = $1', [userId]);
+    if (!recheck || Number(recheck.energy_value) !== newVal) {
+      // 如果原子加失败，再用字面值强制设置
+      console.warn(`[addEnergyValue] 原子加验证不一致，强制设置: ${currentVal} + ${amount} = ${newVal}, 实际=${recheck?.energy_value}`);
+      await execute(
+        `UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2`,
+        [newVal, userId]
+      );
     }
-  } catch (txErr) {
-    console.error(`[addEnergyValue] 写入流水异常: ${txErr}`);
+
+    // 4. 写入energy_transactions流水记录
+    try {
+      await execute(
+        `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, energy_before, energy_after, created_at)
+         VALUES ($1, $2, $3, $4, $1, $5, $6, $7, NOW())`,
+        [
+          userId,
+          txType || (fromUserId ? 'transfer_in' : 'revenue'),
+          amount,
+          fromUserId || null,
+          description || '智算金增加',
+          currentVal,
+          newVal,
+        ]
+      );
+    } catch (txErr) {
+      console.error(`[addEnergyValue] 写入流水失败:`, txErr);
+    }
+
+    console.log(`[addEnergyValue] 成功: ${description}, userId=${userId}, ${currentVal} → ${newVal} (+${amount})`);
+    return newVal;
+  } catch (error) {
+    console.error(`[addEnergyValue] 异常:`, error);
+    return null;
   }
-  
-  console.log(`[addEnergyValue] 成功: ${description}, userId=${userId}, ${currentVal} → ${newVal} (+${amount})`);
-  return newVal;
 }
 
 /**
  * 安全地扣除用户的 energy_value，同时写入energy_transactions流水记录
- * @param userId 用户ID
- * @param amount 扣除的金额（正数）
- * @param description 描述
- * @param toUserId 去向用户ID（可选）
- * @returns 更新后的 energy_value 值，失败返回 null
+ * 使用 execute(SQL) 直接操作
  */
 export async function deductEnergyValue(userId: string, amount: number, description: string = '', toUserId?: string): Promise<number | null> {
-  const sb = getSupabaseClient();
-  
-  const { data: user, error: readErr } = await sb
-    .from('users')
-    .select('id, energy_value')
-    .eq('id', userId)
-    .single();
-  
-  if (readErr || !user) {
-    console.error(`[deductEnergyValue] 读取用户失败: userId=${userId}, error=${readErr?.message}`);
-    return null;
-  }
-  
-  const currentVal = Number(user.energy_value) || 0;
-  if (currentVal < amount) {
-    console.error(`[deductEnergyValue] 余额不足: userId=${userId}, 当前=${currentVal}, 需扣=${amount}`);
-    return null;
-  }
-  
-  const newVal = currentVal - amount;
-  
-  const { data: updated, error: updateErr } = await sb
-    .from('users')
-    .update({ energy_value: newVal })
-    .eq('id', userId)
-    .select('id, energy_value');
-  
-  if (updateErr) {
-    console.error(`[deductEnergyValue] 更新失败: userId=${userId}, error=${updateErr?.message}`);
-    return null;
-  }
-  
-  if (!updated || updated.length === 0) {
-    const { data: recheck } = await sb
-      .from('users')
-      .select('energy_value')
-      .eq('id', userId)
-      .single();
-    
-    if (recheck && Number(recheck.energy_value) === newVal) {
-      console.log(`[deductEnergyValue] 二次确认成功`);
-    } else {
-      const { error: rpcErr } = await sb.rpc('rpc_execute', {
-        sql_query: `UPDATE users SET energy_value = ${newVal} WHERE id = '${userId}'`
-      });
-      if (rpcErr) {
-        console.error(`[deductEnergyValue] RPC也失败: ${rpcErr.message}`);
-        return null;
-      }
-    }
-  }
-  
-  // 写入energy_transactions流水记录
   try {
-    const record: Record<string, unknown> = {
-      user_id: userId,
-      type: toUserId ? 'transfer_out' : 'deduction',
-      amount: amount,
-      from_user_id: userId,
-      note: description || '智算金扣除',
-    };
-    if (toUserId) {
-      record.to_user_id = toUserId;
+    const user = await queryOne<any>('SELECT energy_value FROM users WHERE id = $1', [userId]);
+    if (!user) {
+      console.error(`[deductEnergyValue] 读取用户失败: userId=${userId}`);
+      return null;
     }
-    const { error: txInsertErr } = await sb.from('energy_transactions').insert(record);
-    if (txInsertErr) {
-      console.error(`[deductEnergyValue] 写入流水失败: ${txInsertErr.message}`);
+
+    const currentVal = Number(user.energy_value) || 0;
+    if (currentVal < amount) {
+      console.error(`[deductEnergyValue] 余额不足: userId=${userId}, 当前=${currentVal}, 需扣=${amount}`);
+      return null;
     }
-  } catch (txErr) {
-    console.error(`[deductEnergyValue] 写入流水异常: ${txErr}`);
+
+    const newVal = currentVal - amount;
+
+    // 用 execute(SQL) 更新
+    await execute(
+      `UPDATE users SET energy_value = energy_value - $1, updated_at = NOW() WHERE id = $2`,
+      [amount, userId]
+    );
+
+    // 验证
+    const recheck = await queryOne<any>('SELECT energy_value FROM users WHERE id = $1', [userId]);
+    if (!recheck || Math.abs(Number(recheck.energy_value) - newVal) > 0.01) {
+      console.warn(`[deductEnergyValue] 验证不一致，强制设置: ${currentVal} - ${amount} = ${newVal}`);
+      await execute(
+        `UPDATE users SET energy_value = $1, updated_at = NOW() WHERE id = $2`,
+        [newVal, userId]
+      );
+    }
+
+    // 写入energy_transactions流水记录
+    try {
+      await execute(
+        `INSERT INTO energy_transactions (user_id, type, amount, from_user_id, to_user_id, note, energy_before, energy_after, created_at)
+         VALUES ($1, $2, $3, $1, $4, $5, $6, $7, NOW())`,
+        [
+          userId,
+          toUserId ? 'transfer_out' : 'deduction',
+          amount,
+          toUserId || null,
+          description || '智算金扣除',
+          currentVal,
+          newVal,
+        ]
+      );
+    } catch (txErr) {
+      console.error(`[deductEnergyValue] 写入流水失败:`, txErr);
+    }
+
+    console.log(`[deductEnergyValue] 成功: ${description}, userId=${userId}, ${currentVal} → ${newVal} (-${amount})`);
+    return newVal;
+  } catch (error) {
+    console.error(`[deductEnergyValue] 异常:`, error);
+    return null;
   }
-  
-  console.log(`[deductEnergyValue] 成功: ${description}, userId=${userId}, ${currentVal} → ${newVal} (-${amount})`);
-  return newVal;
 }
 
 /**
  * 安全地增加用户的 balance
- * @param userId 用户ID
- * @param amount 增加的金额（正数）
- * @param description 描述（用于日志）
- * @returns 更新后的 balance 值，失败返回 null
+ * 使用 execute(SQL) 直接操作
  */
 export async function addBalance(userId: string, amount: number, description: string = ''): Promise<number | null> {
-  const sb = getSupabaseClient();
-  
-  const { data: user, error: readErr } = await sb
-    .from('users')
-    .select('id, balance')
-    .eq('id', userId)
-    .single();
-  
-  if (readErr || !user) {
-    console.error(`[addBalance] 读取用户失败: userId=${userId}, error=${readErr?.message}`);
-    return null;
-  }
-  
-  const currentVal = Number(user.balance) || 0;
-  const newVal = currentVal + amount;
-  
-  const { data: updated, error: updateErr } = await sb
-    .from('users')
-    .update({ balance: newVal })
-    .eq('id', userId)
-    .select('id, balance');
-  
-  if (updateErr) {
-    console.error(`[addBalance] 更新失败: userId=${userId}, error=${updateErr?.message}`);
-    return null;
-  }
-  
-  if (!updated || updated.length === 0) {
-    const { data: recheck } = await sb
-      .from('users')
-      .select('balance')
-      .eq('id', userId)
-      .single();
-    
-    if (recheck && Number(recheck.balance) === newVal) {
-      console.log(`[addBalance] 二次确认成功`);
-    } else {
-      const { error: rpcErr } = await sb.rpc('rpc_execute', {
-        sql_query: `UPDATE users SET balance = ${newVal} WHERE id = '${userId}'`
-      });
-      if (rpcErr) {
-        console.error(`[addBalance] RPC也失败: ${rpcErr.message}`);
-        return null;
-      }
+  try {
+    const user = await queryOne<any>('SELECT balance FROM users WHERE id = $1', [userId]);
+    if (!user) {
+      console.error(`[addBalance] 读取用户失败: userId=${userId}`);
+      return null;
     }
+
+    const currentVal = Number(user.balance) || 0;
+    const newVal = currentVal + amount;
+
+    // 用 execute(SQL) 更新
+    await execute(
+      `UPDATE users SET balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
+      [amount, userId]
+    );
+
+    // 验证
+    const recheck = await queryOne<any>('SELECT balance FROM users WHERE id = $1', [userId]);
+    if (!recheck || Math.abs(Number(recheck.balance) - newVal) > 0.01) {
+      console.warn(`[addBalance] 验证不一致，强制设置`);
+      await execute(
+        `UPDATE users SET balance = $1, updated_at = NOW() WHERE id = $2`,
+        [newVal, userId]
+      );
+    }
+
+    console.log(`[addBalance] 成功: ${description}, userId=${userId}, ${currentVal} → ${newVal} (+${amount})`);
+    return newVal;
+  } catch (error) {
+    console.error(`[addBalance] 异常:`, error);
+    return null;
   }
-  
-  console.log(`[addBalance] 成功: ${description}, userId=${userId}, ${currentVal} → ${newVal} (+${amount})`);
-  return newVal;
 }
 
 /**
  * 设置 user_products 记录的 revenue_released 标记
- * @param userProductId 用户产品ID
- * @param released 是否已释放
- * @returns 是否成功
  */
 export async function setRevenueReleased(userProductId: string, released: boolean): Promise<boolean> {
-  const sb = getSupabaseClient();
-  const { error } = await sb
-    .from('user_products')
-    .update({ revenue_released: released })
-    .eq('id', userProductId);
-  
-  if (error) {
-    console.error(`[setRevenueReleased] 失败: id=${userProductId}, error=${error.message}`);
+  try {
+    await execute(
+      `UPDATE user_products SET revenue_released = $1, updated_at = NOW() WHERE id = $2`,
+      [released, userProductId]
+    );
+    return true;
+  } catch (error) {
+    console.error(`[setRevenueReleased] 失败: id=${userProductId}`, error);
     return false;
   }
-  return true;
 }
 
 /**
  * 设置 user_products 记录的状态
- * @param userProductId 用户产品ID
- * @param status 新状态
- * @param extraFields 额外更新字段
- * @returns 是否成功
  */
 export async function setUserProductStatus(userProductId: string, status: string, extraFields?: Record<string, unknown>): Promise<boolean> {
-  const sb = getSupabaseClient();
-  const updateData: Record<string, unknown> = { status, ...extraFields };
-  const { error } = await sb
-    .from('user_products')
-    .update(updateData)
-    .eq('id', userProductId);
-  
-  if (error) {
-    console.error(`[setUserProductStatus] 失败: id=${userProductId}, error=${error.message}`);
+  try {
+    const updateData: Record<string, unknown> = { status, ...extraFields };
+    const setClauses = Object.entries(updateData)
+      .map(([key], i) => `${key} = $${i + 1}`)
+      .join(', ');
+    const values = [...Object.values(updateData), userProductId];
+
+    await execute(
+      `UPDATE user_products SET ${setClauses}, updated_at = NOW() WHERE id = $${values.length}`,
+      values
+    );
+    return true;
+  } catch (error) {
+    console.error(`[setUserProductStatus] 失败: id=${userProductId}`, error);
     return false;
   }
-  return true;
 }

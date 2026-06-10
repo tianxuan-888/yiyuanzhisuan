@@ -3338,7 +3338,7 @@ export default function BranchPage() {
               </Card>
 
               {/* 收益统计卡片 */}
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
                 <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
                   <CardContent className="pt-4">
                     <div className="flex items-center gap-2 mb-2">
@@ -3363,7 +3363,7 @@ export default function BranchPage() {
                       <DollarSign className="w-5 h-5" />
                       <span className="text-sm opacity-80">收益释放分润(0.1%)</span>
                     </div>
-                    <p className="text-2xl font-bold">¥{Number(branchRevenueStats.marketFeeShare || 0).toLocaleString()}</p>
+                    <p className="text-2xl font-bold">¥{Number(branchRevenueStats.totalBranchShare || 0).toLocaleString()}</p>
                   </CardContent>
                 </Card>
                 <Card className="bg-gradient-to-br from-pink-500 to-pink-600 text-white">
@@ -3372,16 +3372,25 @@ export default function BranchPage() {
                       <Building2 className="w-5 h-5" />
                       <span className="text-sm opacity-80">上级份额归网点(0.25%)</span>
                     </div>
-                    <p className="text-2xl font-bold">¥{Number(branchRevenueStats.providerUpstream || 0).toLocaleString()}</p>
+                    <p className="text-2xl font-bold">¥{Number(branchRevenueStats.totalUpstreamShare || 0).toLocaleString()}</p>
                   </CardContent>
                 </Card>
                 <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
                   <CardContent className="pt-4">
                     <div className="flex items-center gap-2 mb-2">
                       <Users className="w-5 h-5" />
-                      <span className="text-sm opacity-80">提现手续费</span>
+                      <span className="text-sm opacity-80">提现到账收入(95%)</span>
                     </div>
-                    <p className="text-2xl font-bold">¥{Number(branchRevenueStats.memberWithdraw || 0).toLocaleString()}</p>
+                    <p className="text-2xl font-bold">¥{Number(branchRevenueStats.withdrawalIncome || 0).toLocaleString()}</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-cyan-500 to-teal-600 text-white">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <DollarSign className="w-5 h-5" />
+                      <span className="text-sm opacity-80">提现手续费(5%)</span>
+                    </div>
+                    <p className="text-2xl font-bold">¥{Number(branchRevenueStats.withdrawalFeeIncome || 0).toLocaleString()}</p>
                   </CardContent>
                 </Card>
               </div>

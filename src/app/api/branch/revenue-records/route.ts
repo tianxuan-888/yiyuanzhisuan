@@ -170,9 +170,37 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    totalRevenue = totalBranchShare + totalUpstreamShare;
+    // 4. 提现审核到账收入（网点审核会员提现，获得95%能量值）
+    let withdrawalIncome = 0;
+    let withdrawalIncomeCount = 0;
+    try {
+      const wiSql = `
+        SELECT COALESCE(SUM(actual_amount::float), 0) as total, COUNT(*) as cnt
+        FROM capital_flow_records
+        WHERE user_id::text = $1 AND flow_type = 'withdraw_income'
+      `;
+      const wiResult: any = await query(wiSql, [userId]);
+      withdrawalIncome = parseFloat(String(wiResult?.[0]?.total || '0'));
+      withdrawalIncomeCount = parseInt(String(wiResult?.[0]?.cnt || '0'));
+    } catch {
+      withdrawalIncome = 0;
+    }
 
-    // 4. 已提现金额
+    // 5. 提现手续费收入（网点审核会员提现，5%手续费记为balance）
+    let withdrawalFeeIncome = 0;
+    try {
+      const feeSql = `
+        SELECT COALESCE(SUM(fee_amount::float), 0) as total
+        FROM capital_flow_records
+        WHERE user_id::text = $1 AND flow_type = 'withdraw_income'
+      `;
+      const feeResult: any = await query(feeSql, [userId]);
+      withdrawalFeeIncome = parseFloat(String(feeResult?.[0]?.total || '0'));
+    } catch {
+      withdrawalFeeIncome = 0;
+    }
+
+    // 6. 网点自己提现的金额
     let totalWithdrawn = 0;
     try {
       const withdrawnSql = `
@@ -186,6 +214,9 @@ export async function GET(request: NextRequest) {
       totalWithdrawn = 0;
     }
 
+    // 总收益 = 产品分成 + 上级归网点 + 提现到账收入
+    totalRevenue = totalBranchShare + totalUpstreamShare + withdrawalIncome;
+
     // 可用收益 = 总收益 - 已提现
     const availableRevenue = Math.max(0, totalRevenue - totalWithdrawn);
 
@@ -197,6 +228,9 @@ export async function GET(request: NextRequest) {
           totalRevenue,
           totalBranchShare,
           totalUpstreamShare,
+          withdrawalIncome,
+          withdrawalIncomeCount,
+          withdrawalFeeIncome,
           balance: currentBalance,
           totalWithdrawn,
           availableRevenue,
@@ -211,8 +245,9 @@ export async function GET(request: NextRequest) {
       data: {
         records: [],
         stats: {
-          totalRevenue: 0, balance: 0,
-          totalWithdrawn: 0, availableRevenue: 0, orderCount: 0,
+          totalRevenue: 0, totalBranchShare: 0, totalUpstreamShare: 0,
+          withdrawalIncome: 0, withdrawalIncomeCount: 0, withdrawalFeeIncome: 0,
+          balance: 0, totalWithdrawn: 0, availableRevenue: 0, orderCount: 0,
         },
       }
     });
