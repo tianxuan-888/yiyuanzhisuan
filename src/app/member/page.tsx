@@ -1132,6 +1132,14 @@ const [copySuccess, setCopySuccess] = useState(false);
             return;
         }
 
+        // 提现时间限制：9:00-22:00
+        const now = new Date();
+        const hour = now.getHours();
+        if (hour < 9 || hour >= 22) {
+            showMessage("error", "提现时间为早上9:00至晚上10:00，请在规定时间内申请提现");
+            return;
+        }
+
         setSubmitting(true);
         try {
             const response = await authFetch("/api/withdrawals", {
@@ -3348,7 +3356,7 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                                  record.status === 'rejected' ? '已拒绝' : record.status}
                                                             </Badge>
                                                         </div>
-                                                        <p className="text-xs text-muted-foreground mt-1">
+                                                        <p className="text-xs text-red-600 mt-1">
                                                             实际到账: ¥{Number(record.actual_amount).toLocaleString()} | 手续费: ¥{Number(record.fee).toLocaleString()}
                                                         </p>
                                                         {record.alipay_account && (
@@ -3357,8 +3365,18 @@ const [copySuccess, setCopySuccess] = useState(false);
                                                             </p>
                                                         )}
                                                         <p className="text-xs text-muted-foreground">
-                                                            {new Date(record.created_at).toLocaleString('zh-CN')}
+                                                            申请: {record.created_at ? new Date(record.created_at).toLocaleString('zh-CN') : '-'}
                                                         </p>
+                                                        {record.reviewed_at && (
+                                                            <p className="text-xs text-muted-foreground">
+                                                                审核: {new Date(record.reviewed_at).toLocaleString('zh-CN')}
+                                                            </p>
+                                                        )}
+                                                        {record.completed_at && (
+                                                            <p className="text-xs text-green-600">
+                                                                完成: {new Date(record.completed_at).toLocaleString('zh-CN')}
+                                                            </p>
+                                                        )}
                                                         {record.reject_reason && (
                                                             <p className="text-xs text-red-500 mt-1">拒绝原因: {record.reject_reason}</p>
                                                         )}
@@ -3391,6 +3409,9 @@ const [copySuccess, setCopySuccess] = useState(false);
                                     <div className="bg-rose-50 p-3 rounded-lg">
                                         <p className="text-sm text-rose-700">
                                             <strong>说明：</strong>提现手续费5%，最低提现金额100元，提交后等待网点审核打款。
+                                        </p>
+                                        <p className="text-xs text-rose-600 mt-1">
+                                            提现时间：早上9:00 - 晚上10:00，非规定时间不可提现
                                         </p>
                                     </div>
                                     <div>

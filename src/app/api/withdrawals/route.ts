@@ -31,6 +31,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: '最低提现金额为100元' });
     }
 
+    // 提现时间限制：9:00-22:00
+    const now = new Date();
+    const hour = now.getHours();
+    if (hour < 9 || hour >= 22) {
+      return NextResponse.json({ success: false, message: '提现时间为早上9:00至晚上10:00，请在规定时间内申请提现' });
+    }
+
     // 查询用户信息
     const user = await queryOne(
       `SELECT id, username, role, energy_value, balance, provider_id, branch_id FROM users WHERE id = $1`,

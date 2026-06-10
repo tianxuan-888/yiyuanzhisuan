@@ -4304,6 +4304,7 @@ export default function ProviderPage() {
                                         </div>
                                         <div className="text-sm text-gray-500 bg-gray-50 rounded-lg p-3">
                                             <strong>说明：</strong>提现手续费5%，提现申请后等到平台审核通过，最低提现金额100元。
+                                            <br />提现时间：早上9:00 - 晚上10:00，非规定时间不可提现。
                                         </div>
                                         <Button
                                             className="bg-green-600 hover:bg-green-700 text-white"
@@ -4342,12 +4343,26 @@ export default function ProviderPage() {
                                                                     </Badge>
                                                                 </div>
                                                                 <div className="text-xs text-gray-400 mt-1">
-                                                                    {record.created_at ? new Date(record.created_at).toLocaleString('zh-CN') : '-'}
+                                                                    申请: {record.created_at ? new Date(record.created_at).toLocaleString('zh-CN') : '-'}
                                                                 </div>
+                                                                {record.reviewed_at && (
+                                                                    <div className="text-xs text-gray-400">
+                                                                        审核: {new Date(record.reviewed_at).toLocaleString('zh-CN')}
+                                                                    </div>
+                                                                )}
+                                                                {record.completed_at && (
+                                                                    <div className="text-xs text-green-600">
+                                                                        完成: {new Date(record.completed_at).toLocaleString('zh-CN')}
+                                                                    </div>
+                                                                )}
+                                                                {record.reject_reason && (
+                                                                    <div className="text-xs text-red-500">拒绝原因: {record.reject_reason}</div>
+                                                                )}
                                                             </div>
                                                             <div className="text-right">
-                                                                <div className="text-sm text-gray-500">到账</div>
+                                                                <div className="text-sm text-gray-500">实际到账</div>
                                                                 <div className="font-medium text-green-600">¥{Number(record.actual_amount || 0).toLocaleString()}</div>
+                                                                <div className="text-xs text-gray-400">手续费: ¥{Number(record.fee || 0).toLocaleString()}</div>
                                                             </div>
                                                         </div>
                                                     ))}
@@ -5388,6 +5403,9 @@ export default function ProviderPage() {
                                     <p className="text-sm text-yellow-700">
                                         <strong>说明：</strong>提现手续费5%，提现申请后等到平台审核通过，最低提现金额100元。
                                     </p>
+                                    <p className="text-xs text-yellow-600 mt-1">
+                                        提现时间：早上9:00 - 晚上10:00，非规定时间不可提现。
+                                    </p>
                                 </div>
                                 <div>
                                     <label className="text-sm font-medium mb-2 block">我的智算金</label>
@@ -5436,6 +5454,13 @@ export default function ProviderPage() {
                                         }
                                         if (!withdrawAlipayName.trim()) {
                                             showMessage("error", "请输入支付宝姓名");
+                                            return;
+                                        }
+                                        // 提现时间限制：9:00-22:00
+                                        const nowW = new Date();
+                                        const hourW = nowW.getHours();
+                                        if (hourW < 9 || hourW >= 22) {
+                                            showMessage("error", "提现时间为早上9:00至晚上10:00，请在规定时间内申请提现");
                                             return;
                                         }
                                         setSubmitting(true);

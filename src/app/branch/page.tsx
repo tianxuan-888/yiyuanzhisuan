@@ -977,6 +977,14 @@ export default function BranchPage() {
       return;
     }
 
+    // 提现时间限制：9:00-22:00
+    const nowBW = new Date();
+    const hourBW = nowBW.getHours();
+    if (hourBW < 9 || hourBW >= 22) {
+      showMessage('error', '提现时间为早上9:00至晚上10:00，请在规定时间内申请提现');
+      return;
+    }
+
     try {
       setSubmitting(true);
 
@@ -1099,6 +1107,13 @@ export default function BranchPage() {
     }
     if (!branchWithdrawRealName.trim()) {
       showMessage('error', '请输入支付宝姓名');
+      return;
+    }
+    // 提现时间限制：9:00-22:00
+    const nowBW2 = new Date();
+    const hourBW2 = nowBW2.getHours();
+    if (hourBW2 < 9 || hourBW2 >= 22) {
+      showMessage('error', '提现时间为早上9:00至晚上10:00，请在规定时间内申请提现');
       return;
     }
     try {
@@ -3185,13 +3200,15 @@ export default function BranchPage() {
                               <p className="text-sm text-gray-500">手机: {w.phone || '-'}</p>
                             </div>
                             <div className="text-right">
-                              <p className="text-xl font-bold text-orange-600">¥{Number(w.amount).toLocaleString()}</p>
-                              <p className="text-xs text-gray-500">手续费: ¥{Number(w.fee).toLocaleString()} | 到账: ¥{Number(w.actual_amount).toLocaleString()}</p>
+                              <p className="text-lg font-bold text-orange-600">¥{Number(w.amount).toLocaleString()}</p>
+                              <p className="text-sm font-medium text-red-600">需付款: ¥{Number(w.actual_amount).toLocaleString()}</p>
+                              <p className="text-xs text-gray-500">手续费(5%): ¥{Number(w.fee).toLocaleString()}</p>
                             </div>
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-sm mb-3">
                             <div className="text-gray-600"><span className="font-medium">支付宝:</span> {w.alipay_account || '-'}</div>
                             <div className="text-gray-600"><span className="font-medium">姓名:</span> {w.real_name || '-'}</div>
+                            <div className="text-gray-600"><span className="font-medium">申请时间:</span> {w.created_at ? new Date(w.created_at).toLocaleString('zh-CN') : '-'}</div>
                           </div>
                           <div className="flex gap-2">
                             <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => setReviewingWithdraw(w)} disabled={submitting}>
@@ -3226,10 +3243,13 @@ export default function BranchPage() {
                           <div className="flex justify-between items-center">
                             <div>
                               <p className="font-medium text-sm">{w.username || w.real_name || '用户'} <span className="text-gray-400 text-xs">({w.user_role === 'member' ? '会员' : w.user_role === 'provider' ? '服务商' : w.user_role})</span></p>
-                              <p className="text-xs text-gray-500">{new Date(w.reviewed_at || w.updated_at).toLocaleString()}</p>
+                              <p className="text-xs text-gray-500">申请: {w.created_at ? new Date(w.created_at).toLocaleString('zh-CN') : '-'}</p>
+                              {w.reviewed_at && <p className="text-xs text-gray-500">审核: {new Date(w.reviewed_at).toLocaleString('zh-CN')}</p>}
+                              {w.completed_at && <p className="text-xs text-green-600">完成: {new Date(w.completed_at).toLocaleString('zh-CN')}</p>}
                             </div>
-                            <div className="flex items-center gap-3">
-                              <span className="font-bold">¥{Number(w.amount).toLocaleString()}</span>
+                            <div className="text-right">
+                              <p className="font-bold">¥{Number(w.amount).toLocaleString()}</p>
+                              {w.status === 'completed' && <p className="text-xs text-red-600">实付: ¥{Number(w.actual_amount).toLocaleString()}</p>}
                               <Badge className={w.status === 'completed' ? 'bg-green-500' : w.status === 'rejected' ? 'bg-red-500' : 'bg-yellow-500'}>
                                 {w.status === 'completed' ? '已完成' : w.status === 'rejected' ? '已拒绝' : w.status === 'pending' ? '待审核付款' : w.status}
                               </Badge>
@@ -3260,11 +3280,13 @@ export default function BranchPage() {
                         <div key={w.id} className="flex items-center justify-between border rounded-lg p-3 bg-gray-50">
                           <div>
                             <p className="font-medium">¥{Number(w.amount).toLocaleString()}</p>
-                            <p className="text-xs text-gray-500">手续费: ¥{Number(w.fee).toLocaleString()} | 到账: ¥{Number(w.actual_amount).toLocaleString()}</p>
+                            <p className="text-xs text-red-600">需付款: ¥{Number(w.actual_amount).toLocaleString()} | 手续费: ¥{Number(w.fee).toLocaleString()}</p>
                             {w.alipay_account && (
                               <p className="text-xs text-gray-400">支付宝: {w.alipay_account} | {w.real_name}</p>
                             )}
-                            <p className="text-xs text-gray-400">{new Date(w.created_at).toLocaleString()}</p>
+                            <p className="text-xs text-gray-400">申请: {w.created_at ? new Date(w.created_at).toLocaleString('zh-CN') : '-'}</p>
+                            {w.reviewed_at && <p className="text-xs text-gray-400">审核: {new Date(w.reviewed_at).toLocaleString('zh-CN')}</p>}
+                            {w.completed_at && <p className="text-xs text-green-600">完成: {new Date(w.completed_at).toLocaleString('zh-CN')}</p>}
                             {w.reject_reason && <p className="text-xs text-red-500 mt-1">拒绝原因: {w.reject_reason}</p>}
                           </div>
                           <Badge className={w.status === 'completed' ? 'bg-green-500' : w.status === 'rejected' ? 'bg-red-500' : 'bg-yellow-500'}>
@@ -4146,6 +4168,7 @@ export default function BranchPage() {
               <div className="bg-green-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-600">当前智算金余额</p>
                 <p className="text-2xl font-bold text-green-600">¥{Number(user?.energy_value || 0).toLocaleString()}</p>
+                <p className="text-xs text-amber-600 mt-1">提现时间：早上9:00 - 晚上10:00，非规定时间不可提现</p>
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">提现金额</label>
