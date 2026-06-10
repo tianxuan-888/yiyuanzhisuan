@@ -105,3 +105,6 @@ Desktop.ini
 .coze-logs
 assets/image.png
 .cozeproj/reduction
+
+# Preview files
+.preview
