@@ -1086,6 +1086,8 @@ export default function BranchPage() {
           totalRevenue: s.totalRevenue || 0,
           marketFeeShare: s.totalBranchShare || 0,
           providerUpstream: s.totalUpstreamShare || 0,
+          withdrawalIncome: s.withdrawalIncome || 0,
+          withdrawalFeeIncome: s.withdrawalFeeIncome || 0,
           memberWithdraw: s.totalWithdrawn || 0,
         });
       }
@@ -3496,9 +3498,9 @@ export default function BranchPage() {
                       {branchRevenueRecords.map((r: any) => {
                         const typeLabel = r.type === 'market_fee_share' ? '收益释放分润(0.1%)' :
                                          r.type === 'provider_upstream' ? '无上级服务商分成(归网点)' :
+                                         r.type === 'withdraw_income' ? '会员提现审核到账(95%)' :
                                          r.type === 'member_withdraw' ? '会员提现手续费' :
-                                         r.type === 'provider_withdraw' ? '服务商提现手续费' :
-                                         r.type === 'withdraw_income' ? '提现收入' : r.type;
+                                         r.type === 'provider_withdraw' ? '服务商提现手续费' : r.type;
                         return (
                           <div key={r.id} className="flex items-center justify-between border rounded-lg p-3 hover:bg-gray-50">
                             <div className="flex-1">
@@ -3506,14 +3508,25 @@ export default function BranchPage() {
                                 <p className="font-medium text-green-600">+¥{Number(r.amount).toLocaleString()}</p>
                                 <Badge className="bg-amber-100 text-amber-700 text-xs">{typeLabel}</Badge>
                               </div>
-                              {r.product_name && (
-                                <p className="text-sm text-gray-700">{r.product_name} · ¥{Number(r.product_price).toLocaleString()}</p>
-                              )}
-                              {r.member_name && (
-                                <p className="text-xs text-gray-500">来源会员: {r.member_name}{r.member_unique_id ? ` [${r.member_unique_id}]` : ''}</p>
-                              )}
-                              {r.provider_name && (
-                                <p className="text-xs text-gray-500">所属服务商: {r.provider_name}</p>
+                              {r.type === 'withdraw_income' ? (
+                                <>
+                                  {r.member_name && (
+                                    <p className="text-xs text-gray-500">提现会员: {r.member_name}{r.member_unique_id ? ` [${r.member_unique_id}]` : ''}</p>
+                                  )}
+                                  <p className="text-xs text-gray-500">提现金额: ¥{Number(r.original_amount || r.amount).toLocaleString()} · 手续费(5%): ¥{Number(r.fee_amount || 0).toLocaleString()} · 实际到账: ¥{Number(r.amount).toLocaleString()}</p>
+                                </>
+                              ) : (
+                                <>
+                                  {r.product_name && (
+                                    <p className="text-sm text-gray-700">{r.product_name} · ¥{Number(r.product_price).toLocaleString()}</p>
+                                  )}
+                                  {r.member_name && (
+                                    <p className="text-xs text-gray-500">来源会员: {r.member_name}{r.member_unique_id ? ` [${r.member_unique_id}]` : ''}</p>
+                                  )}
+                                  {r.provider_name && (
+                                    <p className="text-xs text-gray-500">所属服务商: {r.provider_name}</p>
+                                  )}
+                                </>
                               )}
                               <p className="text-xs text-gray-400">{r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</p>
                             </div>

@@ -175,14 +175,55 @@ export async function GET(request: NextRequest) {
     let withdrawalIncomeCount = 0;
     try {
       const wiSql = `
-        SELECT COALESCE(SUM(actual_amount::float), 0) as total, COUNT(*) as cnt
+        SELECT id::text, amount::float, actual_amount::float, fee_amount::float,
+               related_user_id::text, note, created_at
         FROM capital_flow_records
         WHERE user_id::text = $1 AND flow_type = 'withdraw_income'
+        ORDER BY created_at DESC
       `;
       const wiResult: any = await query(wiSql, [userId]);
-      withdrawalIncome = parseFloat(String(wiResult?.[0]?.total || '0'));
-      withdrawalIncomeCount = parseInt(String(wiResult?.[0]?.cnt || '0'));
-    } catch {
+      withdrawalIncomeCount = wiResult?.length || 0;
+      
+      // 批量查询关联用户信息
+      const relatedUserIds = [...new Set((wiResult || []).map((wi: any) => wi.related_user_id).filter(Boolean))];
+      const userMap: Record<string, any> = {};
+      if (relatedUserIds.length > 0) {
+        const userSql = `SELECT id::text, username, phone, unique_id FROM users WHERE id::text = ANY($1)`;
+        const users: any = await query(userSql, [relatedUserIds]);
+        for (const u of users || []) {
+          userMap[u.id] = u;
+        }
+      }
+      
+      for (const wi of wiResult || []) {
+        const actualAmount = Number(wi.actual_amount) || 0;
+        const feeAmount = Number(wi.fee_amount) || 0;
+        withdrawalIncome += actualAmount;
+        const relatedUser = userMap[wi.related_user_id] || {};
+        
+        records.push({
+          id: wi.id || `wi-${records.length}`,
+          type: 'withdraw_income',
+          source_label: `会员提现审核到账(95%)`,
+          product_name: '',
+          product_code: '',
+          product_price: 0,
+          period: 0,
+          member_name: relatedUser.username || '',
+          member_phone: relatedUser.phone || '',
+          member_unique_id: relatedUser.unique_id || '',
+          provider_name: '',
+          provider_unique_id: '',
+          amount: actualAmount,
+          fee_amount: feeAmount,
+          original_amount: Number(wi.amount) || 0,
+          status: 'completed',
+          created_at: wi.created_at,
+          note: wi.note || '',
+        });
+      }
+    } catch (e) {
+      console.error('查询提现收入记录失败:', e);
       withdrawalIncome = 0;
     }
 
