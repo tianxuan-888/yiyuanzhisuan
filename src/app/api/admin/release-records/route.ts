@@ -9,9 +9,10 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get('page') || '1');
     const pageSize = parseInt(searchParams.get('pageSize') || '50');
 
+    // 使用 revenue_distributed_at 作为收益分配时间，如果为空则回退到 created_at
     let dateFilter = '';
     if (startDate && endDate) {
-      dateFilter = `AND up.created_at >= '${startDate}' AND up.created_at <= '${endDate} 23:59:59'`;
+      dateFilter = `AND COALESCE(up.revenue_distributed_at, up.created_at) >= '${startDate}' AND COALESCE(up.revenue_distributed_at, up.created_at) <= '${endDate} 23:59:59'`;
     }
 
     // 直接从 user_products (revenue_distributed=true) + products 计算所有数据
@@ -48,7 +49,7 @@ export async function GET(request: Request) {
 
     const offset = (page - 1) * pageSize;
 
-    // 记录列表
+    // 记录列表 - 使用 revenue_distributed_at 作为收益分配时间
     const records = await query(`
       SELECT 
         up.id,
@@ -61,6 +62,8 @@ export async function GET(request: Request) {
         p.period,
         p.name as product_name,
         up.created_at,
+        up.revenue_distributed_at,
+        COALESCE(up.revenue_distributed_at, up.created_at) as revenue_date,
         m.username as member_name,
         m.unique_id as member_unique_id,
         pv.username as provider_name
@@ -69,7 +72,7 @@ export async function GET(request: Request) {
       LEFT JOIN users m ON m.id = up.user_id
       LEFT JOIN users pv ON pv.id = p.provider_id
       WHERE up.revenue_distributed = true ${dateFilter}
-      ORDER BY up.created_at DESC
+      ORDER BY COALESCE(up.revenue_distributed_at, up.created_at) DESC
       LIMIT ${pageSize} OFFSET ${offset}
     `);
 
@@ -95,6 +98,8 @@ export async function GET(request: Request) {
         member_unique_id: r.member_unique_id,
         provider_name: r.provider_name,
         created_at: r.created_at,
+        revenue_distributed_at: r.revenue_distributed_at,
+        revenue_date: r.revenue_date,
       };
     });
 

@@ -5483,7 +5483,7 @@ export default function AdminPage() {
                         <div className="font-mono text-xs">{r.product_name || '-'}</div>
                         <div className="text-xs text-muted-foreground">购买人: {r.member_name || '-'}</div>
                       </TableCell>
-                      <TableCell className="text-xs">{new Date(r.created_at).toLocaleString('zh-CN')}</TableCell>
+                      <TableCell className="text-xs">{new Date(r.revenue_date || r.created_at).toLocaleString('zh-CN')}</TableCell>
                       <TableCell>¥{Number(r.product_price).toLocaleString()}</TableCell>
                       <TableCell className="font-bold text-primary">¥{Number(r.release_amount).toLocaleString()}</TableCell>
                       <TableCell className="text-blue-600">¥{Number(r.member_share).toLocaleString()}</TableCell>

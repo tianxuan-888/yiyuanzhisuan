@@ -222,9 +222,9 @@ export async function POST(request: NextRequest) {
         console.error('[SELL] 写入branch_revenue_records失败:', e?.message);
       }
 
-      // 标记收益已分配（防重复）
+      // 标记收益已分配（防重复），记录收益分配时间
       await execute(
-        `UPDATE user_products SET revenue_distributed = true, updated_at = NOW() WHERE id = $1`,
+        `UPDATE user_products SET revenue_distributed = true, revenue_distributed_at = NOW(), updated_at = NOW() WHERE id = $1`,
         [userProductId]
       );
 

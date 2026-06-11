@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
 
           // 标记收益已分配
           await execute(
-            `UPDATE user_products SET revenue_distributed = true, updated_at = NOW() WHERE id = $1`,
+            `UPDATE user_products SET revenue_distributed = true, revenue_distributed_at = NOW(), updated_at = NOW() WHERE id = $1`,
             [upId]
           );
 
