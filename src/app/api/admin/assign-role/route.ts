@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/pg-client';
+import { query, execute, queryOne } from '@/lib/pg-client';
 import { authenticateRequest } from '@/lib/auth';
 
 /**
@@ -110,17 +110,42 @@ export async function POST(request: NextRequest) {
       values
     );
 
-    // 如果升级为服务商，在 providers 表中创建记录
+    // 如果升级为服务商，在 providers 表和 quota_accounts 表中创建记录
     if (targetRole === 'provider') {
       const existingProvider = await query(
         'SELECT id FROM providers WHERE user_id = $1',
         [targetUser.id]
       );
       if (existingProvider.length === 0) {
-        const targetBranchId = branchId || targetUser.id;
-        await query(
-          `INSERT INTO providers (user_id, quota, used_quota, total_sales, branch_id) VALUES ($1, 0, 0, 0, $2)`,
-          [targetUser.id, targetBranchId]
+        // 优先使用 users 表已有的 branch_id，否则用参数传入的 branchId
+        const targetBranchId = targetUser.branch_id || branchId || targetUser.id;
+        // 获取上级服务商的 providers.id 作为 parent_provider_id
+        let parentProviderId: string | null = null;
+        const targetProviderId = providerId || targetUser.provider_id;
+        if (targetProviderId) {
+          const parentProvider = await queryOne<{ id: string }>(
+            'SELECT id FROM providers WHERE user_id = $1',
+            [targetProviderId]
+          );
+          parentProviderId = parentProvider?.id || null;
+        }
+        // 创建 providers 记录（使用 execute 避免静默失败）
+        await execute(
+          `INSERT INTO providers (user_id, quota, used_quota, total_sales, branch_id, is_active, parent_provider_id, created_at, updated_at)
+           VALUES ($1, 0, 0, 0, $2, true, $3, NOW(), NOW())`,
+          [targetUser.id, targetBranchId, parentProviderId]
+        );
+      }
+      // 同时确保 quota_accounts 有记录（否则额度分配会失败）
+      const existingQuotaAccount = await query(
+        'SELECT id FROM quota_accounts WHERE user_id = $1',
+        [targetUser.id]
+      );
+      if (existingQuotaAccount.length === 0) {
+        await execute(
+          `INSERT INTO quota_accounts (user_id, balance, total_in, total_out, created_at, updated_at)
+           VALUES ($1, 0, 0, 0, NOW(), NOW())`,
+          [targetUser.id]
         );
       }
     }
