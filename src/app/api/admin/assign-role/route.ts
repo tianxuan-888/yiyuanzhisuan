@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, execute, queryOne } from '@/lib/pg-client';
 import { authenticateRequest } from '@/lib/auth';
+import { generateUniqueId } from '@/lib/invite-code';
 
 /**
  * 智算中心账号赋权接口
@@ -109,6 +110,25 @@ export async function POST(request: NextRequest) {
       `UPDATE users SET ${updates.join(', ')} WHERE id = $${paramIdx}`,
       values
     );
+
+    // 角色变更时，更新邀请码和unique_id为新角色对应的前缀格式
+    // 例如：MB00003 → PV00002（会员升级为服务商）
+    const ROLE_PREFIX: Record<string, string> = { admin: 'AD', branch: 'BR', provider: 'PV', member: 'MB' };
+    const currentPrefix = ROLE_PREFIX[targetUser.role] || '';
+    const newPrefix = ROLE_PREFIX[targetRole] || '';
+    if (newPrefix && currentPrefix !== newPrefix) {
+      try {
+        const newInviteCode = await generateUniqueId(targetRole);
+        await execute(
+          `UPDATE users SET unique_id = $1, invite_code = $1 WHERE id = $2`,
+          [newInviteCode, targetUser.id]
+        );
+        console.log(`[assign-role] 邀请码已更新: ${targetUser.invite_code} → ${newInviteCode}`);
+      } catch (e) {
+        console.error('[assign-role] 更新邀请码失败:', e);
+        // 不阻断主流程，邀请码更新失败不影响角色变更
+      }
+    }
 
     // 如果升级为服务商，在 providers 表和 quota_accounts 表中创建记录
     if (targetRole === 'provider') {
