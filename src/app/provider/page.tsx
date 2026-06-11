@@ -2757,7 +2757,7 @@ export default function ProviderPage() {
                                     <CardContent>
                                         {/* 关系说明 */}
                                         <div className="space-y-4">
-                                            {/* 服务商关系链：智算中心 → 服务网点 → 服务商 */}
+                                            {/* 服务商关系链：智算中心 → 服务网点 → 上级服务商 → 我 → 下级服务商/会员 */}
                                             <div className="p-4 bg-slate-800/50 rounded-xl border border-slate-700">
                                                 <h4 className="text-purple-400 font-medium mb-3 flex items-center gap-2">
                                                     <Badge className="bg-purple-600 text-white text-xs">服务商</Badge>
@@ -2766,10 +2766,18 @@ export default function ProviderPage() {
                                                 <div className="flex flex-wrap items-center gap-2 text-slate-300 text-sm">
                                                     <span>智算中心</span>
                                                     <ArrowRight className="w-4 h-4 text-slate-500" />
-                                                    <span>{chainData.branch?.username ? chainData.branch.username.replace('服务网点', '服务网点') : '服务网点'}</span>
+                                                    <span>{chainData.branch?.username || '服务网点'}</span>
                                                     <ArrowRight className="w-4 h-4 text-slate-500" />
+                                                    {chainData.upstreamProvider ? (
+                                                        <>
+                                                            <span className="text-cyan-400">{chainData.upstreamProvider.username}</span>
+                                                            <ArrowRight className="w-4 h-4 text-slate-500" />
+                                                        </>
+                                                    ) : null}
                                                     <span className="text-purple-400 font-medium">{chainData.self?.username || '我'}</span>
                                                     <ArrowRight className="w-4 h-4 text-slate-500" />
+                                                    <span className="text-cyan-400">下级服务商</span>
+                                                    <span className="text-slate-500">/</span>
                                                     <span className="text-green-400">我的会员</span>
                                                 </div>
                                             </div>
@@ -2817,10 +2825,26 @@ export default function ProviderPage() {
                                                             <Award className="w-5 h-5 text-white" />
                                                         </div>
                                                         <div className="flex-1">
-                                                            <p className="text-blue-400 font-medium">{chainData.branch.username?.replace('服务网点', '服务网点') || '服务网点'}</p>
+                                                            <p className="text-blue-400 font-medium">{chainData.branch.username || '服务网点'}</p>
                                                             <p className="text-slate-400 text-sm">上级：智算中心</p>
                                                         </div>
                                                         <Badge className="bg-blue-600 text-white">服务网点</Badge>
+                                                    </div>
+                                                )}
+
+                                                {/* 上级服务商 */}
+                                                {chainData.upstreamProvider && (
+                                                    <div className="flex items-center gap-3 p-3 bg-cyan-900/30 rounded-lg border border-cyan-800/50">
+                                                        <div className="w-10 h-10 rounded-full bg-cyan-600 flex items-center justify-center">
+                                                            <Server className="w-5 h-5 text-white" />
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <p className="text-cyan-400 font-medium">{chainData.upstreamProvider.username}</p>
+                                                            <p className="text-slate-400 text-sm">
+                                                                上级服务商 · 额度 ¥{(chainData.upstreamProvider.quota || 0).toLocaleString()}
+                                                            </p>
+                                                        </div>
+                                                        <Badge className="bg-cyan-600 text-white">上级服务商</Badge>
                                                     </div>
                                                 )}
 
@@ -2907,6 +2931,76 @@ export default function ProviderPage() {
                                                     <div className="text-center py-6 text-slate-500">
                                                         <Users className="w-10 h-10 mx-auto mb-2 opacity-50" />
                                                         <p>暂无下级会员</p>
+                                                    </div>
+                                                )}
+
+                                                {/* 下级服务商管理 */}
+                                                {chainData.providers && chainData.providers.length > 0 && (
+                                                    <div className="p-4 bg-cyan-900/20 rounded-lg border border-cyan-800/50">
+                                                        <p className="text-cyan-400 font-medium mb-4 flex items-center gap-2">
+                                                            <Server className="w-4 h-4" />
+                                                            我的下级服务商 ({chainData.providers.length})
+                                                        </p>
+                                                        {/* 统计卡片 */}
+                                                        <div className="grid grid-cols-3 gap-3 mb-4">
+                                                            <div className="p-3 bg-slate-800/60 rounded-lg text-center">
+                                                                <p className="text-slate-400 text-xs mb-1">服务商数量</p>
+                                                                <p className="text-white text-lg font-bold">{chainData.providers.length}</p>
+                                                            </div>
+                                                            <div className="p-3 bg-slate-800/60 rounded-lg text-center">
+                                                                <p className="text-slate-400 text-xs mb-1">下级会员总数</p>
+                                                                <p className="text-cyan-400 text-lg font-bold">{chainData.providers.reduce((sum: number, p: any) => sum + (p.memberCount || 0), 0)}</p>
+                                                            </div>
+                                                            <div className="p-3 bg-slate-800/60 rounded-lg text-center">
+                                                                <p className="text-slate-400 text-xs mb-1">下级销售总额</p>
+                                                                <p className="text-green-400 text-lg font-bold">¥{chainData.providers.reduce((sum: number, p: any) => sum + (p.totalSalesAmount || 0), 0).toLocaleString()}</p>
+                                                            </div>
+                                                        </div>
+                                                        {/* 服务商明细卡片 */}
+                                                        <div className="space-y-3">
+                                                            {chainData.providers.map((prov: any) => (
+                                                                <div key={prov.id} className="bg-slate-800/60 rounded-lg p-4 border border-slate-700/50">
+                                                                    <div className="flex items-center gap-3 mb-3">
+                                                                        <div className="w-10 h-10 rounded-full bg-cyan-600/30 flex items-center justify-center shrink-0">
+                                                                            <Server className="w-5 h-5 text-cyan-400" />
+                                                                        </div>
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <p className="text-white font-medium">{prov.username}</p>
+                                                                            <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
+                                                                                {prov.phone && <span>{prov.phone}</span>}
+                                                                            </div>
+                                                                        </div>
+                                                                        <span className="px-2 py-0.5 bg-cyan-600/20 text-cyan-400 text-xs rounded-full">下级服务商</span>
+                                                                    </div>
+                                                                    <div className="grid grid-cols-4 gap-3">
+                                                                        <div className="bg-slate-900/50 rounded-md p-2.5 text-center">
+                                                                            <p className="text-slate-500 text-xs mb-1">额度</p>
+                                                                            <p className="text-purple-400 text-sm font-bold">¥{(prov.quota || 0).toLocaleString()}</p>
+                                                                        </div>
+                                                                        <div className="bg-slate-900/50 rounded-md p-2.5 text-center">
+                                                                            <p className="text-slate-500 text-xs mb-1">已用额度</p>
+                                                                            <p className="text-amber-400 text-sm font-bold">¥{(prov.usedQuota || 0).toLocaleString()}</p>
+                                                                        </div>
+                                                                        <div className="bg-slate-900/50 rounded-md p-2.5 text-center">
+                                                                            <p className="text-slate-500 text-xs mb-1">会员数</p>
+                                                                            <p className="text-cyan-400 text-sm font-bold">{prov.memberCount || 0}</p>
+                                                                        </div>
+                                                                        <div className="bg-slate-900/50 rounded-md p-2.5 text-center">
+                                                                            <p className="text-slate-500 text-xs mb-1">销售总额</p>
+                                                                            <p className="text-green-400 text-sm font-bold">¥{(prov.totalSalesAmount || 0).toLocaleString()}</p>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* 无下级服务商提示 */}
+                                                {(!chainData.providers || chainData.providers.length === 0) && (
+                                                    <div className="text-center py-4 text-slate-500">
+                                                        <Server className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                                        <p className="text-sm">暂无下级服务商</p>
                                                     </div>
                                                 )}
                                             </div>

@@ -42,12 +42,14 @@ export async function GET(request: NextRequest) {
     const currentUser = userResult[0];
     const chain: {
       self: any; inviter: any; provider: any; branch: any; members: any[]; providers: any[];
+      upstreamProvider: any; // 上级服务商（基于parent_provider_id）
     } = {
       self: {
         id: currentUser.id, username: currentUser.username, phone: currentUser.phone,
         role: currentUser.role, realName: currentUser.real_name, balance: currentUser.balance
       },
-      inviter: null, provider: null, branch: null, members: [], providers: []
+      inviter: null, provider: null, branch: null, members: [], providers: [],
+      upstreamProvider: null
     };
 
     // 获取推荐人信息
@@ -103,8 +105,31 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 如果当前用户是服务商，获取下级会员列表
+    // 如果当前用户是服务商，获取下级会员列表和下级服务商
     if (currentUser.role === 'provider') {
+      // 获取上级服务商信息（基于 providers.parent_provider_id）
+      const myProviderRecord = await query(
+        'SELECT id, parent_provider_id FROM providers WHERE user_id = $1',
+        [userId]
+      );
+      if (myProviderRecord.length > 0 && myProviderRecord[0].parent_provider_id) {
+        const upstreamResult = await query(`
+          SELECT u.id, u.username, u.phone, u.real_name, u.balance, u.energy_value,
+            p.quota, p.used_quota
+          FROM providers p
+          JOIN users u ON u.id = p.user_id
+          WHERE p.id = $1
+        `, [myProviderRecord[0].parent_provider_id]);
+        if (upstreamResult.length > 0) {
+          const up = upstreamResult[0];
+          chain.upstreamProvider = {
+            id: up.id, username: up.username, phone: up.phone, realName: up.real_name,
+            balance: up.balance, energyValue: up.energy_value,
+            quota: up.quota || 0, usedQuota: up.used_quota || 0, roleName: '上级服务商'
+          };
+        }
+      }
+
       const membersResult = await query(`
         SELECT u.id, u.username, u.phone, u.real_name, u.balance, u.energy_value,
           u.unique_id, u.inviter_id, u.created_at
@@ -159,19 +184,32 @@ export async function GET(request: NextRequest) {
         }));
       }
 
-      // 获取下级服务商
+      // 获取下级服务商（基于 inviter_id 或 provider_id 指向当前用户）
       const providersResult = await query(`
-        SELECT u.id, u.username, u.phone, u.real_name, u.balance,
-          p.quota, p.used_quota, u.created_at
+        SELECT u.id, u.username, u.phone, u.real_name, u.balance, u.energy_value,
+          p.quota, p.used_quota, p.total_sales, u.created_at,
+          COALESCE(holding_stats.member_count, 0) as member_count,
+          COALESCE(holding_stats.total_sales_amount, 0) as total_sales_amount
         FROM users u
         LEFT JOIN providers p ON p.user_id = u.id
-        WHERE u.inviter_id = $1 AND u.role = 'provider'
+        LEFT JOIN LATERAL (
+          SELECT COUNT(*) as member_count,
+            COALESCE(SUM(up.purchase_price), 0) as total_sales_amount
+          FROM users m2
+          LEFT JOIN user_products up ON up.user_id = m2.id AND up.status = 'holding'
+          WHERE m2.provider_id = u.id AND m2.role = 'member'
+        ) holding_stats ON true
+        WHERE (u.inviter_id = $1 OR u.provider_id = $1) AND u.role = 'provider' AND u.id != $1
         ORDER BY u.created_at DESC
       `, [userId]);
 
       chain.providers = providersResult.map((p: any) => ({
         id: p.id, username: p.username, phone: p.phone, realName: p.real_name,
-        balance: p.balance, quota: p.quota || 0, usedQuota: p.used_quota || 0,
+        balance: p.balance, energyValue: p.energy_value || 0,
+        quota: p.quota || 0, usedQuota: p.used_quota || 0,
+        totalSales: p.total_sales || 0,
+        memberCount: parseInt(p.member_count) || 0,
+        totalSalesAmount: parseFloat(p.total_sales_amount) || 0,
         createdAt: p.created_at, roleName: '服务商'
       }));
     }

@@ -96,16 +96,22 @@ export async function GET(request: NextRequest) {
       distDirectReward = parseFloat(String(directResult?.[0]?.total || '0'));
 
       // 统计上级服务商0.25%分成（当前服务商是其他服务商的上级时）
-      const parentShareSql = `
-        SELECT COALESCE(SUM(up.purchase_price::float * 0.25 / 100), 0) as total
-        FROM user_products up
-        JOIN products p ON p.id::text = up.product_id::text
-        JOIN providers sub_prv ON sub_prv.user_id::text = p.provider_id::text
-        WHERE up.revenue_distributed = true
-          AND sub_prv.parent_provider_id::text = $1
-      `;
-      const parentResult: any = await query(parentShareSql, [userId]);
-      distParentShare = parseFloat(String(parentResult?.[0]?.total || '0'));
+      // 注意：parent_provider_id 存的是 providers.id，不是 user_id
+      const myProviderRec: any = await query('SELECT id FROM providers WHERE user_id = $1', [userId]);
+      const myProviderId = myProviderRec?.[0]?.id || null;
+      let distParentShare = 0;
+      if (myProviderId) {
+        const parentShareSql = `
+          SELECT COALESCE(SUM(up.purchase_price::float * 0.25 / 100), 0) as total
+          FROM user_products up
+          JOIN products p ON p.id::text = up.product_id::text
+          JOIN providers sub_prv ON sub_prv.user_id::text = p.provider_id::text
+          WHERE up.revenue_distributed = true
+            AND sub_prv.parent_provider_id = $1
+        `;
+        const parentResult: any = await query(parentShareSql, [myProviderId]);
+        distParentShare = parseFloat(String(parentResult?.[0]?.total || '0'));
+      }
     } catch (e) {
       console.error('查询产品分成失败:', e);
     }
