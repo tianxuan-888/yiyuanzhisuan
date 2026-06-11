@@ -5924,7 +5924,7 @@ export default function AdminPage() {
                     </div>
                     <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 text-center">
                       <div className="text-2xl font-bold text-orange-600">¥{(financialReport.summary?.total_revenue || 0).toLocaleString()}</div>
-                      <div className="text-sm text-orange-600">体系总收益（智算金）</div>
+                      <div className="text-sm text-orange-600">体系总收益（释放叠加）</div>
                     </div>
                     <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
                       <div className="text-2xl font-bold text-red-600">{financialReport.summary?.warning_count || 0}</div>
@@ -5968,7 +5968,8 @@ export default function AdminPage() {
                           <th className="text-left py-3 px-4">Token额度</th>
                           <th className="text-left py-3 px-4">已用额度</th>
                           <th className="text-left py-3 px-4">闲置Token</th>
-                          <th className="text-left py-3 px-4">体系收益(智算金)</th>
+                          <th className="text-left py-3 px-4">体系收益(市场费)</th>
+                          <th className="text-left py-3 px-4">服务商分成</th>
                           <th className="text-left py-3 px-4">收益/额度比</th>
                           <th className="text-left py-3 px-4">30%阈值</th>
                           <th className="text-left py-3 px-4">状态</th>
@@ -5989,6 +5990,7 @@ export default function AdminPage() {
                               <td className="py-3 px-4">¥{(p.used_quota || 0).toLocaleString()}</td>
                               <td className="py-3 px-4 text-orange-600">¥{idleQuota.toLocaleString()}</td>
                               <td className="py-3 px-4 text-green-600 font-medium">¥{(p.total_revenue || 0).toLocaleString()}</td>
+                              <td className="py-3 px-4 text-blue-600">¥{(p.revenue_breakdown?.provider_share || 0).toLocaleString()}</td>
                               <td className="py-3 px-4">
                                 <div className="flex items-center gap-2">
                                   <div className="w-24 bg-gray-200 rounded-full h-2">
@@ -6026,8 +6028,10 @@ export default function AdminPage() {
                               <th className="text-left py-3 px-4">网点</th>
                               <th className="text-left py-3 px-4">服务商数</th>
                               <th className="text-left py-3 px-4">算力总额度</th>
-                              <th className="text-left py-3 px-4">体系收益</th>
-                              <th className="text-left py-3 px-4">智算金余额</th>
+                              <th className="text-left py-3 px-4">体系总收益</th>
+                              <th className="text-left py-3 px-4">网点分成(5%)</th>
+                              <th className="text-left py-3 px-4">公司分成(5%)</th>
+                              <th className="text-left py-3 px-4">直推奖励(10%)</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -6037,7 +6041,9 @@ export default function AdminPage() {
                                 <td className="py-3 px-4">{b.provider_count || 0}</td>
                                 <td className="py-3 px-4">¥{(b.quota || 0).toLocaleString()}</td>
                                 <td className="py-3 px-4 text-green-600 font-medium">¥{(b.total_revenue || 0).toLocaleString()}</td>
-                                <td className="py-3 px-4 text-blue-600">¥{(b.balance || 0).toLocaleString()}</td>
+                                <td className="py-3 px-4 text-blue-600">¥{(b.revenue_breakdown?.branch_share || 0).toLocaleString()}</td>
+                                <td className="py-3 px-4 text-purple-600">¥{(b.revenue_breakdown?.company_share || 0).toLocaleString()}</td>
+                                <td className="py-3 px-4 text-orange-600">¥{(b.revenue_breakdown?.direct_reward || 0).toLocaleString()}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -6046,29 +6052,47 @@ export default function AdminPage() {
                     </>
                   )}
 
-                  {/* 智算金分布 */}
+                  {/* 收益分成明细 */}
                   <h3 className="text-base font-semibold flex items-center gap-2">
                     <Coins className="w-4 h-4" />
-                    智算金分布
+                    收益分成明细（总释放收益叠加）
                   </h3>
                   <div className="grid grid-cols-3 gap-4">
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
                       <div className="text-2xl font-bold text-blue-600">
-                        ¥{(financialReport.providers || []).reduce((s: number, p: any) => s + (Number(p.balance) || 0), 0).toLocaleString()}
+                        ¥{(financialReport.summary?.revenue_breakdown?.provider_share || 0).toLocaleString()}
                       </div>
-                      <div className="text-sm text-blue-600">服务商持有</div>
+                      <div className="text-sm text-blue-600">服务商分成（70%）</div>
                     </div>
                     <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
                       <div className="text-2xl font-bold text-purple-600">
-                        ¥{(financialReport.branches || []).reduce((s: number, b: any) => s + (Number(b.balance) || 0), 0).toLocaleString()}
+                        ¥{(financialReport.summary?.revenue_breakdown?.company_share || 0).toLocaleString()}
                       </div>
-                      <div className="text-sm text-purple-600">网点持有</div>
+                      <div className="text-sm text-purple-600">公司运营分成（5%）</div>
                     </div>
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
                       <div className="text-2xl font-bold text-green-600">
+                        ¥{(financialReport.summary?.revenue_breakdown?.branch_share || 0).toLocaleString()}
+                      </div>
+                      <div className="text-sm text-green-600">网点分成（5%）</div>
+                    </div>
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-orange-600">
+                        ¥{(financialReport.summary?.revenue_breakdown?.direct_reward || 0).toLocaleString()}
+                      </div>
+                      <div className="text-sm text-orange-600">直推奖励（10%）</div>
+                    </div>
+                    <div className="bg-cyan-50 border border-cyan-200 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-cyan-600">
+                        ¥{(financialReport.summary?.revenue_breakdown?.upstream_share || 0).toLocaleString()}
+                      </div>
+                      <div className="text-sm text-cyan-600">上级服务商分成（0.25%）</div>
+                    </div>
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-red-600">
                         ¥{(financialReport.summary?.total_revenue || 0).toLocaleString()}
                       </div>
-                      <div className="text-sm text-green-600">体系总收益</div>
+                      <div className="text-sm text-red-600">体系总收益（市场费总额）</div>
                     </div>
                   </div>
                 </div>
